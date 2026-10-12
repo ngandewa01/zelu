@@ -15,7 +15,7 @@ object Storage {
 
     // Bump this whenever the parser/classifier changes so the app rebuilds
     // stored history automatically on next open.
-    const val PARSER_VERSION = 2
+    const val PARSER_VERSION = 3
 
     fun dataVersion(context: Context): Int =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_DATA_VERSION, 0)

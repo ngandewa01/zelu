@@ -10,14 +10,14 @@ object Ingest {
     @Synchronized
     fun ingest(context: Context, raw: List<RawSms>): Result {
         val settings = Storage.loadSettings(context)
-        val senders = Storage.splitList(settings.bankSenders).map { it.lowercase() }
         val own = Storage.splitList(settings.ownAccounts)
 
         val rows = ArrayList<Row>()
         for (msg in raw) {
-            val address = msg.address.lowercase()
-            // With bank senders configured, ignore personal chats entirely.
-            if (senders.isNotEmpty() && senders.none { address.contains(it) }) continue
+            // Bank/UPI alerts come from alphanumeric sender IDs (e.g. AX-SBIUPI);
+            // personal chats come from plain phone numbers. Keep only the former,
+            // so no manual bank-sender setup is needed.
+            if (!msg.address.any { it.isLetter() }) continue
 
             val txn = Parser.parseSms(msg.body, msg.date, "phone:${msg.address}") ?: continue
             val c = Classifier.classify(txn, own)

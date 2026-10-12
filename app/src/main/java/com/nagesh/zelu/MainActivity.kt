@@ -7,7 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,14 +18,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,176 +32,232 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
+
+// ---- Zelu palette (60-30-10): 60% dark bg, 30% surface/text, 10% green accent ----
+private val BG = Color(0xFF121212)
+private val SURFACE = Color(0xFF1E1E1E)
+private val ON_BG = Color(0xFFFFFFFF)
+private val MUTED = Color(0xFF9E9E9E)
+private val ACCENT = Color(0xFF9FE870)
+private val EXPENSE = Color(0xFFFF6B6B)
+
+private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    ZeluScreen()
-                }
-            }
-        }
+        setContent { MaterialTheme { ZeluApp() } }
     }
 }
 
-private fun money(d: Double): String = "₹" + String.format(Locale.US, "%,.2f", d)
+private fun money(d: Double): String = "₹" + String.format(Locale.US, "%,.0f", d)
+
+private fun fmt(pattern: String, ms: Long): String =
+    SimpleDateFormat(pattern, Locale.US).apply { timeZone = IST }.format(Date(ms))
 
 @Composable
-fun ZeluScreen() {
+fun ZeluApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var senders by remember { mutableStateOf("") }
-    var own by remember { mutableStateOf("") }
     var rows by remember { mutableStateOf<List<Row>>(emptyList()) }
-    var status by remember { mutableStateOf("") }
-    var showSettings by remember { mutableStateOf(false) }
+    var period by remember { mutableStateOf("Month") }
+    var loading by remember { mutableStateOf(false) }
 
     fun hasSmsPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
             PackageManager.PERMISSION_GRANTED
 
-    // Reads the inbox and refreshes, entirely in the background. If the parser
-    // has changed since the stored data was built, history is rebuilt silently.
     fun rescan() {
         scope.launch {
-            status = "Reading messages…"
-            val res = withContext(Dispatchers.IO) {
-                if (Storage.dataVersion(context) < Storage.PARSER_VERSION) {
-                    Storage.clear(context)
-                }
-                val r = Ingest.ingest(context, SmsReader.readInbox(context, 5000))
+            loading = true
+            withContext(Dispatchers.IO) {
+                if (Storage.dataVersion(context) < Storage.PARSER_VERSION) Storage.clear(context)
+                Ingest.ingest(context, SmsReader.readInbox(context, 5000))
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
-                r
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            status = ""
+            loading = false
         }
     }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { result ->
-        if (result.values.all { it }) {
-            rescan()
-        } else {
-            status = "Allow SMS permission in Settings to read your messages."
-        }
-    }
+    ) { result -> if (result.values.all { it }) rescan() }
 
-    // On open: load saved data, then read messages automatically.
     LaunchedEffect(Unit) {
-        val s = withContext(Dispatchers.IO) { Storage.loadSettings(context) }
-        senders = s.bankSenders
-        own = s.ownAccounts
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-        if (hasSmsPermission()) {
-            rescan()
-        } else {
-            permLauncher.launch(
-                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS),
-            )
-        }
+        if (hasSmsPermission()) rescan()
+        else permLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
     }
 
-    val months = Summary.monthlyTotals(rows)
-    val categories = Summary.expenseByCategory(rows)
+    // ---- period filtering ----
+    val now = System.currentTimeMillis()
+    val today = fmt("yyyy-MM-dd", now)
+    val weekAgo = fmt("yyyy-MM-dd", now - 7L * 24 * 3600 * 1000)
+    val monthKey = today.substring(0, 7)
+    val yearKey = today.substring(0, 4)
+    val monthName = fmt("MMMM", now)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+    val periodRows = rows.filter { r ->
+        when (period) {
+            "Week" -> r.date >= weekAgo
+            "Month" -> r.date.startsWith(monthKey)
+            "Year" -> r.date.startsWith(yearKey)
+            else -> true
+        }
+    }
+    val periodLabel = when (period) {
+        "Week" -> "this week"
+        "Month" -> monthName
+        "Year" -> yearKey
+        else -> "all time"
+    }
+
+    val spent = periodRows.filter { it.kind == "expense" }.sumOf { it.amount }
+    val income = periodRows.filter { it.kind == "income" || it.kind == "refund" }.sumOf { it.amount }
+    val categories = Summary.expenseByCategory(periodRows)
+    val maxCat = categories.firstOrNull()?.second ?: 1.0
+
+    Box(Modifier.fillMaxSize().background(BG)) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 32.dp),
         ) {
-            Text("Zelu", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            TextButton(onClick = { showSettings = !showSettings }) {
-                Text(if (showSettings) "Close" else "Settings")
+            Text("Zelu", color = ACCENT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+
+            Spacer(Modifier.height(16.dp))
+
+            // period filter chips
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Week", "Month", "Year", "All").forEach { p ->
+                    val selected = p == period
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (selected) ACCENT else SURFACE)
+                            .clickable { period = p }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Text(p, color = if (selected) BG else MUTED, fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                    }
+                }
             }
-        }
 
-        if (status.isNotEmpty()) {
-            Text(status, fontSize = 13.sp)
-        }
+            Spacer(Modifier.height(28.dp))
 
-        if (showSettings) {
-            Spacer(Modifier.height(8.dp))
-            Text("Bank sender IDs (comma separated)", fontSize = 13.sp)
-            OutlinedTextField(
-                value = senders,
-                onValueChange = { senders = it },
-                placeholder = { Text("e.g. SBIINB, HDFCBK, ICICIT") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text("Your own UPI IDs or names (comma separated)", fontSize = 13.sp)
-            OutlinedTextField(
-                value = own,
-                onValueChange = { own = it },
-                placeholder = { Text("e.g. yourname@okaxis") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = {
-                Storage.saveSettings(context, senders, own)
-                showSettings = false
-                rescan()
-            }) {
-                Text("Save")
+            Text("Spent in $periodLabel", color = MUTED, fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth(), textAlignCenter = true)
+            Spacer(Modifier.height(6.dp))
+            CenteredBig(money(spent))
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Income", color = MUTED, fontSize = 13.sp)
+                    Text(money(income), color = ACCENT, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
-        Text("Monthly", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-        if (months.isEmpty()) {
-            Text("No transactions yet.", fontSize = 14.sp)
-        } else {
-            months.forEach { m ->
-                Text(
-                    "${m.month}: in ${money(m.income)} | out ${money(m.expense)} | net ${money(m.net)}",
-                    fontSize = 14.sp,
-                )
-                Spacer(Modifier.height(4.dp))
+            if (loading) {
+                Spacer(Modifier.height(12.dp))
+                Text("Reading messages…", color = MUTED, fontSize = 12.sp)
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
-        Text("Expenses by category", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-        categories.forEach { (cat, total) ->
-            Text("$cat: ${money(total)}", fontSize = 14.sp)
-            Spacer(Modifier.height(4.dp))
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Text("Recent", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-        rows.take(40).forEach { r ->
-            Text(
-                "${r.date}  ${r.kind}  ${r.category}  ${money(r.amount)}  ${r.counterparty ?: ""}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(r.raw, fontSize = 11.sp, color = androidx.compose.ui.graphics.Color.Gray)
+            Spacer(Modifier.height(28.dp))
+            Text("Categories", color = ON_BG, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
+            if (categories.isEmpty()) {
+                Text("No spending in $periodLabel.", color = MUTED, fontSize = 14.sp)
+            } else {
+                categories.forEach { (cat, total) ->
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(cat, color = ON_BG, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        Text(money(total), color = ON_BG, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        Modifier.fillMaxWidth().height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)).background(SURFACE),
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth((total / maxCat).toFloat().coerceIn(0.02f, 1f))
+                                .height(6.dp).clip(RoundedCornerShape(3.dp)).background(ACCENT),
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text("Recent", color = ON_BG, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            periodRows.take(40).forEach { r ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            r.counterparty?.takeIf { it.isNotBlank() } ?: r.category,
+                            color = ON_BG, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text("${r.date} · ${r.category}", color = MUTED, fontSize = 11.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    val isOut = r.kind == "expense"
+                    Text(
+                        (if (isOut) "-" else "+") + money(r.amount),
+                        color = if (isOut) EXPENSE else ACCENT,
+                        fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+            }
         }
     }
+}
+
+@Composable
+private fun CenteredBig(text: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Text(text, color = ON_BG, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// Small helper so we can pass a centered flag to Text without importing TextAlign everywhere.
+@Composable
+private fun Text(
+    text: String,
+    color: Color,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    textAlignCenter: Boolean = false,
+) {
+    androidx.compose.material3.Text(
+        text = text,
+        color = color,
+        fontSize = fontSize,
+        modifier = modifier,
+        fontWeight = fontWeight,
+        maxLines = maxLines,
+        overflow = overflow,
+        textAlign = if (textAlignCenter) androidx.compose.ui.text.style.TextAlign.Center else null,
+    )
 }
