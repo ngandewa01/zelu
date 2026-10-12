@@ -74,14 +74,15 @@ fun ZeluScreen() {
 
     // Reads the inbox and refreshes, in the background. Safe to call repeatedly
     // because stored transactions are de-duplicated.
-    fun rescan() {
+    fun rescan(fromScratch: Boolean = false) {
         scope.launch {
             status = "Reading messages…"
             val res = withContext(Dispatchers.IO) {
-                Ingest.ingest(context, SmsReader.readInbox(context, 2000))
+                if (fromScratch) Storage.clear(context)
+                Ingest.ingest(context, SmsReader.readInbox(context, 5000))
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            status = if (res.added > 0) "Added ${res.added} new." else ""
+            status = "Found ${res.found} transactions."
         }
     }
 
@@ -154,12 +155,21 @@ fun ZeluScreen() {
                 singleLine = true,
             )
             Spacer(Modifier.height(8.dp))
-            Button(onClick = {
-                Storage.saveSettings(context, senders, own)
-                showSettings = false
-                rescan()
-            }) {
-                Text("Save")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    Storage.saveSettings(context, senders, own)
+                    showSettings = false
+                    rescan()
+                }) {
+                    Text("Save")
+                }
+                TextButton(onClick = {
+                    Storage.saveSettings(context, senders, own)
+                    showSettings = false
+                    rescan(fromScratch = true)
+                }) {
+                    Text("Rebuild from messages")
+                }
             }
         }
 
@@ -189,12 +199,14 @@ fun ZeluScreen() {
         Spacer(Modifier.height(20.dp))
         Text("Recent", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
-        rows.take(30).forEach { r ->
+        rows.take(40).forEach { r ->
             Text(
                 "${r.date}  ${r.kind}  ${r.category}  ${money(r.amount)}  ${r.counterparty ?: ""}",
                 fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
             )
-            Spacer(Modifier.height(4.dp))
+            Text(r.raw, fontSize = 11.sp, color = androidx.compose.ui.graphics.Color.Gray)
+            Spacer(Modifier.height(10.dp))
         }
     }
 }

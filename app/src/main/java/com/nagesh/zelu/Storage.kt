@@ -51,6 +51,13 @@ object Storage {
     fun splitList(s: String): List<String> =
         s.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
+    // Deletes all stored transactions (settings are kept). Used to rebuild
+    // history after the parser improves.
+    fun clear(context: Context) = synchronized(lock) {
+        file(context).delete()
+        Unit
+    }
+
     private fun file(context: Context) = File(context.filesDir, TXN_FILE)
 
     private fun readMap(context: Context): Map<String, Row> {
