@@ -10,7 +10,20 @@ object Storage {
     private const val PREFS = "zelu_prefs"
     private const val KEY_SENDERS = "bank_senders"
     private const val KEY_OWN = "own_accounts"
+    private const val KEY_DATA_VERSION = "data_version"
     private const val TXN_FILE = "transactions.json"
+
+    // Bump this whenever the parser/classifier changes so the app rebuilds
+    // stored history automatically on next open.
+    const val PARSER_VERSION = 2
+
+    fun dataVersion(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_DATA_VERSION, 0)
+
+    fun setDataVersion(context: Context, v: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_DATA_VERSION, v).apply()
+    }
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 

@@ -72,17 +72,21 @@ fun ZeluScreen() {
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
             PackageManager.PERMISSION_GRANTED
 
-    // Reads the inbox and refreshes, in the background. Safe to call repeatedly
-    // because stored transactions are de-duplicated.
-    fun rescan(fromScratch: Boolean = false) {
+    // Reads the inbox and refreshes, entirely in the background. If the parser
+    // has changed since the stored data was built, history is rebuilt silently.
+    fun rescan() {
         scope.launch {
             status = "Reading messages…"
             val res = withContext(Dispatchers.IO) {
-                if (fromScratch) Storage.clear(context)
-                Ingest.ingest(context, SmsReader.readInbox(context, 5000))
+                if (Storage.dataVersion(context) < Storage.PARSER_VERSION) {
+                    Storage.clear(context)
+                }
+                val r = Ingest.ingest(context, SmsReader.readInbox(context, 5000))
+                Storage.setDataVersion(context, Storage.PARSER_VERSION)
+                r
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            status = "Found ${res.found} transactions."
+            status = ""
         }
     }
 
@@ -155,21 +159,12 @@ fun ZeluScreen() {
                 singleLine = true,
             )
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    Storage.saveSettings(context, senders, own)
-                    showSettings = false
-                    rescan()
-                }) {
-                    Text("Save")
-                }
-                TextButton(onClick = {
-                    Storage.saveSettings(context, senders, own)
-                    showSettings = false
-                    rescan(fromScratch = true)
-                }) {
-                    Text("Rebuild from messages")
-                }
+            Button(onClick = {
+                Storage.saveSettings(context, senders, own)
+                showSettings = false
+                rescan()
+            }) {
+                Text("Save")
             }
         }
 
