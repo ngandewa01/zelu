@@ -1,6 +1,8 @@
 package com.nagesh.zelu
 
 import android.Manifest
+import android.app.DatePickerDialog
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +30,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,21 +59,37 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ZeluApp() }
+        setContent { MaterialTheme { ZeluApp() } }
     }
 }
 
 fun money(n: Double): String = "₹" + String.format(Locale.US, "%,.0f", n)
 
-private val PERIODS = listOf(
-    "week" to "Week", "month" to "Month", "3m" to "3M", "6m" to "6M",
-    "year" to "1Y", "all" to "All",
+private val RANGE_OPTS = listOf(
+    "week" to "This week", "month" to "By month", "3m" to "Last 3 months",
+    "6m" to "Last 6 months", "year" to "This year", "all" to "All time", "custom" to "Custom dates",
 )
+private val TYPE_OPTS = listOf(
+    "all" to "Everything", "expense" to "Spending only", "income" to "Money in only",
+)
+private val CAT_OPTS: List<Pair<String, String>> =
+    listOf("All" to "All categories") +
+        Classifier.CATEGORIES.keys.map { it to it } +
+        listOf("Domestic help" to "Domestic help", "Unknown" to "Unknown")
+
+private fun pickDate(context: Context, current: String, onPick: (String) -> Unit) {
+    val p = current.split("-")
+    val c = Calendar.getInstance()
+    try { c.set(p[0].toInt(), p[1].toInt() - 1, p[2].toInt()) } catch (_: Exception) {}
+    DatePickerDialog(context, { _, y, m, d -> onPick("%04d-%02d-%02d".format(y, m + 1, d)) },
+        c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+}
 
 @Composable
 fun ZeluApp() {
@@ -83,6 +104,11 @@ fun ZeluApp() {
     var daySel by remember { mutableStateOf(0) }
     var askOpen by remember { mutableStateOf(false) } // category picker open for ask
     var loading by remember { mutableStateOf(false) }
+    var type by remember { mutableStateOf("all") }
+    var cat by remember { mutableStateOf("All") }
+    var controlsOpen by remember { mutableStateOf(false) }
+    var customFrom by remember { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
+    var customTo by remember { mutableStateOf(Dates.today()) }
 
     fun hasPerm() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
@@ -117,7 +143,7 @@ fun ZeluApp() {
     val accounts = remember(rows) {
         listOf("All") + rows.map { it.account }.filter { it.isNotBlank() }.distinct().sorted()
     }
-    val f = Analytics.Filter(period, month, "", "", account)
+    val f = Analytics.Filter(period, month, customFrom, customTo, account, type, cat)
     val list = Analytics.filter(rows, f)
 
     // decisions
@@ -142,23 +168,54 @@ fun ZeluApp() {
             ViewSwitcher(view) { view = it; daySel = 0 }
             Spacer(Modifier.height(12.dp))
 
-            // period + account chips
-            ChipScroll {
-                PERIODS.forEach { (p, lbl) ->
-                    Chip(lbl, period == p, filled = true) { period = p; daySel = 0 }
-                }
+            // filter bar: arrows + summary pill + collapsible dropdowns
+            val rangeLabel = when (period) {
+                "week" -> "Last 7 days"; "month" -> Dates.monthLabel(month)
+                "3m" -> "Last 3 months"; "6m" -> "Last 6 months"
+                "year" -> Dates.today().take(4); "all" -> "All time"
+                "custom" -> "$customFrom → $customTo"; else -> ""
             }
-            if (period == "month") {
-                Spacer(Modifier.height(8.dp))
-                ChipScroll {
-                    Dates.recentMonths(Dates.todayMonth(), 6).forEach { m ->
-                        Chip(Dates.monthLabel(m), month == m) { month = m; daySel = 0 }
+            val advActive = type != "all" || cat != "All"
+            val summary = rangeLabel + (if (account != "All") " · $account" else "") + (if (advActive) " · filtered" else "")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (period == "month") NavButton("‹") { month = Dates.shiftMonth(month, -1); daySel = 0 }
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
+                        .clickable { controlsOpen = !controlsOpen }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(summary, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (controlsOpen) "▴" else "▾", color = ZColor.Muted, fontSize = 12.sp)
+                }
+                if (period == "month") NavButton("›") { month = Dates.shiftMonth(month, 1); daySel = 0 }
+            }
+            if (controlsOpen) {
+                Panel {
+                    DropdownField("Range", RANGE_OPTS.first { it.first == period }.second, RANGE_OPTS) { period = it; daySel = 0 }
+                    if (period == "custom") {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Dates", color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(92.dp))
+                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DateChip(customFrom) { pickDate(context, customFrom) { customFrom = it } }
+                                DateChip(customTo) { pickDate(context, customTo) { customTo = it } }
+                            }
+                        }
                     }
+                    DropdownField("Account", if (account == "All") "All accounts" else account,
+                        accounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
+                    DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
+                    DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS) { cat = it; daySel = 0 }
+                    Spacer(Modifier.height(14.dp))
+                    Box(
+                        Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                            .clickable { controlsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
+                    ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            ChipScroll {
-                accounts.forEach { a -> Chip(a, account == a) { account = a; daySel = 0 } }
             }
 
             if (loading) {
@@ -210,6 +267,50 @@ fun ZeluApp() {
             ) {
                 Text(lbl, color = if (sel) ZColor.Paper else ZColor.Muted,
                     fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable private fun NavButton(symbol: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp) }
+}
+
+@Composable private fun DateChip(value: String, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(10.dp)).background(ZColor.Card)
+            .border(1.dp, ZColor.Line, RoundedCornerShape(10.dp)).clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) { Text(value, color = ZColor.Ink, fontSize = 13.sp) }
+}
+
+@Composable private fun DropdownField(
+    label: String, valueLabel: String, options: List<Pair<String, String>>, onPick: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(92.dp))
+        Box(Modifier.weight(1f)) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Card)
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                    .clickable { expanded = true }.padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(valueLabel, color = ZColor.Ink, fontSize = 14.sp, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text("▾", color = ZColor.Muted, fontSize = 12.sp)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { (v, l) ->
+                    DropdownMenuItem(text = { Text(l, color = ZColor.Ink) },
+                        onClick = { onPick(v); expanded = false })
+                }
             }
         }
     }

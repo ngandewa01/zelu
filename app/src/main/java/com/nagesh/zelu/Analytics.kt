@@ -35,6 +35,12 @@ object Dates {
         return c.getActualMaximum(Calendar.DAY_OF_MONTH)
     }
 
+    fun shiftMonth(monthStr: String, delta: Int): String {
+        val (y, mo) = monthStr.split("-").map { it.toInt() }
+        val c = GregorianCalendar(IST); c.clear(); c.set(y, mo - 1, 1); c.add(Calendar.MONTH, delta)
+        return SimpleDateFormat("yyyy-MM", Locale.US).apply { timeZone = IST }.format(c.time)
+    }
+
     fun monthLabel(monthStr: String): String {
         val (y, mo) = monthStr.split("-").map { it.toInt() }
         val names = arrayOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
@@ -66,6 +72,8 @@ object Analytics {
         val customFrom: String,
         val customTo: String,
         val account: String,      // "All" or an account label
+        val type: String = "all", // all|expense|income
+        val category: String = "All",
     )
 
     // Inclusive [start, end] date range for a filter.
@@ -96,7 +104,24 @@ object Analytics {
 
     fun filter(rows: List<Row>, f: Filter): List<Row> {
         val (start, end) = range(f)
-        return rows.filter { it.date in start..end && (f.account == "All" || it.account == f.account) }
+        return rows.filter { r ->
+            r.date in start..end &&
+                (f.account == "All" || r.account == f.account) &&
+                typeOk(r, f.type) &&
+                catOk(r, f.category)
+        }
+    }
+
+    private fun typeOk(r: Row, type: String): Boolean = when (type) {
+        "expense" -> r.kind == "expense"
+        "income" -> r.kind == "income" || r.kind == "refund"
+        else -> true
+    }
+
+    private fun catOk(r: Row, cat: String): Boolean = when (cat) {
+        "All" -> true
+        "Unknown" -> r.kind == "expense" && r.category == "Unknown"
+        else -> r.category == cat
     }
 
     data class Summary(val spent: Double, val income: Double, val net: Double, val pending: Int)
