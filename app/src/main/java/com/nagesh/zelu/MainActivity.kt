@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,13 +49,16 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// ---- Zelu palette (60-30-10): 60% dark bg, 30% surface/text, 10% green accent ----
-private val BG = Color(0xFF121212)
-private val SURFACE = Color(0xFF1E1E1E)
-private val ON_BG = Color(0xFFFFFFFF)
-private val MUTED = Color(0xFF9E9E9E)
-private val ACCENT = Color(0xFF9FE870)
-private val EXPENSE = Color(0xFFFF6B6B)
+// ---- Zelu palette (60-30-10): 60% paper bg, 30% card/ink content, 10% orange accent ----
+private val PAPER = Color(0xFFECEEE6)
+private val CARD = Color(0xFFFFFFFF)
+private val INK = Color(0xFF17231F)
+private val MUTED = Color(0xFF69766F)
+private val LINE = Color(0xFFD8DDD3)
+private val ACCENT = Color(0xFFFF6A2B)
+private val ACCENT_INK = Color(0xFFFFFFFF)
+private val INCOME = Color(0xFF16685E)
+private val EXPENSE = Color(0xFFB5442B)
 
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
@@ -134,12 +138,12 @@ fun ZeluApp() {
     val categories = Summary.expenseByCategory(periodRows)
     val maxCat = categories.firstOrNull()?.second ?: 1.0
 
-    Box(Modifier.fillMaxSize().background(BG)) {
+    Box(Modifier.fillMaxSize().background(PAPER)) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 32.dp),
         ) {
-            Text("Zelu", color = ACCENT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Zelu", color = INK, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
             Spacer(Modifier.height(16.dp))
 
@@ -150,11 +154,12 @@ fun ZeluApp() {
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (selected) ACCENT else SURFACE)
+                            .background(if (selected) ACCENT else CARD)
+                            .border(1.dp, if (selected) ACCENT else LINE, RoundedCornerShape(20.dp))
                             .clickable { period = p }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        Text(p, color = if (selected) BG else MUTED, fontSize = 13.sp,
+                        Text(p, color = if (selected) ACCENT_INK else MUTED, fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
@@ -170,7 +175,7 @@ fun ZeluApp() {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Income", color = MUTED, fontSize = 13.sp)
-                    Text(money(income), color = ACCENT, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text(money(income), color = INCOME, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -180,20 +185,20 @@ fun ZeluApp() {
             }
 
             Spacer(Modifier.height(28.dp))
-            Text("Categories", color = ON_BG, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text("Categories", color = INK, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             if (categories.isEmpty()) {
                 Text("No spending in $periodLabel.", color = MUTED, fontSize = 14.sp)
             } else {
                 categories.forEach { (cat, total) ->
                     Row(Modifier.fillMaxWidth()) {
-                        Text(cat, color = ON_BG, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        Text(money(total), color = ON_BG, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(cat, color = INK, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        Text(money(total), color = INK, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                     Spacer(Modifier.height(6.dp))
                     Box(
                         Modifier.fillMaxWidth().height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)).background(SURFACE),
+                            .clip(RoundedCornerShape(3.dp)).background(LINE),
                     ) {
                         Box(
                             Modifier.fillMaxWidth((total / maxCat).toFloat().coerceIn(0.02f, 1f))
@@ -205,14 +210,14 @@ fun ZeluApp() {
             }
 
             Spacer(Modifier.height(20.dp))
-            Text("Recent", color = ON_BG, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text("Recent", color = INK, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             periodRows.take(40).forEach { r ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(
                             r.counterparty?.takeIf { it.isNotBlank() } ?: r.category,
-                            color = ON_BG, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                            color = INK, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         Text("${r.date} · ${r.category}", color = MUTED, fontSize = 11.sp,
@@ -221,7 +226,7 @@ fun ZeluApp() {
                     val isOut = r.kind == "expense"
                     Text(
                         (if (isOut) "-" else "+") + money(r.amount),
-                        color = if (isOut) EXPENSE else ACCENT,
+                        color = if (isOut) EXPENSE else INCOME,
                         fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -234,7 +239,7 @@ fun ZeluApp() {
 @Composable
 private fun CenteredBig(text: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Text(text, color = ON_BG, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = INK, fontSize = 36.sp, fontWeight = FontWeight.Bold)
     }
 }
 
