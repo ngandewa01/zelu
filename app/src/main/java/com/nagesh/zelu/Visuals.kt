@@ -1,0 +1,103 @@
+package com.nagesh.zelu
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
+
+// ---- Zelu palette (60-30-10: paper / card+ink / orange accent) ----
+object ZColor {
+    val Paper = Color(0xFFECEEE6)
+    val Card = Color(0xFFFFFFFF)
+    val Ink = Color(0xFF17231F)
+    val InkSoft = Color(0xFF3B4A44)
+    val Muted = Color(0xFF69766F)
+    val Line = Color(0xFFD8DDD3)
+    val Accent = Color(0xFFFF6A2B)
+    val AccentInk = Color(0xFFFFFFFF)
+    val Income = Color(0xFF16685E)
+    val Warn = Color(0xFFB5442B)
+}
+
+data class Brand(val key: String, val name: String, val bg: Color, val fg: Color, val mark: String)
+
+val BRANDS = listOf(
+    Brand("blinkit", "Blinkit", Color(0xFFF8CB46), Color(0xFF1C1C1C), "B"),
+    Brand("swiggy", "Swiggy", Color(0xFFFC8019), Color(0xFFFFFFFF), "S"),
+    Brand("zomato", "Zomato", Color(0xFFE23744), Color(0xFFFFFFFF), "Z"),
+    Brand("zepto", "Zepto", Color(0xFF5F259F), Color(0xFFFFFFFF), "Z"),
+    Brand("amazon", "Amazon", Color(0xFF232F3E), Color(0xFFFF9900), "a"),
+    Brand("flipkart", "Flipkart", Color(0xFF2874F0), Color(0xFFFFFFFF), "F"),
+    Brand("myntra", "Myntra", Color(0xFFFF3F6C), Color(0xFFFFFFFF), "M"),
+    Brand("uber", "Uber", Color(0xFF111111), Color(0xFFFFFFFF), "U"),
+    Brand("rapido", "Rapido", Color(0xFFFCC419), Color(0xFF1C1C1C), "R"),
+    Brand("netflix", "Netflix", Color(0xFFE50914), Color(0xFFFFFFFF), "N"),
+    Brand("pharmeasy", "PharmEasy", Color(0xFF10847E), Color(0xFFFFFFFF), "P"),
+    Brand("bookmyshow", "BookMyShow", Color(0xFFC4242B), Color(0xFFFFFFFF), "b"),
+    Brand("airtel", "Airtel", Color(0xFFE40000), Color(0xFFFFFFFF), "A"),
+    Brand("jio", "Jio", Color(0xFF0A3D91), Color(0xFFFFFFFF), "J"),
+    Brand("irctc", "IRCTC", Color(0xFF1E4D8C), Color(0xFFFFFFFF), "I"),
+    Brand("hpcl", "HPCL", Color(0xFF0B5EA8), Color(0xFFFFFFFF), "H"),
+)
+
+val CAT_COLORS: Map<String, Color> = mapOf(
+    "Food" to ZColor.Accent,
+    "Groceries" to ZColor.Income,
+    "Shopping" to ZColor.Ink,
+    "Bills" to Color(0xFF7B8C85),
+    "Entertainment" to Color(0xFFC9A13B),
+    "Fuel" to Color(0xFF8A6BB0),
+    "Rent" to Color(0xFFB5573D),
+    "EMI" to Color(0xFF4F6D8A),
+    "Travel" to Color(0xFF3E9C86),
+    "Health" to Color(0xFFC97B84),
+    "Domestic help" to Color(0xFF9A8F5E),
+    "Unknown" to Color(0xFFC1C8C2),
+    "Income" to ZColor.Income,
+    "Refund" to ZColor.Income,
+    "Transfer" to ZColor.Muted,
+    "Card bill" to ZColor.Muted,
+)
+
+fun brandFor(name: String): Brand? {
+    val n = name.lowercase()
+    return BRANDS.firstOrNull { n.contains(it.key) }
+}
+
+fun catColor(cat: String): Color = CAT_COLORS[cat] ?: Color(0xFF7B8C85)
+
+fun bankColor(account: String): Color {
+    val a = account.uppercase()
+    return when {
+        a.startsWith("HDFC") -> Color(0xFF004C8F)
+        a.startsWith("ICICI") -> Color(0xFFB02A30)
+        a.startsWith("SBI") -> Color(0xFF22409A)
+        a.startsWith("AXIS") -> Color(0xFF97144D)
+        a.startsWith("KOTAK") -> Color(0xFFD71921)
+        else -> ZColor.Ink
+    }
+}
+
+@Composable
+fun MerchantTile(name: String, category: String, size: Dp = 38.dp) {
+    val b = brandFor(name)
+    val bg = b?.bg ?: catColor(category).copy(alpha = 0.18f)
+    val fg = b?.fg ?: catColor(category)
+    val mark = b?.mark ?: (name.ifBlank { category }).trim().take(1).uppercase()
+    Box(
+        modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(bg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(mark, color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
+    }
+}

@@ -17,9 +17,11 @@ data class Txn(
     val ref: String?,
     val raw: String,
     val source: String,
+    val account: String, // e.g. "HDFC 5997", "HDFC CC 1291", or "" if unknown
 )
 
 // A stored transaction: a Txn plus its classification.
+// kind is one of: expense, income, refund, transfer, lent, borrowed, ignore
 data class Row(
     val id: String,
     val date: String,
@@ -29,6 +31,7 @@ data class Row(
     val ref: String?,
     val raw: String,
     val source: String,
-    val kind: String, // income | expense | transfer | refund
+    val account: String,
+    val kind: String,
     val category: String,
 )

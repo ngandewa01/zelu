@@ -19,7 +19,7 @@ object Ingest {
             // so no manual bank-sender setup is needed.
             if (!msg.address.any { it.isLetter() }) continue
 
-            val txn = Parser.parseSms(msg.body, msg.date, "phone:${msg.address}") ?: continue
+            val txn = Parser.parseSms(msg.body, msg.date, msg.address) ?: continue
             val c = Classifier.classify(txn, own)
             rows.add(
                 Row(
@@ -31,6 +31,7 @@ object Ingest {
                     ref = txn.ref,
                     raw = txn.raw,
                     source = txn.source,
+                    account = txn.account,
                     kind = c.kind,
                     category = c.category,
                 ),

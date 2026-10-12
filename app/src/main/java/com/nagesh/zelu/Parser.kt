@@ -23,6 +23,9 @@ object Parser {
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
 
     private val REF = Regex("""\b(?:UPI\s*Ref(?:erence)?(?:\s*No\.?)?|RRN|Ref(?:\s*No\.?)?)\s*[:#-]?\s*(\d{6,})""", RegexOption.IGNORE_CASE)
+    private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI)\b""", RegexOption.IGNORE_CASE)
+    private val LAST4 = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending|is)?\s*[xX*#]{0,}\s*[xX*#]*(\d{3,4})\b""", RegexOption.IGNORE_CASE)
+    private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
         """\b(?:to|from|by|at)\s+(?:VPA\s+)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|of|rs|inr)\b|[.,;]|$)""",
@@ -72,10 +75,30 @@ object Parser {
         }
         if (counterparty.isNullOrBlank()) counterparty = null
 
+        val account = accountOf(text, source)
+
         val id = if (ref != null) "ref-$ref"
         else "sms-" + hash("$date|$amount|$direction|$text")
 
-        return Txn(id, date, amount, direction, counterparty, ref, text, source)
+        return Txn(id, date, amount, direction, counterparty, ref, text, source, account)
+    }
+
+    // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
+    private fun accountOf(text: String, source: String): String {
+        var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+        if (bank.isEmpty()) {
+            // Fall back to a bank code in the sender id, e.g. "AX-HDFCBK".
+            bank = BANK.find(source)?.value?.uppercase()?.replace(" ", "") ?: ""
+        }
+        if (bank == "YESBANK") bank = "YES"
+        val last4 = LAST4.find(text)?.groupValues?.get(1) ?: ""
+        val isCard = IS_CARD.containsMatchIn(text)
+        return when {
+            bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"
+            bank.isNotEmpty() -> bank
+            last4.isNotEmpty() -> (if (isCard) "CC " else "") + last4
+            else -> ""
+        }
     }
 
     private fun parseDate(text: String, receivedMs: Long?): String {
