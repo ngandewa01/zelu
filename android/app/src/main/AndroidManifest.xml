@@ -25,6 +25,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false" />
+
         <receiver
             android:name=".SmsReceiver"
             android:exported="true"
