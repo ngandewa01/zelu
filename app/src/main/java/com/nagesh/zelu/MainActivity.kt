@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -182,6 +184,7 @@ fun ZeluApp() {
     var customTo by remember { mutableStateOf(Dates.today()) }
     var stage by remember { mutableStateOf("splash") } // splash, welcome, perm, scan, app
     var permDenied by remember { mutableStateOf(false) }
+    var detailRow by remember { mutableStateOf<Row?>(null) }
 
     fun hasPerm() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
@@ -306,11 +309,47 @@ fun ZeluApp() {
             Spacer(Modifier.height(8.dp))
             when (view) {
                 "ledger" -> LedgerView(rows, list, f, accounts, month, account, daySel,
-                    { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide)
+                    { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
+                    { detailRow = it })
                 "buckets" -> BucketsView(list)
                 "payees" -> PayeesView(list)
                 "pace" -> PaceView(rows, list, f, month, account)
             }
+        }
+    }
+
+    detailRow?.let { r -> TxnDetailDialog(r) { detailRow = null } }
+}
+
+@Composable private fun TxnDetailDialog(t: Row, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile(t.counterparty ?: t.category, t.category)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MutedText("${t.date} · ${subtitleFor(t)}", 12)
+                }
+                Spacer(Modifier.width(10.dp))
+                AmountText(t, false)
+            }
+            if (t.account.isNotBlank()) { Spacer(Modifier.height(8.dp)); MutedText("Account: ${t.account}", 12) }
+            Spacer(Modifier.height(16.dp))
+            Eyebrow("From this message")
+            Spacer(Modifier.height(6.dp))
+            Text(
+                t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
+                modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()),
+            )
+            Spacer(Modifier.height(18.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
@@ -441,8 +480,9 @@ fun ZeluApp() {
     }
 }
 
-@Composable private fun TxnRow(t: Row, highlight: Boolean) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun TxnRow(t: Row, highlight: Boolean, onClick: (Row) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick(t) }.padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         MerchantTile(t.counterparty ?: t.category, t.category)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -484,6 +524,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     month: String, account: String, daySel: Int, onDay: (Int) -> Unit,
     askOpen: Boolean, setAskOpen: (Boolean) -> Unit,
     decide: (String, String, String, String?, Boolean) -> Unit,
+    onRowClick: (Row) -> Unit,
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -584,7 +625,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
             Panel {
                 Eyebrow("$daySel ${Dates.monthLong(month)} · ${money(dtot)} spent")
                 if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions on this day.") }
-                else dayRows.forEach { TxnRow(it, bigIds.contains(it.id)) }
+                else dayRows.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
             }
         }
     }
@@ -652,7 +693,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         Eyebrow("Latest")
         val latest = list.sortedByDescending { it.date }.take(30)
         if (latest.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions here.") }
-        else latest.forEach { TxnRow(it, bigIds.contains(it.id)) }
+        else latest.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
     }
 
     Spacer(Modifier.height(6.dp))
