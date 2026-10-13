@@ -224,6 +224,8 @@ fun ZeluApp() {
     val accounts = remember(rows) {
         listOf("All") + rows.map { it.account }.filter { it.isNotBlank() }.distinct().sorted()
     }
+    // The account filter lists bank accounts only; credit cards are reached via their card tile.
+    val bankAccounts = remember(accounts) { accounts.filter { !it.contains(" CC") } }
     val f = Analytics.Filter(period, month, customFrom, customTo, account, type, cat)
     val list = Analytics.filter(rows, f)
 
@@ -295,7 +297,7 @@ fun ZeluApp() {
                         }
                     }
                     DropdownField("Account", if (account == "All") "All accounts" else account,
-                        accounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
+                        bankAccounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
                     DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
                     DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS) { cat = it; daySel = 0 }
                     Spacer(Modifier.height(14.dp))
@@ -314,7 +316,7 @@ fun ZeluApp() {
             when (view) {
                 "ledger" -> LedgerView(rows, list, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
-                    { detailRow = it })
+                    { detailRow = it }, { title, r -> drill = title to r })
                 "buckets" -> BucketsView(list) { title, rows -> drill = title to rows }
                 "payees" -> PayeesView(list) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
@@ -593,6 +595,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     askOpen: Boolean, setAskOpen: (Boolean) -> Unit,
     decide: (String, String, String, String?, Boolean) -> Unit,
     onRowClick: (Row) -> Unit,
+    onDrill: (String, List<Row>) -> Unit,
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -666,13 +669,13 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 cardAccounts.forEach { a ->
-                    val spent = Analytics.filter(allRows, f.copy(account = a))
-                        .filter { it.kind == "expense" }.sumOf { it.amount }
-                    CardTile(a, spent)
+                    val cardRows = Analytics.filter(allRows, f.copy(account = a))
+                    val spent = cardRows.filter { it.kind == "expense" }.sumOf { it.amount }
+                    CardTile(a, spent) { onDrill(a, cardRows) }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            MutedText("Card spends count here and in your totals. Paying the bill is a transfer.", 11)
+            MutedText("Tap a card to see its spends. Card spends count in your totals; paying the bill is a transfer.", 11)
         }
     }
 
@@ -775,11 +778,11 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     }
 }
 
-@Composable private fun CardTile(account: String, spent: Double) {
+@Composable private fun CardTile(account: String, spent: Double, onClick: () -> Unit = {}) {
     val last4 = account.takeLast(4)
     Column(
         Modifier.width(240.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
-            .padding(16.dp),
+            .clickable { onClick() }.padding(16.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Box(Modifier.width(5.dp).height(18.dp).clip(RoundedCornerShape(3.dp)).background(bankColor(account)))

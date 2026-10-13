@@ -39,6 +39,9 @@ object Classifier {
     // CRED is used almost entirely to pay credit-card bills.
     private val CRED = Regex("""\bcred\b""", RegexOption.IGNORE_CASE)
 
+    // Paying a BNPL / postpaid bill settles a balance — a transfer, not a fresh spend.
+    private val BNPL = Regex("""\b(olamoney|ola money|lazypay|simpl|paylater|pay later|postpaid account)\b""", RegexOption.IGNORE_CASE)
+
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
         """card ending \d|payment[^.]{0,25}\bcard\b|towards[^.]{0,20}card|to your[^.]{0,15}card|credit card (bill|payment)""",
@@ -72,7 +75,7 @@ object Classifier {
         val cp = (t.counterparty ?: "").lowercase()
 
         // Paying a credit-card bill (directly or via CRED) is a transfer, not a new spend.
-        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw))) {
+        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
             return Result("transfer", "Card bill")
         }
 
