@@ -37,7 +37,22 @@ object Parser {
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
 
     private val REF = Regex("""\b(?:UPI\s*Ref(?:erence)?(?:\s*No\.?)?|RRN|Ref(?:\s*No\.?)?)\s*[:#-]?\s*(\d{6,})""", RegexOption.IGNORE_CASE)
-    private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI)\b""", RegexOption.IGNORE_CASE)
+    private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI|UNION|UCO|IOB|DBS|HSBC|CITI|AMEX|DCB|PAYTM|IPPB|EQUITAS|UJJIVAN|SARASWAT)\b""", RegexOption.IGNORE_CASE)
+
+    // Bank codes inside an SMS sender id (e.g. "AD-HDFCBK", "JX-UNIONB", "CBSSBI"), matched
+    // as a substring because the code runs into surrounding letters. Specific codes first.
+    private val SENDER_CODES: List<Pair<String, String>> = listOf(
+        "HDFC" to "HDFC", "ICIC" to "ICICI", "AXIS" to "AXIS", "KOTAK" to "KOTAK",
+        "UBOI" to "UNION", "UBIN" to "UNION", "UNION" to "UNION",
+        "CBSSBI" to "SBI", "ATMSBI" to "SBI", "SBIINB" to "SBI", "SBIPSG" to "SBI", "SBICRD" to "SBI", "SBI" to "SBI",
+        "PNB" to "PNB", "BARODA" to "BOB", "BOBTXN" to "BOB", "CANBNK" to "CANARA", "CANARA" to "CANARA",
+        "INDUS" to "INDUSIND", "RBLBNK" to "RBL", "AUBANK" to "AU", "BANDHAN" to "BANDHAN", "BANDAN" to "BANDHAN",
+        "FEDBNK" to "FEDERAL", "IDBI" to "IDBI", "IDFC" to "IDFC", "YESBNK" to "YES", "YESBK" to "YES",
+        "BOIIND" to "BOI", "INDBNK" to "INDIAN", "INDBK" to "INDIAN", "CENTBK" to "CENTRAL",
+        "UCOBNK" to "UCO", "IOBCHN" to "IOB", "PAYTM" to "PAYTM", "PYTM" to "PAYTM",
+        "DBS" to "DBS", "HSBC" to "HSBC", "CITI" to "CITI", "SCBANK" to "SCB", "AMEX" to "AMEX",
+        "KVBANK" to "KVB", "KARUR" to "KVB", "RBL" to "RBL", "BOB" to "BOB", "UCO" to "UCO", "IOB" to "IOB", "BOI" to "BOI",
+    )
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
     // A masked account tail: one or more mask chars then 4 digits (*5997, **2931, XX5997).
@@ -170,11 +185,12 @@ object Parser {
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
     private fun accountOf(text: String, source: String, direction: String): String {
         var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
-        if (bank.isEmpty()) {
-            // Fall back to a bank code in the sender id, e.g. "AX-HDFCBK".
-            bank = BANK.find(source)?.value?.uppercase()?.replace(" ", "") ?: ""
-        }
         if (bank == "YESBANK") bank = "YES"
+        if (bank.isEmpty()) {
+            // Decode the bank from the sender id (code runs into letters, so match substring).
+            val src = source.uppercase()
+            bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+        }
         // FASTag / toll debits come from the FASTag wallet, not the bank account.
         if (FASTAG.containsMatchIn(text)) return if (bank.isNotEmpty()) "$bank FASTag" else "FASTag"
         // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.
