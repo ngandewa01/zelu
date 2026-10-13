@@ -669,7 +669,8 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 cardAccounts.forEach { a ->
-                    val cardRows = Analytics.filter(allRows, f.copy(account = a))
+                    // Card totals follow only the date range, not the Show/Category filter.
+                    val cardRows = Analytics.filter(allRows, f.copy(account = a, type = "all", category = "All"))
                     val spent = cardRows.filter { it.kind == "expense" }.sumOf { it.amount }
                     CardTile(a, spent) { onDrill(a, cardRows) }
                 }

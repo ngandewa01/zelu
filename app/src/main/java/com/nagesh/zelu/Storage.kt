@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 23
+    const val PARSER_VERSION = 24
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -53,8 +53,29 @@ object Storage {
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
             row
         }.sortedByDescending { it.date }
-        dedupBillers(canonicalizeAccounts(rows))
+        detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows)))
     }
+
+    // A transfer between your OWN accounts shows up as the same amount leaving one account
+    // and arriving in another within a day. Mark both as transfers, so it counts as neither
+    // spending nor income. Learned automatically from your accounts — nothing to configure.
+    private fun detectSelfTransfers(rows: List<Row>): List<Row> {
+        val move = HashSet<String>()
+        val credits = rows.filter { it.direction == "credit" && it.kind == "income" && it.account.isNotBlank() }
+        val used = HashSet<String>()
+        for (d in rows) {
+            if (d.direction != "debit" || d.kind != "expense" || d.account.isBlank()) continue
+            val match = credits.firstOrNull { c ->
+                c.id !in used && c.amount == d.amount && c.account != d.account && nearDay(c.date, d.date)
+            } ?: continue
+            used.add(match.id); move.add(d.id); move.add(match.id)
+        }
+        return rows.map { if (it.id in move) it.copy(kind = "transfer", category = "Transfer") else it }
+    }
+
+    // Same day, or one day apart (a credit can post the next day).
+    private fun nearDay(a: String, b: String): Boolean =
+        a == b || a == Dates.shiftDays(b, 1) || a == Dates.shiftDays(b, -1)
 
     // Merge account labels that are the same real account. Each account number is resolved
     // to the bank it appears under MOST often, so a stray signature ("...-SBI" on an IT

@@ -48,6 +48,7 @@ val BRANDS = listOf(
     Brand("jio", "Jio", Color(0xFF0A3D91), Color(0xFFFFFFFF), "J"),
     Brand("irctc", "IRCTC", Color(0xFF1E4D8C), Color(0xFFFFFFFF), "I"),
     Brand("hpcl", "HPCL", Color(0xFF0B5EA8), Color(0xFFFFFFFF), "H"),
+    Brand("qualcomm", "Qualcomm", Color(0xFF3253DC), Color(0xFFFFFFFF), "Q"),
     Brand("urban", "Urban Company", Color(0xFFEC5F3B), Color(0xFFFFFFFF), "U"),
     Brand("country delight", "Country Delight", Color(0xFF1E9E4A), Color(0xFFFFFFFF), "C"),
     Brand("mother dairy", "Mother Dairy", Color(0xFF00843D), Color(0xFFFFFFFF), "M"),
