@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 25
+    const val PARSER_VERSION = 26
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -140,12 +140,19 @@ object Storage {
     //  - Loan EMIs arrive as repeated NACH notices: keep one per month per loan.
     private fun dedupBillers(rows: List<Row>): List<Row> {
         val seenBrand = HashSet<String>()
-        val seenEmi = HashSet<String>()
+        // One EMI per (month, amount) — the real bank debit and the lender's "payment
+        // received" confirmation are the same installment. Prefer the row that has an account.
+        val emiBest = HashMap<String, Row>()
+        for (r in rows) if (r.category == "EMI") {
+            val k = "${r.date.take(7)}|${r.amount}"
+            val cur = emiBest[k]
+            if (cur == null || (cur.account.isBlank() && r.account.isNotBlank())) emiBest[k] = r
+        }
+        val emiKeep = emiBest.values.map { it.id }.toHashSet()
         return rows.filter { r ->
             val cp = r.counterparty
             when {
-                r.category == "EMI" && cp != null ->
-                    seenEmi.add("${r.date.take(7)}|$cp|${r.amount}")
+                r.category == "EMI" -> r.id in emiKeep
                 cp != null && Parser.CANON_NAMES.contains(cp) ->
                     seenBrand.add("${r.date}|${r.amount}|$cp|${r.direction}")
                 else -> true

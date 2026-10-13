@@ -110,7 +110,7 @@ object Parser {
         Regex("""swiggy""", RegexOption.IGNORE_CASE) to "Swiggy",
         Regex("""blinkit""", RegexOption.IGNORE_CASE) to "Blinkit",
         Regex("""zepto""", RegexOption.IGNORE_CASE) to "Zepto",
-        Regex("""bigbasket|innovative retail""", RegexOption.IGNORE_CASE) to "BigBasket",
+        Regex("""bigbasket|bbnow|innovative retail""", RegexOption.IGNORE_CASE) to "BigBasket",
         Regex("""avenue supermart|\bdmart\b|d mart""", RegexOption.IGNORE_CASE) to "DMart",
         Regex("""q ?mart retail|\bqmart\b""", RegexOption.IGNORE_CASE) to "Q Mart",
         Regex("""pure o natural""", RegexOption.IGNORE_CASE) to "Pure O Natural",
