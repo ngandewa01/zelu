@@ -205,7 +205,8 @@ object Parser {
         val isCard = IS_CARD.containsMatchIn(text)
         return when {
             bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"
-            bank.isNotEmpty() -> bank
+            // A card with no readable number still stays a card, so it won't merge into savings.
+            bank.isNotEmpty() -> bank + if (isCard) " CC" else ""
             last4.isNotEmpty() -> (if (isCard) "CC " else "") + last4
             else -> ""
         }

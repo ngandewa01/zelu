@@ -625,7 +625,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     }
 
     // Cards
-    val cardAccounts = accounts.filter { it.contains(" CC ") || it.startsWith("CC ") }
+    val cardAccounts = accounts.filter { it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC") }
     if (cardAccounts.isNotEmpty()) {
         Panel {
             Eyebrow("Cards")
