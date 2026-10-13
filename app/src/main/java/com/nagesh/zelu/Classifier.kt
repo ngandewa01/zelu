@@ -42,6 +42,9 @@ object Classifier {
     // Paying a BNPL / postpaid bill settles a balance — a transfer, not a fresh spend.
     private val BNPL = Regex("""\b(olamoney|ola money|lazypay|simpl|paylater|pay later|postpaid account)\b""", RegexOption.IGNORE_CASE)
 
+    // A plain multi-word personal name (no business word) — a person, not a merchant.
+    private val PERSON_NAME = Regex("""^[A-Za-z]{2,}(?: [A-Za-z]{2,}){1,3}$""")
+
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
         """card ending \d|payment[^.]{0,25}\bcard\b|towards[^.]{0,20}card|to your[^.]{0,15}card|credit card (bill|payment)""",
@@ -105,7 +108,9 @@ object Classifier {
         for ((re, category) in NAME_HINTS) {
             if (re.containsMatchIn(hay)) return Result("expense", category)
         }
-        // 3) Genuinely unguessable -> ask once (then remembered per payee).
+        // 3) Money sent to a named person (not a merchant) is a transfer, not a spend.
+        if (t.counterparty?.let { PERSON_NAME.matches(it.trim()) } == true) return Result("transfer", "Transfer")
+        // 4) Genuinely unguessable -> ask once (then remembered per payee).
         return Result("expense", "Unknown")
     }
 }
