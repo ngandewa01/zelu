@@ -33,12 +33,14 @@ object Parser {
     private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI)\b""", RegexOption.IGNORE_CASE)
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
-    private val LAST4_MASK = Regex("""[xX*#]{2,}\s*(\d{4})\b""")
+    // A masked account tail: one or more mask chars then 4 digits (*5997, **2931, XX5997).
+    private val LAST4_MASK = Regex("""[xX*#]+\s*(\d{4})\b""")
     private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
     // Your account is the one money leaves FROM (debit) or lands in / TO (credit) — never the
     // other party's account. "debited from a/c *5997 ... to a/c **2931" -> your a/c is 5997.
-    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,20}?(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
-    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,20}?(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    // Matches "from a/c *5997", "from HDFC Bank XX5997", etc. (a/c word optional if masked).
+    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
     private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
