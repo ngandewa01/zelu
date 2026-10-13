@@ -74,6 +74,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Home services" to Color(0xFFC08457),
     "Donation" to Color(0xFFCB6D5A),
     "Investment" to Color(0xFF3A7D52),
+    "FASTag" to Color(0xFF5C6B7A),
     "Gym" to Color(0xFFB5744A),
     "Personal care" to Color(0xFFCF8FB0),
     "Cash" to Color(0xFF788074),
@@ -88,6 +89,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
 // recognizable brand logo. Merchant-heavy categories (Food, Shopping…) keep the initial.
 val CAT_ICON: Map<String, String> = mapOf(
     "Investment" to "🏺",      // amphora / jar
+    "FASTag" to "🛣️",    // motorway
     "Gym" to "🏋️",       // weightlifter
     "Personal care" to "💇",   // haircut
     "Cash" to "🏧",            // ATM

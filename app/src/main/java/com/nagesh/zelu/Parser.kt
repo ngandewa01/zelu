@@ -23,6 +23,13 @@ object Parser {
         RegexOption.IGNORE_CASE,
     )
 
+    // An NPS contribution ("credited to NAGESH TIER1") is money going OUT into an investment,
+    // not income — flip it to a debit.
+    private val INVEST_OUT = Regex("""\b(tier\s?1|tier\s?2|\bnps\b|pran)\b""", RegexOption.IGNORE_CASE)
+
+    // FASTag / toll transactions come from the FASTag wallet, not the bank account.
+    private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
+
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
     private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit)\b""", RegexOption.IGNORE_CASE)
 
@@ -73,6 +80,7 @@ object Parser {
         Regex("""avenue supermart|\bdmart\b|d mart""", RegexOption.IGNORE_CASE) to "DMart",
         Regex("""q ?mart retail|\bqmart\b""", RegexOption.IGNORE_CASE) to "Q Mart",
         Regex("""pure o natural""", RegexOption.IGNORE_CASE) to "Pure O Natural",
+        Regex("""tier\s?1|tier\s?2|\bnps\b|\bpran\b""", RegexOption.IGNORE_CASE) to "NPS",
         Regex("""amazon""", RegexOption.IGNORE_CASE) to "Amazon",
         Regex("""flipkart""", RegexOption.IGNORE_CASE) to "Flipkart",
         Regex("""myntra""", RegexOption.IGNORE_CASE) to "Myntra",
@@ -118,7 +126,7 @@ object Parser {
             else -> return null
         }
         // A biller confirming it received your bill payment is money going OUT.
-        if (direction == "credit" && OUTGOING_BILL.containsMatchIn(text)) direction = "debit"
+        if (direction == "credit" && (OUTGOING_BILL.containsMatchIn(text) || INVEST_OUT.containsMatchIn(text))) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
         val amounts = AMOUNT.findAll(text).toList()
@@ -167,6 +175,8 @@ object Parser {
             bank = BANK.find(source)?.value?.uppercase()?.replace(" ", "") ?: ""
         }
         if (bank == "YESBANK") bank = "YES"
+        // FASTag / toll debits come from the FASTag wallet, not the bank account.
+        if (FASTAG.containsMatchIn(text)) return if (bank.isNotEmpty()) "$bank FASTag" else "FASTag"
         // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.
         val directional = when (direction) {
             "debit" -> FROM_AC.find(text)?.groupValues?.get(1)
