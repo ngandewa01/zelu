@@ -48,6 +48,9 @@ val BRANDS = listOf(
     Brand("jio", "Jio", Color(0xFF0A3D91), Color(0xFFFFFFFF), "J"),
     Brand("irctc", "IRCTC", Color(0xFF1E4D8C), Color(0xFFFFFFFF), "I"),
     Brand("hpcl", "HPCL", Color(0xFF0B5EA8), Color(0xFFFFFFFF), "H"),
+    Brand("urban", "Urban Company", Color(0xFFEC5F3B), Color(0xFFFFFFFF), "U"),
+    Brand("country delight", "Country Delight", Color(0xFF1E9E4A), Color(0xFFFFFFFF), "C"),
+    Brand("mother dairy", "Mother Dairy", Color(0xFF00843D), Color(0xFFFFFFFF), "M"),
 )
 
 val CAT_COLORS: Map<String, Color> = mapOf(
@@ -61,7 +64,14 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "EMI" to Color(0xFF4F6D8A),
     "Travel" to Color(0xFF3E9C86),
     "Health" to Color(0xFFC97B84),
-    "Domestic help" to Color(0xFF9A8F5E),
+    "Transport" to Color(0xFF6E7F99),
+    "Milk & Dairy" to Color(0xFF7E97B8),
+    "Internet" to Color(0xFF4E6E8E),
+    "Mobile" to Color(0xFF9A6FB0),
+    "Laundry" to Color(0xFF5AA0A8),
+    "Maid" to Color(0xFF9A8F5E),
+    "Home services" to Color(0xFFC08457),
+    "Donation" to Color(0xFFCB6D5A),
     "Unknown" to Color(0xFFC1C8C2),
     "Income" to ZColor.Income,
     "Refund" to ZColor.Income,
