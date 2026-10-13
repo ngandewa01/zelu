@@ -35,6 +35,10 @@ object Parser {
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
     private val LAST4_MASK = Regex("""[xX*#]{2,}\s*(\d{4})\b""")
     private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    // Your account is the one money leaves FROM (debit) or lands in / TO (credit) — never the
+    // other party's account. "debited from a/c *5997 ... to a/c **2931" -> your a/c is 5997.
+    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,20}?(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,20}?(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
     private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -45,7 +49,7 @@ object Parser {
     private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
     // Promotional / instructional phrases that must never be treated as a payee.
-    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account)\b""", RegexOption.IGNORE_CASE)
+    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|report|block|dispute|verify|helpline|sms)\b""", RegexOption.IGNORE_CASE)
 
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
@@ -145,7 +149,7 @@ object Parser {
             }
         }
 
-        val account = accountOf(text, source)
+        val account = accountOf(text, source, direction)
 
         val id = if (ref != null) "ref-$ref"
         else "sms-" + hash("$date|$amount|$direction|$text")
@@ -154,14 +158,21 @@ object Parser {
     }
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
-    private fun accountOf(text: String, source: String): String {
+    private fun accountOf(text: String, source: String, direction: String): String {
         var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
         if (bank.isEmpty()) {
             // Fall back to a bank code in the sender id, e.g. "AX-HDFCBK".
             bank = BANK.find(source)?.value?.uppercase()?.replace(" ", "") ?: ""
         }
         if (bank == "YESBANK") bank = "YES"
-        val last4 = LAST4_MASK.find(text)?.groupValues?.get(1)
+        // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.
+        val directional = when (direction) {
+            "debit" -> FROM_AC.find(text)?.groupValues?.get(1)
+            "credit" -> TO_AC.find(text)?.groupValues?.get(1)
+            else -> null
+        }
+        val last4 = directional
+            ?: LAST4_MASK.find(text)?.groupValues?.get(1)
             ?: LAST4_KW.find(text)?.groupValues?.get(1) ?: ""
         val isCard = IS_CARD.containsMatchIn(text)
         return when {
