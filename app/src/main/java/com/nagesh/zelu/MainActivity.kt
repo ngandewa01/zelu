@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -91,6 +93,75 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
         c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
 }
 
+@Composable private fun LogoMark(sizeDp: Float) {
+    Box(
+        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Ink),
+        contentAlignment = Alignment.Center,
+    ) { Text("Z", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
+}
+
+@Composable private fun Cta(text: String, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Accent)
+            .clickable { onClick() }.padding(horizontal = 30.dp, vertical = 13.dp),
+    ) { Text(text, color = ZColor.AccentInk, fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
+}
+
+@Composable private fun OnbPoint(title: String, sub: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(ZColor.Accent))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(sub, color = ZColor.Muted, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable private fun OnboardFlow(stage: String, denied: Boolean, onGetStarted: () -> Unit, onAllow: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            when (stage) {
+                "welcome" -> {
+                    LogoMark(66f)
+                    Text("Your money, from the messages you already get", color = ZColor.Ink,
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    OnbPoint("Reads your bank & UPI alerts", "Spends, income and bills — found for you.")
+                    OnbPoint("Stays on your phone", "Nothing uploaded. No account, no login.")
+                    OnbPoint("Sorts itself", "Categories, merchants and trends, automatically.")
+                    Cta("Get started", onGetStarted)
+                }
+                "perm" -> {
+                    LogoMark(66f)
+                    Text("Allow Zelu to read SMS", color = ZColor.Ink, fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text("So it can turn your bank alerts into spends and bills, in the background.",
+                        color = ZColor.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Text("✓ No OTPs      ✓ No personal chats", color = ZColor.InkSoft,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Cta("Allow SMS", onAllow)
+                    if (denied) Text("Please allow SMS in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
+                        color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
+                }
+                "scan" -> {
+                    LogoMark(66f)
+                    Text("Reading your messages…", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    CircularProgressIndicator(color = ZColor.Accent)
+                }
+                else -> { // splash
+                    LogoMark(86f)
+                    Row {
+                        Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 38.sp)
+                        Text("lu", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = 38.sp)
+                    }
+                    Text("Every rupee, tracked on your phone.", color = ZColor.Muted,
+                        fontSize = 14.sp, textAlign = TextAlign.Center)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ZeluApp() {
     val context = LocalContext.current
@@ -109,6 +180,8 @@ fun ZeluApp() {
     var controlsOpen by remember { mutableStateOf(false) }
     var customFrom by remember { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
     var customTo by remember { mutableStateOf(Dates.today()) }
+    var stage by remember { mutableStateOf("splash") } // splash, welcome, perm, scan, app
+    var permDenied by remember { mutableStateOf(false) }
 
     fun hasPerm() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
@@ -127,17 +200,18 @@ fun ZeluApp() {
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             loading = false
+            if (stage == "scan") stage = "app"
         }
     }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { res -> if (res.values.all { it }) rescan() }
+    ) { res -> if (res.values.all { it }) { stage = "scan"; rescan() } else { permDenied = true } }
 
     LaunchedEffect(Unit) {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-        if (hasPerm()) rescan()
-        else permLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
+        delay(1200)
+        if (hasPerm()) { stage = "app"; rescan() } else { stage = "welcome" }
     }
 
     val accounts = remember(rows) {
@@ -156,6 +230,13 @@ fun ZeluApp() {
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             askOpen = false
         }
+    }
+
+    if (stage != "app") {
+        OnboardFlow(stage, permDenied, { stage = "perm" }) {
+            permLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
+        }
+        return
     }
 
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
