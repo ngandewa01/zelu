@@ -115,7 +115,9 @@ object Analytics {
     private fun typeOk(r: Row, type: String): Boolean = when (type) {
         "expense" -> r.kind == "expense"
         "income" -> r.kind == "income" || r.kind == "refund"
-        else -> true
+        "ignore" -> r.kind == "ignore"
+        // "Everything" hides ignored rows — pick "Ignored" to see and un-ignore them.
+        else -> r.kind != "ignore"
     }
 
     private fun catOk(r: Row, cat: String): Boolean = when (cat) {

@@ -84,6 +84,7 @@ private val RANGE_OPTS = listOf(
 )
 private val TYPE_OPTS = listOf(
     "all" to "Everything", "expense" to "Spending only", "income" to "Money in only",
+    "ignore" to "Ignored",
 )
 private val CAT_OPTS: List<Pair<String, String>> =
     listOf("All" to "All categories") +
@@ -182,6 +183,7 @@ fun ZeluApp() {
     var loading by remember { mutableStateOf(false) }
     var type by remember { mutableStateOf("all") }
     var cat by remember { mutableStateOf("All") }
+    var excludeEmi by remember { mutableStateOf(false) }
     var controlsOpen by remember { mutableStateOf(false) }
     var customFrom by remember { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
     var customTo by remember { mutableStateOf(Dates.today()) }
@@ -228,6 +230,9 @@ fun ZeluApp() {
     val bankAccounts = remember(accounts) { accounts.filter { !it.contains(" CC") } }
     val f = Analytics.Filter(period, month, customFrom, customTo, account, type, cat)
     val list = Analytics.filter(rows, f)
+    // "Exclude EMI" gives spend-after-EMI: drop EMI rows from the spend views
+    // (but not when you're explicitly looking at the EMI category).
+    val shown = if (excludeEmi && cat != "EMI") list.filter { it.category != "EMI" } else list
 
     // decisions
     fun decide(id: String, kind: String, category: String, payee: String?, remember: Boolean) {
@@ -300,6 +305,24 @@ fun ZeluApp() {
                         bankAccounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
                     DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
                     DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS) { cat = it; daySel = 0 }
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .clickable { excludeEmi = !excludeEmi }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier.size(22.dp).clip(RoundedCornerShape(6.dp))
+                                .background(if (excludeEmi) ZColor.Accent else ZColor.Paper)
+                                .border(1.dp, if (excludeEmi) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { if (excludeEmi) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Exclude EMI from spending", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("See what you spend after loan EMIs", color = ZColor.Muted, fontSize = 12.sp)
+                        }
+                    }
                     Spacer(Modifier.height(14.dp))
                     Box(
                         Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
@@ -314,13 +337,13 @@ fun ZeluApp() {
 
             Spacer(Modifier.height(8.dp))
             when (view) {
-                "ledger" -> LedgerView(rows, list, f, accounts, month, account, daySel,
+                "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
-                    { detailRow = it }, { title, r -> drill = title to r })
-                "buckets" -> BucketsView(list) { title, rows -> drill = title to rows }
-                "payees" -> PayeesView(list) { title, rows -> drill = title to rows }
+                    { detailRow = it }, { title, r -> drill = title to r }, excludeEmi)
+                "buckets" -> BucketsView(shown) { title, rows -> drill = title to rows }
+                "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
-                "pace" -> PaceView(rows, list, f, month, account)
+                "pace" -> PaceView(rows, shown, f, month, account)
             }
         }
     }
@@ -596,6 +619,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     decide: (String, String, String, String?, Boolean) -> Unit,
     onRowClick: (Row) -> Unit,
     onDrill: (String, List<Row>) -> Unit,
+    excludeEmi: Boolean = false,
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -605,7 +629,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 
     // Spent + budget
     Panel {
-        Eyebrow("Spent in " + Analytics.periodLabel(f))
+        Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
         Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp)); Meter(pct, ZColor.Accent)
         Spacer(Modifier.height(10.dp))
