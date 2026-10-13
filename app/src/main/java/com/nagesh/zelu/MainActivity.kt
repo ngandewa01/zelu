@@ -318,10 +318,19 @@ fun ZeluApp() {
         }
     }
 
-    detailRow?.let { r -> TxnDetailDialog(r) { detailRow = null } }
+    detailRow?.let { r ->
+        TxnDetailDialog(
+            r,
+            onReclassify = { kind, cat ->
+                decide(r.id, kind, cat, r.counterparty, kind != "income" && kind != "ignore")
+                detailRow = null
+            },
+            onDismiss = { detailRow = null },
+        )
+    }
 }
 
-@Composable private fun TxnDetailDialog(t: Row, onDismiss: () -> Unit) {
+@Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
@@ -345,11 +354,37 @@ fun ZeluApp() {
                 t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
                 modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()),
             )
-            Spacer(Modifier.height(18.dp))
-            Box(
-                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            Spacer(Modifier.height(16.dp))
+            var editing by remember { mutableStateOf(false) }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                        .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp),
+                ) { Text(if (editing) "Cancel" else "Change category", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+                ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+            if (editing) {
+                Spacer(Modifier.height(10.dp))
+                MutedText("Remembered for ${t.counterparty ?: "this payee"}:", 12)
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify("expense", c) } }
+                }
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    Chip("Money in", false) { onReclassify("income", "Income") }
+                    Chip("Lent", false) { onReclassify("lent", "Lent") }
+                    Chip("Borrowed", false) { onReclassify("borrowed", "Borrowed") }
+                    Chip("Ignore", false) { onReclassify("ignore", "Ignore") }
+                }
+            }
         }
     }
 }
