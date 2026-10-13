@@ -16,6 +16,13 @@ object Parser {
     private val CREDIT = Regex("""\b(credited|credit|received|deposited|refunded?)\b""", RegexOption.IGNORE_CASE)
     val REFUND = Regex("""\brefund""", RegexOption.IGNORE_CASE)
 
+    // "Payment of Rs X for your <service> connection ... received" is an OUTGOING bill
+    // payment (the biller received your money) even though it contains the word "received".
+    private val OUTGOING_BILL = Regex(
+        """(?:payment of (?:rs|inr)|received a?\s*payment of).{0,70}\bfor your\b.{0,30}\b(connection|number|bill|subscription|recharge|plan|policy|premium|order|booking|loan)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
     private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|request(ed)? (money|rs|inr))\b""", RegexOption.IGNORE_CASE)
 
@@ -33,6 +40,42 @@ object Parser {
     )
     // Fallback merchant: NAME right after the amount, e.g. "INR2100.76 TOIT BREWPUB."
     private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
+
+    // Promotional / instructional phrases that must never be treated as a payee.
+    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account)\b""", RegexOption.IGNORE_CASE)
+
+    // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
+    private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
+
+    // Canonical merchant names, so "ZOMATO LTD" / "Zomato Media Pvt Ltd" group as one payee.
+    private val MERCHANT_MAP: List<Pair<Regex, String>> = listOf(
+        Regex("""jio\s*fiber|jiofiber|jiohome""", RegexOption.IGNORE_CASE) to "JioFiber",
+        Regex("""\bjio\b""", RegexOption.IGNORE_CASE) to "Jio",
+        Regex("""zomato""", RegexOption.IGNORE_CASE) to "Zomato",
+        Regex("""swiggy""", RegexOption.IGNORE_CASE) to "Swiggy",
+        Regex("""blinkit""", RegexOption.IGNORE_CASE) to "Blinkit",
+        Regex("""zepto""", RegexOption.IGNORE_CASE) to "Zepto",
+        Regex("""bigbasket|innovative retail""", RegexOption.IGNORE_CASE) to "BigBasket",
+        Regex("""amazon""", RegexOption.IGNORE_CASE) to "Amazon",
+        Regex("""flipkart""", RegexOption.IGNORE_CASE) to "Flipkart",
+        Regex("""myntra""", RegexOption.IGNORE_CASE) to "Myntra",
+        Regex("""urban\s*company|urbanclap""", RegexOption.IGNORE_CASE) to "Urban Company",
+        Regex("""country\s*delight""", RegexOption.IGNORE_CASE) to "Country Delight",
+        Regex("""mother\s*dairy""", RegexOption.IGNORE_CASE) to "Mother Dairy",
+        Regex("""netflix""", RegexOption.IGNORE_CASE) to "Netflix",
+        Regex("""spotify""", RegexOption.IGNORE_CASE) to "Spotify",
+        Regex("""hotstar""", RegexOption.IGNORE_CASE) to "Hotstar",
+        Regex("""\bcred\b""", RegexOption.IGNORE_CASE) to "CRED",
+        Regex("""\buber\b""", RegexOption.IGNORE_CASE) to "Uber",
+        Regex("""\bola\b""", RegexOption.IGNORE_CASE) to "Ola",
+        Regex("""rapido""", RegexOption.IGNORE_CASE) to "Rapido",
+        Regex("""snabbit""", RegexOption.IGNORE_CASE) to "Snabbit",
+        Regex("""\bairtel\b""", RegexOption.IGNORE_CASE) to "Airtel",
+    )
+
+    // Canonical names, used to collapse duplicate biller confirmation SMS.
+    val CANON_NAMES: Set<String> = MERCHANT_MAP.map { it.second }.toSet()
+
     private val WS = Regex("""\s+""")
 
     private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
@@ -44,7 +87,7 @@ object Parser {
         // Direction, from the earliest transaction keyword present.
         val d = DEBIT.find(text)
         val c = CREDIT.find(text)
-        val direction: String
+        var direction: String
         val keywordIndex: Int
         when {
             d != null && (c == null || d.range.first < c.range.first) -> {
@@ -55,6 +98,8 @@ object Parser {
             }
             else -> return null
         }
+        // A biller confirming it received your bill payment is money going OUT.
+        if (direction == "credit" && OUTGOING_BILL.containsMatchIn(text)) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
         val amounts = AMOUNT.findAll(text).toList()
@@ -69,11 +114,14 @@ object Parser {
 
         val date = parseDate(text, receivedMs)
         val ref = REF.find(text)?.groupValues?.get(1)
-        var counterparty = CP.find(text)?.groupValues?.get(1)?.trim()
-        if (counterparty.isNullOrBlank()) {
-            counterparty = MERCHANT_AFTER.find(text)?.groupValues?.get(1)?.trim()
+        // Prefer a known merchant (clean, groups duplicates); then the ACH biller name;
+        // then the generic "to/at NAME" and "after-amount NAME" fallbacks, junk filtered out.
+        var counterparty = canonicalMerchant(text)
+        if (counterparty == null) {
+            counterparty = ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
-        if (counterparty.isNullOrBlank()) counterparty = null
+        if (counterparty == null) counterparty = cleanCp(CP.find(text)?.groupValues?.get(1))
+        if (counterparty == null) counterparty = cleanCp(MERCHANT_AFTER.find(text)?.groupValues?.get(1))
 
         val account = accountOf(text, source)
 
@@ -100,6 +148,23 @@ object Parser {
             else -> ""
         }
     }
+
+    private fun canonicalMerchant(text: String): String? =
+        MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(text) }?.second
+
+    private fun cleanCp(raw: String?): String? {
+        val s = raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null
+        if (s.length < 2) return null
+        if (CP_JUNK.containsMatchIn(s)) return null
+        // A bank/account/card string (bank name plus digits) is your own account, not a payee.
+        if (BANK.containsMatchIn(s) && s.any { it.isDigit() }) return null
+        return s
+    }
+
+    private fun titleCase(s: String): String =
+        s.lowercase().split(" ").joinToString(" ") { w ->
+            if (w.isEmpty()) w else w.replaceFirstChar { it.uppercase() }
+        }
 
     private fun parseDate(text: String, receivedMs: Long?): String {
         val m = DATE.find(text)

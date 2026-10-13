@@ -20,7 +20,7 @@ object Classifier {
         "Laundry" to listOf("laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat"),
         "Maid" to listOf("maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
-        "EMI" to listOf("emi", "loan", "bajaj finance", "finserv", "nbfc"),
+        "EMI" to listOf("emi", "loan", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
         "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg"),
         "Rent" to listOf("rent"),
     )
@@ -31,13 +31,22 @@ object Classifier {
         RegexOption.IGNORE_CASE,
     )
 
+    // CRED is used almost entirely to pay credit-card bills.
+    private val CRED = Regex("""\bcred\b""", RegexOption.IGNORE_CASE)
+
+    // Money landing ON a credit card = a bill settlement, not income.
+    private val CARD_RECV = Regex(
+        """card ending \d|payment[^.]{0,25}\bcard\b|towards[^.]{0,20}card|to your[^.]{0,15}card|credit card (bill|payment)""",
+        RegexOption.IGNORE_CASE,
+    )
+
     data class Result(val kind: String, val category: String)
 
     fun classify(t: Txn, ownAccounts: List<String>): Result {
         val cp = (t.counterparty ?: "").lowercase()
 
-        // Paying a credit-card bill is a transfer, so spends aren't counted twice.
-        if (t.direction == "debit" && CARD_BILL.containsMatchIn(t.raw)) {
+        // Paying a credit-card bill (directly or via CRED) is a transfer, not a new spend.
+        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw))) {
             return Result("transfer", "Card bill")
         }
 
@@ -47,8 +56,10 @@ object Classifier {
         }
 
         if (t.direction == "credit") {
-            return if (Parser.REFUND.containsMatchIn(t.raw)) Result("refund", "Refund")
-            else Result("income", "Income")
+            if (Parser.REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
+            // A payment landing on your credit card is settling a bill, not income.
+            if (CARD_RECV.containsMatchIn(t.raw)) return Result("transfer", "Card bill")
+            return Result("income", "Income")
         }
 
         val hay = "$cp ${t.raw}".lowercase()

@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 5
+    const val PARSER_VERSION = 6
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -43,7 +43,7 @@ object Storage {
         val base = readMap(context)
         val overrides = readKv(context, OVERRIDE_FILE)
         val rules = readKv(context, RULE_FILE)
-        base.values.map { r ->
+        val rows = base.values.map { r ->
             var row = r
             val payeeKey = (r.counterparty ?: "").lowercase().trim()
             if (payeeKey.isNotEmpty() && rules.containsKey(payeeKey)) {
@@ -53,6 +53,19 @@ object Storage {
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
             row
         }.sortedByDescending { it.date }
+        dedupBillers(rows)
+    }
+
+    // Some billers (e.g. Jio) send two confirmation SMS for a single payment. Collapse
+    // rows that share date + amount + a known merchant + direction, keeping the first.
+    private fun dedupBillers(rows: List<Row>): List<Row> {
+        val seen = HashSet<String>()
+        return rows.filter { r ->
+            val cp = r.counterparty
+            if (cp != null && Parser.CANON_NAMES.contains(cp)) {
+                seen.add("${r.date}|${r.amount}|$cp|${r.direction}")
+            } else true
+        }
     }
 
     fun saveRows(context: Context, newRows: List<Row>): Int = synchronized(lock) {

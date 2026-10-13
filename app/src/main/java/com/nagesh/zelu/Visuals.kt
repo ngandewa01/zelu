@@ -70,6 +70,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Mobile" to Color(0xFF9A6FB0),
     "Laundry" to Color(0xFF5AA0A8),
     "Maid" to Color(0xFF9A8F5E),
+    "Domestic help" to Color(0xFF9A8F5E),
     "Home services" to Color(0xFFC08457),
     "Donation" to Color(0xFFCB6D5A),
     "Unknown" to Color(0xFFC1C8C2),
