@@ -12,16 +12,26 @@ android {
         applicationId = "com.nagesh.zelu"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            // A fixed, committed key so every build is signed identically. This lets the
+            // app update in place instead of being an uninstall+reinstall, so saved data
+            // (classifications, payee rules, transactions) survives upgrades.
+            storeFile = file("zelu-release.jks")
+            storePassword = "zelupass"
+            keyAlias = "zelu"
+            keyPassword = "zelupass"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Sign the release build with the auto-generated debug key so the
-            // APK can be sideloaded without setting up a release keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

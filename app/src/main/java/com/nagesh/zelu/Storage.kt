@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 8
+    const val PARSER_VERSION = 9
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -53,7 +53,45 @@ object Storage {
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
             row
         }.sortedByDescending { it.date }
-        dedupBillers(rows)
+        dedupBillers(canonicalizeAccounts(rows))
+    }
+
+    // Merge account labels that are the same real account seen with/without a bank name or
+    // CC flag: "CC 6781" + "HDFC CC 6781" -> "HDFC CC 6781"; "HDFC 1208" + "HDFC CC 1208"
+    // -> "HDFC CC 1208". A bank-less tail matching more than one bank is left untouched.
+    private fun canonicalizeAccounts(rows: List<Row>): List<Row> {
+        val four = Regex("""^\d{4}$""")
+        fun parse(s: String): Triple<String, Boolean, String> {
+            var bank = ""; var cc = false; var last4 = ""
+            for (p in s.trim().split(" ").filter { it.isNotEmpty() }) when {
+                p.equals("CC", true) -> cc = true
+                four.matches(p) -> last4 = p
+                else -> if (bank.isEmpty()) bank = p
+            }
+            return Triple(bank, cc, last4)
+        }
+        val banksForLast4 = HashMap<String, MutableSet<String>>()
+        val ccForBankLast4 = HashMap<String, Boolean>()
+        for (r in rows) {
+            val (bank, cc, last4) = parse(r.account)
+            if (last4.isNotEmpty() && bank.isNotEmpty()) {
+                banksForLast4.getOrPut(last4) { mutableSetOf() }.add(bank)
+                val k = "$bank|$last4"
+                ccForBankLast4[k] = (ccForBankLast4[k] ?: false) || cc
+            }
+        }
+        fun canonical(acct: String): String {
+            val (bank0, cc0, last4) = parse(acct)
+            if (last4.isEmpty()) return acct
+            var bank = bank0
+            if (bank.isEmpty()) {
+                val banks = banksForLast4[last4]
+                bank = if (banks != null && banks.size == 1) banks.first() else return acct
+            }
+            val anyCC = ccForBankLast4["$bank|$last4"] ?: cc0
+            return (bank + " " + (if (anyCC) "CC " else "") + last4).trim()
+        }
+        return rows.map { it.copy(account = canonical(it.account)) }
     }
 
     // Collapse duplicates:

@@ -6,7 +6,7 @@ object Classifier {
     // Order matters: earlier entries win.
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
         "Food" to listOf("swiggy", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani"),
-        "Groceries" to listOf("blinkit", "zepto", "bigbasket", "dmart", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "avm", "more retail", "jiomart"),
+        "Groceries" to listOf("blinkit", "zepto", "bigbasket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail"),
         "Milk & Dairy" to listOf("country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
         "Fuel" to listOf("petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
         "Transport" to listOf("uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri", "fastag"),
