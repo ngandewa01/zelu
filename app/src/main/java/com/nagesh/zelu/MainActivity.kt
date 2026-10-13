@@ -375,7 +375,7 @@ fun ZeluApp() {
                 MutedText("Remembered for ${t.counterparty ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify("expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify(if (c == "Investment") "invest" else "expense", c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
@@ -536,6 +536,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     "lent" -> "Lent"
     "borrowed" -> "Borrowed"
     "transfer" -> t.category.ifBlank { "Transfer" }
+    "invest" -> "Investment"
     "ignore" -> "Ignored"
     else -> t.kind.replaceFirstChar { it.uppercase() }
 }
@@ -543,6 +544,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 @Composable private fun AmountText(t: Row, highlight: Boolean) {
     when (t.kind) {
         "transfer" -> Text("Transfer", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        "invest" -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         "ignore" -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
         "income", "refund", "borrowed" ->
             Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -691,6 +693,22 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         }
     }
 
+    // Investments (PF, NPS, funds) — tracked separately from spend and income.
+    val invested = Analytics.investments(list)
+    if (invested.isNotEmpty()) {
+        Panel {
+            Eyebrow("Investments")
+            Spacer(Modifier.height(10.dp))
+            Fact("Contributed", money(invested.sumOf { it.amount }), ZColor.Income)
+            Spacer(Modifier.height(4.dp))
+            MutedText("PF, NPS and funds — kept out of your spending and income.", 11)
+            invested.take(12).forEach {
+                Spacer(Modifier.height(6.dp))
+                MutedText("${it.counterparty ?: "Investment"} · ${money(it.amount)} on ${it.date}")
+            }
+        }
+    }
+
     // Ask-me
     val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }
     val next = pending.firstOrNull()
@@ -715,7 +733,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
-                        Chip(c, false) { decide(next.id, "expense", c, next.counterparty, true) }
+                        Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
                     Chip("Domestic help", false) { decide(next.id, "expense", "Domestic help", next.counterparty, true) }
                 }
@@ -726,7 +744,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     // Latest
     Panel {
         Eyebrow("Latest")
-        val latest = list.sortedByDescending { it.date }.take(30)
+        val latest = list.filter { it.kind != "invest" }.sortedByDescending { it.date }.take(30)
         if (latest.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions here.") }
         else latest.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
     }

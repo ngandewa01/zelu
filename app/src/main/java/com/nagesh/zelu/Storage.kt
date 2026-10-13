@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 17
+    const val PARSER_VERSION = 18
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 

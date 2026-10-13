@@ -45,6 +45,13 @@ object Classifier {
         RegexOption.IGNORE_CASE,
     )
 
+    // Contributions to retirement / market investments: tracked separately, so they count
+    // as neither spending nor income (PF is deducted pre-salary; NPS you transfer in).
+    private val INVEST = Regex(
+        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+
     // Name-pattern heuristics: generalize to merchants we'll never have in any list.
     // "Sri Balaji Medicals", "Annapurna Supermarket", "Balaji Travels" all classify from
     // a generic word in the name. Checked after the exact dictionary, before giving up.
@@ -72,6 +79,11 @@ object Classifier {
         // Money moving between your own accounts is not income or spending.
         if (cp.isNotEmpty() && ownAccounts.any { it.isNotEmpty() && cp.contains(it.lowercase()) }) {
             return Result("transfer", "Transfer")
+        }
+
+        // Retirement / market contributions are tracked on their own, not spend or income.
+        if (INVEST.containsMatchIn(t.raw) || INVEST.containsMatchIn(cp)) {
+            return Result("invest", "Investment")
         }
 
         if (t.direction == "credit") {

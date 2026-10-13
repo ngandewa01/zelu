@@ -31,7 +31,10 @@ object Parser {
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|passbook|provident fund|epfo|epf|\buan\b)\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit)\b""", RegexOption.IGNORE_CASE)
+
+    // EPF / provident-fund passbook notifications — classified as an investment, not skipped.
+    private val PF = Regex("""\b(epf|epfo|provident fund|passbook|uan)\b""", RegexOption.IGNORE_CASE)
 
     // Amounts described as a balance / limit / due are NOT the transaction amount.
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
@@ -96,6 +99,7 @@ object Parser {
         Regex("""q ?mart retail|\bqmart\b""", RegexOption.IGNORE_CASE) to "Q Mart",
         Regex("""pure o natural""", RegexOption.IGNORE_CASE) to "Pure O Natural",
         Regex("""tier\s?1|tier\s?2|\bnps\b|\bpran\b""", RegexOption.IGNORE_CASE) to "NPS",
+        Regex("""\bepf\b|epfo|provident fund|passbook|\buan\b""", RegexOption.IGNORE_CASE) to "EPF",
         Regex("""amazon""", RegexOption.IGNORE_CASE) to "Amazon",
         Regex("""flipkart""", RegexOption.IGNORE_CASE) to "Flipkart",
         Regex("""myntra""", RegexOption.IGNORE_CASE) to "Myntra",
@@ -191,6 +195,8 @@ object Parser {
             val src = source.uppercase()
             bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
         }
+        // EPF is not a bank account you spend from — keep it out of the account filter.
+        if (PF.containsMatchIn(text)) return ""
         // FASTag / toll debits come from the FASTag wallet, not the bank account.
         if (FASTAG.containsMatchIn(text)) return if (bank.isNotEmpty()) "$bank FASTag" else "FASTag"
         // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.

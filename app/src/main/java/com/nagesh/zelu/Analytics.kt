@@ -173,6 +173,8 @@ object Analytics {
 
     fun lent(list: List<Row>) = list.filter { it.kind == "lent" }
     fun borrowed(list: List<Row>) = list.filter { it.kind == "borrowed" }
+    // Investments (PF, NPS, mutual funds) — tracked on their own, not spend or income.
+    fun investments(list: List<Row>) = list.filter { it.kind == "invest" }.sortedByDescending { it.date }
 
     data class Insight(val topCat: String, val topCatAmt: Double, val topCatPct: Int,
                        val biggestName: String, val biggestAmt: Double,

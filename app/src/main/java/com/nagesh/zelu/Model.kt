@@ -21,7 +21,7 @@ data class Txn(
 )
 
 // A stored transaction: a Txn plus its classification.
-// kind is one of: expense, income, refund, transfer, lent, borrowed, ignore
+// kind is one of: expense, income, refund, transfer, lent, borrowed, invest, ignore
 data class Row(
     val id: String,
     val date: String,
