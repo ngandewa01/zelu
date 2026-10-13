@@ -624,18 +624,20 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
             Text("Most went to ${ins.topCat} — ${money(ins.topCatAmt)}",
                 color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
             MutedText("${ins.topCatPct}% of spend", 13)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             val ob = ins.overBy
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Biggest spend", "${ins.biggestName} · ${money(ins.biggestAmt)}")
-                if (ob != null) {
-                    val over = ob > 0
-                    Fact(if (over) "Over a steady pace" else "Under pace",
-                        money(kotlin.math.abs(ob)), if (over) ZColor.Accent else ZColor.Income)
-                }
+            MutedText("Biggest spend", 12)
+            Text("${ins.biggestName} · ${money(ins.biggestAmt)}", color = ZColor.Ink,
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (ob != null) {
+                Spacer(Modifier.height(12.dp))
+                val over = ob > 0
+                MutedText(if (over) "Over a steady pace by" else "Under a steady pace by", 12)
+                Text(money(kotlin.math.abs(ob)), color = if (over) ZColor.Accent else ZColor.Income,
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
             if (ob != null && ob > 0) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 MutedText("Trimming ${ins.topCat} is the quickest win — it's your biggest bucket.", 13)
             }
         }

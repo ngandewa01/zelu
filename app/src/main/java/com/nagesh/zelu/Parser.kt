@@ -18,12 +18,18 @@ object Parser {
 
     // "Payment of Rs X for your <service> connection ... received" is an OUTGOING bill
     // payment (the biller received your money) even though it contains the word "received".
-    // "received a payment" / "payment … has been received" means a biller/merchant received
-    // YOUR money — you paid. Real income instead says "credited to your a/c".
-    private val OUTGOING_BILL = Regex(
-        """received a?\s*payment\b|your payment\b|payment\s+(?:of\s+)?.{0,45}?\b(?:has been|is|was)\s+received\b""",
-        RegexOption.IGNORE_CASE,
-    )
+    // "a biller/merchant received YOUR money" (you paid) vs real income ("credited to your a/c").
+    private val RECV_PAYMENT = Regex("""received a?\s*payment\b""", RegexOption.IGNORE_CASE)
+    private val YOUR_PAYMENT_RECV = Regex("""\byour payment\b.{0,60}\breceived\b""", RegexOption.IGNORE_CASE)
+    private val HAS_RECEIVED = Regex("""\b(?:has been|is|was)\s+received\b""", RegexOption.IGNORE_CASE)
+    private val BILLER_FOR = Regex("""\bfor your\b|\btowards your\b""", RegexOption.IGNORE_CASE)
+    private val INBOUND = Regex("""\bcredited (?:to|in) your\b|\breceived in your\b|\bin your a/?c\b|\bto your a/?c\b""", RegexOption.IGNORE_CASE)
+
+    // A payment you MADE (biller confirms receipt), not income.
+    private fun isOutgoingPayment(text: String): Boolean =
+        RECV_PAYMENT.containsMatchIn(text) ||
+            YOUR_PAYMENT_RECV.containsMatchIn(text) ||
+            (HAS_RECEIVED.containsMatchIn(text) && BILLER_FOR.containsMatchIn(text) && !INBOUND.containsMatchIn(text))
 
     // An NPS contribution ("credited to NAGESH TIER1") is money going OUT into an investment,
     // not income — flip it to a debit.
@@ -162,7 +168,7 @@ object Parser {
             else -> return null
         }
         // A biller confirming it received your bill payment is money going OUT.
-        if (direction == "credit" && (OUTGOING_BILL.containsMatchIn(text) || INVEST_OUT.containsMatchIn(text))) direction = "debit"
+        if (direction == "credit" && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text))) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
         val amounts = AMOUNT.findAll(text).toList()
