@@ -31,7 +31,7 @@ object Parser {
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend))\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend))\b""", RegexOption.IGNORE_CASE)
 
     // Investment contributions (EPF/NPS/funds) — tracked separately, kept out of the account
     // filter so they don't create phantom bank accounts.
@@ -67,7 +67,10 @@ object Parser {
     // Matches "from a/c *5997", "from HDFC Bank XX5997", etc. (a/c word optional if masked).
     private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
     private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
-    private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
+    private val IS_CARD = Regex("""\b(credit card|\bcc\b|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
+    // A debit card is linked to a bank account, not a separate credit-card bill.
+    private val DEBIT_CARD = Regex("""\b(debit card|bank card|\bdc\b)\b""", RegexOption.IGNORE_CASE)
+    private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
         """\b(?:to|from|by|at)\s+(?:VPA\s+)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|of|rs|inr)\b|[.,;]|$)""",
@@ -77,7 +80,7 @@ object Parser {
     private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
     // Promotional / instructional phrases that must never be treated as a payee.
-    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|report|block|dispute|verify|helpline|sms)\b""", RegexOption.IGNORE_CASE)
+    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|report|block|dispute|verify|helpline|sms|transfer|transferred|a year|a month|year|month|months|annual|debit|debited)\b""", RegexOption.IGNORE_CASE)
 
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
@@ -99,6 +102,9 @@ object Parser {
         Regex("""avenue supermart|\bdmart\b|d mart""", RegexOption.IGNORE_CASE) to "DMart",
         Regex("""q ?mart retail|\bqmart\b""", RegexOption.IGNORE_CASE) to "Q Mart",
         Regex("""pure o natural""", RegexOption.IGNORE_CASE) to "Pure O Natural",
+        Regex("""eatsure""", RegexOption.IGNORE_CASE) to "EatSure",
+        Regex("""jubilant food|\bdominos\b|domino's""", RegexOption.IGNORE_CASE) to "Domino's",
+        Regex("""pizza ?hut""", RegexOption.IGNORE_CASE) to "Pizza Hut",
         Regex("""tier\s?1|tier\s?2|\bnps\b|\bpran\b""", RegexOption.IGNORE_CASE) to "NPS",
         Regex("""\bepf\b|epfo|provident fund|passbook|\buan\b""", RegexOption.IGNORE_CASE) to "EPF",
         Regex("""amazon""", RegexOption.IGNORE_CASE) to "Amazon",
@@ -167,7 +173,8 @@ object Parser {
         if (counterparty == null) {
             counterparty = ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
-        if (counterparty == null) counterparty = cleanCp(CP.find(text)?.groupValues?.get(1))
+        // Scan all "to/from/by/at NAME" matches and take the first real one (skips "by Rs …").
+        if (counterparty == null) counterparty = CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
         if (counterparty == null) counterparty = cleanCp(MERCHANT_AFTER.find(text)?.groupValues?.get(1))
 
         // For a loan EMI, name the payee after the loan account ("HDFC Loan 448") so each
@@ -206,10 +213,15 @@ object Parser {
             "credit" -> TO_AC.find(text)?.groupValues?.get(1)
             else -> null
         }
-        val last4 = directional
+        var last4 = directional
             ?: LAST4_MASK.find(text)?.groupValues?.get(1)
             ?: LAST4_KW.find(text)?.groupValues?.get(1) ?: ""
-        val isCard = IS_CARD.containsMatchIn(text)
+        // A debit card is the bank account, not a separate credit-card bill.
+        val debitCard = DEBIT_CARD.containsMatchIn(text)
+        // When a debit card shows only its card number (no a/c), attribute it to the bank
+        // account itself (which then folds into the main savings) rather than the card number.
+        if (debitCard && !AC_KEYWORD.containsMatchIn(text)) last4 = ""
+        val isCard = IS_CARD.containsMatchIn(text) && !debitCard
         return when {
             bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"
             // A card with no readable number still stays a card, so it won't merge into savings.
@@ -222,8 +234,10 @@ object Parser {
     private fun canonicalMerchant(text: String): String? =
         MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(text) }?.second
 
+    private val SALUTATION = Regex("""^(m/?s|mr|mrs|ms|dr|shri|smt|sri)\.?\s+""", RegexOption.IGNORE_CASE)
+
     private fun cleanCp(raw: String?): String? {
-        val s = raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null
+        val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "")
         if (s.length < 2) return null
         if (CP_JUNK.containsMatchIn(s)) return null
         // A bank/account/card string (bank name plus digits) is your own account, not a payee.
