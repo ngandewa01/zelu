@@ -75,6 +75,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Donation" to Color(0xFFCB6D5A),
     "Investment" to Color(0xFF3A7D52),
     "FASTag" to Color(0xFF5C6B7A),
+    "Education" to Color(0xFF4A6FA5),
     "Gym" to Color(0xFFB5744A),
     "Personal care" to Color(0xFFCF8FB0),
     "Cash" to Color(0xFF788074),
@@ -90,6 +91,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
 val CAT_ICON: Map<String, String> = mapOf(
     "Investment" to "🏺",      // amphora / jar
     "FASTag" to "🛣️",    // motorway
+    "Education" to "🎓",       // graduation cap
     "Gym" to "🏋️",       // weightlifter
     "Personal care" to "💇",   // haircut
     "Cash" to "🏧",            // ATM
