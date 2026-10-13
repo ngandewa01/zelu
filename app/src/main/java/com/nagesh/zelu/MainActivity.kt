@@ -327,7 +327,7 @@ fun ZeluApp() {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(t.counterparty ?: t.category, t.category)
+                MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink,
@@ -483,7 +483,7 @@ fun ZeluApp() {
 @Composable private fun TxnRow(t: Row, highlight: Boolean, onClick: (Row) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onClick(t) }.padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        MerchantTile(t.counterparty ?: t.category, t.category)
+        MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category,

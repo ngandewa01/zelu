@@ -24,14 +24,17 @@ object Parser {
     )
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|request(ed)? (money|rs|inr))\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:)\b""", RegexOption.IGNORE_CASE)
 
     // Amounts described as a balance / limit / due are NOT the transaction amount.
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
 
     private val REF = Regex("""\b(?:UPI\s*Ref(?:erence)?(?:\s*No\.?)?|RRN|Ref(?:\s*No\.?)?)\s*[:#-]?\s*(\d{6,})""", RegexOption.IGNORE_CASE)
     private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI)\b""", RegexOption.IGNORE_CASE)
-    private val LAST4 = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending|is)?\s*[xX*#]{0,}\s*[xX*#]*(\d{3,4})\b""", RegexOption.IGNORE_CASE)
+    // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
+    // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
+    private val LAST4_MASK = Regex("""[xX*#]{2,}\s*(\d{4})\b""")
+    private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
     private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -139,7 +142,8 @@ object Parser {
             bank = BANK.find(source)?.value?.uppercase()?.replace(" ", "") ?: ""
         }
         if (bank == "YESBANK") bank = "YES"
-        val last4 = LAST4.find(text)?.groupValues?.get(1) ?: ""
+        val last4 = LAST4_MASK.find(text)?.groupValues?.get(1)
+            ?: LAST4_KW.find(text)?.groupValues?.get(1) ?: ""
         val isCard = IS_CARD.containsMatchIn(text)
         return when {
             bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"

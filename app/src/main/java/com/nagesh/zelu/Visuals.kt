@@ -73,11 +73,37 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Domestic help" to Color(0xFF9A8F5E),
     "Home services" to Color(0xFFC08457),
     "Donation" to Color(0xFFCB6D5A),
+    "Investment" to Color(0xFF3A7D52),
+    "Gym" to Color(0xFFB5744A),
+    "Personal care" to Color(0xFFCF8FB0),
+    "Cash" to Color(0xFF788074),
     "Unknown" to Color(0xFFC1C8C2),
     "Income" to ZColor.Income,
     "Refund" to ZColor.Income,
     "Transfer" to ZColor.Muted,
     "Card bill" to ZColor.Muted,
+)
+
+// Emoji shown instead of a letter for service/abstract categories that rarely have a
+// recognizable brand logo. Merchant-heavy categories (Food, Shopping…) keep the initial.
+val CAT_ICON: Map<String, String> = mapOf(
+    "Investment" to "🏺",      // amphora / jar
+    "Gym" to "🏋️",       // weightlifter
+    "Personal care" to "💇",   // haircut
+    "Cash" to "🏧",            // ATM
+    "Transfer" to "↔️",        // left-right arrow
+    "Card bill" to "💳",       // credit card
+    "Donation" to "🙏",        // folded hands
+    "Maid" to "🧹",            // broom
+    "Domestic help" to "🧹",
+    "Laundry" to "🧺",         // basket
+    "Home services" to "🔧",   // wrench
+    "Milk & Dairy" to "🥛",    // glass of milk
+    "Internet" to "🌐",        // globe
+    "Mobile" to "📱",          // phone
+    "Bills" to "🧾",           // receipt
+    "EMI" to "🏦",             // bank
+    "Rent" to "🏠",            // house
 )
 
 fun brandFor(name: String): Brand? {
@@ -100,15 +126,25 @@ fun bankColor(account: String): Color {
 }
 
 @Composable
-fun MerchantTile(name: String, category: String, size: Dp = 38.dp) {
+fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String = "") {
     val b = brandFor(name)
+    // Transfers and person-to-person lending get the banking-style ⇄ symbol.
+    val symbol = when {
+        b != null -> null
+        kind == "transfer" || kind == "lent" || kind == "borrowed" -> "↔️"
+        else -> CAT_ICON[category]
+    }
     val bg = b?.bg ?: catColor(category).copy(alpha = 0.18f)
     val fg = b?.fg ?: catColor(category)
-    val mark = b?.mark ?: (name.ifBlank { category }).trim().take(1).uppercase()
     Box(
         modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(bg),
         contentAlignment = Alignment.Center,
     ) {
-        Text(mark, color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
+        when {
+            b != null -> Text(b.mark, color = b.fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
+            symbol != null -> Text(symbol, fontSize = (size.value * 0.44f).sp)
+            else -> Text((name.ifBlank { category }).trim().take(1).uppercase(),
+                color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
+        }
     }
 }
