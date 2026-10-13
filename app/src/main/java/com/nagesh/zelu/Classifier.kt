@@ -5,7 +5,7 @@ object Classifier {
     // Category -> keywords, matched against counterparty + SMS text (lowercased).
     // Order matters: earlier entries win.
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("swiggy", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods"),
+        "Food" to listOf("swiggy", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream"),
         "Groceries" to listOf("blinkit", "zepto", "bigbasket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail"),
         "Milk & Dairy" to listOf("country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
         "Fuel" to listOf("petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
@@ -59,7 +59,7 @@ object Classifier {
         Regex("""\b(travels?|tours|holidays|airlines|airways|aviation)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(medical|medicals|pharmacy|pharma|chemist|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
-        Regex("""\b(restaurant|cafe|hotel|foods|kitchen|dhaba|sweets|bakery|bakers|tiffin|biryani|darshini|caterers?|juice|snacks)\b""", RegexOption.IGNORE_CASE) to "Food",
+        Regex("""\b(restaurant|cafe|hotel|foods|kitchen|dhaba|sweets|bakery|bakers|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop)\b""", RegexOption.IGNORE_CASE) to "Food",
         Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
