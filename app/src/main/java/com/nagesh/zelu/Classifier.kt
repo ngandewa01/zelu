@@ -18,6 +18,7 @@ object Classifier {
         "Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl"),
         "Home services" to listOf("urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman"),
         "Entertainment" to listOf("netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar"),
+        "Subscriptions" to listOf("adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
         "Internet" to listOf("broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi"),
         "Mobile" to listOf("mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
         "Bills" to listOf("electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill"),
@@ -44,6 +45,7 @@ object Classifier {
 
     // A plain multi-word personal name (no business word) — a person, not a merchant.
     private val PERSON_NAME = Regex("""^[A-Za-z]{2,}(?: [A-Za-z]{2,}){1,3}$""")
+    private val BUSINESS_WORD = Regex("""\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|supermarket|foods?|motors?|infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""", RegexOption.IGNORE_CASE)
 
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
@@ -108,8 +110,11 @@ object Classifier {
         for ((re, category) in NAME_HINTS) {
             if (re.containsMatchIn(hay)) return Result("expense", category)
         }
-        // 3) Money sent to a named person (not a merchant) is a transfer, not a spend.
-        if (t.counterparty?.let { PERSON_NAME.matches(it.trim()) } == true) return Result("transfer", "Transfer")
+        // 3) Money sent to a named person (not a business) is a transfer, not a spend.
+        val who = t.counterparty?.trim()
+        if (who != null && PERSON_NAME.matches(who) && !BUSINESS_WORD.containsMatchIn(who)) {
+            return Result("transfer", "Transfer")
+        }
         // 4) Genuinely unguessable -> ask once (then remembered per payee).
         return Result("expense", "Unknown")
     }

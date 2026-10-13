@@ -117,6 +117,7 @@ object Parser {
         Regex("""eatsure""", RegexOption.IGNORE_CASE) to "EatSure",
         Regex("""jubilant food|\bdominos\b|domino's""", RegexOption.IGNORE_CASE) to "Domino's",
         Regex("""pizza ?hut""", RegexOption.IGNORE_CASE) to "Pizza Hut",
+        Regex("""\badobe\b""", RegexOption.IGNORE_CASE) to "Adobe",
         Regex("""qualcomm""", RegexOption.IGNORE_CASE) to "Qualcomm Salary",
         Regex("""olamoney|ola money""", RegexOption.IGNORE_CASE) to "OlaMoney",
         Regex("""nobroker""", RegexOption.IGNORE_CASE) to "NoBroker",
