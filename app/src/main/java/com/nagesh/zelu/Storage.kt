@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 19
+    const val PARSER_VERSION = 20
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -83,9 +83,23 @@ object Storage {
                 ccForBankLast4[k] = (ccForBankLast4[k] ?: false) || cc
             }
         }
+        // Savings accounts per bank (last4 not seen as a card) with their row counts, so a
+        // bank-only label like "HDFC" (from loan EMIs) folds into the main HDFC savings a/c.
+        val savingsCount = HashMap<String, HashMap<String, Int>>()
+        for ((l4, banks) in bankCount) {
+            for ((bk, cnt) in banks) {
+                if (ccForBankLast4["$bk|$l4"] != true) savingsCount.getOrPut(bk) { HashMap() }[l4] = cnt
+            }
+        }
         fun canonical(acct: String): String {
             val (bank0, cc0, last4) = parse(acct)
-            if (last4.isEmpty()) return acct
+            if (last4.isEmpty()) {
+                if (bank0.isNotEmpty() && !cc0) {
+                    val l4 = savingsCount[bank0]?.maxByOrNull { it.value }?.key
+                    if (l4 != null) return "$bank0 $l4"
+                }
+                return acct
+            }
             val bank = bankCount[last4]?.maxByOrNull { it.value }?.key ?: bank0
             if (bank.isEmpty()) return acct
             val anyCC = ccForBankLast4["$bank|$last4"] ?: cc0

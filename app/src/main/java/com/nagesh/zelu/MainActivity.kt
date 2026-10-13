@@ -13,6 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -65,6 +67,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.atan2
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,6 +188,7 @@ fun ZeluApp() {
     var stage by remember { mutableStateOf("splash") } // splash, welcome, perm, scan, app
     var permDenied by remember { mutableStateOf(false) }
     var detailRow by remember { mutableStateOf<Row?>(null) }
+    var drill by remember { mutableStateOf<Pair<String, List<Row>>?>(null) }
 
     fun hasPerm() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
@@ -311,11 +315,16 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, list, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it })
-                "buckets" -> BucketsView(list)
-                "payees" -> PayeesView(list)
+                "buckets" -> BucketsView(list) { title, rows -> drill = title to rows }
+                "payees" -> PayeesView(list) { title, rows -> drill = title to rows }
+                "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, list, f, month, account)
             }
         }
+    }
+
+    drill?.let { (title, rows) ->
+        DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
     }
 
     detailRow?.let { r ->
@@ -327,6 +336,28 @@ fun ZeluApp() {
             },
             onDismiss = { detailRow = null },
         )
+    }
+}
+
+@Composable private fun DrillDialog(title: String, rows: List<Row>, onRowClick: (Row) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
+        ) {
+            Text(title, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val total = rows.sumOf { it.amount }
+            MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                rows.sortedByDescending { it.date }.forEach { TxnRow(it, false, onRowClick) }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
     }
 }
 
@@ -406,22 +437,22 @@ fun ZeluApp() {
 }
 
 @Composable private fun ViewSwitcher(view: String, onPick: (String) -> Unit) {
-    val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees")
+    val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest")
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
             .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         items.forEach { (k, lbl) ->
             val sel = view == k
             Box(
                 Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
                     .background(if (sel) ZColor.Ink else Color.Transparent)
-                    .clickable { onPick(k) }.padding(vertical = 9.dp),
+                    .clickable { onPick(k) }.padding(vertical = 9.dp, horizontal = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(lbl, color = if (sel) ZColor.Paper else ZColor.Muted,
-                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
@@ -693,22 +724,6 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         }
     }
 
-    // Investments (PF, NPS, funds) — tracked separately from spend and income.
-    val invested = Analytics.investments(list)
-    if (invested.isNotEmpty()) {
-        Panel {
-            Eyebrow("Investments")
-            Spacer(Modifier.height(10.dp))
-            Fact("Contributed", money(invested.sumOf { it.amount }), ZColor.Income)
-            Spacer(Modifier.height(4.dp))
-            MutedText("PF, NPS and funds — kept out of your spending and income.", 11)
-            invested.take(12).forEach {
-                Spacer(Modifier.height(6.dp))
-                MutedText("${it.counterparty ?: "Investment"} · ${money(it.amount)} on ${it.date}")
-            }
-        }
-    }
-
     // Ask-me
     val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }
     val next = pending.firstOrNull()
@@ -818,42 +833,60 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 
 // ---------- Buckets ----------
 
-@Composable private fun BucketsView(list: List<Row>) {
+@Composable private fun BucketsView(list: List<Row>, onDrill: (String, List<Row>) -> Unit) {
     val cats = Analytics.byCategory(list)
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
     Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
+    fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
     Panel {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Donut(cats.map { catColor(it.first) to (it.second / total).toFloat() }, money(total))
-        }
-        Spacer(Modifier.height(14.dp))
-        cats.take(8).forEach { (c, v) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(catColor(c)))
-                Spacer(Modifier.width(8.dp))
-                Text(c, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text("${(v / total * 100).toInt()}%", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Donut(cats.map { catColor(it.first) to (it.second / total).toFloat() }, money(total)) { i ->
+                onDrill(cats[i].first, rowsFor(cats[i].first))
             }
         }
+        Spacer(Modifier.height(6.dp))
+        MutedText("Tap a slice or a card to see what's inside.", 11)
     }
     val top = cats.first().second
-    cats.forEach { (c, v) ->
-        Panel {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile("", c, 34.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(c, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text(money(v), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    Panel {
+        Eyebrow("By category")
+        cats.forEachIndexed { i, (c, v) ->
+            Spacer(Modifier.height(if (i == 0) 8.dp else 14.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill(c, rowsFor(c)) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile("", c, 32.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(c, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(v), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(" ${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp,
+                        modifier = Modifier.width(42.dp), textAlign = TextAlign.End)
+                }
+                Spacer(Modifier.height(7.dp))
+                Meter((v / top).toFloat(), catColor(c))
             }
-            Spacer(Modifier.height(10.dp)); Meter((v / top).toFloat(), catColor(c))
         }
     }
 }
 
-@Composable private fun Donut(segs: List<Pair<Color, Float>>, centerText: String) {
+@Composable private fun Donut(segs: List<Pair<Color, Float>>, centerText: String, onSliceTap: (Int) -> Unit = {}) {
     Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(190.dp)) {
+        Canvas(
+            Modifier.size(190.dp).pointerInput(segs) {
+                detectTapGestures { off ->
+                    val cx = size.width / 2f; val cy = size.height / 2f
+                    val ang = Math.toDegrees(atan2((off.y - cy).toDouble(), (off.x - cx).toDouble())).toFloat()
+                    val a = (ang + 90f + 360f) % 360f
+                    var acc = 0f
+                    for (i in segs.indices) {
+                        val sweep = segs[i].second * 360f
+                        if (a >= acc && a < acc + sweep) { onSliceTap(i); break }
+                        acc += sweep
+                    }
+                }
+            }
+        ) {
             val stroke = 28.dp.toPx()
             val inset = stroke / 2
             val arcSize = Size(size.width - stroke, size.height - stroke)
@@ -875,13 +908,19 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 
 // ---------- Payees ----------
 
-@Composable private fun PayeesView(list: List<Row>) {
+@Composable private fun PayeesView(list: List<Row>, onDrill: (String, List<Row>) -> Unit) {
     val payees = Analytics.byPayee(list)
     Text("Who you paid", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     Panel {
         if (payees.isEmpty()) MutedText("No payments in this view.")
         else payees.forEachIndexed { i, p ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            val rows = list.filter {
+                it.kind == "expense" && (it.counterparty?.takeIf { c -> c.isNotBlank() } ?: it.category) == p.name
+            }
+            Row(
+                Modifier.fillMaxWidth().clickable { onDrill(p.name, rows) }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text("%02d".format(i + 1), color = ZColor.Muted, fontSize = 15.sp, modifier = Modifier.width(28.dp))
                 MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown")
                 Spacer(Modifier.width(12.dp))
@@ -892,6 +931,50 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(money(p.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+// ---------- Investments ----------
+
+@Composable private fun InvestView(allRows: List<Row>, onDrill: (String, List<Row>) -> Unit) {
+    val inv = Analytics.investments(allRows)
+    Text("Investments", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    if (inv.isEmpty()) {
+        Panel { MutedText("Nothing yet. PF, NPS and mutual-fund contributions will show up here.") }
+        return
+    }
+    Panel {
+        Eyebrow("Contributed")
+        Spacer(Modifier.height(4.dp))
+        Text(money(inv.sumOf { it.amount }), color = ZColor.Income, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        MutedText("PF, NPS and funds — kept out of your spending and income.", 11)
+    }
+    fun typeOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: "Investment"
+    val byType = inv.groupBy { typeOf(it) }
+        .map { (name, rows) -> Triple(name, rows.sumOf { it.amount }, rows.size) }
+        .sortedByDescending { it.second }
+    val top = byType.firstOrNull()?.second ?: 1.0
+    Panel {
+        Eyebrow("By type")
+        byType.forEachIndexed { i, (name, amt, cnt) ->
+            Spacer(Modifier.height(if (i == 0) 8.dp else 14.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                .clickable { onDrill(name, inv.filter { typeOf(it) == name }) }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(name, "Investment", 32.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText("$cnt ${if (cnt == 1) "contribution" else "contributions"}", 11)
+                    }
+                    Text(money(amt), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(7.dp))
+                Meter((amt / top).toFloat(), catColor("Investment"))
             }
         }
     }

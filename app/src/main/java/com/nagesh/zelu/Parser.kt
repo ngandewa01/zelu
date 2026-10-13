@@ -33,8 +33,9 @@ object Parser {
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
     private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder:|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend))\b""", RegexOption.IGNORE_CASE)
 
-    // EPF / provident-fund passbook notifications — classified as an investment, not skipped.
-    private val PF = Regex("""\b(epf|epfo|provident fund|passbook|uan)\b""", RegexOption.IGNORE_CASE)
+    // Investment contributions (EPF/NPS/funds) — tracked separately, kept out of the account
+    // filter so they don't create phantom bank accounts.
+    private val INVESTMENT = Regex("""\b(epf|epfo|provident fund|passbook|uan|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal)\b""", RegexOption.IGNORE_CASE)
 
     // Amounts described as a balance / limit / due are NOT the transaction amount.
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
@@ -59,13 +60,13 @@ object Parser {
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
     // A masked account tail: one or more mask chars then 4 digits (*5997, **2931, XX5997).
-    private val LAST4_MASK = Regex("""[xX*#]+\s*(\d{4})\b""")
-    private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val LAST4_MASK = Regex("""[xX*#]+\s*\d*(\d{4})\b""")
+    private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
     // Your account is the one money leaves FROM (debit) or lands in / TO (credit) — never the
     // other party's account. "debited from a/c *5997 ... to a/c **2931" -> your a/c is 5997.
     // Matches "from a/c *5997", "from HDFC Bank XX5997", etc. (a/c word optional if masked).
-    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
-    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
     private val IS_CARD = Regex("""\b(credit card|debit card|cc|card ending|on card|your card)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -195,8 +196,8 @@ object Parser {
             val src = source.uppercase()
             bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
         }
-        // EPF is not a bank account you spend from — keep it out of the account filter.
-        if (PF.containsMatchIn(text)) return ""
+        // Investments aren't bank accounts you spend from — keep them out of the account filter.
+        if (INVESTMENT.containsMatchIn(text)) return ""
         // FASTag / toll debits come from the FASTag wallet, not the bank account.
         if (FASTAG.containsMatchIn(text)) return if (bank.isNotEmpty()) "$bank FASTag" else "FASTag"
         // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.
