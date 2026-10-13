@@ -16,7 +16,7 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 7
+    const val PARSER_VERSION = 8
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -56,15 +56,22 @@ object Storage {
         dedupBillers(rows)
     }
 
-    // Some billers (e.g. Jio) send two confirmation SMS for a single payment. Collapse
-    // rows that share date + amount + a known merchant + direction, keeping the first.
+    // Collapse duplicates:
+    //  - Billers (e.g. Jio) send two confirmation SMS for one payment: same
+    //    date + amount + known merchant + direction.
+    //  - Loan EMIs arrive as repeated NACH notices: keep one per month per loan.
     private fun dedupBillers(rows: List<Row>): List<Row> {
-        val seen = HashSet<String>()
+        val seenBrand = HashSet<String>()
+        val seenEmi = HashSet<String>()
         return rows.filter { r ->
             val cp = r.counterparty
-            if (cp != null && Parser.CANON_NAMES.contains(cp)) {
-                seen.add("${r.date}|${r.amount}|$cp|${r.direction}")
-            } else true
+            when {
+                r.category == "EMI" && cp != null ->
+                    seenEmi.add("${r.date.take(7)}|$cp|${r.amount}")
+                cp != null && Parser.CANON_NAMES.contains(cp) ->
+                    seenBrand.add("${r.date}|${r.amount}|$cp|${r.direction}")
+                else -> true
+            }
         }
     }
 

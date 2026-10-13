@@ -24,7 +24,7 @@ object Classifier {
         "Laundry" to listOf("laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat"),
         "Maid" to listOf("maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
-        "EMI" to listOf("emi", "loan", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
+        "EMI" to listOf("emi", "loan", "installment", "instalment", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
         "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg"),
         "Rent" to listOf("rent"),
     )

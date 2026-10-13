@@ -50,6 +50,11 @@ object Parser {
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
 
+    // A loan EMI debit notice (NACH / ACH / e-mandate / installment). Captured as a real
+    // monthly expense even though it reads like a reminder; de-duplicated to once a month.
+    private val EMI_DEBIT = Regex("""\b(nach|ach|e-?mandate|installment|instalment|loan a/?c|loan ac|emi)\b.{0,70}\b(debit|debited|deduct|deducted)\b|\b(debit|debited|deduct|deducted)\b.{0,50}\b(nach|ach|emi|loan|installment|instalment)\b""", RegexOption.IGNORE_CASE)
+    private val LOAN_AC = Regex("""loan\s*a/?c(?:\s*no\.?)?\s*[xX*#]*\s*(\d{3,4})""", RegexOption.IGNORE_CASE)
+
     // Canonical merchant names, so "ZOMATO LTD" / "Zomato Media Pvt Ltd" group as one payee.
     private val MERCHANT_MAP: List<Pair<Regex, String>> = listOf(
         Regex("""jio\s*fiber|jiofiber|jiohome""", RegexOption.IGNORE_CASE) to "JioFiber",
@@ -85,7 +90,9 @@ object Parser {
 
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
         val text = WS.replace(body, " ").trim()
-        if (text.isEmpty() || SKIP.containsMatchIn(text)) return null
+        // Loan EMI debit notices are kept even if they read like reminders; other reminders drop.
+        val isEmiDebit = EMI_DEBIT.containsMatchIn(text)
+        if (text.isEmpty() || (SKIP.containsMatchIn(text) && !isEmiDebit)) return null
 
         // Direction, from the earliest transaction keyword present.
         val d = DEBIT.find(text)
@@ -125,6 +132,15 @@ object Parser {
         }
         if (counterparty == null) counterparty = cleanCp(CP.find(text)?.groupValues?.get(1))
         if (counterparty == null) counterparty = cleanCp(MERCHANT_AFTER.find(text)?.groupValues?.get(1))
+
+        // For a loan EMI, name the payee after the loan account ("HDFC Loan 448") so each
+        // loan is distinct in the ledger — without the loan number polluting the account filter.
+        if (isEmiDebit) {
+            LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
+                val bk = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+                counterparty = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
+            }
+        }
 
         val account = accountOf(text, source)
 
