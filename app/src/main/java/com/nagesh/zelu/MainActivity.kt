@@ -32,7 +32,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -175,6 +178,8 @@ fun ZeluApp() {
 
     var rows by remember { mutableStateOf<List<Row>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
+    var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var lendPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
     var period by remember { mutableStateOf("month") }
     var month by remember { mutableStateOf(Dates.todayMonth()) }
@@ -200,6 +205,7 @@ fun ZeluApp() {
         scope.launch {
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         }
     }
 
@@ -207,6 +213,13 @@ fun ZeluApp() {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.setReminderDone(context, id, done) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        }
+    }
+
+    fun setRepayment(personKey: String, amount: Double) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.setRepaid(context, personKey, amount) }
+            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         }
     }
 
@@ -220,6 +233,7 @@ fun ZeluApp() {
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             loading = false
             if (stage == "scan") stage = "app"
         }
@@ -232,6 +246,7 @@ fun ZeluApp() {
     LaunchedEffect(Unit) {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         delay(1200)
         if (hasPerm()) { stage = "app"; rescan() } else { stage = "welcome" }
     }
@@ -352,7 +367,8 @@ fun ZeluApp() {
             when (view) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
-                    { detailRow = it }, { title, r -> drill = title to r }, excludeEmi)
+                    { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
+                    repaid, { lendPerson = it })
                 "buckets" -> BucketsView(shown) { title, rows -> drill = title to rows }
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
@@ -364,6 +380,18 @@ fun ZeluApp() {
 
     drill?.let { (title, rows) ->
         DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
+    }
+
+    lendPerson?.let { person ->
+        val pRows = rows.filter { it.kind == "lent" && (it.counterparty ?: "Someone") == person }
+        LendingDialog(
+            person = person,
+            lentRows = pRows,
+            repaidSoFar = repaid[person.lowercase().trim()] ?: 0.0,
+            onRowClick = { detailRow = it },
+            onSave = { amt -> setRepayment(person.lowercase().trim(), amt) },
+            onDismiss = { lendPerson = null },
+        )
     }
 
     detailRow?.let { r ->
@@ -396,6 +424,70 @@ fun ZeluApp() {
                 Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+private fun fmtPlain(n: Double): String =
+    if (n == n.toLong().toDouble()) n.toLong().toString() else n.toString()
+
+@Composable private fun LendingDialog(
+    person: String, lentRows: List<Row>, repaidSoFar: Double,
+    onRowClick: (Row) -> Unit, onSave: (Double) -> Unit, onDismiss: () -> Unit,
+) {
+    val total = lentRows.sumOf { it.amount }
+    var text by remember { mutableStateOf(if (repaidSoFar > 0) fmtPlain(repaidSoFar) else "") }
+    val entered = text.replace(",", "").toDoubleOrNull() ?: 0.0
+    val balance = (total - entered).coerceAtLeast(0.0)
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text(person, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Lent ${money(total)} in ${lentRows.size} ${if (lentRows.size == 1) "transfer" else "transfers"}", 12)
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Fact("Lent", money(total))
+                Fact("Repaid", money(entered), ZColor.Income)
+                Fact("Balance", money(balance), if (balance <= 0.0) ZColor.Muted else ZColor.Warn)
+            }
+            Spacer(Modifier.height(14.dp))
+            Eyebrow("Repaid so far")
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
+                singleLine = true,
+                placeholder = { Text("0") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Mark fully paid", false) { text = fmtPlain(total) }
+                if (entered > 0) Chip("Clear", false) { text = "" }
+            }
+            if (lentRows.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Eyebrow("Transfers")
+                Spacer(Modifier.height(4.dp))
+                Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
+                    lentRows.sortedByDescending { it.date }.forEach { TxnRow(it, false, onRowClick) }
+                }
+                MutedText("Tap a transfer to see its message.", 11)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).clickable { onDismiss() }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                ) { Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold) }
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { onSave(entered); onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+                ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
         }
     }
 }
@@ -626,6 +718,58 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 
 // ---------- Ledger ----------
 
+// A rotating pool of "At a glance" one-liners, so the panel feels alive rather than
+// repeating one line. The caller picks one by a seed that shifts with day/category/month.
+private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): List<String> {
+    val cat = ins.topCat
+    val pct = ins.topCatPct
+    val big = ins.biggestName
+    val ob = ins.overBy
+    val over = ob != null && ob > 0
+    val under = ob != null && ob < 0
+    val savings = if (income > 0) Math.round((income - spent) / income * 100).toInt() else null
+    return buildList {
+        add("$cat is your biggest bucket at $pct% — trimming it is the quickest win.")
+        add("$pct% of your spending went to $cat this month.")
+        add("Your largest single spend was $big.")
+        add("A small trim to $cat moves the needle more than anything else.")
+        add("Most of the money flowed into $cat — the rest is spread thin.")
+        add("$cat leads the month; everything else trails well behind.")
+        add("Spending is concentrated: $cat alone is $pct%.")
+        add("$big was the heaviest hitter this month.")
+        add("If you trimmed $cat by a tenth, you'd barely notice the rest.")
+        add("Keep an eye on $cat — it's doing most of the work here.")
+        add("$cat is where a budget would bite first.")
+        add("Your money has a clear favourite this month: $cat.")
+        add("$pct% in one bucket ($cat); the rest is background noise.")
+        add("The 80/20 here is simple — $cat is the 80.")
+        add("One bucket, $cat, carries $pct% of the load.")
+        add("Trim $cat, cap $big, and the month looks lean.")
+        add("$cat and $big tell most of this month's story.")
+        add("Nothing wild this month — $cat just leads as usual.")
+        add("Small leaks in $cat add up fast — worth a glance.")
+        add("If you only tracked one thing, track $cat.")
+        add("$cat tops the list again — it's your steady number one.")
+        add("Curious where it goes? $cat is the headline at $pct%.")
+        if (savings != null && savings > 0) {
+            add("You held on to about $savings% of what came in this month.")
+            add("Roughly $savings% of your income stayed put — not bad.")
+        }
+        if (savings != null && savings <= 0) {
+            add("You spent about as much as came in this month.")
+            add("Money in and money out are running neck and neck.")
+        }
+        if (over) {
+            add("You're ahead of a steady pace — easing $cat helps most.")
+            add("Running a little hot this month; $cat is the lever to pull.")
+        }
+        if (under) {
+            add("You're under a steady pace — comfortably on track.")
+            add("Spending's calmer than a steady pace allows. Nice work.")
+        }
+    }
+}
+
 @Composable private fun LedgerView(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, accounts: List<String>,
     month: String, account: String, daySel: Int, onDay: (Int) -> Unit,
@@ -634,6 +778,8 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     onRowClick: (Row) -> Unit,
     onDrill: (String, List<Row>) -> Unit,
     excludeEmi: Boolean = false,
+    repaid: Map<String, Double> = emptyMap(),
+    onOpenLend: (String) -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -674,9 +820,11 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
                 Text(money(kotlin.math.abs(ob)), color = if (over) ZColor.Accent else ZColor.Income,
                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
-            if (ob != null && ob > 0) {
-                Spacer(Modifier.height(10.dp))
-                MutedText("Trimming ${ins.topCat} is the quickest win — it's your biggest bucket.", 13)
+            val tips = glanceTips(ins, s.spent, s.income)
+            if (tips.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
+                Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -753,18 +901,51 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         }
     }
 
-    // Lending
-    val lent = Analytics.lent(list); val borrowed = Analytics.borrowed(list)
-    if (lent.isNotEmpty() || borrowed.isNotEmpty()) {
+    // Lending — all-time so repayments and balances stay correct across months.
+    val lentAll = allRows.filter { it.kind == "lent" }
+    val borrowedAll = allRows.filter { it.kind == "borrowed" }
+    if (lentAll.isNotEmpty() || borrowedAll.isNotEmpty()) {
+        val byPerson = lentAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
+            .map { (person, rs) ->
+                val total = rs.sumOf { it.amount }
+                val paid = repaid[person.lowercase().trim()] ?: 0.0
+                Triple(person, total, (total - paid).coerceAtLeast(0.0))
+            }.sortedByDescending { it.third }
+        val owedToYou = byPerson.sumOf { it.third }
         Panel {
             Eyebrow("Lending")
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Owed to you", money(lent.sumOf { it.amount }), ZColor.Income)
-                Fact("You owe", money(borrowed.sumOf { it.amount }), ZColor.Warn)
+                Fact("Owed to you", money(owedToYou), ZColor.Income)
+                Fact("You owe", money(borrowedAll.sumOf { it.amount }), ZColor.Warn)
             }
-            lent.forEach { Spacer(Modifier.height(6.dp)); MutedText("${it.counterparty ?: "Someone"} owes you ${money(it.amount)}") }
-            borrowed.forEach { Spacer(Modifier.height(6.dp)); MutedText("You owe ${it.counterparty ?: "someone"} ${money(it.amount)}") }
+            byPerson.forEach { (person, total, bal) ->
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .clickable { onOpenLend(person) }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(
+                            if (bal <= 0.0) "Settled · lent ${money(total)}"
+                            else if (bal < total) "Paid ${money(total - bal)} of ${money(total)}"
+                            else "owes you",
+                            11,
+                        )
+                    }
+                    Text(money(bal), color = if (bal <= 0.0) ZColor.Muted else ZColor.Income,
+                        fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(6.dp))
+                    Text("›", color = ZColor.Muted, fontSize = 16.sp)
+                }
+            }
+            borrowedAll.forEach {
+                Spacer(Modifier.height(6.dp))
+                MutedText("You owe ${it.counterparty ?: "someone"} ${money(it.amount)}")
+            }
         }
     }
 
@@ -1033,11 +1214,15 @@ private fun prettyDate(iso: String): String = try {
 
 @Composable private fun RemindersView(reminders: List<Reminder>, onMark: (String, Boolean) -> Unit) {
     var tab by remember { mutableStateOf("upcoming") }
+    var detail by remember { mutableStateOf<Reminder?>(null) }
     val today = Dates.today()
-    val pending = reminders.filter { !it.done }
+    val curMonth = Dates.todayMonth()
+    // A due from a previous month is assumed already paid — it drops out of Overdue.
+    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth
+    val pending = reminders.filter { !settled(it) }
     val upcoming = pending.filter { it.dueDate >= today }.sortedBy { it.dueDate }
     val overdue = pending.filter { it.dueDate < today }.sortedByDescending { it.dueDate }
-    val paid = reminders.filter { it.done }.sortedByDescending { it.dueDate }
+    val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
 
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1055,15 +1240,52 @@ private fun prettyDate(iso: String): String = try {
             )
         }
     } else {
-        list.forEach { r -> ReminderCard(r, overdue = tab == "overdue") { onMark(r.id, true) } }
+        list.forEach { r -> ReminderCard(r, overdue = tab == "overdue", onOpen = { detail = r }) { onMark(r.id, true) } }
     }
     if (paid.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
         Eyebrow("Paid")
-        paid.take(20).forEach { r -> ReminderCard(r, overdue = false, paid = true) { onMark(r.id, false) } }
+        paid.take(20).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
     }
     Spacer(Modifier.height(6.dp))
     MutedText("Reminders are never counted as spending — only money that actually leaves your bank is.", 11)
+
+    detail?.let { r -> ReminderDetailDialog(r) { detail = null } }
+}
+
+@Composable private fun ReminderDetailDialog(r: Reminder, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile(r.counterparty ?: "Bill", "Bills", 40.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(r.counterparty?.takeIf { it.isNotBlank() } ?: r.account.ifBlank { "Bill" },
+                        color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MutedText("Due ${prettyDate(r.dueDate)}" + if (r.recurring) " · Monthly" else "", 12)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(money(r.amount), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            if (r.minAmount != null) { Spacer(Modifier.height(6.dp)); MutedText("Minimum due: ${money(r.minAmount)}", 12) }
+            if (r.account.isNotBlank()) { Spacer(Modifier.height(4.dp)); MutedText("Account: ${r.account}", 12) }
+            Spacer(Modifier.height(16.dp))
+            Eyebrow("From this message")
+            Spacer(Modifier.height(6.dp))
+            Text(
+                r.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
+                modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()),
+            )
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
 }
 
 @Composable private fun SegTab(label: String, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
@@ -1079,10 +1301,11 @@ private fun prettyDate(iso: String): String = try {
     }
 }
 
-@Composable private fun ReminderCard(r: Reminder, overdue: Boolean, paid: Boolean = false, onTick: () -> Unit) {
+@Composable private fun ReminderCard(r: Reminder, overdue: Boolean, paid: Boolean = false, onOpen: () -> Unit = {}, onTick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp))
-            .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
+            .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
+            .clickable { onOpen() }.padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MerchantTile(r.counterparty ?: "Bill", "Bills", 40.dp)

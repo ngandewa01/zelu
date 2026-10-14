@@ -16,9 +16,10 @@ object Storage {
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
     private const val REMINDER_FILE = "reminders.json"   // parsed bill/payment reminders
     private const val REM_DONE_FILE = "reminder_done.json" // reminder ids ticked as paid
+    private const val REPAID_FILE = "lent_repaid.json"   // person -> amount repaid against money you lent
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 31
+    const val PARSER_VERSION = 32
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -184,6 +185,27 @@ object Storage {
         readReminderMap(context).values
             .map { it.copy(done = done.contains(it.id)) }
             .sortedBy { it.dueDate }
+    }
+
+    // ---- lending repayments ----  person key (lowercased counterparty) -> amount repaid
+    fun loadRepaid(context: Context): Map<String, Double> = synchronized(lock) {
+        val f = file(context, REPAID_FILE)
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText())
+            val m = HashMap<String, Double>()
+            val ks = o.keys()
+            while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun setRepaid(context: Context, personKey: String, amount: Double) = synchronized(lock) {
+        val cur = loadRepaid(context).toMutableMap()
+        if (amount <= 0.0) cur.remove(personKey) else cur[personKey] = amount
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, v)
+        file(context, REPAID_FILE).writeText(o.toString())
     }
 
     fun setReminderDone(context: Context, id: String, done: Boolean) = synchronized(lock) {

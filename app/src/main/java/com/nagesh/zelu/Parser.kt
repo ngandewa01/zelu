@@ -114,7 +114,7 @@ object Parser {
     // carries a bank code (HDFCBK, ICICIB, SBIINB…) or a financial token. Personal
     // phone numbers and promo/scam senders (astrology apps, lotteries, fake KYC) do not.
     // Matched as substrings because sender headers are smooshed (e.g. "VM-HDFCBK").
-    private val FIN_TOKEN = Regex("""(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA)""", RegexOption.IGNORE_CASE)
+    private val FIN_TOKEN = Regex("""(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA|EPF|EPFO|UAN|NSDL|NPS|PFRDA|PRAN|CAMS|KFIN|CDSL|MFUT|DEPOS|INVEST|SEBI)""", RegexOption.IGNORE_CASE)
 
     fun isFinancialSender(address: String): Boolean {
         val a = address.uppercase()
