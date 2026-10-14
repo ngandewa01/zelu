@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -381,10 +382,22 @@ fun ZeluApp() {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
-                    Box(
-                        Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                            .clickable { controlsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
-                    ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                                .clickable {
+                                    val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
+                                    Toast.makeText(context,
+                                        if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+",
+                                        Toast.LENGTH_SHORT).show()
+                                }.padding(horizontal = 16.dp, vertical = 10.dp),
+                        ) { Text("Export CSV", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                        Spacer(Modifier.width(10.dp))
+                        Box(
+                            Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                                .clickable { controlsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
+                        ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    }
                 }
             }
 
@@ -1066,12 +1079,16 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
-    // Ask-me
-    val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }
+    // Ask-me — tackle the biggest unknowns first.
+    val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }.sortedByDescending { it.amount }
     val next = pending.firstOrNull()
     if (next != null) {
         Panel {
-            Eyebrow("Needs you · ${pending.size} to go")
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Needs you · ${pending.size} to go")
+                if (pending.size > 1) Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.height(6.dp))
             Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Payment",
                 color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
