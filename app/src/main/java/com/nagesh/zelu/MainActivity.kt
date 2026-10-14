@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -258,6 +259,26 @@ fun ZeluApp() {
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { res -> if (res.values.all { it }) { stage = "scan"; rescan() } else { permDenied = true } }
 
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var notifAsked by remember { mutableStateOf(false) }
+
+    // Best-effort local reminder on open: nudge about bills due within 3 days.
+    LaunchedEffect(stage, reminders) {
+        if (stage != "app") return@LaunchedEffect
+        if (!notifAsked && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
+        ) { notifAsked = true; notifLauncher.launch("android.permission.POST_NOTIFICATIONS") }
+        val today = Dates.today()
+        val soon = Dates.shiftDays(today, 3)
+        val cm = Dates.todayMonth()
+        val dueSoon = reminders.filter { !it.done && it.dueDate.take(7) >= cm && it.dueDate <= soon }
+        if (dueSoon.isNotEmpty()) {
+            val first = dueSoon.minByOrNull { it.dueDate }!!
+            Notifier.notifyDueSoon(context, dueSoon.size,
+                "${first.counterparty ?: "Bill"} ${money(first.amount)} due ${prettyDate(first.dueDate)}")
+        }
+    }
+
     LaunchedEffect(Unit) {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
@@ -403,6 +424,31 @@ fun ZeluApp() {
 
             if (loading) {
                 Spacer(Modifier.height(10.dp)); MutedText("Reading messages…")
+            }
+
+            if (view == "ledger") {
+                val today = Dates.today()
+                val soon = Dates.shiftDays(today, 3)
+                val cm = Dates.todayMonth()
+                val dueSoon = reminders.filter { !it.done && it.dueDate.take(7) >= cm && it.dueDate <= soon }
+                if (dueSoon.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                            .background(ZColor.Warn.copy(alpha = 0.12f))
+                            .border(1.dp, ZColor.Warn.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                            .clickable { view = "dues" }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("🔔", fontSize = 16.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "${dueSoon.size} ${if (dueSoon.size == 1) "bill" else "bills"} due soon — tap to review",
+                            color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                        )
+                        Text("›", color = ZColor.Muted, fontSize = 16.sp)
+                    }
+                }
             }
 
             Spacer(Modifier.height(8.dp))

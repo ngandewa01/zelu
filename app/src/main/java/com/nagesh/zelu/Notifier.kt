@@ -1,0 +1,41 @@
+package com.nagesh.zelu
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.os.Build
+
+// Posts a local "bills due soon" notification. Best-effort: if the notification
+// permission isn't granted (Android 13+), notify() is a silent no-op.
+object Notifier {
+    private const val CHANNEL = "zelu_dues"
+    private const val ID = 1001
+
+    fun notifyDueSoon(context: Context, count: Int, line: String) {
+        if (count <= 0) return
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    NotificationChannel(CHANNEL, "Bill reminders", NotificationManager.IMPORTANCE_DEFAULT),
+                )
+            }
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pi = PendingIntent.getActivity(context, 0, launch, flags)
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                Notification.Builder(context, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
+            builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
+                .setContentTitle(if (count == 1) "A bill is due soon" else "$count bills due soon")
+                .setContentText(line)
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+            nm.notify(ID, builder.build())
+        } catch (_: Exception) {
+            // notifications are best-effort
+        }
+    }
+}
