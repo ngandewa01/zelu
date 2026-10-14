@@ -356,7 +356,7 @@ fun ZeluApp() {
                 "buckets" -> BucketsView(shown) { title, rows -> drill = title to rows }
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
-                "pace" -> PaceView(rows, shown, f, month, account)
+                "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
                 "dues" -> RemindersView(reminders, ::markReminder)
             }
         }
@@ -1124,14 +1124,19 @@ private fun prettyDate(iso: String): String = try {
 
 // ---------- Pace ----------
 
-@Composable private fun PaceView(allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String) {
+@Composable private fun PaceView(
+    allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
+    excludeEmi: Boolean = false,
+) {
+    // Respect the "Exclude EMI" toggle for the running-total and monthly charts too.
+    val baseRows = if (excludeEmi) allRows.filter { it.category != "EMI" } else allRows
     Text("Are you ahead of budget?", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
 
     if (f.period == "month") {
         val dim = Dates.daysInMonth(month)
         val isCur = month == Dates.todayMonth()
         val upto = if (isCur) Dates.dayOfMonth() else dim
-        val run = Analytics.runningTotals(allRows, month, account, upto)
+        val run = Analytics.runningTotals(baseRows, month, account, upto)
         val total = if (upto > 0) run[upto] else 0.0
         val pace = Analytics.BUDGET * upto / dim
         val diff = total - pace
@@ -1151,7 +1156,7 @@ private fun prettyDate(iso: String): String = try {
 
     // Three months
     val months = Dates.recentMonths(Dates.todayMonth(), 3)
-    val data = Analytics.monthlySpendIncome(allRows, months, account)
+    val data = Analytics.monthlySpendIncome(baseRows, months, account)
     val maxV = (data.flatMap { listOf(it.second, it.third) }.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
     Panel {
         Eyebrow("Three months")
