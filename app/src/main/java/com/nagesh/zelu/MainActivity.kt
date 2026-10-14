@@ -181,6 +181,7 @@ fun ZeluApp() {
 
     var rows by remember { mutableStateOf<List<Row>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
+    var reminderState by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgetsOpen by remember { mutableStateOf(false) }
@@ -212,6 +213,7 @@ fun ZeluApp() {
         scope.launch {
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         }
@@ -227,6 +229,7 @@ fun ZeluApp() {
     fun markReminder(id: String, done: Boolean) {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.setReminderDone(context, id, done) }
+            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
         }
     }
@@ -248,6 +251,7 @@ fun ZeluApp() {
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
             loading = false
@@ -282,6 +286,7 @@ fun ZeluApp() {
     LaunchedEffect(Unit) {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
         repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         delay(1200)
@@ -465,7 +470,7 @@ fun ZeluApp() {
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
-                "dues" -> RemindersView(reminders, rows, ::markReminder)
+                "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder)
             }
         }
     }
@@ -1426,8 +1431,9 @@ private fun prettyDate(iso: String): String = try {
     val p = iso.split("-"); "${p[2]} ${MONTH_ABBR[p[1].toInt() - 1]} ${p[0].takeLast(2)}"
 } catch (_: Exception) { iso }
 
-@Composable private fun RemindersView(reminders: List<Reminder>, rows: List<Row>, onMark: (String, Boolean) -> Unit) {
-    var tab by remember { mutableStateOf("upcoming") }
+@Composable private fun RemindersView(
+    reminders: List<Reminder>, rows: List<Row>, state: Map<String, Boolean>, onMark: (String, Boolean) -> Unit,
+) {
     var detail by remember { mutableStateOf<Reminder?>(null) }
     val today = Dates.today()
     val curMonth = Dates.todayMonth()
@@ -1453,35 +1459,30 @@ private fun prettyDate(iso: String): String = try {
         }
         matched
     }
-    // A due from a previous month is assumed already paid; so is one matched by a real debit.
-    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth || r.id in autoSet
-    val pending = reminders.filter { !settled(it) }
-    val upcoming = pending.filter { it.dueDate >= today }.sortedBy { it.dueDate }
-    val overdue = pending.filter { it.dueDate < today }.sortedByDescending { it.dueDate }
+    // An explicit paid/unpaid tap always wins; otherwise a previous-month due or a debit-matched
+    // one is assumed paid.
+    fun settled(r: Reminder) = state[r.id] ?: (r.dueDate.take(7) < curMonth || r.id in autoSet)
+
+    val pending = reminders.filter { !settled(it) }.sortedBy { it.dueDate }
     val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
 
     Spacer(Modifier.height(4.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SegTab("Upcoming", upcoming.size, tab == "upcoming", Modifier.weight(1f)) { tab = "upcoming" }
-        SegTab("Overdue", overdue.size, tab == "overdue", Modifier.weight(1f)) { tab = "overdue" }
-    }
-    val list = if (tab == "upcoming") upcoming else overdue
-    if (list.isEmpty()) {
+    Text("Dues & reminders", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    if (pending.isEmpty()) {
         Panel {
-            Eyebrow(if (tab == "upcoming") "Upcoming" else "Overdue")
+            Eyebrow("All clear")
             Spacer(Modifier.height(8.dp))
-            MutedText(
-                if (tab == "upcoming") "No upcoming bills. Bill and EMI reminders from your SMS appear here."
-                else "Nothing overdue.",
-            )
+            MutedText("No bills to pay. Bill and EMI reminders from your SMS appear here — tap the circle to mark one paid.")
         }
     } else {
-        list.forEach { r -> ReminderCard(r, overdue = tab == "overdue", onOpen = { detail = r }) { onMark(r.id, true) } }
+        Spacer(Modifier.height(4.dp))
+        MutedText("Tap the circle to mark a bill paid. Overdue ones are in red.", 12)
+        pending.forEach { r -> ReminderCard(r, overdue = r.dueDate < today, onOpen = { detail = r }) { onMark(r.id, true) } }
     }
     if (paid.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
         Eyebrow("Paid")
-        paid.take(20).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
+        paid.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
     }
     Spacer(Modifier.height(6.dp))
     MutedText("Reminders are never counted as spending — only money that actually leaves your bank is.", 11)
@@ -1521,19 +1522,6 @@ private fun prettyDate(iso: String): String = try {
                     .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
-    }
-}
-
-@Composable private fun SegTab(label: String, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.clip(RoundedCornerShape(14.dp))
-            .background(if (selected) ZColor.Ink else ZColor.Card)
-            .border(1.dp, if (selected) ZColor.Ink else ZColor.Line, RoundedCornerShape(14.dp))
-            .clickable { onClick() }.padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label + (if (count > 0) "  ·  $count" else ""),
-            color = if (selected) ZColor.Paper else ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

@@ -182,10 +182,23 @@ object Storage {
     }
 
     fun loadReminders(context: Context): List<Reminder> = synchronized(lock) {
-        val done = readDoneSet(context)
-        readReminderMap(context).values
-            .map { it.copy(done = done.contains(it.id)) }
+        val state = loadReminderState(context)
+        val sorted = readReminderMap(context).values
+            .map { it.copy(done = state[it.id] ?: false) }
             .sortedBy { it.dueDate }
+        // Collapse true duplicates: same payee + amount whose due dates are within 3 days
+        // (the same bill arriving as two SMS). Keeps the earliest.
+        val out = ArrayList<Reminder>()
+        for (r in sorted) {
+            val key = (r.counterparty ?: "").lowercase().trim()
+            val dup = out.any { d ->
+                (d.counterparty ?: "").lowercase().trim() == key &&
+                    kotlin.math.abs(d.amount - r.amount) < 1.0 &&
+                    (-3..3).any { Dates.shiftDays(d.dueDate, it) == r.dueDate }
+            }
+            if (!dup) out.add(r)
+        }
+        out
     }
 
     // ---- lending repayments ----  person key (lowercased counterparty) -> amount repaid
@@ -230,21 +243,33 @@ object Storage {
         file(context, BUDGET_FILE).writeText(o.toString())
     }
 
+    // Explicit paid(true)/unpaid(false) override per reminder. An explicit entry always
+    // wins over the auto rules (past-month / matched-debit), so unmark works from any state.
     fun setReminderDone(context: Context, id: String, done: Boolean) = synchronized(lock) {
-        val set = readDoneSet(context).toMutableSet()
-        if (done) set.add(id) else set.remove(id)
-        val arr = org.json.JSONArray()
-        for (s in set) arr.put(s)
-        file(context, REM_DONE_FILE).writeText(arr.toString())
+        val m = loadReminderState(context).toMutableMap()
+        m[id] = done
+        val o = JSONObject()
+        for ((k, v) in m) o.put(k, v)
+        file(context, REM_DONE_FILE).writeText(o.toString())
     }
 
-    private fun readDoneSet(context: Context): Set<String> {
+    fun loadReminderState(context: Context): Map<String, Boolean> = synchronized(lock) {
         val f = file(context, REM_DONE_FILE)
-        if (!f.exists()) return emptySet()
+        if (!f.exists()) return emptyMap()
+        val txt = f.readText()
         return try {
-            val arr = org.json.JSONArray(f.readText())
-            (0 until arr.length()).map { arr.getString(it) }.toSet()
-        } catch (_: Exception) { emptySet() }
+            if (txt.trimStart().startsWith("[")) {
+                // legacy format: a JSON array of paid ids
+                val arr = org.json.JSONArray(txt)
+                (0 until arr.length()).associate { arr.getString(it) to true }
+            } else {
+                val o = JSONObject(txt)
+                val m = HashMap<String, Boolean>()
+                val ks = o.keys()
+                while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
+                m
+            }
+        } catch (_: Exception) { emptyMap() }
     }
 
     private fun readReminderMap(context: Context): Map<String, Reminder> {
