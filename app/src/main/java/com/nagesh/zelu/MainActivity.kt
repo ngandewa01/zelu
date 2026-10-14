@@ -183,6 +183,7 @@ fun ZeluApp() {
     var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgetsOpen by remember { mutableStateOf(false) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
+    var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
     var period by remember { mutableStateOf("month") }
     var month by remember { mutableStateOf(Dates.todayMonth()) }
@@ -396,7 +397,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it })
+                    repaid, { lendPerson = it }, { borrowPerson = it })
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -405,7 +406,7 @@ fun ZeluApp() {
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
-                "dues" -> RemindersView(reminders, ::markReminder)
+                "dues" -> RemindersView(reminders, rows, ::markReminder)
             }
         }
     }
@@ -429,6 +430,19 @@ fun ZeluApp() {
             onRowClick = { detailRow = it },
             onSave = { amt -> setRepayment(person.lowercase().trim(), amt) },
             onDismiss = { lendPerson = null },
+        )
+    }
+
+    borrowPerson?.let { person ->
+        val pRows = rows.filter { it.kind == "borrowed" && (it.counterparty ?: "Someone") == person }
+        LendingDialog(
+            person = person,
+            lentRows = pRows,
+            repaidSoFar = repaid["b:" + person.lowercase().trim()] ?: 0.0,
+            onRowClick = { detailRow = it },
+            onSave = { amt -> setRepayment("b:" + person.lowercase().trim(), amt) },
+            onDismiss = { borrowPerson = null },
+            youOwe = true,
         )
     }
 
@@ -513,24 +527,49 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
+@Composable private fun LendRow(
+    person: String, total: Double, bal: Double, color: Color, verb: String, onClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onClick() }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            MutedText(
+                if (bal <= 0.0) "Settled · ${money(total)}"
+                else if (bal < total) "${money(total - bal)} of ${money(total)} cleared"
+                else verb,
+                11,
+            )
+        }
+        Text(money(bal), color = if (bal <= 0.0) ZColor.Muted else color, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(6.dp))
+        Text("›", color = ZColor.Muted, fontSize = 16.sp)
+    }
+}
+
 @Composable private fun LendingDialog(
     person: String, lentRows: List<Row>, repaidSoFar: Double,
     onRowClick: (Row) -> Unit, onSave: (Double) -> Unit, onDismiss: () -> Unit,
+    youOwe: Boolean = false,
 ) {
     val total = lentRows.sumOf { it.amount }
     var text by remember { mutableStateOf(if (repaidSoFar > 0) fmtPlain(repaidSoFar) else "") }
     val entered = text.replace(",", "").toDoubleOrNull() ?: 0.0
     val balance = (total - entered).coerceAtLeast(0.0)
+    val headWord = if (youOwe) "Borrowed" else "Lent"
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
             Text(person, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
-            MutedText("Lent ${money(total)} in ${lentRows.size} ${if (lentRows.size == 1) "transfer" else "transfers"}", 12)
+            MutedText("$headWord ${money(total)} in ${lentRows.size} ${if (lentRows.size == 1) "transfer" else "transfers"}", 12)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Lent", money(total))
-                Fact("Repaid", money(entered), ZColor.Income)
+                Fact(headWord, money(total))
+                Fact(if (youOwe) "You repaid" else "Repaid", money(entered), ZColor.Income)
                 Fact("Balance", money(balance), if (balance <= 0.0) ZColor.Muted else ZColor.Warn)
             }
             Spacer(Modifier.height(14.dp))
@@ -866,6 +905,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     excludeEmi: Boolean = false,
     repaid: Map<String, Double> = emptyMap(),
     onOpenLend: (String) -> Unit = {},
+    onOpenBorrow: (String) -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1007,30 +1047,21 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             }
             byPerson.forEach { (person, total, bal) ->
                 Spacer(Modifier.height(8.dp))
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                        .clickable { onOpenLend(person) }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText(
-                            if (bal <= 0.0) "Settled · lent ${money(total)}"
-                            else if (bal < total) "Paid ${money(total - bal)} of ${money(total)}"
-                            else "owes you",
-                            11,
-                        )
-                    }
-                    Text(money(bal), color = if (bal <= 0.0) ZColor.Muted else ZColor.Income,
-                        fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(6.dp))
-                    Text("›", color = ZColor.Muted, fontSize = 16.sp)
-                }
+                LendRow(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
             }
-            borrowedAll.forEach {
-                Spacer(Modifier.height(6.dp))
-                MutedText("You owe ${it.counterparty ?: "someone"} ${money(it.amount)}")
+            val borrowByPerson = borrowedAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
+                .map { (person, rs) ->
+                    val tot = rs.sumOf { it.amount }
+                    val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
+                    Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
+                }.sortedByDescending { it.third }
+            if (borrowByPerson.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                MutedText("You owe", 12)
+                borrowByPerson.forEach { (person, total, bal) ->
+                    Spacer(Modifier.height(8.dp))
+                    LendRow(person, total, bal, ZColor.Warn, "you owe") { onOpenBorrow(person) }
+                }
             }
         }
     }
@@ -1332,13 +1363,21 @@ private fun prettyDate(iso: String): String = try {
     val p = iso.split("-"); "${p[2]} ${MONTH_ABBR[p[1].toInt() - 1]} ${p[0].takeLast(2)}"
 } catch (_: Exception) { iso }
 
-@Composable private fun RemindersView(reminders: List<Reminder>, onMark: (String, Boolean) -> Unit) {
+@Composable private fun RemindersView(reminders: List<Reminder>, rows: List<Row>, onMark: (String, Boolean) -> Unit) {
     var tab by remember { mutableStateOf("upcoming") }
     var detail by remember { mutableStateOf<Reminder?>(null) }
     val today = Dates.today()
     val curMonth = Dates.todayMonth()
-    // A due from a previous month is assumed already paid — it drops out of Overdue.
-    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth
+    // Auto-settle: a real debit of the same amount landed within ±5 days of the due date.
+    fun autoMatched(r: Reminder): Boolean {
+        val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
+        return rows.any { row ->
+            (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
+                kotlin.math.abs(row.amount - r.amount) < 1.0 && window.contains(row.date)
+        }
+    }
+    // A due from a previous month is assumed already paid; so is one matched by a real debit.
+    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth || autoMatched(r)
     val pending = reminders.filter { !settled(it) }
     val upcoming = pending.filter { it.dueDate >= today }.sortedBy { it.dueDate }
     val overdue = pending.filter { it.dueDate < today }.sortedByDescending { it.dueDate }
