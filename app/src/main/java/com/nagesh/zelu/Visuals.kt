@@ -49,7 +49,7 @@ val BRANDS = listOf(
     Brand("irctc", "IRCTC", Color(0xFF1E4D8C), Color(0xFFFFFFFF), "I"),
     Brand("hpcl", "HPCL", Color(0xFF0B5EA8), Color(0xFFFFFFFF), "H"),
     Brand("qualcomm", "Qualcomm", Color(0xFF3253DC), Color(0xFFFFFFFF), "Q"),
-    Brand("urban", "Urban Company", Color(0xFFEC5F3B), Color(0xFFFFFFFF), "U"),
+    Brand("urban company", "Urban Company", Color(0xFFEC5F3B), Color(0xFFFFFFFF), "U"),
     Brand("country delight", "Country Delight", Color(0xFF1E9E4A), Color(0xFFFFFFFF), "C"),
     Brand("mother dairy", "Mother Dairy", Color(0xFF00843D), Color(0xFFFFFFFF), "M"),
 )
@@ -80,12 +80,13 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Subscriptions" to Color(0xFF7B5EA7),
     "Gym" to Color(0xFFB5744A),
     "Personal care" to Color(0xFFCF8FB0),
-    "Cash" to Color(0xFF788074),
+    "ATM / Cash" to Color(0xFF788074),
     "Unknown" to Color(0xFFC1C8C2),
     "Income" to ZColor.Income,
     "Refund" to ZColor.Income,
     "Transfer" to ZColor.Muted,
     "Card bill" to ZColor.Muted,
+    "Wallet" to Color(0xFF8A7CB8),
 )
 
 // Emoji shown instead of a letter for service/abstract categories that rarely have a
@@ -97,9 +98,10 @@ val CAT_ICON: Map<String, String> = mapOf(
     "Subscriptions" to "🔁",   // repeat
     "Gym" to "🏋️",       // weightlifter
     "Personal care" to "💇",   // haircut
-    "Cash" to "🏧",            // ATM
+    "ATM / Cash" to "🏧",      // ATM
     "Transfer" to "↔️",        // left-right arrow
     "Card bill" to "💳",       // credit card
+    "Wallet" to "👛",          // coin purse
     "Donation" to "🙏",        // folded hands
     "Maid" to "🧹",            // broom
     "Domestic help" to "🧹",

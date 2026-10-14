@@ -20,6 +20,22 @@ data class Txn(
     val account: String, // e.g. "HDFC 5997", "HDFC CC 1291", or "" if unknown
 )
 
+// A bill / payment reminder parsed from a "due" or "will be debited" SMS. These are NOT
+// transactions (no money has left the account yet) — they live on the Dues page so you can
+// see what's coming up or overdue and tick it off once paid.
+data class Reminder(
+    val id: String,
+    val dueDate: String,       // YYYY-MM-DD
+    val amount: Double,
+    val minAmount: Double?,     // for credit-card bills ("Min Amt Due")
+    val counterparty: String?,
+    val account: String,
+    val recurring: Boolean,     // repeats monthly (EMI / SIP / autopay / subscription)
+    val raw: String,
+    val source: String,
+    val done: Boolean = false,  // ticked off as paid (applied at load time)
+)
+
 // A stored transaction: a Txn plus its classification.
 // kind is one of: expense, income, refund, transfer, lent, borrowed, invest, ignore
 data class Row(

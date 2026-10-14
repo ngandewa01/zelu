@@ -174,6 +174,7 @@ fun ZeluApp() {
     val scope = rememberCoroutineScope()
 
     var rows by remember { mutableStateOf<List<Row>>(emptyList()) }
+    var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
     var view by remember { mutableStateOf("ledger") }
     var period by remember { mutableStateOf("month") }
     var month by remember { mutableStateOf(Dates.todayMonth()) }
@@ -196,7 +197,17 @@ fun ZeluApp() {
         PackageManager.PERMISSION_GRANTED
 
     fun reload() {
-        scope.launch { rows = withContext(Dispatchers.IO) { Storage.loadRows(context) } }
+        scope.launch {
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        }
+    }
+
+    fun markReminder(id: String, done: Boolean) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.setReminderDone(context, id, done) }
+            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        }
     }
 
     fun rescan() {
@@ -208,6 +219,7 @@ fun ZeluApp() {
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
             loading = false
             if (stage == "scan") stage = "app"
         }
@@ -219,6 +231,7 @@ fun ZeluApp() {
 
     LaunchedEffect(Unit) {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+        reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
         delay(1200)
         if (hasPerm()) { stage = "app"; rescan() } else { stage = "welcome" }
     }
@@ -344,6 +357,7 @@ fun ZeluApp() {
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account)
+                "dues" -> RemindersView(reminders, ::markReminder)
             }
         }
     }
@@ -462,7 +476,7 @@ fun ZeluApp() {
 }
 
 @Composable private fun ViewSwitcher(view: String, onPick: (String) -> Unit) {
-    val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest")
+    val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest", "dues" to "Dues")
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
             .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).padding(4.dp),
@@ -1008,6 +1022,104 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
             }
         }
     }
+}
+
+// ---------- Dues & Reminders ----------
+
+private val MONTH_ABBR = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+private fun prettyDate(iso: String): String = try {
+    val p = iso.split("-"); "${p[2]} ${MONTH_ABBR[p[1].toInt() - 1]} ${p[0].takeLast(2)}"
+} catch (_: Exception) { iso }
+
+@Composable private fun RemindersView(reminders: List<Reminder>, onMark: (String, Boolean) -> Unit) {
+    var tab by remember { mutableStateOf("upcoming") }
+    val today = Dates.today()
+    val pending = reminders.filter { !it.done }
+    val upcoming = pending.filter { it.dueDate >= today }.sortedBy { it.dueDate }
+    val overdue = pending.filter { it.dueDate < today }.sortedByDescending { it.dueDate }
+    val paid = reminders.filter { it.done }.sortedByDescending { it.dueDate }
+
+    Spacer(Modifier.height(4.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SegTab("Upcoming", upcoming.size, tab == "upcoming", Modifier.weight(1f)) { tab = "upcoming" }
+        SegTab("Overdue", overdue.size, tab == "overdue", Modifier.weight(1f)) { tab = "overdue" }
+    }
+    val list = if (tab == "upcoming") upcoming else overdue
+    if (list.isEmpty()) {
+        Panel {
+            Eyebrow(if (tab == "upcoming") "Upcoming" else "Overdue")
+            Spacer(Modifier.height(8.dp))
+            MutedText(
+                if (tab == "upcoming") "No upcoming bills. Bill and EMI reminders from your SMS appear here."
+                else "Nothing overdue.",
+            )
+        }
+    } else {
+        list.forEach { r -> ReminderCard(r, overdue = tab == "overdue") { onMark(r.id, true) } }
+    }
+    if (paid.isNotEmpty()) {
+        Spacer(Modifier.height(18.dp))
+        Eyebrow("Paid")
+        paid.take(20).forEach { r -> ReminderCard(r, overdue = false, paid = true) { onMark(r.id, false) } }
+    }
+    Spacer(Modifier.height(6.dp))
+    MutedText("Reminders are never counted as spending — only money that actually leaves your bank is.", 11)
+}
+
+@Composable private fun SegTab(label: String, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.clip(RoundedCornerShape(14.dp))
+            .background(if (selected) ZColor.Ink else ZColor.Card)
+            .border(1.dp, if (selected) ZColor.Ink else ZColor.Line, RoundedCornerShape(14.dp))
+            .clickable { onClick() }.padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label + (if (count > 0) "  ·  $count" else ""),
+            color = if (selected) ZColor.Paper else ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable private fun ReminderCard(r: Reminder, overdue: Boolean, paid: Boolean = false, onTick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp))
+            .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MerchantTile(r.counterparty ?: "Bill", "Bills", 40.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(r.counterparty?.takeIf { it.isNotBlank() } ?: r.account.ifBlank { "Bill" },
+                color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(money(r.amount), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                if (r.minAmount != null) { Spacer(Modifier.width(6.dp)); MutedText("Min ${money(r.minAmount)}", 12) }
+            }
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text((if (overdue) "Due " else "") + prettyDate(r.dueDate),
+                    color = if (overdue) ZColor.Warn else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                if (r.recurring) { Spacer(Modifier.width(8.dp)); Pill("Monthly") }
+                if (r.account.isNotBlank()) { Spacer(Modifier.width(8.dp)); MutedText(r.account, 11) }
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Box(
+            Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
+                .background(if (paid) ZColor.Income.copy(alpha = 0.15f) else Color.Transparent)
+                .border(1.5.dp, if (paid) ZColor.Income else if (overdue) ZColor.Warn else ZColor.Line, RoundedCornerShape(17.dp))
+                .clickable { onTick() },
+            contentAlignment = Alignment.Center,
+        ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+    }
+}
+
+@Composable private fun Pill(text: String) {
+    Box(
+        Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Paper)
+            .border(1.dp, ZColor.Line, RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 2.dp),
+    ) { Text(text, color = ZColor.InkSoft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
 }
 
 // ---------- Pace ----------

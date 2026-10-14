@@ -39,7 +39,50 @@ object Parser {
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|bill pay|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code)\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|bill pay|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
+
+    // A debit that has NOT happened yet: a scheduled / future auto-debit, e.g.
+    // "your EMI will be auto-debited on 5th". Money hasn't left the account.
+    private val FUTURE_DEBIT = Regex(
+        """\b(will|shall|would|to|going to) be[a-z '-]{0,18}(debit|debited|deduct|deducted)\b|\b(will|shall) (be )?(debit|deduct)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    // A dues / reminder notice (bill due, amount payable) — not a completed payment.
+    private val DUES_NOTICE = Regex(
+        """\b(is|are) due\b|\bdue (on|by|date)\b|payment (is )?due|amount due|amt due|\bpayable\b|please pay|kindly pay|do pay|\bpay (now|by|before|your)\b|\brepay\b|last date to pay""",
+        RegexOption.IGNORE_CASE,
+    )
+    // Money that has ACTUALLY left the account (past tense / completed).
+    private val DEBIT_DONE = Regex(
+        """\b(spent|withdrawn|purchased?|debited|deducted|paid|sent|transferred|w/?d)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    // ---- Reminder / dues parsing (the Dues page) ----
+    // Promo / OTP / phishing text that must never become a bill reminder.
+    private val NOT_REMINDER = Regex(
+        """\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|cashback|apply now|pre-?qualified|eligible for|lottery|lucky|have won|claim|kyc|vvip|astro|bodhi|declined|failed|unsuccessful|up ?to rs|save \d{1,2}%|limit[^.]{0,25}(changed|revised|enhanced|increased))\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    // An amount to ignore when picking the bill amount (a balance, limit or min-due figure).
+    private val REM_SKIP_AMT = Regex(
+        """(min(?:imum)?(\s*(amt|amount|due))?|avl|avbl|available|balance|\bbal\b|limit|o/s|outstanding)[^.]{0,10}$""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val MIN_AMT = Regex(
+        """min(?:imum)?\s*(?:amt|amount)?\s*(?:due)?\s*[:\-]?\s*(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val RECURRING = Regex(
+        """\b(emi|sip|auto ?pay|autopay|auto[- ]?debit|e-?mandate|nach|standing instruction|mandate|subscription|monthly|every month|recurring|renewal|renews)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val DUE_KW = Regex("""\b(due(?:\s*(?:on|date|by))?|pay(?:able)?\s*by|last date(?:\s*to pay)?)\b""", RegexOption.IGNORE_CASE)
+    private val DATE_NAMED = Regex("""\b(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ]?(\d{2,4})?\b""")
+    private val MONTHS = mapOf(
+        "jan" to 1, "feb" to 2, "mar" to 3, "apr" to 4, "may" to 5, "jun" to 6,
+        "jul" to 7, "aug" to 8, "sep" to 9, "oct" to 10, "nov" to 11, "dec" to 12,
+    )
 
     // Investment contributions (EPF/NPS/funds) — tracked separately, kept out of the account
     // filter so they don't create phantom bank accounts.
@@ -65,6 +108,31 @@ object Parser {
         "DBS" to "DBS", "HSBC" to "HSBC", "CITI" to "CITI", "SCBANK" to "SCB", "AMEX" to "AMEX",
         "KVBANK" to "KVB", "KARUR" to "KVB", "RBL" to "RBL", "BOB" to "BOB", "UCO" to "UCO", "IOB" to "IOB", "BOI" to "BOI",
     )
+
+    // ---- Anti-phishing gate (Ingest calls these BEFORE a message is parsed) ----
+    // Step 1: is the sender a bank/financial sender ID? A genuine bank/UPI alert
+    // carries a bank code (HDFCBK, ICICIB, SBIINB…) or a financial token. Personal
+    // phone numbers and promo/scam senders (astrology apps, lotteries, fake KYC) do not.
+    // Matched as substrings because sender headers are smooshed (e.g. "VM-HDFCBK").
+    private val FIN_TOKEN = Regex("""(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA)""", RegexOption.IGNORE_CASE)
+
+    fun isFinancialSender(address: String): Boolean {
+        val a = address.uppercase()
+        if (a.none { it.isLetter() }) return false          // plain phone number -> personal
+        if (SENDER_CODES.any { a.contains(it.first) }) return true
+        if (BANK.containsMatchIn(a)) return true
+        return FIN_TOKEN.containsMatchIn(a)
+    }
+
+    // Step 2: banks never send URL shorteners or throwaway short links. A message
+    // that carries one is spoofed / phishing even if the sender header looks bank-like.
+    private val SHORTENER = Regex("""\b(bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|t\.co|goo\.gl|tiny\.cc|bit\.do|rebrand\.ly|shorturl|shrtsms|hdfcbk\.io|clck\.ru|short\.gy)\b""", RegexOption.IGNORE_CASE)
+    // A generic short link: scheme + a very short host + a short path code (bit.ly/aB3x).
+    private val SHORT_LINK = Regex("""https?://[a-z0-9-]{1,8}\.[a-z]{2,4}/[A-Za-z0-9]{3,}""", RegexOption.IGNORE_CASE)
+
+    fun hasSuspiciousLink(body: String): Boolean =
+        SHORTENER.containsMatchIn(body) || SHORT_LINK.containsMatchIn(body)
+
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
     // A masked account tail: one or more mask chars then 4 digits (*5997, **2931, XX5997).
@@ -107,7 +175,7 @@ object Parser {
         Regex("""jio\s*fiber|jiofiber|jiohome""", RegexOption.IGNORE_CASE) to "JioFiber",
         Regex("""\bjio\b""", RegexOption.IGNORE_CASE) to "Jio",
         Regex("""zomato""", RegexOption.IGNORE_CASE) to "Zomato",
-        Regex("""swiggy""", RegexOption.IGNORE_CASE) to "Swiggy",
+        Regex("""swiggy|bundl""", RegexOption.IGNORE_CASE) to "Swiggy",
         Regex("""blinkit""", RegexOption.IGNORE_CASE) to "Blinkit",
         Regex("""zepto""", RegexOption.IGNORE_CASE) to "Zepto",
         Regex("""bigbasket|big ?basket|bbnow|innovative retail""", RegexOption.IGNORE_CASE) to "BigBasket",
@@ -150,9 +218,16 @@ object Parser {
 
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
         val text = WS.replace(body, " ").trim()
-        // Loan EMI debit notices are kept even if they read like reminders; other reminders drop.
-        val isEmiDebit = EMI_DEBIT.containsMatchIn(text)
+        // Only count money that has actually left the account. A future auto-debit
+        // ("will be debited") or a pure dues/reminder notice (no completed payment in it)
+        // never counts. A completed debit that merely MENTIONS a future due date still counts.
+        val future = FUTURE_DEBIT.containsMatchIn(text)
+        val completed = !future && DEBIT_DONE.containsMatchIn(text)
+        val duesOnly = DUES_NOTICE.containsMatchIn(text) && !completed
+        // A completed EMI/NACH debit survives SKIP; a future or dues-only EMI notice does not.
+        val isEmiDebit = EMI_DEBIT.containsMatchIn(text) && !future && !duesOnly
         if (text.isEmpty() || (SKIP.containsMatchIn(text) && !isEmiDebit)) return null
+        if (future || duesOnly) return null
 
         // Direction, from the earliest transaction keyword present.
         val d = DEBIT.find(text)
@@ -212,6 +287,66 @@ object Parser {
         else "sms-" + hash("$date|$amount|$direction|$text")
 
         return Txn(id, date, amount, direction, counterparty, ref, text, source, account)
+    }
+
+    // Parse a bill / payment reminder (a "due" or "will be debited" notice) into a Reminder.
+    // Called by Ingest only when parseSms returned null, so a completed payment is never a reminder.
+    fun parseReminder(body: String, receivedMs: Long?, source: String): Reminder? {
+        val text = WS.replace(body, " ").trim()
+        if (text.isEmpty() || NOT_REMINDER.containsMatchIn(text)) return null
+        // Must read like an upcoming / due payment.
+        if (!FUTURE_DEBIT.containsMatchIn(text) && !DUES_NOTICE.containsMatchIn(text)) return null
+
+        val amounts = AMOUNT.findAll(text).toList()
+        if (amounts.isEmpty()) return null
+        // The bill amount: the first figure that isn't a balance / limit / min-due.
+        val billAmt = amounts.firstOrNull { m ->
+            !REM_SKIP_AMT.containsMatchIn(text.substring(0, m.range.first))
+        } ?: amounts.first()
+        val amount = billAmt.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
+        val minAmount = MIN_AMT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+        val dueDate = parseDueDate(text) ?: parseDate(text, receivedMs)
+        val recurring = RECURRING.containsMatchIn(text)
+
+        var cp = canonicalMerchant(text)
+            ?: ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
+            ?: CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
+        if (recurring) {
+            LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
+                val bk = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+                cp = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
+            }
+        }
+        val account = accountOf(text, source, "debit")
+        val ref = REF.find(text)?.groupValues?.get(1)
+        val id = if (ref != null) "rem-$ref" else "rem-" + hash("$dueDate|$amount|$text")
+        return Reminder(id, dueDate, amount, minAmount, cp, account, recurring, text, source)
+    }
+
+    // The date following a "due on / due by / payable by / last date" keyword — numeric
+    // (02/11/26) or named-month (02 Nov 26). Null if none found.
+    private fun parseDueDate(text: String): String? {
+        val kw = DUE_KW.find(text) ?: return null
+        val after = text.substring((kw.range.last + 1).coerceAtMost(text.length)).take(32)
+        DATE.find(after)?.let { m ->
+            return try {
+                val dd = m.groupValues[1].toInt(); val mm = m.groupValues[2].toInt()
+                var yy = m.groupValues[3].toInt(); if (yy < 100) yy += 2000
+                val cal = GregorianCalendar(IST); cal.isLenient = false; cal.clear(); cal.set(yy, mm - 1, dd)
+                fmt(cal.timeInMillis)
+            } catch (_: Exception) { null }
+        }
+        DATE_NAMED.find(after)?.let { m ->
+            val mm = MONTHS[m.groupValues[2].lowercase().take(3)] ?: return null
+            val dd = m.groupValues[1].toInt()
+            var yy = m.groupValues[3].toIntOrNull() ?: fmt(System.currentTimeMillis()).substring(0, 4).toInt()
+            if (yy < 100) yy += 2000
+            return try {
+                val cal = GregorianCalendar(IST); cal.isLenient = false; cal.clear(); cal.set(yy, mm - 1, dd)
+                fmt(cal.timeInMillis)
+            } catch (_: Exception) { null }
+        }
+        return null
     }
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".

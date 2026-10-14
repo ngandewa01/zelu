@@ -14,9 +14,11 @@ object Storage {
     private const val TXN_FILE = "transactions.json"
     private const val OVERRIDE_FILE = "overrides.json"   // per-transaction decisions
     private const val RULE_FILE = "payee_rules.json"     // learned payee -> kind/category
+    private const val REMINDER_FILE = "reminders.json"   // parsed bill/payment reminders
+    private const val REM_DONE_FILE = "reminder_done.json" // reminder ids ticked as paid
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 30
+    const val PARSER_VERSION = 31
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -168,6 +170,77 @@ object Storage {
         added
     }
 
+    // ---- reminders (Dues page) ----
+    fun saveReminders(context: Context, newOnes: List<Reminder>): Int = synchronized(lock) {
+        val map = readReminderMap(context).toMutableMap()
+        var added = 0
+        for (r in newOnes) if (!map.containsKey(r.id)) { map[r.id] = r; added++ }
+        writeReminderMap(context, map)
+        added
+    }
+
+    fun loadReminders(context: Context): List<Reminder> = synchronized(lock) {
+        val done = readDoneSet(context)
+        readReminderMap(context).values
+            .map { it.copy(done = done.contains(it.id)) }
+            .sortedBy { it.dueDate }
+    }
+
+    fun setReminderDone(context: Context, id: String, done: Boolean) = synchronized(lock) {
+        val set = readDoneSet(context).toMutableSet()
+        if (done) set.add(id) else set.remove(id)
+        val arr = org.json.JSONArray()
+        for (s in set) arr.put(s)
+        file(context, REM_DONE_FILE).writeText(arr.toString())
+    }
+
+    private fun readDoneSet(context: Context): Set<String> {
+        val f = file(context, REM_DONE_FILE)
+        if (!f.exists()) return emptySet()
+        return try {
+            val arr = org.json.JSONArray(f.readText())
+            (0 until arr.length()).map { arr.getString(it) }.toSet()
+        } catch (_: Exception) { emptySet() }
+    }
+
+    private fun readReminderMap(context: Context): Map<String, Reminder> {
+        val f = file(context, REMINDER_FILE)
+        if (!f.exists()) return emptyMap()
+        return try {
+            val obj = JSONObject(f.readText())
+            val out = HashMap<String, Reminder>()
+            val keys = obj.keys()
+            while (keys.hasNext()) { val k = keys.next(); out[k] = reminderFromJson(obj.getJSONObject(k)) }
+            out
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    private fun writeReminderMap(context: Context, map: Map<String, Reminder>) {
+        val obj = JSONObject()
+        for ((k, r) in map) obj.put(k, reminderToJson(r))
+        file(context, REMINDER_FILE).writeText(obj.toString())
+    }
+
+    private fun reminderToJson(r: Reminder): JSONObject = JSONObject().apply {
+        put("id", r.id); put("dueDate", r.dueDate); put("amount", r.amount)
+        put("minAmount", r.minAmount ?: JSONObject.NULL)
+        put("counterparty", r.counterparty ?: JSONObject.NULL)
+        put("account", r.account); put("recurring", r.recurring)
+        put("raw", r.raw); put("source", r.source)
+    }
+
+    private fun reminderFromJson(o: JSONObject): Reminder = Reminder(
+        id = o.getString("id"),
+        dueDate = o.getString("dueDate"),
+        amount = o.getDouble("amount"),
+        minAmount = if (o.isNull("minAmount")) null else o.getDouble("minAmount"),
+        counterparty = if (o.isNull("counterparty")) null else o.getString("counterparty"),
+        account = o.optString("account", ""),
+        recurring = o.optBoolean("recurring", false),
+        raw = o.optString("raw", ""),
+        source = o.optString("source", ""),
+    )
+
     fun setOverride(context: Context, id: String, kind: String, category: String) = synchronized(lock) {
         val kv = readKv(context, OVERRIDE_FILE).toMutableMap()
         kv[id] = kind to category
@@ -186,7 +259,9 @@ object Storage {
         s.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
     fun clear(context: Context) = synchronized(lock) {
-        file(context, TXN_FILE).delete(); Unit
+        file(context, TXN_FILE).delete()
+        file(context, REMINDER_FILE).delete() // reminders re-parse too; done ticks are kept
+        Unit
     }
 
     // ---- transaction file ----

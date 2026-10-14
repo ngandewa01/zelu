@@ -13,13 +13,22 @@ object Ingest {
         val own = Storage.splitList(settings.ownAccounts)
 
         val rows = ArrayList<Row>()
+        val reminders = ArrayList<Reminder>()
         for (msg in raw) {
-            // Bank/UPI alerts come from alphanumeric sender IDs (e.g. AX-SBIUPI);
-            // personal chats come from plain phone numbers. Keep only the former,
-            // so no manual bank-sender setup is needed.
-            if (!msg.address.any { it.isLetter() }) continue
+            // 1) Trust the sender first: accept only bank/financial sender IDs
+            //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
+            //    lottery and fake-KYC senders are not banks — drop before parsing.
+            if (!Parser.isFinancialSender(msg.address)) continue
+            // 2) A genuine bank alert never carries a link shortener or a throwaway
+            //    short URL. If it does, the message is spoofed / phishing — ignore it.
+            if (Parser.hasSuspiciousLink(msg.body)) continue
 
-            val txn = Parser.parseSms(msg.body, msg.date, msg.address) ?: continue
+            val txn = Parser.parseSms(msg.body, msg.date, msg.address)
+            if (txn == null) {
+                // Not a completed payment — it may be a bill/EMI reminder for the Dues page.
+                Parser.parseReminder(msg.body, msg.date, msg.address)?.let { reminders.add(it) }
+                continue
+            }
             val c = Classifier.classify(txn, own)
             rows.add(
                 Row(
@@ -39,6 +48,7 @@ object Ingest {
         }
 
         val added = Storage.saveRows(context, rows)
+        Storage.saveReminders(context, reminders)
         return Result(rows.size, added)
     }
 }

@@ -5,19 +5,28 @@ object Classifier {
     // Category -> keywords, matched against counterparty + SMS text (lowercased).
     // Order matters: earlier entries win.
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("swiggy", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream"),
+        "Food" to listOf("swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
         "Groceries" to listOf("blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail"),
         "Milk & Dairy" to listOf("country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
         "Fuel" to listOf("petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
         "FASTag" to listOf("toll", "toll plaza", "fastag", "fasttag", "netc"),
         "Transport" to listOf("uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri"),
-        "Shopping" to listOf("amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "tatacliq", "croma", "reliance digital", "shoppers stop", "lifestyle", "decathlon", "ikea", "westside", "pantaloons", "firstcry", "pepperfry", "urban ladder", "lenskart", "titan", "tanishq", "caratlane", "bata", "vijay sales", "max fashion", "reliance trends"),
-        "Investment" to listOf("zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", "nps", "pran", " ppf ", "nippon india", "sovereign gold"),
+        "Shopping" to listOf("amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "tatacliq", "croma", "reliance digital", "shoppers stop", "lifestyle", "decathlon", "ikea", "westside", "pantaloons", "firstcry", "pepperfry", "urban ladder", "lenskart", "titan", "tanishq", "caratlane", "bata", "vijay sales", "max fashion", "reliance trends", "trends", "oneplus", "one plus", "mi store", "samsung", "shopping mall", "yousta", "urbanofashion", "urbano fashion", "urbano", "zudio", "trendz", "centro",
+            "van heusen", "vanheusen", "louis philippe", "allen solly", "peter england", "blackberrys", "raymond", "park avenue", "color plus", "colorplus",
+            "jockey", "jack & jones", "jack and jones", "vero moda", "pepe jeans", "flying machine", "us polo", "uspa", "united colors of benetton", "benetton",
+            "tommy hilfiger", "calvin klein", "h&m", "zara", "uniqlo", "forever 21", "fabindia", "fab india", "w for woman", "wforwoman", "biba", "aurelia",
+            "global desi", "soch", "manyavar", "mohey", "levis", "levi's", "wrangler", "spykar", "mufti", "snitch", "bewakoof", "the souled store",
+            "metro shoes", "mochi", "red tape", "redtape", "woodland", "skechers", "nike", "adidas", "puma", "reebok", "crocs", "hush puppies", "clarks", "sparx", "relaxo", "liberty shoes",
+            "brand factory", "home centre", "home center", "nilkamal", "godrej interio", "hopscotch",
+            "poorvika", "sangeetha mobiles", "bajaj electronics", "girias", "pai international", "lot mobiles",
+            "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora", "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail", "shoppe", "shoe mart"),
+        "Investment" to listOf("zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
         "Gym" to listOf("cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first", "healthifyme", "gym ", "fitso"),
         "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
-        "Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl"),
+        "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash"),
+        "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Home services" to listOf("urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman"),
-        "Entertainment" to listOf("netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar"),
+        "Entertainment" to listOf("netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
         "Subscriptions" to listOf("adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
         "Internet" to listOf("broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi"),
         "Mobile" to listOf("mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
@@ -27,7 +36,7 @@ object Classifier {
         "Maid" to listOf("maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
         "EMI" to listOf("emi", "loan", "installment", "instalment", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
-        "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg"),
+        "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana"),
         "Rent" to listOf("rent"),
     )
 
@@ -39,6 +48,20 @@ object Classifier {
 
     // CRED is used almost entirely to pay credit-card bills.
     private val CRED = Regex("""\bcred\b""", RegexOption.IGNORE_CASE)
+
+    // Prepaid / app wallets (Paytm, PhonePe, Amazon Pay, Mobikwik…). Zelu reads bank
+    // SMS, so the money leaves your account when you LOAD the wallet — that load is the
+    // real spend. Spending from the wallet balance afterwards would double-count.
+    private val WALLET = Regex(
+        """\b(paytm wallet|amazon ?pay|amazonpay|phonepe wallet|phonepe balance|mobikwik|freecharge|jio ?money|jio ?wallet|airtel ?money|payzapp|ola money|wallet balance|e-?wallet|\bwallet\b)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    // Money going OUT of the wallet (a spend from balance) or cashback landing in it —
+    // not counted, to avoid double-counting after the bank load was already booked.
+    private val WALLET_SPEND = Regex(
+        """\b(from|via|using|thru|through)\b[a-z' ]{0,14}wallet\b|wallet[a-z' ]{0,14}\b(spent|paid|debited|purchase)|cashback""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Paying a BNPL / postpaid bill settles a balance — a transfer, not a fresh spend.
     private val BNPL = Regex("""\b(olamoney|ola money|lazypay|simpl|paylater|pay later|postpaid account)\b""", RegexOption.IGNORE_CASE)
@@ -64,14 +87,14 @@ object Classifier {
     // "Sri Balaji Medicals", "Annapurna Supermarket", "Balaji Travels" all classify from
     // a generic word in the name. Checked after the exact dictionary, before giving up.
     private val NAME_HINTS: List<Pair<Regex, String>> = listOf(
-        Regex("""\b(travels?|tours|holidays|airlines|airways|aviation)\b""", RegexOption.IGNORE_CASE) to "Travel",
+        Regex("""\b(travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(medical|medicals|pharmacy|pharma|chemist|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
-        Regex("""\b(restaurant|cafe|hotel|foods|kitchen|dhaba|sweets|bakery|bakers|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop)\b""", RegexOption.IGNORE_CASE) to "Food",
+        Regex("""\b(restaurant|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bakers|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
         Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
-        Regex("""\b(electronics|mobiles)\b""", RegexOption.IGNORE_CASE) to "Shopping",
+        Regex("""\b(electronics|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
     )
 
     data class Result(val kind: String, val category: String)
@@ -92,6 +115,15 @@ object Classifier {
         // Retirement / market contributions are tracked on their own, not spend or income.
         if (INVEST.containsMatchIn(t.raw) || INVEST.containsMatchIn(cp)) {
             return Result("invest", "Investment")
+        }
+
+        // Wallets: loading a wallet from your bank IS the spend (the money has left your
+        // account), so a wallet load counts as an expense. Spending FROM the wallet, or
+        // cashback landing in it, is NOT counted again — that would double-count.
+        if (WALLET.containsMatchIn(t.raw)) {
+            if (t.direction == "credit" || WALLET_SPEND.containsMatchIn(t.raw))
+                return Result("ignore", "Wallet")
+            return Result("expense", "Wallet")
         }
 
         if (t.direction == "credit") {
