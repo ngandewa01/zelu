@@ -1431,16 +1431,30 @@ private fun prettyDate(iso: String): String = try {
     var detail by remember { mutableStateOf<Reminder?>(null) }
     val today = Dates.today()
     val curMonth = Dates.todayMonth()
-    // Auto-settle: a real debit of the same amount landed within ±5 days of the due date.
-    fun autoMatched(r: Reminder): Boolean {
-        val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
-        return rows.any { row ->
-            (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
-                kotlin.math.abs(row.amount - r.amount) < 1.0 && window.contains(row.date)
+    // Auto-settle: a real debit to the SAME merchant for the SAME amount within ±5 days of
+    // the due date. Each debit is used at most once, so one payment can't tick two reminders.
+    val autoSet = remember(reminders, rows) {
+        val used = HashSet<String>()
+        val matched = HashSet<String>()
+        reminders.sortedBy { it.dueDate }.forEach { r ->
+            val cp = r.counterparty?.lowercase()?.trim()
+            if (cp.isNullOrEmpty()) return@forEach
+            val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
+            val debit = rows.firstOrNull { row ->
+                row.id !in used &&
+                    (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
+                    kotlin.math.abs(row.amount - r.amount) < 1.0 &&
+                    window.contains(row.date) && run {
+                        val rc = row.counterparty?.lowercase()?.trim()
+                        !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))
+                    }
+            }
+            if (debit != null) { used.add(debit.id); matched.add(r.id) }
         }
+        matched
     }
     // A due from a previous month is assumed already paid; so is one matched by a real debit.
-    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth || autoMatched(r)
+    fun settled(r: Reminder) = r.done || r.dueDate.take(7) < curMonth || r.id in autoSet
     val pending = reminders.filter { !settled(it) }
     val upcoming = pending.filter { it.dueDate >= today }.sortedBy { it.dueDate }
     val overdue = pending.filter { it.dueDate < today }.sortedByDescending { it.dueDate }
