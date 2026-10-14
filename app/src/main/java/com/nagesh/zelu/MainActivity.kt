@@ -190,6 +190,7 @@ fun ZeluApp() {
     var type by remember { mutableStateOf("all") }
     var cat by remember { mutableStateOf("All") }
     var excludeEmi by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     var controlsOpen by remember { mutableStateOf(false) }
     var customFrom by remember { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
     var customTo by remember { mutableStateOf(Dates.today()) }
@@ -260,7 +261,15 @@ fun ZeluApp() {
     val list = Analytics.filter(rows, f)
     // "Exclude EMI" gives spend-after-EMI: drop EMI rows from the spend views
     // (but not when you're explicitly looking at the EMI category).
-    val shown = if (excludeEmi && cat != "EMI") list.filter { it.category != "EMI" } else list
+    val q = query.trim().lowercase()
+    val shown = (if (excludeEmi && cat != "EMI") list.filter { it.category != "EMI" } else list)
+        .let { base ->
+            if (q.isBlank()) base else base.filter { r ->
+                (r.counterparty ?: "").lowercase().contains(q) ||
+                    r.category.lowercase().contains(q) ||
+                    r.amount.toLong().toString().contains(q)
+            }
+        }
 
     // decisions
     fun decide(id: String, kind: String, category: String, payee: String?, remember: Boolean) {
@@ -298,7 +307,7 @@ fun ZeluApp() {
                 "year" -> Dates.today().take(4); "all" -> "All time"
                 "custom" -> "$customFrom → $customTo"; else -> ""
             }
-            val advActive = type != "all" || cat != "All"
+            val advActive = type != "all" || cat != "All" || query.isNotBlank()
             val summary = rangeLabel + (if (account != "All") " · $account" else "") + (if (advActive) " · filtered" else "")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -333,6 +342,12 @@ fun ZeluApp() {
                         bankAccounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
                     DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
                     DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS) { cat = it; daySel = 0 }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = query, onValueChange = { query = it }, singleLine = true,
+                        placeholder = { Text("Search payee or amount") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Spacer(Modifier.height(6.dp))
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
@@ -369,7 +384,11 @@ fun ZeluApp() {
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
                     repaid, { lendPerson = it })
-                "buckets" -> BucketsView(shown) { title, rows -> drill = title to rows }
+                "buckets" -> {
+                    val prevByCat = if (period == "month")
+                        Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
+                    BucketsView(shown, prevByCat) { title, rows -> drill = title to rows }
+                }
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
@@ -514,8 +533,12 @@ private fun fmtPlain(n: Double): String =
             Spacer(Modifier.height(6.dp))
             Text(
                 t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
-                modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()),
+                modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
             )
+            Spacer(Modifier.height(14.dp))
+            Eyebrow("Why this label")
+            Spacer(Modifier.height(4.dp))
+            MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
             Spacer(Modifier.height(16.dp))
             var editing by remember { mutableStateOf(false) }
             Row(
@@ -1058,7 +1081,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 
 // ---------- Buckets ----------
 
-@Composable private fun BucketsView(list: List<Row>, onDrill: (String, List<Row>) -> Unit) {
+@Composable private fun BucketsView(
+    list: List<Row>, prevByCat: Map<String, Double> = emptyMap(), onDrill: (String, List<Row>) -> Unit,
+) {
     val cats = Analytics.byCategory(list)
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
     Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -1087,6 +1112,20 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     Text(money(v), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Text(" ${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp,
                         modifier = Modifier.width(42.dp), textAlign = TextAlign.End)
+                }
+                val prev = prevByCat[c]
+                if (prev != null && prev > 0) {
+                    val ch = ((v - prev) / prev * 100).toInt()
+                    val up = ch > 0
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        (if (up) "▲ " else if (ch < 0) "▼ " else "• ") + "${kotlin.math.abs(ch)}% vs last month",
+                        color = if (up) ZColor.Warn else if (ch < 0) ZColor.Income else ZColor.Muted,
+                        fontSize = 11.sp,
+                    )
+                } else if (prev == null || prev == 0.0) {
+                    Spacer(Modifier.height(3.dp))
+                    MutedText("new this month", 11)
                 }
                 Spacer(Modifier.height(7.dp))
                 Meter((v / top).toFloat(), catColor(c))
@@ -1370,6 +1409,14 @@ private fun prettyDate(iso: String): String = try {
                 if (isCur) (if (diff > 0) "${money(diff)} above the pace for day $upto"
                 else "${money(-diff)} under the pace for day $upto")
                 else "Month total against a ${money(Analytics.BUDGET)} budget", 13)
+            if (isCur && upto > 0) {
+                val projected = total / upto * dim
+                Spacer(Modifier.height(8.dp))
+                MutedText("On this run-rate", 12)
+                Text("~${money(projected)} by ${Dates.monthLabel(month)}-end",
+                    color = if (projected > Analytics.BUDGET) ZColor.Accent else ZColor.Income,
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.height(12.dp))
             PaceChart(run, upto, dim, Analytics.BUDGET)
         }

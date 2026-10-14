@@ -99,6 +99,32 @@ object Classifier {
 
     data class Result(val kind: String, val category: String)
 
+    // A plain-language reason for why a transaction got its label — shown in the detail dialog.
+    fun explain(counterparty: String?, raw: String, kind: String, category: String): String {
+        val hay = "${counterparty ?: ""} $raw".lowercase()
+        return when (kind) {
+            "income" -> "Counted as money in — a credit to your account."
+            "refund" -> "A refund credited back to you."
+            "invest" -> "Tracked as an investment (PF/NPS/funds) — neither spending nor income."
+            "transfer" -> when (category) {
+                "Card bill" -> "A credit-card bill payment — it settles spends already counted, so it isn't counted again."
+                "Wallet" -> "Money moved to/from a wallet — counted once when it leaves your bank."
+                else -> "Looks like a transfer — between your own accounts, or money sent to a person."
+            }
+            "lent" -> "You tagged this as money lent out."
+            "borrowed" -> "You tagged this as money you borrowed."
+            "ignore" -> "You've marked this to be ignored, so it's left out of totals."
+            else -> {
+                val kw = CATEGORIES[category]?.firstOrNull { hay.contains(it) }
+                when {
+                    kw != null -> "Categorised as $category because \"$kw\" appeared in the message."
+                    category == "Unknown" -> "No known merchant matched — tag it and Zelu will remember this payee."
+                    else -> "Categorised as $category from the payee name."
+                }
+            }
+        }
+    }
+
     fun classify(t: Txn, ownAccounts: List<String>): Result {
         val cp = (t.counterparty ?: "").lowercase()
 

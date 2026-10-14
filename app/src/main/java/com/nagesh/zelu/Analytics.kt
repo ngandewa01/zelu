@@ -143,6 +143,14 @@ object Analytics {
         return m.entries.sortedByDescending { it.value }.map { it.key to it.value }
     }
 
+    // Expense totals by category for one month/account — used for month-over-month deltas.
+    fun categoryTotals(rows: List<Row>, month: String, account: String): Map<String, Double> {
+        val m = HashMap<String, Double>()
+        rows.filter { it.kind == "expense" && it.date.startsWith(month) && (account == "All" || it.account == account) }
+            .forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
+        return m
+    }
+
     data class Payee(val name: String, val amount: Double, val count: Int, val cats: List<String>)
 
     fun byPayee(list: List<Row>): List<Payee> {
