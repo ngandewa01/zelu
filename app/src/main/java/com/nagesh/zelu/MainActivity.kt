@@ -754,20 +754,20 @@ private fun fmtPlain(n: Double): String =
 @Composable private fun ViewSwitcher(view: String, onPick: (String) -> Unit) {
     val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest", "dues" to "Dues")
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items.forEach { (k, lbl) ->
             val sel = view == k
             Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                    .background(if (sel) ZColor.Ink else Color.Transparent)
-                    .clickable { onPick(k) }.padding(vertical = 9.dp, horizontal = 2.dp),
+                Modifier.clip(RoundedCornerShape(12.dp))
+                    .background(if (sel) ZColor.Ink else ZColor.Card)
+                    .border(1.dp, if (sel) ZColor.Ink else ZColor.Line, RoundedCornerShape(12.dp))
+                    .clickable { onPick(k) }.padding(horizontal = 16.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(lbl, color = if (sel) ZColor.Paper else ZColor.Muted,
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
