@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -179,6 +180,8 @@ fun ZeluApp() {
     var rows by remember { mutableStateOf<List<Row>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
     var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var budgetsOpen by remember { mutableStateOf(false) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
     var period by remember { mutableStateOf("month") }
@@ -207,6 +210,14 @@ fun ZeluApp() {
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
+            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+        }
+    }
+
+    fun setBudget(category: String, amount: Double) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.setBudget(context, category, amount) }
+            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         }
     }
 
@@ -235,6 +246,7 @@ fun ZeluApp() {
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
+            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
             loading = false
             if (stage == "scan") stage = "app"
         }
@@ -248,6 +260,7 @@ fun ZeluApp() {
         rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
         repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
+        budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         delay(1200)
         if (hasPerm()) { stage = "app"; rescan() } else { stage = "welcome" }
     }
@@ -387,7 +400,7 @@ fun ZeluApp() {
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
-                    BucketsView(shown, prevByCat) { title, rows -> drill = title to rows }
+                    BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
                 }
                 "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
@@ -399,6 +412,12 @@ fun ZeluApp() {
 
     drill?.let { (title, rows) ->
         DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
+    }
+
+    if (budgetsOpen) {
+        val spendCats = Analytics.byCategory(list).map { it.first }
+        val allCats = (spendCats + budgets.keys + Classifier.CATEGORIES.keys).distinct()
+        BudgetsDialog(allCats, budgets, onSet = { c, a -> setBudget(c, a) }, onDismiss = { budgetsOpen = false })
     }
 
     lendPerson?.let { person ->
@@ -449,6 +468,50 @@ fun ZeluApp() {
 
 private fun fmtPlain(n: Double): String =
     if (n == n.toLong().toDouble()) n.toLong().toString() else n.toString()
+
+@Composable private fun BudgetsDialog(
+    cats: List<String>, budgets: Map<String, Double>, onSet: (String, Double) -> Unit, onDismiss: () -> Unit,
+) {
+    val drafts = remember {
+        mutableStateMapOf<String, String>().apply { cats.forEach { c -> put(c, budgets[c]?.let { fmtPlain(it) } ?: "") } }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("Category budgets", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            MutedText("Set a monthly cap per category. Leave blank for none.", 12)
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                cats.forEach { c ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        MerchantTile("", c, 30.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(c, color = ZColor.Ink, fontSize = 14.sp, modifier = Modifier.weight(1f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        OutlinedTextField(
+                            value = drafts[c] ?: "",
+                            onValueChange = { v -> drafts[c] = v.filter { it.isDigit() || it == '.' } },
+                            singleLine = true, placeholder = { Text("—") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(120.dp),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable {
+                        cats.forEach { c ->
+                            val a = drafts[c]?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+                            if ((budgets[c] ?: 0.0) != a) onSet(c, a)
+                        }
+                        onDismiss()
+                    }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
 
 @Composable private fun LendingDialog(
     person: String, lentRows: List<Row>, repaidSoFar: Double,
@@ -1082,11 +1145,19 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 // ---------- Buckets ----------
 
 @Composable private fun BucketsView(
-    list: List<Row>, prevByCat: Map<String, Double> = emptyMap(), onDrill: (String, List<Row>) -> Unit,
+    list: List<Row>, prevByCat: Map<String, Double> = emptyMap(),
+    budgets: Map<String, Double> = emptyMap(), onEditBudgets: () -> Unit = {},
+    onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
-    Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Box(
+            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { onEditBudgets() }.padding(horizontal = 14.dp, vertical = 8.dp),
+        ) { Text("Budgets", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+    }
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
     fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
     Panel {
@@ -1127,8 +1198,18 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     Spacer(Modifier.height(3.dp))
                     MutedText("new this month", 11)
                 }
-                Spacer(Modifier.height(7.dp))
-                Meter((v / top).toFloat(), catColor(c))
+                val budget = budgets[c]
+                if (budget != null && budget > 0) {
+                    val overB = v > budget
+                    Spacer(Modifier.height(3.dp))
+                    Text("${money(v)} of ${money(budget)} budget · ${(v / budget * 100).toInt()}%",
+                        color = if (overB) ZColor.Warn else ZColor.Muted, fontSize = 11.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Meter((v / budget).toFloat().coerceIn(0f, 1f), if (overB) ZColor.Warn else ZColor.Income)
+                } else {
+                    Spacer(Modifier.height(7.dp))
+                    Meter((v / top).toFloat(), catColor(c))
+                }
             }
         }
     }
