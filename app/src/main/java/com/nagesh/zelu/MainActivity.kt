@@ -487,6 +487,12 @@ fun ZeluApp() {
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
                     repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb })
+                "spend" -> {
+                    val prevByCat = if (period == "month")
+                        Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
+                    BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
+                    PaceView(rows, shown, f, month, account, excludeEmi)
+                }
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -523,7 +529,7 @@ fun ZeluApp() {
     }
 
     if (fixedOpen) {
-        val cats = (Classifier.CATEGORIES.keys + CustomCats.names + "Domestic help").distinct()
+        val cats = (Classifier.CATEGORIES.keys + CustomCats.names).distinct()
         val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
         val avg = cats.associateWith { c ->
             val t = rows.filter { it.kind == "expense" && it.category == c && months.any { m -> it.date.startsWith(m) } }.sumOf { it.amount }
@@ -979,7 +985,7 @@ private fun fmtPlain(n: Double): String =
 }
 
 @Composable private fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
-    val items = listOf("ledger" to "Home", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "dues" to "Dues")
+    val items = listOf("ledger" to "Home", "spend" to "Spend", "payees" to "Payees", "dues" to "Dues")
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
             .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 22.dp),
@@ -1307,7 +1313,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     Classifier.CATEGORIES.keys.forEach { c ->
                         Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
-                    Chip("Domestic help", false) { decide(next.id, "expense", "Domestic help", next.counterparty, true) }
                     CustomCats.names.forEach { c ->
                         Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { decide(next.id, "expense", c, next.counterparty, true) }
                     }
@@ -1428,17 +1433,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
-    // Money in & out
-    Panel {
-        Eyebrow("Money in & out")
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Fact("In", money(s.income), ZColor.Income)
-            Fact("Out", money(s.spent))
-            Fact("Net", money(s.net), if (s.net < 0) ZColor.Warn else ZColor.Ink)
-        }
-    }
-
     // Lending — all-time so repayments and balances stay correct across months.
     val lentAll = allRows.filter { it.kind == "lent" }
     val borrowedAll = allRows.filter { it.kind == "borrowed" }
@@ -1451,7 +1445,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             }.sortedByDescending { it.third }
         val owedToYou = byPerson.sumOf { it.third }
         Panel {
-            Eyebrow("Lending")
+            Eyebrow("People · you get / you pay")
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Fact("Owed to you", money(owedToYou), ZColor.Income)
