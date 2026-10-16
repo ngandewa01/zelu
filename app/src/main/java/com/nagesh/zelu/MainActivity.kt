@@ -42,6 +42,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -187,6 +188,7 @@ fun ZeluApp() {
     var budgetsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var fixedOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
@@ -348,12 +350,18 @@ fun ZeluApp() {
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 36.dp),
+                .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 110.dp),
         ) {
-            BrandBar()
-            Spacer(Modifier.height(12.dp))
-            ViewSwitcher(view) { view = it; daySel = 0 }
-            Spacer(Modifier.height(12.dp))
+            val advActiveTop = type != "all" || cat != "All" || query.isNotBlank() || account != "All" || excludeEmi
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                BrandBar()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TopIcon(onClick = { controlsOpen = true }, dot = advActiveTop) { FunnelIcon() }
+                    TopIcon(onClick = { menuOpen = true }) { MenuIcon() }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
 
             // filter bar: arrows + summary pill + collapsible dropdowns
             val rangeLabel = when (period) {
@@ -370,19 +378,22 @@ fun ZeluApp() {
                 Row(
                     Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
                         .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
-                        .clickable { controlsOpen = !controlsOpen }
+                        .clickable { controlsOpen = true }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(summary, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (controlsOpen) "▴" else "▾", color = ZColor.Muted, fontSize = 12.sp)
+                    Text("▾", color = ZColor.Muted, fontSize = 12.sp)
                 }
                 if (period == "month") NavButton("›") { month = Dates.shiftMonth(month, 1); daySel = 0 }
             }
-            if (controlsOpen) {
-                Panel {
+            if (controlsOpen) Dialog(onDismissRequest = { controlsOpen = false }) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)
+                    .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+                    Text("Filters", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
                     DropdownField("Range", RANGE_OPTS.first { it.first == period }.second, RANGE_OPTS) { period = it; daySel = 0 }
                     if (period == "custom") {
                         Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -485,6 +496,24 @@ fun ZeluApp() {
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
                 "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder)
+            }
+        }
+        BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
+    }
+
+    if (menuOpen) {
+        Dialog(onDismissRequest = { menuOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
+                Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                MenuRow("Fixed outflow plan", "Maid, milk, electricity and other fixed costs") { menuOpen = false; fixedOpen = true }
+                MenuRow("Category budgets", "Monthly cap per category") { menuOpen = false; budgetsOpen = true }
+                MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
+                MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
+                    menuOpen = false
+                    val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
+                    Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -913,6 +942,64 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
+@Composable private fun TopIcon(onClick: () -> Unit, dot: Boolean = false, content: @Composable () -> Unit) {
+    Box(
+        Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+        if (dot) Box(Modifier.align(Alignment.TopEnd).padding(9.dp).size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
+    }
+}
+
+@Composable private fun FunnelIcon() {
+    val c = ZColor.Ink
+    Canvas(Modifier.size(18.dp)) {
+        val w = size.width; val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.05f, h * 0.1f); lineTo(w * 0.95f, h * 0.1f); lineTo(w * 0.6f, h * 0.5f)
+            lineTo(w * 0.6f, h * 0.9f); lineTo(w * 0.4f, h * 0.78f); lineTo(w * 0.4f, h * 0.5f); close()
+        }
+        drawPath(path, c, style = Stroke(width = 2.2f, cap = StrokeCap.Round))
+    }
+}
+
+@Composable private fun MenuIcon() {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(3) { Box(Modifier.width(16.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(ZColor.Ink)) }
+    }
+}
+
+@Composable private fun MenuRow(title: String, sub: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 20.dp, vertical = 12.dp)) {
+        Text(title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        MutedText(sub, 12)
+    }
+}
+
+@Composable private fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
+    val items = listOf("ledger" to "Home", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "dues" to "Dues")
+    Row(
+        modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 22.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        items.forEach { (k, label) ->
+            val on = view == k
+            Box(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                    .background(if (on) ZColor.Ink else ZColor.Card)
+                    .clickable { onPick(k) }.padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, color = if (on) ZColor.Paper else ZColor.Muted, fontSize = 13.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+            }
+        }
+    }
+}
+
 @Composable private fun ViewSwitcher(view: String, onPick: (String) -> Unit) {
     val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest", "dues" to "Dues")
     Row(
@@ -1149,46 +1236,14 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             Fact("Left", money(budgetLeft))
             Fact("Money in", money(s.income), ZColor.Income)
         }
-    }
-
-    // Latest bank balances read from balance SMS
-    if (balances.isNotEmpty()) {
-        Panel {
-            Eyebrow("Bank balance")
-            Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            balances.entries.sortedByDescending { it.value.first }.forEach { (acct, v) ->
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    MutedText(acct, 13)
-                    Text(money(v.first), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            val asOn = balances.values.maxOf { it.second }
-            MutedText("From your latest balance alert" + if (asOn > 0) " · " +
-                java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(asOn)) else "", 11)
-        }
-    }
-
-    // Fixed outflow plan: income - fixed = discretionary pool
-    Panel {
-        Row(Modifier.fillMaxWidth().clickable { onOpenFixed() }, horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow("Fixed outflow plan")
-            Text(if (fixed.isEmpty()) "Set up" else "Edit", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
-        if (fixed.isEmpty()) {
-            Spacer(Modifier.height(6.dp))
-            MutedText("Add maid, milk, electricity and other fixed monthly costs to see what's left to spend freely.", 12)
-        } else {
+        if (fixed.isNotEmpty()) {
             val fixedTotal = fixed.values.sum()
-            val pool = s.income - fixedTotal
-            val extra = s.spent - fixedTotal
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Fixed", money(fixedTotal))
-                Fact("Free to spend", money(pool.coerceAtLeast(0.0)), ZColor.Income)
-                Fact("Spent beyond fixed", money(extra.coerceAtLeast(0.0)), if (extra > 0) ZColor.Accent else ZColor.Ink)
+                Fact("Fixed costs", money(fixedTotal))
+                Fact("Free to spend", money((s.income - fixedTotal).coerceAtLeast(0.0)), ZColor.Income)
+                Fact("Beyond fixed", money((s.spent - fixedTotal).coerceAtLeast(0.0)),
+                    if (s.spent > fixedTotal) ZColor.Accent else ZColor.Ink)
             }
         }
     }
@@ -1219,6 +1274,94 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
                 Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
+        }
+    }
+
+    // Ask-me — tackle the biggest unknowns first.
+    val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }.sortedByDescending { it.amount }
+    val next = pending.firstOrNull()
+    if (next != null) {
+        Panel {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Needs you · ${pending.size} to go")
+                if (pending.size > 1) Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Payment",
+                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+            MutedText("${money(next.amount)} on ${next.date}${if (next.account.isNotBlank()) " · ${next.account}" else ""}. What is this?", 13)
+            Spacer(Modifier.height(10.dp))
+            ChipScroll {
+                Chip("Spending", false, filled = true) { setAskOpen(true) }
+                Chip("Money in", false) { decide(next.id, "income", "Income", next.counterparty, false) }
+                Chip("Lent", false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
+                Chip("Borrowed", false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
+                Chip("Ignore", false) { decide(next.id, "ignore", "Ignore", null, false) }
+            }
+            if (askOpen) {
+                Spacer(Modifier.height(10.dp))
+                MutedText("Pick a category (remembered for ${next.counterparty ?: "this payee"}):", 12)
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    Classifier.CATEGORIES.keys.forEach { c ->
+                        Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
+                    }
+                    Chip("Domestic help", false) { decide(next.id, "expense", "Domestic help", next.counterparty, true) }
+                    CustomCats.names.forEach { c ->
+                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { decide(next.id, "expense", c, next.counterparty, true) }
+                    }
+                    Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
+                }
+            }
+        }
+    }
+
+    // Recent — horizontal strip
+    Panel {
+        val recent = list.filter { it.kind != "invest" }.sortedByDescending { it.date }
+        Row(Modifier.fillMaxWidth().clickable { onDrill("All transactions", recent) },
+            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("Recent")
+            Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(8.dp))
+        if (recent.isEmpty()) MutedText("No transactions here.")
+        else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            recent.take(10).forEach { t ->
+                Column(
+                    Modifier.width(150.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
+                        .clickable { onRowClick(t) }.padding(12.dp),
+                ) {
+                    MerchantTile(t.counterparty ?: "", t.category, 30.dp, t.kind)
+                    Spacer(Modifier.height(8.dp))
+                    Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    MutedText(t.date, 11)
+                }
+            }
+        }
+    }
+    
+    // Latest bank balances read from balance SMS
+    if (balances.isNotEmpty()) {
+        Panel {
+            Eyebrow("Bank balance")
+            Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            balances.entries.sortedByDescending { it.value.first }.forEach { (acct, v) ->
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    MutedText(acct, 13)
+                    Text(money(v.first), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            val asOn = balances.values.maxOf { it.second }
+            MutedText("From your latest balance alert" + if (asOn > 0) " · " +
+                java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(asOn)) else "", 11)
         }
     }
 
@@ -1331,54 +1474,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 }
             }
         }
-    }
-
-    // Ask-me — tackle the biggest unknowns first.
-    val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }.sortedByDescending { it.amount }
-    val next = pending.firstOrNull()
-    if (next != null) {
-        Panel {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Needs you · ${pending.size} to go")
-                if (pending.size > 1) Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Payment",
-                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("${money(next.amount)} on ${next.date}${if (next.account.isNotBlank()) " · ${next.account}" else ""}. What is this?", 13)
-            Spacer(Modifier.height(10.dp))
-            ChipScroll {
-                Chip("Spending", false, filled = true) { setAskOpen(true) }
-                Chip("Money in", false) { decide(next.id, "income", "Income", next.counterparty, false) }
-                Chip("Lent", false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
-                Chip("Borrowed", false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
-                Chip("Ignore", false) { decide(next.id, "ignore", "Ignore", null, false) }
-            }
-            if (askOpen) {
-                Spacer(Modifier.height(10.dp))
-                MutedText("Pick a category (remembered for ${next.counterparty ?: "this payee"}):", 12)
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c ->
-                        Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
-                    }
-                    Chip("Domestic help", false) { decide(next.id, "expense", "Domestic help", next.counterparty, true) }
-                    CustomCats.names.forEach { c ->
-                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { decide(next.id, "expense", c, next.counterparty, true) }
-                    }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
-                }
-            }
-        }
-    }
-
-    // Latest
-    Panel {
-        Eyebrow("Latest")
-        val latest = list.filter { it.kind != "invest" }.sortedByDescending { it.date }.take(30)
-        if (latest.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions here.") }
-        else latest.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
     }
 
     Spacer(Modifier.height(6.dp))
