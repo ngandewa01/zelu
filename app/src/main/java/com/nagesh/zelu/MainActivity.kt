@@ -27,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.animation.core.animateFloatAsState
@@ -95,7 +97,24 @@ import kotlin.math.atan2
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { ZeluApp() } }
+        val sp = getSharedPreferences("zelu_theme", MODE_PRIVATE)
+        val sysDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        ZTheme.dark = if (sp.contains("dark")) sp.getBoolean("dark", false) else sysDark
+        setContent {
+            val scheme = if (ZTheme.dark)
+                androidx.compose.material3.darkColorScheme(primary = ZColor.Accent, background = ZColor.Paper,
+                    surface = ZColor.Card, onSurface = ZColor.Ink, onBackground = ZColor.Ink, surfaceVariant = ZColor.Card,
+                    onSurfaceVariant = ZColor.Muted, outline = ZColor.Line)
+            else androidx.compose.material3.lightColorScheme(primary = ZColor.Accent)
+            val view = androidx.compose.ui.platform.LocalView.current
+            androidx.compose.runtime.SideEffect {
+                val c = androidx.core.view.WindowCompat.getInsetsController(window, view)
+                c.isAppearanceLightStatusBars = !ZTheme.dark
+                c.isAppearanceLightNavigationBars = !ZTheme.dark
+            }
+            MaterialTheme(colorScheme = scheme) { ZeluApp() }
+        }
     }
 }
 
@@ -465,6 +484,15 @@ fun ZeluApp() {
                 verticalAlignment = Alignment.CenterVertically) {
                 BrandBar()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TopIcon(onClick = {
+                        ZTheme.dark = !ZTheme.dark
+                        context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
+                            .edit().putBoolean("dark", ZTheme.dark).apply()
+                    }) {
+                        androidx.compose.material3.Icon(
+                            if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
+                            null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
+                    }
                     TopIcon(onClick = { controlsOpen = true }, dot = advActiveTop) { FunnelIcon() }
                     TopIcon(onClick = { menuOpen = true }) { MenuIcon() }
                 }
@@ -1780,8 +1808,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             if (shownAlerts.isNotEmpty()) Panel {
                 Eyebrow("Heads up")
                 shownAlerts.forEach { a ->
-                    val tone = if (a.over) ZColor.Warn else Color(0xFFB7791F)
-                    val soft = if (a.over) Color(0xFFFBE7E2) else Color(0xFFFBF0DA)
+                    val tone = if (a.over) ZColor.Warn else ZColor.AmberInk
+                    val soft = if (a.over) ZColor.WarnSoft else ZColor.AmberSoft
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { a.go() },
                         verticalAlignment = Alignment.CenterVertically) {
@@ -1891,7 +1919,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     Text(money(ins.topCatAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("${ins.topCatPct}% of spend", color = ZColor.Income, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFEFE6)).padding(12.dp)) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.OrangeSoft).padding(12.dp)) {
                     MerchantTile(ins.biggestName, "", 34.dp)
                     Spacer(Modifier.height(8.dp))
                     MutedText("Biggest spend", 11)
@@ -1903,7 +1931,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             if (tips.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFE3F0EC)).padding(12.dp),
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.IncomeSoft).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
@@ -2237,7 +2265,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 if (ch != 0) TonePill(
                     (if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% vs last month",
                     if (ch > 0) ZColor.Warn else ZColor.Income,
-                    if (ch > 0) Color(0xFFFBE7E2) else Color(0xFFE3F0EC),
+                    if (ch > 0) ZColor.WarnSoft else ZColor.IncomeSoft,
                 )
             }
         }
@@ -2282,15 +2310,15 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     val prev = prevByCat[c]
                     if (prev != null && prev > 0) {
                         val ch = ((v - prev) / prev * 100).toInt()
-                        if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.Warn, Color(0xFFFBE7E2))
-                        else if (ch < 0) TonePill("▼ ${kotlin.math.abs(ch)}% vs last month", ZColor.Income, Color(0xFFE3F0EC))
+                        if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.Warn, ZColor.WarnSoft)
+                        else if (ch < 0) TonePill("▼ ${kotlin.math.abs(ch)}% vs last month", ZColor.Income, ZColor.IncomeSoft)
                         else TonePill("• same as last month", ZColor.Muted, ZColor.Paper)
                     } else {
                         TonePill("new this month", ZColor.Muted, ZColor.Paper)
                     }
                     val budget = budgets[c]
                     if (budget != null && budget > 0) {
-                        if (v > budget) TonePill("Over by " + money(v - budget), ZColor.Warn, Color(0xFFFBE7E2))
+                        if (v > budget) TonePill("Over by " + money(v - budget), ZColor.Warn, ZColor.WarnSoft)
                         else TonePill(money(v) + " of " + money(budget), ZColor.InkSoft, ZColor.Paper)
                     }
                 }

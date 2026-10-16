@@ -20,17 +20,25 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 // ---- Zelu palette (60-30-10: paper / card+ink / orange accent) ----
+object ZTheme { var dark by mutableStateOf(false) }
+
 object ZColor {
-    val Paper = Color(0xFFECEEE6)
-    val Card = Color(0xFFFFFFFF)
-    val Ink = Color(0xFF17231F)
-    val InkSoft = Color(0xFF3B4A44)
-    val Muted = Color(0xFF69766F)
-    val Line = Color(0xFFD8DDD3)
+    val Paper get() = if (ZTheme.dark) Color(0xFF0F1613) else Color(0xFFECEEE6)
+    val Card get() = if (ZTheme.dark) Color(0xFF18221E) else Color(0xFFFFFFFF)
+    val Ink get() = if (ZTheme.dark) Color(0xFFE8EFEA) else Color(0xFF17231F)
+    val InkSoft get() = if (ZTheme.dark) Color(0xFFC3CFC8) else Color(0xFF3B4A44)
+    val Muted get() = if (ZTheme.dark) Color(0xFF8A9892) else Color(0xFF69766F)
+    val Line get() = if (ZTheme.dark) Color(0xFF2A3732) else Color(0xFFD8DDD3)
     val Accent = Color(0xFFFF6A2B)
     val AccentInk = Color(0xFFFFFFFF)
-    val Income = Color(0xFF16685E)
-    val Warn = Color(0xFFB5442B)
+    val Income get() = if (ZTheme.dark) Color(0xFF4FB8A6) else Color(0xFF16685E)
+    val Warn get() = if (ZTheme.dark) Color(0xFFFF8A6B) else Color(0xFFB5442B)
+    // Soft tints for pills and highlight tiles.
+    val WarnSoft get() = if (ZTheme.dark) Color(0xFF3A211C) else Color(0xFFFBE7E2)
+    val IncomeSoft get() = if (ZTheme.dark) Color(0xFF14302B) else Color(0xFFE3F0EC)
+    val OrangeSoft get() = if (ZTheme.dark) Color(0xFF3A2619) else Color(0xFFFFEFE6)
+    val AmberSoft get() = if (ZTheme.dark) Color(0xFF3A301A) else Color(0xFFFBF0DA)
+    val AmberInk get() = if (ZTheme.dark) Color(0xFFE3B35A) else Color(0xFFB7791F)
 }
 
 data class Brand(val key: String, val name: String, val bg: Color, val fg: Color, val mark: String)
