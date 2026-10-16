@@ -1439,6 +1439,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
     "transfer" -> t.category.ifBlank { "Transfer" }
     "invest" -> "Investment"
     "ignore" -> "Ignored"
+    "refund" -> if (t.category != "Refund") "Refund · ${t.category}" else "Refund"
     else -> t.kind.replaceFirstChar { it.uppercase() }
 }
 

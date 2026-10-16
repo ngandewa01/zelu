@@ -133,7 +133,8 @@ object Analytics {
         var spent = 0.0; var income = 0.0; var pending = 0
         for (t in list) when (t.kind) {
             "expense" -> { spent += t.amount; if (t.category == "Unknown") pending++ }
-            "income", "refund" -> income += t.amount
+            "income" -> income += t.amount
+            "refund" -> if (t.category == "Refund") income += t.amount else spent -= t.amount  // paired refund nets the spend
         }
         return Summary(spent, income, income - spent, pending)
     }
@@ -141,7 +142,8 @@ object Analytics {
     fun byCategory(list: List<Row>): List<Pair<String, Double>> {
         val m = LinkedHashMap<String, Double>()
         list.filter { it.kind == "expense" }.forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
-        return m.entries.sortedByDescending { it.value }.map { it.key to it.value }
+        list.filter { it.kind == "refund" && it.category != "Refund" }.forEach { m[it.category] = (m[it.category] ?: 0.0) - it.amount }
+        return m.entries.filter { it.value > 0.5 }.sortedByDescending { it.value }.map { it.key to it.value }
     }
 
     // Expense totals by category for one month/account — used for month-over-month deltas.
@@ -149,6 +151,8 @@ object Analytics {
         val m = HashMap<String, Double>()
         rows.filter { it.kind == "expense" && it.date.startsWith(month) && (account == "All" || it.account == account) }
             .forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
+        rows.filter { it.kind == "refund" && it.category != "Refund" && it.date.startsWith(month) && (account == "All" || it.account == account) }
+            .forEach { m[it.category] = (m[it.category] ?: 0.0) - it.amount }
         return m
     }
 
@@ -222,8 +226,9 @@ object Analytics {
     fun monthlySpendIncome(allRows: List<Row>, months: List<String>, account: String): List<Triple<String, Double, Double>> =
         months.map { m ->
             val inM = allRows.filter { it.date.startsWith(m) && (account == "All" || it.account == account) }
-            val spent = inM.filter { it.kind == "expense" }.sumOf { it.amount }
-            val income = inM.filter { it.kind == "income" || it.kind == "refund" }.sumOf { it.amount }
+            val spent = inM.filter { it.kind == "expense" }.sumOf { it.amount } -
+                inM.filter { it.kind == "refund" && it.category != "Refund" }.sumOf { it.amount }
+            val income = inM.filter { it.kind == "income" || (it.kind == "refund" && it.category == "Refund") }.sumOf { it.amount }
             Triple(m, spent, income)
         }
 }

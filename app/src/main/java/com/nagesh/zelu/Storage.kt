@@ -58,7 +58,29 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             row
         }.sortedByDescending { it.date }
-        detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows)))
+        pairRefunds(detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows))))
+    }
+
+    // A refund that clearly belongs to an earlier spend (same merchant, or same amount on the
+    // same account, within 120 days) takes that spend's category, so it nets against it instead
+    // of counting as income. Anything unclear stays a plain "Refund" in Money in.
+    private fun pairRefunds(rows: List<Row>): List<Row> {
+        fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
+        val expenses = rows.filter { it.kind == "expense" }
+        val remaining = HashMap<String, Double>().apply { expenses.forEach { put(it.id, it.amount) } }
+        val paired = HashMap<String, String>()
+        for (r in rows.filter { it.kind == "refund" && it.category == "Refund" }.sortedBy { it.date }) {
+            val lo = Dates.shiftDays(r.date, -120)
+            val rc = norm(r.counterparty)
+            val best = expenses.filter { e ->
+                e.date <= r.date && e.date >= lo && (remaining[e.id] ?: 0.0) >= r.amount - 0.5 && (
+                    (rc.length >= 4 && norm(e.counterparty).let { ec -> ec.length >= 4 && (ec.contains(rc) || rc.contains(ec)) }) ||
+                        (kotlin.math.abs(e.amount - r.amount) < 0.5 && e.account.isNotBlank() && e.account == r.account))
+            }.maxByOrNull { it.date } ?: continue
+            remaining[best.id] = (remaining[best.id] ?: 0.0) - r.amount
+            paired[r.id] = best.category
+        }
+        return if (paired.isEmpty()) rows else rows.map { r -> paired[r.id]?.let { r.copy(category = it) } ?: r }
     }
 
     // A transfer between your OWN accounts shows up as the same amount leaving one account
