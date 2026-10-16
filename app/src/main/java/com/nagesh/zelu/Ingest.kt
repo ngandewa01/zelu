@@ -14,6 +14,7 @@ object Ingest {
 
         val rows = ArrayList<Row>()
         val reminders = ArrayList<Reminder>()
+        val balances = HashMap<String, Pair<Double, Long>>()
         for (msg in raw) {
             // 1) Trust the sender first: accept only bank/financial sender IDs
             //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
@@ -25,6 +26,12 @@ object Ingest {
 
             val txn = Parser.parseSms(msg.body, msg.date, msg.address)
             if (txn == null) {
+                // Balance-only alert -> remember the latest balance per account.
+                Parser.parseBalance(msg.body, msg.date, msg.address)?.let { (a, b, d) ->
+                    val cur = balances[a]
+                    if (cur == null || d >= cur.second) balances[a] = b to d
+                    continue
+                }
                 // Not a completed payment — it may be a bill/EMI reminder for the Dues page.
                 Parser.parseReminder(msg.body, msg.date, msg.address)?.let { reminders.add(it) }
                 continue
@@ -49,6 +56,7 @@ object Ingest {
 
         val added = Storage.saveRows(context, rows)
         Storage.saveReminders(context, reminders)
+        Storage.saveBalances(context, balances)
         return Result(rows.size, added)
     }
 }

@@ -20,7 +20,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 32
+    const val PARSER_VERSION = 33
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -241,6 +241,31 @@ object Storage {
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
         file(context, BUDGET_FILE).writeText(o.toString())
+    }
+
+    // ---- latest known bank balance per account (account -> amount, receivedMs) ----
+    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+        val f = file(context, "balances.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText())
+            val m = LinkedHashMap<String, Pair<Double, Long>>()
+            val ks = o.keys()
+            while (ks.hasNext()) {
+                val k = ks.next(); val e = o.getJSONObject(k)
+                m[k] = e.getDouble("a") to e.getLong("d")
+            }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>) = synchronized(lock) {
+        if (fresh.isEmpty()) return
+        val cur = loadBalances(context).toMutableMap()
+        for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) cur[k] = v }
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
+        file(context, "balances.json").writeText(o.toString())
     }
 
     // ---- fixed monthly outflow plan (name -> typical monthly amount) ----

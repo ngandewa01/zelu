@@ -187,6 +187,7 @@ fun ZeluApp() {
     var budgetsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var fixedOpen by remember { mutableStateOf(false) }
+    var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
@@ -219,6 +220,7 @@ fun ZeluApp() {
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
+            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
         }
     }
 
@@ -471,7 +473,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances)
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -1042,6 +1044,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     onOpenBorrow: (String) -> Unit = {},
     fixed: Map<String, Double> = emptyMap(),
     onOpenFixed: () -> Unit = {},
+    balances: Map<String, Pair<Double, Long>> = emptyMap(),
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1059,6 +1062,23 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             Fact("Budget", money(Analytics.BUDGET))
             Fact("Left", money(budgetLeft))
             Fact("Money in", money(s.income), ZColor.Income)
+        }
+    }
+
+    // Latest bank balances read from balance SMS
+    if (balances.isNotEmpty()) {
+        Panel {
+            Eyebrow("Bank balance")
+            Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            balances.entries.sortedByDescending { it.value.first }.forEach { (acct, v) ->
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    MutedText(acct, 13)
+                    Text(money(v.first), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            MutedText("From your latest balance alerts", 11)
         }
     }
 
