@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.animation.core.animateFloatAsState
@@ -583,7 +584,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets)
                 "spend" -> {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         Row(
@@ -1709,6 +1710,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     reminderState: Map<String, Boolean> = emptyMap(),
     refundSuggestions: List<Pair<Row, Row>> = emptyList(),
     onRefundAnswer: (String, Boolean) -> Unit = { _, _ -> },
+    budgets: Map<String, Double> = emptyMap(),
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1753,32 +1755,53 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
-    // Heads up — categories or single spends well above your usual (current month only)
+    // Heads up — budgets nearly used or exceeded, and cards running low (current month only)
     run {
         if (f.period == "month" && f.month == Dates.todayMonth()) {
-            val alerts = Analytics.unusual(allRows, f.month)
-            if (alerts.isNotEmpty()) Column(
-                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFFFFEFE6)).border(1.dp, Color(0xFFF6C9B0), RoundedCornerShape(18.dp)).padding(18.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Warn, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("HEADS UP", color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            // (over?, ratio, icon, title, detail, onClick)
+            data class Alert(val over: Boolean, val ratio: Double, val icon: androidx.compose.ui.graphics.vector.ImageVector,
+                             val title: String, val detail: String, val go: () -> Unit)
+            val alerts = ArrayList<Alert>()
+            val totals = Analytics.categoryTotals(allRows, f.month, "All")
+            budgets.forEach { (c, b) ->
+                val v = totals[c] ?: 0.0
+                if (b > 0 && v >= b * 0.8) {
+                    val over = v > b
+                    alerts.add(Alert(over, v / b, CatIcons.forCategory(c) ?: Icons.Rounded.Warning,
+                        if (over) "$c is over budget" else "$c is close to its budget",
+                        if (over) money(v - b) + " over your " + money(b) + " budget"
+                        else money(b - v) + " left of " + money(b),
+                    ) { onDrill(c, allRows.filter { it.kind == "expense" && it.category == c && it.date.startsWith(f.month) }) })
                 }
-                alerts.forEach { (t, d) ->
+            }
+            accounts.filter { it.contains(" CC ") }.forEach { a ->
+                val avail = limits[a]?.first
+                val total = limits["$a#total"]?.first
+                if (avail != null && total != null && total > 0 && avail < total * 0.2) {
+                    val used = 1.0 - avail / total
+                    alerts.add(Alert(avail < total * 0.1, used, Icons.Rounded.CreditCard,
+                        a + " is " + (used * 100).toInt() + "% used", money(avail) + " of " + money(total) + " left") { onOpenCard(a) })
+                }
+            }
+            val shownAlerts = alerts.sortedByDescending { it.ratio }.take(3)
+            if (shownAlerts.isNotEmpty()) Panel {
+                Eyebrow("Heads up")
+                shownAlerts.forEach { a ->
+                    val tone = if (a.over) ZColor.Warn else Color(0xFFB7791F)
+                    val soft = if (a.over) Color(0xFFFBE7E2) else Color(0xFFFBF0DA)
                     Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFFFFFFF)),
-                            contentAlignment = Alignment.Center) {
-                            val ic = CatIcons.forCategory(t.substringBefore(" is "))
-                            if (ic != null) androidx.compose.material3.Icon(ic, null, tint = ZColor.Warn, modifier = Modifier.size(20.dp))
-                            else androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Warn, modifier = Modifier.size(20.dp))
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { a.go() },
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(soft), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(a.icon, null, tint = tone, modifier = Modifier.size(20.dp))
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(t, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                            Text(d, color = ZColor.InkSoft, fontSize = 12.sp)
+                            Text(a.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(a.detail, color = ZColor.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).padding(horizontal = 8.dp, vertical = 3.dp)) {
+                            Text((a.ratio * 100).toInt().toString() + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
