@@ -2601,8 +2601,6 @@ private data class TrendBucket(
     val rows: List<Row>, val spent: Double, val income: Double,
 )
 
-private val MONTH_ABBR = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 private fun dayMonth(d: String) = "${d.substring(8, 10).toInt()} ${MONTH_ABBR[d.substring(5, 7).toInt() - 1]}"
 
 private fun weekStart(d: String): String {
