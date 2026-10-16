@@ -34,6 +34,9 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -454,6 +457,7 @@ fun ZeluApp() {
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 110.dp),
         ) {
             val advActiveTop = type != "all" || cat != "All" || query.isNotBlank() || account != "All" || excludeEmi
@@ -1460,7 +1464,8 @@ private fun prettyDay(ymd: String): String {
     val items = listOf("ledger" to "Home", "spend" to "Spend", "payees" to "Payees", "dues" to "Dues")
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 22.dp),
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         items.forEach { (k, label) ->
