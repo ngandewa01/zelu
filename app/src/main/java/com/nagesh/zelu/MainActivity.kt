@@ -1842,53 +1842,64 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     val bank = parts.firstOrNull() ?: account
     val base = bankColor(account)
     val logo = bankLogoRes(account)
-    Column(
-        Modifier.width(290.dp).heightIn(min = 168.dp).clip(RoundedCornerShape(18.dp))
-            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(base, base.copy(alpha = 0.72f))))
-            .clickable { onClick() }.padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                if (logo != null) androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp),
-                ) else Text(bank.take(1).uppercase(), color = base, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    val shown = limit ?: total
+    val asOf = shown?.let { java.text.SimpleDateFormat("d MMM", java.util.Locale.US).apply { timeZone = Dates.IST }.format(java.util.Date(it.second)) }
+    val enquiry = when (bank.uppercase()) {
+        "HDFC" -> "5676712" to "CCBAL $last4"
+        "ICICI" -> "5676766" to "IBALCC ${last4}XX"
+        else -> null
+    }
+    val soft = Color.White.copy(alpha = 0.72f)
+    Column(Modifier.width(290.dp)) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(1.6f).clip(RoundedCornerShape(18.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(base, base.copy(alpha = 0.7f))))
+                .clickable { onClick() },
+        ) {
+            // Soft circles for depth.
+            Canvas(Modifier.matchParentSize()) {
+                drawCircle(Color.White.copy(alpha = 0.07f), radius = size.width * 0.38f, center = androidx.compose.ui.geometry.Offset(size.width * 0.92f, size.height * 0.08f))
+                drawCircle(Color.White.copy(alpha = 0.05f), radius = size.width * 0.30f, center = androidx.compose.ui.geometry.Offset(size.width * 0.78f, size.height * 1.02f))
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("$bank Credit Card", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("•••• $last4", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                        if (logo != null) androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(22.dp),
+                        ) else Text(bank.take(1).uppercase(), color = base, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("CREDIT CARD", color = soft, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium)
+                        if (enquiry != null) Text("  ↻", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                try {
+                                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO,
+                                        android.net.Uri.parse("smsto:${enquiry.first}")).putExtra("sms_body", enquiry.second))
+                                } catch (_: Exception) {}
+                            })
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(34.dp).height(25.dp).clip(RoundedCornerShape(5.dp)).background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFE8C766), Color(0xFFB99434)))))
+                    Spacer(Modifier.width(14.dp))
+                    Text("••••  ••••  ••••  $last4", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                    Column {
+                        Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = soft, fontSize = 10.sp)
+                        Text(if (shown != null) money(shown.first) else "limit not in SMS", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        if (asOf != null) Text("as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) else "No bill due", color = soft, fontSize = 10.sp)
+                        if (due != null) Text(money(due.amount), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
-        Column {
-            Text("Spent this period", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
-            Text(money(spent), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(10.dp))
-        val shown = limit ?: total
-        val asOf = shown?.let { java.text.SimpleDateFormat("d MMM", java.util.Locale.US).apply { timeZone = Dates.IST }.format(java.util.Date(it.second)) }
-        val enquiry = when (bank.uppercase()) {
-            "HDFC" -> "5676712" to "CCBAL $last4"
-            "ICICI" -> "5676766" to "IBALCC ${last4}XX"
-            else -> null
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
-                Text(if (shown != null) money(shown.first) else "limit not in SMS", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                if (asOf != null) Text("as of $asOf", color = Color.White.copy(alpha = 0.65f), fontSize = 10.sp)
-                if (enquiry != null) Text("↻ refresh", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 4.dp).clickable {
-                        try {
-                            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO,
-                                android.net.Uri.parse("smsto:${enquiry.first}")).putExtra("sms_body", enquiry.second))
-                        } catch (_: Exception) {}
-                    })
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(if (due != null) "Due " + due.dueDate.takeLast(5) else "No bill due", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
-                if (due != null) Text(money(due.amount), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
+        Spacer(Modifier.height(6.dp))
+        MutedText("Spent this period  ${money(spent)}", 12)
     }
 }
 
