@@ -195,6 +195,9 @@ fun ZeluApp() {
     var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var cardPrefs by remember { mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap()) }
     var cardOpen by remember { mutableStateOf<String?>(null) }
+    var monthlyBudget by remember { mutableStateOf(60000.0) }
+    var budgetDlg by remember { mutableStateOf(false) }
+    Analytics.BUDGET = monthlyBudget
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
@@ -252,6 +255,7 @@ fun ZeluApp() {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.setCardPref(context, account, day, budget) }
             cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
+            monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
         }
     }
 
@@ -516,7 +520,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true })
                 "spend" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -546,12 +550,41 @@ fun ZeluApp() {
         }
     }
 
+    if (budgetDlg) {
+        var text by remember { mutableStateOf(fmtPlain(monthlyBudget)) }
+        Dialog(onDismissRequest = { budgetDlg = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Monthly budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                MutedText("Your overall spending limit per month. Shown on Home and used for the pace chart.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
+                    singleLine = true, placeholder = { Text("₹ per month") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(14.dp))
+                Box(
+                    Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable {
+                            val v = text.toDoubleOrNull() ?: 0.0
+                            if (v > 0) scope.launch {
+                                withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, v) }
+                                monthlyBudget = v
+                            }
+                            budgetDlg = false
+                        }.padding(horizontal = 22.dp, vertical = 10.dp),
+                ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
     if (menuOpen) {
         Dialog(onDismissRequest = { menuOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
                 Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 MenuRow("Fixed outflow plan", "Maid, milk, electricity and other fixed costs") { menuOpen = false; fixedOpen = true }
+                MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
                 MenuRow("Category budgets", "Monthly cap per category") { menuOpen = false; budgetsOpen = true }
                 MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
                 MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
@@ -1494,9 +1527,13 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             add("You held on to about $savings% of what came in this month.")
             add("Roughly $savings% of your income stayed put — not bad.")
         }
-        if (savings != null && savings <= 0) {
+        if (savings != null && savings <= 0 && savings > -15) {
             add("You spent about as much as came in this month.")
             add("Money in and money out are running neck and neck.")
+        }
+        if (savings != null && savings <= -15 && income > 0) {
+            add("You've spent about " + String.format(java.util.Locale.US, "%.1f", spent / income) + "× what came in so far.")
+            add("Spending is well ahead of income — large EMIs or one-off payments may be the reason.")
         }
         if (over) {
             add("You're ahead of a steady pace — easing $cat helps most.")
@@ -1527,6 +1564,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     limits: Map<String, Pair<Double, Long>> = emptyMap(),
     reminders: List<Reminder> = emptyList(),
     onOpenCard: (String) -> Unit = {},
+    onToggleEmi: () -> Unit = {},
+    onEditBudget: () -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1536,14 +1575,29 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 
     // Spent + budget
     Panel {
+        val overBudget = s.spent > Analytics.BUDGET
+        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
         Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp)); Meter(pct, ZColor.Accent)
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Fact("Budget", money(Analytics.BUDGET))
-            Fact("Left", money(budgetLeft))
+        Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
+                color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            )
+            MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Fact("Money in", money(s.income), ZColor.Income)
+            if (emiAmt > 0 || excludeEmi) {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (!excludeEmi) MutedText("EMI included " + money(emiAmt), 12)
+                    Spacer(Modifier.height(4.dp))
+                    Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
+                }
+            }
         }
         if (fixed.isNotEmpty()) {
             val fixedTotal = fixed.values.sum()
@@ -1566,17 +1620,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
             MutedText("${ins.topCatPct}% of spend", 13)
             Spacer(Modifier.height(14.dp))
-            val ob = ins.overBy
             MutedText("Biggest spend", 12)
             Text("${ins.biggestName} · ${money(ins.biggestAmt)}", color = ZColor.Ink,
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (ob != null) {
-                Spacer(Modifier.height(12.dp))
-                val over = ob > 0
-                MutedText(if (over) "Over a steady pace by" else "Under a steady pace by", 12)
-                Text(money(kotlin.math.abs(ob)), color = if (over) ZColor.Accent else ZColor.Income,
-                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
             val tips = glanceTips(ins, s.spent, s.income)
             if (tips.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))

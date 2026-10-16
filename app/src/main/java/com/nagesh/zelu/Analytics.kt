@@ -64,7 +64,8 @@ object Dates {
 
 object Analytics {
 
-    const val BUDGET = 60000.0
+    // Monthly spending budget; set from the user's saved value at startup (default 60,000).
+    var BUDGET = 60000.0
 
     data class Filter(
         val period: String,       // week|month|3m|6m|year|all|custom

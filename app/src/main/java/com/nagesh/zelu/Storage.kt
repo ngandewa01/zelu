@@ -327,6 +327,17 @@ object Storage {
         file(context, "card_prefs.json").writeText(o.toString())
     }
 
+    // ---- overall monthly spending budget ----
+    fun loadMonthlyBudget(context: Context): Double = synchronized(lock) {
+        val f = file(context, "monthly_budget.txt")
+        if (!f.exists()) return 60000.0
+        f.readText().trim().toDoubleOrNull()?.takeIf { it > 0 } ?: 60000.0
+    }
+
+    fun saveMonthlyBudget(context: Context, amount: Double): Unit = synchronized(lock) {
+        file(context, "monthly_budget.txt").writeText(amount.toString())
+    }
+
     // ---- user-made categories (name -> emoji + colour) ----
     fun loadCustomCats(context: Context): Map<String, Pair<String, Long>> = synchronized(lock) {
         val f = file(context, "custom_categories.json")
