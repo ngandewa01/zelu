@@ -25,7 +25,10 @@ class SmsReceiver : BroadcastReceiver() {
 
         val raw = RawSms(address, body.toString(), date)
         try {
-            Ingest.ingest(context.applicationContext, listOf(raw))
+            val res = Ingest.ingest(context.applicationContext, listOf(raw))
+            if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" }?.let {
+                Notifier.notifyTxn(context.applicationContext, it)
+            }
         } catch (_: Exception) {
             // Never crash on an incoming SMS.
         }

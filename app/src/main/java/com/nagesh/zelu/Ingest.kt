@@ -4,7 +4,7 @@ import android.content.Context
 
 object Ingest {
 
-    data class Result(val found: Int, val added: Int)
+    data class Result(val found: Int, val added: Int, val rows: List<Row> = emptyList())
 
     // Parses and classifies raw SMS, then stores the new transactions.
     @Synchronized
@@ -58,6 +58,6 @@ object Ingest {
         val added = Storage.saveRows(context, rows)
         Storage.saveReminders(context, reminders)
         Storage.saveBalances(context, balances)
-        return Result(rows.size, added)
+        return Result(rows.size, added, rows)
     }
 }
