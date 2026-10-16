@@ -302,15 +302,8 @@ fun ZeluApp() {
         if (!notifAsked && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
         ) { notifAsked = true; notifLauncher.launch("android.permission.POST_NOTIFICATIONS") }
-        val today = Dates.today()
-        val soon = Dates.shiftDays(today, 3)
-        val cm = Dates.todayMonth()
-        val dueSoon = reminders.filter { !it.done && it.dueDate.take(7) >= cm && it.dueDate <= soon }
-        if (dueSoon.isNotEmpty()) {
-            val first = dueSoon.minByOrNull { it.dueDate }!!
-            Notifier.notifyDueSoon(context, dueSoon.size,
-                "${first.counterparty ?: "Bill"} ${money(first.amount)} due ${prettyDate(first.dueDate)}")
-        }
+        // Daily 9 AM check runs in the background (DueReceiver); this just makes sure it's scheduled.
+        DueReminders.schedule(context)
     }
 
     LaunchedEffect(Unit) {
