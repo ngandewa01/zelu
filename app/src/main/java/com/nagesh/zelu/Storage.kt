@@ -268,6 +268,27 @@ object Storage {
         file(context, "balances.json").writeText(o.toString())
     }
 
+    // ---- user-made categories (name -> emoji + colour) ----
+    fun loadCustomCats(context: Context): Map<String, Pair<String, Long>> = synchronized(lock) {
+        val f = file(context, "custom_categories.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText())
+            val m = LinkedHashMap<String, Pair<String, Long>>()
+            val ks = o.keys()
+            while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getString("e") to e.getLong("c") }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun addCustomCat(context: Context, name: String, emoji: String, color: Long): Unit = synchronized(lock) {
+        val cur = loadCustomCats(context).toMutableMap()
+        cur[name] = emoji to color
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, JSONObject().put("e", v.first).put("c", v.second))
+        file(context, "custom_categories.json").writeText(o.toString())
+    }
+
     // ---- fixed monthly outflow plan (name -> typical monthly amount) ----
     fun loadFixed(context: Context): Map<String, Double> = synchronized(lock) {
         val f = file(context, "fixed_outflow.json")

@@ -187,6 +187,7 @@ fun ZeluApp() {
     var budgetsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var fixedOpen by remember { mutableStateOf(false) }
+    var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
@@ -221,6 +222,7 @@ fun ZeluApp() {
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
+            CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
         }
     }
 
@@ -473,7 +475,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances)
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb })
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -492,7 +494,13 @@ fun ZeluApp() {
     }
 
     if (fixedOpen) {
-        FixedDialog(fixed, onSet = { n, a -> setFixed(n, a) }, onDismiss = { fixedOpen = false })
+        val cats = (Classifier.CATEGORIES.keys + CustomCats.names + "Domestic help").distinct()
+        val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
+        val avg = cats.associateWith { c ->
+            val t = rows.filter { it.kind == "expense" && it.category == c && months.any { m -> it.date.startsWith(m) } }.sumOf { it.amount }
+            Math.round(t / 3.0 / 10.0) * 10.0
+        }
+        FixedDialog(fixed, cats, avg, onSet = { n, a -> setFixed(n, a) }, onDismiss = { fixedOpen = false })
     }
     if (budgetsOpen) {
         val spendCats = Analytics.byCategory(list).map { it.first }
@@ -532,7 +540,21 @@ fun ZeluApp() {
                 decide(r.id, kind, cat, r.counterparty, kind != "income" && kind != "ignore")
                 detailRow = null
             },
+            onNewCat = { cb -> newCatCallback = cb },
             onDismiss = { detailRow = null },
+        )
+    }
+    newCatCallback?.let { cb ->
+        NewCategoryDialog(
+            onCreate = { name, emoji, color ->
+                scope.launch {
+                    withContext(Dispatchers.IO) { Storage.addCustomCat(context, name, emoji, color) }
+                    CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
+                    cb(name)
+                    newCatCallback = null
+                }
+            },
+            onDismiss = { newCatCallback = null },
         )
     }
 }
@@ -607,7 +629,7 @@ private fun fmtPlain(n: Double): String =
 }
 
 @Composable private fun FixedDialog(
-    fixed: Map<String, Double>, onSet: (String, Double) -> Unit, onDismiss: () -> Unit,
+    fixed: Map<String, Double>, cats: List<String>, avg: Map<String, Double>, onSet: (String, Double) -> Unit, onDismiss: () -> Unit,
 ) {
     val drafts = remember { mutableStateMapOf<String, String>().apply { fixed.forEach { (k, v) -> put(k, fmtPlain(v)) } } }
     var newName by remember { mutableStateOf("") }
@@ -630,6 +652,18 @@ private fun fmtPlain(n: Double): String =
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.width(120.dp),
                         )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                MutedText("Pick a category (amount filled from your last 3 months), or type your own:", 12)
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    cats.filter { it !in drafts.keys }.forEach { c ->
+                        Chip(c, newName == c) {
+                            newName = c
+                            val a = avg[c] ?: 0.0
+                            if (a > 0) newAmt = fmtPlain(a)
+                        }
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -659,6 +693,53 @@ private fun fmtPlain(n: Double): String =
                         onDismiss()
                     }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+@Composable private fun NewCategoryDialog(onCreate: (String, String, Long) -> Unit, onDismiss: () -> Unit) {
+    val emojis = listOf("🍽️", "🛒", "🏠", "🚗", "⛽", "💊", "🎬", "✈️", "📱", "💡", "🎓", "👶", "🐶", "🎁", "💇", "🏋️", "🧹", "🛠️")
+    val colors = listOf(0xFFE57373, 0xFFF4A261, 0xFFE9C46A, 0xFF81B29A, 0xFF4DB6AC, 0xFF64B5F6, 0xFF7986CB, 0xFFBA68C8, 0xFFA1887F, 0xFF90A4AE)
+    var name by remember { mutableStateOf("") }
+    var emoji by remember { mutableStateOf("🏷️") }
+    var color by remember { mutableStateOf(colors[5]) }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("New category", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(color).copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(emoji, fontSize = 22.sp) }
+                Spacer(Modifier.width(12.dp))
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it }, singleLine = true,
+                    placeholder = { Text("Category name") }, modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            MutedText("Symbol", 12)
+            Spacer(Modifier.height(6.dp))
+            ChipScroll { emojis.forEach { e -> Chip(e, e == emoji) { emoji = e } } }
+            Spacer(Modifier.height(10.dp))
+            MutedText("Colour", 12)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                colors.forEach { c ->
+                    Box(
+                        Modifier.size(30.dp).clip(RoundedCornerShape(15.dp)).background(Color(c))
+                            .border(if (c == color) 3.dp else 0.dp, ZColor.Ink, RoundedCornerShape(15.dp))
+                            .clickable { color = c },
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { if (name.trim().isNotEmpty()) onCreate(name.trim(), emoji, color) }
+                    .padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Create", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
@@ -749,7 +830,7 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
-@Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onDismiss: () -> Unit) {
+@Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
@@ -799,6 +880,10 @@ private fun fmtPlain(n: Double): String =
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify(if (c == "Investment") "invest" else "expense", c) } }
+                    CustomCats.names.forEach { c ->
+                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { onReclassify("expense", c) }
+                    }
+                    Chip("＋ New", false, filled = true) { onNewCat { c -> onReclassify("expense", c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
@@ -1045,6 +1130,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     fixed: Map<String, Double> = emptyMap(),
     onOpenFixed: () -> Unit = {},
     balances: Map<String, Pair<Double, Long>> = emptyMap(),
+    onNewCat: (((String) -> Unit)) -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1278,6 +1364,10 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                         Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
                     Chip("Domestic help", false) { decide(next.id, "expense", "Domestic help", next.counterparty, true) }
+                    CustomCats.names.forEach { c ->
+                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { decide(next.id, "expense", c, next.counterparty, true) }
+                    }
+                    Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
                 }
             }
         }

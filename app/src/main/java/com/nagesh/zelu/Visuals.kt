@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,7 +123,14 @@ fun brandFor(name: String): Brand? {
     return BRANDS.firstOrNull { n.contains(it.key) }
 }
 
-fun catColor(cat: String): Color = CAT_COLORS[cat] ?: Color(0xFF7B8C85)
+// User-made categories: name -> (emoji, ARGB colour). Snapshot state so tiles recompose.
+object CustomCats {
+    var map by mutableStateOf<Map<String, Pair<String, Long>>>(emptyMap())
+    val names: List<String> get() = map.keys.toList()
+}
+
+fun catColor(cat: String): Color =
+    CAT_COLORS[cat] ?: CustomCats.map[cat]?.let { Color(it.second) } ?: Color(0xFF7B8C85)
 
 fun bankColor(account: String): Color {
     val a = account.uppercase()
@@ -141,7 +151,7 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String 
     val symbol = when {
         b != null -> null
         kind == "transfer" || kind == "lent" || kind == "borrowed" -> "↔️"
-        else -> CAT_ICON[category]
+        else -> CAT_ICON[category] ?: CustomCats.map[category]?.first
     }
     val bg = b?.bg ?: catColor(category).copy(alpha = 0.18f)
     val fg = b?.fg ?: catColor(category)
