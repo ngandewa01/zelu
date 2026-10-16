@@ -26,6 +26,11 @@ object Ingest {
             //    short URL. If it does, the message is spoofed / phishing — ignore it.
             if (Parser.hasSuspiciousLink(msg.body)) continue
 
+            Parser.cardLimit(msg.body, msg.address)?.let { (acct, amt, isTotal) ->
+                val key = if (isTotal) "$acct#total" else acct
+                val cur = limits[key]
+                if (cur == null || msg.date >= cur.second) limits[key] = amt to msg.date
+            }
             val txn = Parser.parseSms(msg.body, msg.date, msg.address)
             if (txn == null) {
                 // Balance-only alert -> remember the latest balance per account.

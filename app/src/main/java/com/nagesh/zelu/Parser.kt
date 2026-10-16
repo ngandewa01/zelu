@@ -367,6 +367,27 @@ object Parser {
     fun limitFromTxn(body: String): Double? =
         TXN_LIMIT.find(body.replace("\n", " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
 
+    private val CARD_DIGITS = Regex("""(?:card|ending(?:\s*with)?)\s*(?:no\.?\s*)?[\dXx*]*?(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val CARD_TOTAL_LIMIT = Regex("""credit\s*limit.{0,80}?changed\s+from\s+(?:INR|Rs\.?|₹)?\s*[\d,]+(?:\.\d+)?\s+to\s+(?:INR|Rs\.?|₹)?\s*([\d,]+(?:\.\d+)?)""", RegexOption.IGNORE_CASE)
+
+    // Any bank SMS (payment received, limit change, enquiry reply...) that states a card's limit.
+    // Returns (account label, amount, isTotalLimit). Available limit beats total limit in the UI.
+    fun cardLimit(body: String, source: String): Triple<String, Double, Boolean>? {
+        val text = body.replace("\n", " ")
+        val avail = TXN_LIMIT.find(text)?.groupValues?.get(1)
+        val total = if (avail == null) CARD_TOTAL_LIMIT.find(text)?.groupValues?.get(1) else null
+        val amt = (avail ?: total)?.replace(",", "")?.toDoubleOrNull() ?: return null
+        val last4 = CARD_DIGITS.find(text)?.groupValues?.get(1) ?: return null
+        var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+        if (bank == "YESBANK") bank = "YES"
+        if (bank.isEmpty()) {
+            val src = source.uppercase()
+            bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+        }
+        if (bank.isEmpty()) return null
+        return Triple("$bank CC $last4", amt, avail == null)
+    }
+
     fun parseBalance(body: String, receivedMs: Long?, source: String): Triple<String, Double, Long>? {
         val text = body.replace("\n", " ").trim()
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null

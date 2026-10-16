@@ -1747,7 +1747,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     val today = Dates.today()
                     val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
                         .minByOrNull { it.dueDate }
-                    CardTile(a, spent, limits[a]?.first, due) { onOpenCard(a) }
+                    CardTile(a, spent, limits[a], limits["$a#total"], due) { onOpenCard(a) }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -1835,14 +1835,15 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     }
 }
 
-@Composable private fun CardTile(account: String, spent: Double, limit: Double?, due: Reminder?, onClick: () -> Unit = {}) {
+@Composable private fun CardTile(account: String, spent: Double, limit: Pair<Double, Long>?, total: Pair<Double, Long>?, due: Reminder?, onClick: () -> Unit = {}) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val parts = account.trim().split(" ")
     val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
     val bank = parts.firstOrNull() ?: account
     val base = bankColor(account)
     val logo = bankLogoRes(account)
     Column(
-        Modifier.width(290.dp).height(168.dp).clip(RoundedCornerShape(18.dp))
+        Modifier.width(290.dp).heightIn(min = 168.dp).clip(RoundedCornerShape(18.dp))
             .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(base, base.copy(alpha = 0.72f))))
             .clickable { onClick() }.padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -1860,12 +1861,28 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
         Column {
             Text("Spent this period", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
-            Text(money(spent), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(money(spent), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(10.dp))
+        val shown = limit ?: total
+        val asOf = shown?.let { java.text.SimpleDateFormat("d MMM", java.util.Locale.US).apply { timeZone = Dates.IST }.format(java.util.Date(it.second)) }
+        val enquiry = when (bank.uppercase()) {
+            "HDFC" -> "5676712" to "CCBAL $last4"
+            "ICICI" -> "5676766" to "IBALCC ${last4}XX"
+            else -> null
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Available limit", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
-                Text(if (limit != null) money(limit) else "—", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
+                Text(if (shown != null) money(shown.first) else "limit not in SMS", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                if (asOf != null) Text("as of $asOf", color = Color.White.copy(alpha = 0.65f), fontSize = 10.sp)
+                if (enquiry != null) Text("↻ refresh", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 4.dp).clickable {
+                        try {
+                            ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO,
+                                android.net.Uri.parse("smsto:${enquiry.first}")).putExtra("sms_body", enquiry.second))
+                        } catch (_: Exception) {}
+                    })
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(if (due != null) "Due " + due.dueDate.takeLast(5) else "No bill due", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
