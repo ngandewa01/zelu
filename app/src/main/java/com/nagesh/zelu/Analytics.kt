@@ -231,4 +231,35 @@ object Analytics {
             val income = inM.filter { it.kind == "income" || (it.kind == "refund" && it.category == "Refund") }.sumOf { it.amount }
             Triple(m, spent, income)
         }
+
+    // "Heads up" items for a month: categories well above your own usual, and one-off big spends.
+    // Returns (title, detail) pairs, at most three.
+    fun unusual(all: List<Row>, month: String): List<Pair<String, String>> {
+        fun inr(x: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", x)
+        val skip = setOf("EMI", "Rent", "Investment", "Transfer", "Card bill", "Refund", "Income")
+        val out = ArrayList<Triple<Double, String, String>>()
+        val prev = (1..3).map { Dates.shiftMonth(month, -it) }
+        val cur = categoryTotals(all, month, "All")
+        val prevTotals = prev.map { categoryTotals(all, it, "All") }
+        for ((c, v) in cur) {
+            if (c in skip || v < 1000) continue
+            val vals = prevTotals.map { it[c] ?: 0.0 }.filter { it > 0 }
+            if (vals.size < 2) continue
+            val usual = vals.average()
+            if (v > usual * 1.5 && v - usual >= 1000)
+                out.add(Triple(v - usual, "$c is " + inr(v) + " this month", "Your usual is about " + inr(usual) + "."))
+        }
+        // One-off big spend: > 3x the typical single spend in that category over the last 90 days.
+        val from = Dates.shiftDays(Dates.today(), -90)
+        for (e in all.filter { it.kind == "expense" && it.date.startsWith(month) && it.amount >= 5000 && it.category !in skip }) {
+            val past = all.filter { it.kind == "expense" && it.category == e.category && it.date >= from && it.date < month + "-01" }
+                .map { it.amount }.sorted()
+            if (past.size < 3) continue
+            val median = past[past.size / 2]
+            if (e.amount > median * 3)
+                out.add(Triple(e.amount - median, inr(e.amount) + " at " + (e.counterparty?.takeIf { it.isNotBlank() } ?: e.category),
+                    "A typical " + e.category + " spend is about " + inr(median) + "."))
+        }
+        return out.sortedByDescending { it.first }.take(3).map { it.second to it.third }
+    }
 }

@@ -51,3 +51,8 @@ data class Row(
     val kind: String,
     val category: String,
 )
+
+// Refunds that look like they belong to an earlier spend, waiting for a Yes/No. (refund, spend)
+object Refunds {
+    @Volatile var suggestions: List<Pair<Row, Row>> = emptyList()
+}

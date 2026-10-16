@@ -58,18 +58,20 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             row
         }.sortedByDescending { it.date }
-        pairRefunds(detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows))))
+        pairRefunds(detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows))), loadRefundLinks(context))
     }
 
-    // A refund that clearly belongs to an earlier spend (same merchant, or same amount on the
-    // same account, within 120 days) takes that spend's category, so it nets against it instead
-    // of counting as income. Anything unclear stays a plain "Refund" in Money in.
-    private fun pairRefunds(rows: List<Row>): List<Row> {
+    // A refund that looks like it belongs to an earlier spend (same merchant, or same amount on the
+    // same account, within 120 days) is suggested to you; once you confirm it takes that spend's
+    // category and nets against it. Until then (or on "No") it stays a plain "Refund" in Money in.
+    private fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): List<Row> {
         fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
         val expenses = rows.filter { it.kind == "expense" }
         val remaining = HashMap<String, Double>().apply { expenses.forEach { put(it.id, it.amount) } }
         val paired = HashMap<String, String>()
+        val suggest = ArrayList<Pair<Row, Row>>()
         for (r in rows.filter { it.kind == "refund" && it.category == "Refund" }.sortedBy { it.date }) {
+            if (answers[r.id] == false) continue
             val lo = Dates.shiftDays(r.date, -120)
             val rc = norm(r.counterparty)
             val best = expenses.filter { e ->
@@ -77,9 +79,12 @@ object Storage {
                     (rc.length >= 4 && norm(e.counterparty).let { ec -> ec.length >= 4 && (ec.contains(rc) || rc.contains(ec)) }) ||
                         (kotlin.math.abs(e.amount - r.amount) < 0.5 && e.account.isNotBlank() && e.account == r.account))
             }.maxByOrNull { it.date } ?: continue
-            remaining[best.id] = (remaining[best.id] ?: 0.0) - r.amount
-            paired[r.id] = best.category
+            if (answers[r.id] == true) {
+                remaining[best.id] = (remaining[best.id] ?: 0.0) - r.amount
+                paired[r.id] = best.category
+            } else suggest.add(r to best)
         }
+        Refunds.suggestions = suggest.sortedByDescending { it.first.date }
         return if (paired.isEmpty()) rows else rows.map { r -> paired[r.id]?.let { r.copy(category = it) } ?: r }
     }
 
@@ -326,6 +331,23 @@ object Storage {
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
         file(context, "limits.json").writeText(o.toString())
+    }
+
+    // ---- refund links: refund id -> true (same spend, net it) / false (not related) ----
+    fun loadRefundLinks(context: Context): Map<String, Boolean> = synchronized(lock) {
+        val f = file(context, "refund_links.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText()); val m = HashMap<String, Boolean>()
+            val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun setRefundLink(context: Context, refundId: String, yes: Boolean): Unit = synchronized(lock) {
+        val cur = loadRefundLinks(context).toMutableMap(); cur[refundId] = yes
+        val o = JSONObject(); for ((k, v) in cur) o.put(k, v)
+        file(context, "refund_links.json").writeText(o.toString())
     }
 
     // ---- per-card preferences: billing cycle day + monthly budget ----
