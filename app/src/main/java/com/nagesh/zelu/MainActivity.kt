@@ -189,6 +189,7 @@ fun ZeluApp() {
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var fixedOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    var rangeOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
@@ -383,14 +384,14 @@ fun ZeluApp() {
                 "custom" -> "$customFrom → $customTo"; else -> ""
             }
             val advActive = type != "all" || cat != "All" || query.isNotBlank()
-            val summary = rangeLabel + (if (account != "All") " · $account" else "") + (if (advActive) " · filtered" else "")
+            val summary = rangeLabel
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 if (period == "month") NavButton("‹") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                 Row(
                     Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
                         .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
-                        .clickable { controlsOpen = true }
+                        .clickable { rangeOpen = true }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -401,21 +402,38 @@ fun ZeluApp() {
                 }
                 if (period == "month") NavButton("›") { month = Dates.shiftMonth(month, 1); daySel = 0 }
             }
+            if (rangeOpen) Dialog(onDismissRequest = { rangeOpen = false }) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
+                    Text("Date range", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                    RANGE_OPTS.forEach { (k, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { period = k; daySel = 0; if (k != "custom") rangeOpen = false }
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(label, color = ZColor.Ink, fontSize = 15.sp,
+                                fontWeight = if (k == period) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
+                            if (k == period) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (period == "custom") {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DateChip(customFrom) { pickDate(context, customFrom) { customFrom = it } }
+                            DateChip(customTo) { pickDate(context, customTo) { customTo = it } }
+                        }
+                        Box(
+                            Modifier.align(Alignment.End).padding(end = 20.dp, top = 4.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                                .clickable { rangeOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
+                        ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    }
+                }
+            }
             if (controlsOpen) Dialog(onDismissRequest = { controlsOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)
                     .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
                     Text("Filters", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    DropdownField("Range", RANGE_OPTS.first { it.first == period }.second, RANGE_OPTS) { period = it; daySel = 0 }
-                    if (period == "custom") {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Dates", color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(92.dp))
-                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                DateChip(customFrom) { pickDate(context, customFrom) { customFrom = it } }
-                                DateChip(customTo) { pickDate(context, customTo) { customTo = it } }
-                            }
-                        }
-                    }
                     DropdownField("Account", if (account == "All") "All accounts" else account,
                         bankAccounts.map { it to if (it == "All") "All accounts" else it }) { account = it; daySel = 0 }
                     DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
