@@ -243,6 +243,27 @@ object Storage {
         file(context, BUDGET_FILE).writeText(o.toString())
     }
 
+    // ---- fixed monthly outflow plan (name -> typical monthly amount) ----
+    fun loadFixed(context: Context): Map<String, Double> = synchronized(lock) {
+        val f = file(context, "fixed_outflow.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText())
+            val m = LinkedHashMap<String, Double>()
+            val ks = o.keys()
+            while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun setFixed(context: Context, name: String, amount: Double) = synchronized(lock) {
+        val cur = loadFixed(context).toMutableMap()
+        if (amount <= 0.0) cur.remove(name) else cur[name] = amount
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, v)
+        file(context, "fixed_outflow.json").writeText(o.toString())
+    }
+
     // Explicit paid(true)/unpaid(false) override per reminder. An explicit entry always
     // wins over the auto rules (past-month / matched-debit), so unmark works from any state.
     fun setReminderDone(context: Context, id: String, done: Boolean) = synchronized(lock) {

@@ -185,6 +185,8 @@ fun ZeluApp() {
     var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgetsOpen by remember { mutableStateOf(false) }
+    var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var fixedOpen by remember { mutableStateOf(false) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
@@ -216,6 +218,14 @@ fun ZeluApp() {
             reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+            fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
+        }
+    }
+
+    fun setFixed(name: String, amount: Double) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.setFixed(context, name, amount) }
+            fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
         }
     }
 
@@ -461,7 +471,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true })
                 "buckets" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -479,6 +489,9 @@ fun ZeluApp() {
         DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
     }
 
+    if (fixedOpen) {
+        FixedDialog(fixed, onSet = { n, a -> setFixed(n, a) }, onDismiss = { fixedOpen = false })
+    }
     if (budgetsOpen) {
         val spendCats = Analytics.byCategory(list).map { it.first }
         val allCats = (spendCats + budgets.keys + Classifier.CATEGORIES.keys).distinct()
@@ -584,6 +597,63 @@ private fun fmtPlain(n: Double): String =
                             val a = drafts[c]?.replace(",", "")?.toDoubleOrNull() ?: 0.0
                             if ((budgets[c] ?: 0.0) != a) onSet(c, a)
                         }
+                        onDismiss()
+                    }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+@Composable private fun FixedDialog(
+    fixed: Map<String, Double>, onSet: (String, Double) -> Unit, onDismiss: () -> Unit,
+) {
+    val drafts = remember { mutableStateMapOf<String, String>().apply { fixed.forEach { (k, v) -> put(k, fmtPlain(v)) } } }
+    var newName by remember { mutableStateOf("") }
+    var newAmt by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("Fixed monthly outflow", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            MutedText("Typical monthly amount for each fixed cost. Clear an amount to remove it.", 12)
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                drafts.keys.toList().forEach { k ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(k, color = ZColor.Ink, fontSize = 14.sp, modifier = Modifier.weight(1f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        OutlinedTextField(
+                            value = drafts[k] ?: "",
+                            onValueChange = { v -> drafts[k] = v.filter { it.isDigit() || it == '.' } },
+                            singleLine = true, placeholder = { Text("—") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(120.dp),
+                        )
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newName, onValueChange = { newName = it }, singleLine = true,
+                        placeholder = { Text("New (e.g. Maid)") }, modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = newAmt, onValueChange = { v -> newAmt = v.filter { it.isDigit() || it == '.' } },
+                        singleLine = true, placeholder = { Text("₹") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.width(100.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable {
+                        drafts.forEach { (k, v) ->
+                            val a = v.toDoubleOrNull() ?: 0.0
+                            if ((fixed[k] ?: 0.0) != a) onSet(k, a)
+                        }
+                        val n = newName.trim(); val a = newAmt.toDoubleOrNull() ?: 0.0
+                        if (n.isNotEmpty() && a > 0) onSet(n, a)
                         onDismiss()
                     }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
@@ -970,6 +1040,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     repaid: Map<String, Double> = emptyMap(),
     onOpenLend: (String) -> Unit = {},
     onOpenBorrow: (String) -> Unit = {},
+    fixed: Map<String, Double> = emptyMap(),
+    onOpenFixed: () -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -987,6 +1059,29 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             Fact("Budget", money(Analytics.BUDGET))
             Fact("Left", money(budgetLeft))
             Fact("Money in", money(s.income), ZColor.Income)
+        }
+    }
+
+    // Fixed outflow plan: income - fixed = discretionary pool
+    Panel {
+        Row(Modifier.fillMaxWidth().clickable { onOpenFixed() }, horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("Fixed outflow plan")
+            Text(if (fixed.isEmpty()) "Set up" else "Edit", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (fixed.isEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            MutedText("Add maid, milk, electricity and other fixed monthly costs to see what's left to spend freely.", 12)
+        } else {
+            val fixedTotal = fixed.values.sum()
+            val pool = s.income - fixedTotal
+            val extra = s.spent - fixedTotal
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Fact("Fixed", money(fixedTotal))
+                Fact("Free to spend", money(pool.coerceAtLeast(0.0)), ZColor.Income)
+                Fact("Spent beyond fixed", money(extra.coerceAtLeast(0.0)), if (extra > 0) ZColor.Accent else ZColor.Ink)
+            }
         }
     }
 
