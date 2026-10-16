@@ -590,21 +590,9 @@ fun ZeluApp() {
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
                     repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets)
                 "spend" -> {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        Row(
-                            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                                .clickable { trendsOpen = true }.padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.Icon(Icons.Rounded.BarChart, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Trends", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
-                    BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
+                    BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true }) { title, rows -> drill = title to rows }
                     PaceView(rows, shown, f, month, account, excludeEmi)
                     if (f.period == "month") DailyCalendarBlock(rows, shown, f, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, { detailRow = it })
@@ -1773,9 +1761,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 if (b > 0 && v >= b * 0.8) {
                     val over = v > b
                     alerts.add(Alert(over, v / b, CatIcons.forCategory(c) ?: Icons.Rounded.Warning,
-                        if (over) "$c is over budget" else "$c is close to its budget",
+                        c,
                         if (over) money(v - b) + " over your " + money(b) + " budget"
-                        else money(b - v) + " left of " + money(b),
+                        else money(b - v) + " left of your " + money(b) + " budget",
                     ) { onDrill(c, allRows.filter { it.kind == "expense" && it.category == c && it.date.startsWith(f.month) }) })
                 }
             }
@@ -1803,7 +1791,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(a.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(a.detail, color = ZColor.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(a.detail, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2)
                         }
                         Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).padding(horizontal = 8.dp, vertical = 3.dp)) {
                             Text((a.ratio * 100).toInt().toString() + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -2195,15 +2183,32 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 
 // ---------- Buckets ----------
 
+@Composable private fun TonePill(text: String, fg: Color, bg: Color) {
+    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 8.dp, vertical = 3.dp)) {
+        Text(text, color = fg, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
 @Composable private fun BucketsView(
     list: List<Row>, prevByCat: Map<String, Double> = emptyMap(),
     budgets: Map<String, Double> = emptyMap(), onEditBudgets: () -> Unit = {},
+    onTrends: (() -> Unit)? = null,
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (onTrends != null) Row(
+            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { onTrends() }.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Icon(Icons.Rounded.BarChart, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Trends", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
         Box(
             Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                 .clickable { onEditBudgets() }.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -2211,23 +2216,60 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     }
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
     fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
+
+    // Chart groups: top 6 categories, the rest folded into "Other".
+    val topN = cats.take(6)
+    val rest = cats.drop(6)
+    val groups = topN.map { Triple(it.first, it.second, catColor(it.first)) } +
+        (if (rest.isNotEmpty()) listOf(Triple("Other", rest.sumOf { it.second }, ZColor.Muted)) else emptyList())
+    fun rowsForGroup(name: String) =
+        if (name == "Other") rest.flatMap { rowsFor(it.first) } else rowsFor(name)
+
     Panel {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Donut(cats.map { catColor(it.first) to (it.second / total).toFloat() }, money(total)) { i ->
-                onDrill(cats[i].first, rowsFor(cats[i].first))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Eyebrow("Spent")
+                Text(money(total), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            }
+            val prevTotal = prevByCat.values.sum()
+            if (prevTotal > 0) {
+                val ch = ((total - prevTotal) / prevTotal * 100).toInt()
+                if (ch != 0) TonePill(
+                    (if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% vs last month",
+                    if (ch > 0) ZColor.Warn else ZColor.Income,
+                    if (ch > 0) Color(0xFFFBE7E2) else Color(0xFFE3F0EC),
+                )
             }
         }
-        Spacer(Modifier.height(6.dp))
-        MutedText("Tap a slice or a card to see what's inside.", 11)
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Donut(groups.map { it.third to (it.second / total).toFloat() }, "${cats.size}", "categories", 150.dp, 22.dp) { i ->
+                onDrill(groups[i].first, rowsForGroup(groups[i].first))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                groups.forEach { (name, v, color) ->
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(name, rowsForGroup(name)) },
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(color))
+                        Spacer(Modifier.width(8.dp))
+                        Text(name, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
     }
+
     val top = cats.first().second
     Panel {
         Eyebrow("By category")
         cats.forEachIndexed { i, (c, v) ->
-            Spacer(Modifier.height(if (i == 0) 8.dp else 14.dp))
+            Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill(c, rowsFor(c)) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile("", c, 32.dp)
+                    MerchantTile("", c, 34.dp)
                     Spacer(Modifier.width(10.dp))
                     Text(c, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2235,41 +2277,38 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     Text(" ${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp,
                         modifier = Modifier.width(42.dp), textAlign = TextAlign.End)
                 }
-                val prev = prevByCat[c]
-                if (prev != null && prev > 0) {
-                    val ch = ((v - prev) / prev * 100).toInt()
-                    val up = ch > 0
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        (if (up) "▲ " else if (ch < 0) "▼ " else "• ") + "${kotlin.math.abs(ch)}% vs last month",
-                        color = if (up) ZColor.Warn else if (ch < 0) ZColor.Income else ZColor.Muted,
-                        fontSize = 11.sp,
-                    )
-                } else if (prev == null || prev == 0.0) {
-                    Spacer(Modifier.height(3.dp))
-                    MutedText("new this month", 11)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val prev = prevByCat[c]
+                    if (prev != null && prev > 0) {
+                        val ch = ((v - prev) / prev * 100).toInt()
+                        if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.Warn, Color(0xFFFBE7E2))
+                        else if (ch < 0) TonePill("▼ ${kotlin.math.abs(ch)}% vs last month", ZColor.Income, Color(0xFFE3F0EC))
+                        else TonePill("• same as last month", ZColor.Muted, ZColor.Paper)
+                    } else {
+                        TonePill("new this month", ZColor.Muted, ZColor.Paper)
+                    }
+                    val budget = budgets[c]
+                    if (budget != null && budget > 0) {
+                        if (v > budget) TonePill("Over by " + money(v - budget), ZColor.Warn, Color(0xFFFBE7E2))
+                        else TonePill(money(v) + " of " + money(budget), ZColor.InkSoft, ZColor.Paper)
+                    }
                 }
                 val budget = budgets[c]
-                if (budget != null && budget > 0) {
-                    val overB = v > budget
-                    Spacer(Modifier.height(3.dp))
-                    Text("${money(v)} of ${money(budget)} budget · ${(v / budget * 100).toInt()}%",
-                        color = if (overB) ZColor.Warn else ZColor.Muted, fontSize = 11.sp)
-                    Spacer(Modifier.height(5.dp))
-                    Meter((v / budget).toFloat().coerceIn(0f, 1f), if (overB) ZColor.Warn else ZColor.Income)
-                } else {
-                    Spacer(Modifier.height(7.dp))
-                    Meter((v / top).toFloat(), catColor(c))
-                }
+                Spacer(Modifier.height(8.dp))
+                if (budget != null && budget > 0) Meter((v / budget).toFloat().coerceIn(0f, 1f), if (v > budget) ZColor.Warn else ZColor.Income)
+                else Meter((v / top).toFloat(), catColor(c))
             }
         }
     }
 }
 
-@Composable private fun Donut(segs: List<Pair<Color, Float>>, centerText: String, onSliceTap: (Int) -> Unit = {}) {
-    Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
+@Composable private fun Donut(segs: List<Pair<Color, Float>>, centerText: String, caption: String = "total",
+                              dia: androidx.compose.ui.unit.Dp = 190.dp, ring: androidx.compose.ui.unit.Dp = 28.dp,
+                              onSliceTap: (Int) -> Unit = {}) {
+    Box(Modifier.size(dia), contentAlignment = Alignment.Center) {
         Canvas(
-            Modifier.size(190.dp).pointerInput(segs) {
+            Modifier.size(dia).pointerInput(segs) {
                 detectTapGestures { off ->
                     val cx = size.width / 2f; val cy = size.height / 2f
                     val ang = Math.toDegrees(atan2((off.y - cy).toDouble(), (off.x - cx).toDouble())).toFloat()
@@ -2283,7 +2322,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 }
             }
         ) {
-            val stroke = 28.dp.toPx()
+            val stroke = ring.toPx()
             val inset = stroke / 2
             val arcSize = Size(size.width - stroke, size.height - stroke)
             val topLeft = Offset(inset, inset)
@@ -2297,7 +2336,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(centerText, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            MutedText("total", 11)
+            MutedText(caption, 11)
         }
     }
 }
