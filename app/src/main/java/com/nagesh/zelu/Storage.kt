@@ -284,6 +284,28 @@ object Storage {
         file(context, "balances.json").writeText(o.toString())
     }
 
+    // ---- latest available credit limit per card account ----
+    fun loadLimits(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+        val f = file(context, "limits.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText())
+            val m = LinkedHashMap<String, Pair<Double, Long>>()
+            val ks = o.keys()
+            while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getDouble("a") to e.getLong("d") }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun saveLimits(context: Context, fresh: Map<String, Pair<Double, Long>>): Unit = synchronized(lock) {
+        if (fresh.isEmpty()) return@synchronized
+        val cur = loadLimits(context).toMutableMap()
+        for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) cur[k] = v }
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
+        file(context, "limits.json").writeText(o.toString())
+    }
+
     // ---- user-made categories (name -> emoji + colour) ----
     fun loadCustomCats(context: Context): Map<String, Pair<String, Long>> = synchronized(lock) {
         val f = file(context, "custom_categories.json")

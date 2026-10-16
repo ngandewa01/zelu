@@ -361,6 +361,12 @@ object Parser {
     fun balanceFromTxn(body: String): Double? =
         TXN_BAL.find(body.replace("\n", " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
 
+    private val TXN_LIMIT = Regex("""(?:avl|avbl|available)\.?\s*(?:cr(?:edit)?\.?\s*)?(?:lmt|limit)\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+
+    // "Avl Lmt Rs 1,20,000" on a credit-card alert.
+    fun limitFromTxn(body: String): Double? =
+        TXN_LIMIT.find(body.replace("\n", " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+
     fun parseBalance(body: String, receivedMs: Long?, source: String): Triple<String, Double, Long>? {
         val text = body.replace("\n", " ").trim()
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null

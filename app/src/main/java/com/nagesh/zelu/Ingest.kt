@@ -16,6 +16,7 @@ object Ingest {
         val reminders = ArrayList<Reminder>()
         val balances = HashMap<String, Pair<Double, Long>>()
         val txnBalances = HashMap<String, Pair<Double, Long>>()
+        val limits = HashMap<String, Pair<Double, Long>>()
         for (msg in raw) {
             // 1) Trust the sender first: accept only bank/financial sender IDs
             //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
@@ -44,6 +45,12 @@ object Ingest {
                     if (cur == null || msg.date >= cur.second) txnBalances[txn.account] = b to msg.date
                 }
             }
+            if (txn.account.contains(" CC")) {
+                Parser.limitFromTxn(msg.body)?.let { l ->
+                    val cur = limits[txn.account]
+                    if (cur == null || msg.date >= cur.second) limits[txn.account] = l to msg.date
+                }
+            }
             val c = Classifier.classify(txn, own)
             rows.add(
                 Row(
@@ -66,6 +73,7 @@ object Ingest {
         Storage.saveReminders(context, reminders)
         Storage.saveBalances(context, balances, "b")
         Storage.saveBalances(context, txnBalances, "t")
+        Storage.saveLimits(context, limits)
         return Result(rows.size, added, rows)
     }
 }

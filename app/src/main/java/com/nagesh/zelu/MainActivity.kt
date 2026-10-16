@@ -191,6 +191,7 @@ fun ZeluApp() {
     var menuOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
+    var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
@@ -224,6 +225,7 @@ fun ZeluApp() {
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
+            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
             CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
         }
     }
@@ -486,7 +488,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders)
                 "spend" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -1263,6 +1265,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     onOpenFixed: () -> Unit = {},
     balances: Map<String, Pair<Double, Long>> = emptyMap(),
     onNewCat: (((String) -> Unit)) -> Unit = {},
+    limits: Map<String, Pair<Double, Long>> = emptyMap(),
+    reminders: List<Reminder> = emptyList(),
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1392,7 +1396,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     
     // Accounts — latest balance + spend this period per account, swipeable
     val spentBy = Analytics.spentByAccount(list, accounts).toMap()
-    val acctNames = (balances.keys + spentBy.keys).distinct()
+    val acctNames = (balances.keys + spentBy.keys).distinct().filter { !(it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC")) }
         .sortedByDescending { balances[it]?.first ?: -1.0 }
     var allAccountsOpen by remember { mutableStateOf(false) }
     if (acctNames.isNotEmpty()) {
@@ -1438,7 +1442,10 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     // Card totals follow only the date range, not the Show/Category filter.
                     val cardRows = Analytics.filter(allRows, f.copy(account = a, type = "all", category = "All"))
                     val spent = cardRows.filter { it.kind == "expense" }.sumOf { it.amount }
-                    CardTile(a, spent) { onDrill(a, cardRows) }
+                    val today = Dates.today()
+                    val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
+                        .minByOrNull { it.dueDate }
+                    CardTile(a, spent, limits[a]?.first, due) { onDrill(a, cardRows) }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -1518,23 +1525,46 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     }
 }
 
-@Composable private fun CardTile(account: String, spent: Double, onClick: () -> Unit = {}) {
-    val last4 = account.takeLast(4)
+@Composable private fun CardTile(account: String, spent: Double, limit: Double?, due: Reminder?, onClick: () -> Unit = {}) {
+    val parts = account.trim().split(" ")
+    val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
+    val bank = parts.firstOrNull() ?: account
+    val base = bankColor(account)
+    val logo = bankLogoRes(account)
     Column(
-        Modifier.width(240.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+        Modifier.width(290.dp).height(168.dp).clip(RoundedCornerShape(18.dp))
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(base, base.copy(alpha = 0.72f))))
             .clickable { onClick() }.padding(16.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Box(Modifier.width(5.dp).height(18.dp).clip(RoundedCornerShape(3.dp)).background(bankColor(account)))
-            Text("•• $last4", color = ZColor.Muted, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                if (logo != null) androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp),
+                ) else Text(bank.take(1).uppercase(), color = base, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("$bank Credit Card", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("•••• $last4", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(account, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        MutedText("This cycle", 12)
-        Text(money(spent), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Column {
+            Text("Spent this period", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
+            Text(money(spent), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Available limit", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
+                Text(if (limit != null) money(limit) else "—", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(if (due != null) "Due " + due.dueDate.takeLast(5) else "No bill due", color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
+                if (due != null) Text(money(due.amount), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
+
 
 @Composable private fun Calendar(month: String, daily: DoubleArray, daySel: Int, onDay: (Int) -> Unit) {
     val dim = Dates.daysInMonth(month)
