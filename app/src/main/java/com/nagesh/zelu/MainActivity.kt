@@ -21,6 +21,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -132,35 +136,106 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
     }
 }
 
-@Composable private fun OnboardFlow(stage: String, denied: Boolean, onGetStarted: () -> Unit, onAllow: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+@Composable private fun OnboardFlow(
+    stage: String, denied: Boolean, stats: Triple<Int, Int, Int>,
+    onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
+) {
+    val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
+    Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
+        if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }, contentAlignment = Alignment.Center) {
+                if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            (0..2).forEach { i ->
+                Box(Modifier.weight(1f).padding(horizontal = 3.dp).height(4.dp).clip(RoundedCornerShape(2.dp))
+                    .background(if (i <= step) ZColor.Ink else ZColor.Line))
+            }
+            Spacer(Modifier.width(46.dp))
+        }
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (stage) {
                 "welcome" -> {
-                    LogoMark(66f)
-                    Text("Your money, from the messages you already get", color = ZColor.Ink,
-                        fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    OnbPoint("Reads your bank & UPI alerts", "Spends, income and bills — found for you.")
-                    OnbPoint("Stays on your phone", "Nothing uploaded. No account, no login.")
-                    OnbPoint("Sorts itself", "Categories, merchants and trends, automatically.")
-                    Cta("Get started", onGetStarted)
+                    var shown by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { delay(600); shown = true }
+                    val a by animateFloatAsState(if (shown) 1f else 0f, tween(1000), label = "sms")
+                    Box(Modifier.fillMaxWidth().graphicsLayer { alpha = 1f - 0.55f * a }.clip(RoundedCornerShape(16.dp))
+                        .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
+                        Column {
+                            Text("HDFCBK", color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Rs.450 spent on card 9065 at SWIGGY on 16-10-26", color = ZColor.Ink, fontSize = 13.sp)
+                        }
+                    }
+                    Text("↓", color = ZColor.Accent, fontSize = 24.sp, modifier = Modifier.graphicsLayer { alpha = a })
+                    Row(Modifier.fillMaxWidth().graphicsLayer { alpha = a; translationY = (1f - a) * 30f }.clip(RoundedCornerShape(16.dp))
+                        .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        MerchantTile("Swiggy", "Food", 40.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Swiggy", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            MutedText("16 Oct · Food", 11)
+                        }
+                        Text("−₹450", color = ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Your bank texts already know where your money went.", color = ZColor.Ink,
+                        fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Cta("Get started", onNext)
+                }
+                "privacy" -> {
+                    Text("Nothing leaves your phone.", color = ZColor.Ink, fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        listOf(
+                            Triple("Reads", ZColor.Income, listOf("Bank & card alerts", "UPI payment messages", "Bill due reminders")),
+                            Triple("Never reads", ZColor.Warn, listOf("OTPs", "Personal chats", "Anything from contacts")),
+                        ).forEach { (title, color, items) ->
+                            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                                .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(title, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                items.forEach { Text((if (title == "Reads") "✓ " else "✕ ") + it, color = ZColor.InkSoft, fontSize = 13.sp) }
+                            }
+                        }
+                    }
+                    Text("No account. No login. No upload.", color = ZColor.Muted, fontSize = 14.sp)
+                    Cta("Continue", onNext)
                 }
                 "perm" -> {
-                    LogoMark(66f)
-                    Text("Allow Zelu to read SMS", color = ZColor.Ink, fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Text("So it can turn your bank alerts into spends and bills, in the background.",
-                        color = ZColor.Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
-                    Text("✓ No OTPs      ✓ No personal chats", color = ZColor.InkSoft,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Cta("Allow SMS", onAllow)
-                    if (denied) Text("Please allow SMS in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
+                    Text("Two quick permissions", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    listOf(
+                        "SMS" to "Read your bank alerts and turn them into spends and bills.",
+                        "Notifications" to "Bill due reminders and a nudge for each payment. Optional.",
+                    ).forEach { (t, d) ->
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
+                            Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            MutedText(d, 13)
+                        }
+                    }
+                    Cta("Allow both", onAllow)
+                    if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
                 "scan" -> {
                     LogoMark(66f)
                     Text("Reading your messages…", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     CircularProgressIndicator(color = ZColor.Accent)
+                }
+                "done" -> {
+                    var go by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { go = true }
+                    val p by animateIntAsState(if (go) stats.first else 0, tween(1400), label = "p")
+                    val b by animateIntAsState(if (go) stats.second else 0, tween(1400), label = "b")
+                    val c by animateIntAsState(if (go) stats.third else 0, tween(1400), label = "c")
+                    Text("All set.", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
+                    Text("payments found", color = ZColor.Muted, fontSize = 15.sp)
+                    Text("$b bank account${if (b == 1) "" else "s"} · $c card${if (c == 1) "" else "s"}",
+                        color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Cta("Open Zelu", onNext)
                 }
                 else -> { // splash
                     LogoMark(86f)
@@ -293,23 +368,21 @@ fun ZeluApp() {
             // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows.
             reload()
             loading = false
-            if (stage == "scan") stage = "app"
+            if (stage == "scan") stage = "done"
         }
     }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { res -> if (res.values.all { it }) { stage = "scan"; rescan() } else { permDenied = true } }
+    ) { res ->
+        val smsOk = res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true
+        if (smsOk) { stage = "scan"; rescan() } else { permDenied = true }
+    }
 
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    var notifAsked by remember { mutableStateOf(false) }
 
     // Best-effort local reminder on open: nudge about bills due within 3 days.
     LaunchedEffect(stage, reminders) {
         if (stage != "app") return@LaunchedEffect
-        if (!notifAsked && Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
-        ) { notifAsked = true; notifLauncher.launch("android.permission.POST_NOTIFICATIONS") }
         // Daily 9 AM check runs in the background (DueReceiver); this just makes sure it's scheduled.
         DueReminders.schedule(context)
     }
@@ -356,9 +429,16 @@ fun ZeluApp() {
     }
 
     if (stage != "app") {
-        OnboardFlow(stage, permDenied, { stage = "perm" }) {
-            permLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
-        }
+        val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
+        val cardsN = accts.count { it.contains(" CC") }
+        OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
+            onBack = { stage = if (stage == "perm") "privacy" else "welcome" },
+            onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> "app"; else -> stage } },
+            onAllow = {
+                val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
+                if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
+                permLauncher.launch(perms.toTypedArray())
+            })
         return
     }
 
