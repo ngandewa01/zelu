@@ -490,42 +490,19 @@ fun ZeluApp() {
                 Spacer(Modifier.height(10.dp)); MutedText("Reading messages…")
             }
 
-            if (view == "ledger") {
-                val today = Dates.today()
-                val soon = Dates.shiftDays(today, 3)
-                val cm = Dates.todayMonth()
-                val dueSoon = reminders.filter { !it.done && it.dueDate.take(7) >= cm && it.dueDate <= soon }
-                if (dueSoon.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                            .background(ZColor.Warn.copy(alpha = 0.12f))
-                            .border(1.dp, ZColor.Warn.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
-                            .clickable { view = "dues" }.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("🔔", fontSize = 16.sp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            "${dueSoon.size} ${if (dueSoon.size == 1) "bill" else "bills"} due soon — tap to review",
-                            color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
-                        )
-                        Text("›", color = ZColor.Muted, fontSize = 16.sp)
-                    }
-                }
-            }
-
             Spacer(Modifier.height(8.dp))
             when (view) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true })
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState)
                 "spend" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
                     BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
                     PaceView(rows, shown, f, month, account, excludeEmi)
+                    if (f.period == "month") DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                        { daySel = if (daySel == it) 0 else it }, { detailRow = it })
                 }
                 "buckets" -> {
                     val prevByCat = if (period == "month")
@@ -1566,6 +1543,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     onOpenCard: (String) -> Unit = {},
     onToggleEmi: () -> Unit = {},
     onEditBudget: () -> Unit = {},
+    onOpenDues: () -> Unit = {},
+    reminderState: Map<String, Boolean> = emptyMap(),
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1590,7 +1569,10 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Fact("Money in", money(s.income), ZColor.Income)
+            Column {
+                Fact("Money in", money(s.income), ZColor.Income)
+                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
+            }
             if (emiAmt > 0 || excludeEmi) {
                 Column(horizontalAlignment = Alignment.End) {
                     if (!excludeEmi) MutedText("EMI included " + money(emiAmt), 12)
@@ -1602,32 +1584,28 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         if (fixed.isNotEmpty()) {
             val fixedTotal = fixed.values.sum()
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Fixed costs", money(fixedTotal))
-                Fact("Free to spend", money((s.income - fixedTotal).coerceAtLeast(0.0)), ZColor.Income)
-                Fact("Beyond fixed", money((s.spent - fixedTotal).coerceAtLeast(0.0)),
-                    if (s.spent > fixedTotal) ZColor.Accent else ZColor.Ink)
-            }
+            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
+                " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
         }
     }
 
-    // At a glance
-    if (ins != null) {
-        Panel {
-            Eyebrow("At a glance")
-            Spacer(Modifier.height(8.dp))
-            Text("Most went to ${ins.topCat} — ${money(ins.topCatAmt)}",
-                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("${ins.topCatPct}% of spend", 13)
-            Spacer(Modifier.height(14.dp))
-            MutedText("Biggest spend", 12)
-            Text("${ins.biggestName} · ${money(ins.biggestAmt)}", color = ZColor.Ink,
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val tips = glanceTips(ins, s.spent, s.income)
-            if (tips.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
-                Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    // Upcoming bill — the next unpaid reminder
+    run {
+        val today = Dates.today()
+        val next = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }.minByOrNull { it.dueDate }
+        if (next != null) {
+            Panel {
+                Row(Modifier.fillMaxWidth().clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Eyebrow("Upcoming bill")
+                        Spacer(Modifier.height(4.dp))
+                        Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Bill", color = ZColor.Ink, fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText("due " + prettyDay(next.dueDate), 12)
+                    }
+                    Text(money(next.amount), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("  ›", color = ZColor.Muted, fontSize = 16.sp)
+                }
             }
         }
     }
@@ -1671,6 +1649,27 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
+    // At a glance
+    if (ins != null) {
+        Panel {
+            Eyebrow("At a glance")
+            Spacer(Modifier.height(8.dp))
+            Text("Most went to ${ins.topCat} — ${money(ins.topCatAmt)}",
+                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+            MutedText("${ins.topCatPct}% of spend", 13)
+            Spacer(Modifier.height(14.dp))
+            MutedText("Biggest spend", 12)
+            Text("${ins.biggestName} · ${money(ins.biggestAmt)}", color = ZColor.Ink,
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val tips = glanceTips(ins, s.spent, s.income)
+            if (tips.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
+                Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+
     // Recent — horizontal strip
     Panel {
         val recent = list.filter { it.kind != "invest" }.sortedByDescending { it.date }
@@ -1694,7 +1693,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    MutedText(t.date, 11)
+                    MutedText(prettyDay(t.date), 11)
                 }
             }
         }
@@ -1759,28 +1758,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
-    // Daily calendar (month only)
-    if (f.period == "month") {
-        val daily = Analytics.dailyTotals(allRows, month, account)
-        Panel {
-            Eyebrow("Daily spend")
-            Spacer(Modifier.height(8.dp))
-            Calendar(month, daily, daySel, onDay)
-            Spacer(Modifier.height(8.dp))
-            MutedText("Darker days cost more. Tap a date to see that day.", 12)
-        }
-        if (daySel > 0) {
-            val dayStr = "%s-%02d".format(month, daySel)
-            val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
-            val dtot = dayRows.filter { it.kind == "expense" }.sumOf { it.amount }
-            Panel {
-                Eyebrow("$daySel ${Dates.monthLong(month)} · ${money(dtot)} spent")
-                if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions on this day.") }
-                else dayRows.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
-            }
-        }
-    }
-
     // Lending — all-time so repayments and balances stay correct across months.
     val lentAll = allRows.filter { it.kind == "lent" }
     val borrowedAll = allRows.filter { it.kind == "borrowed" }
@@ -1792,14 +1769,19 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 Triple(person, total, (total - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
         val owedToYou = byPerson.sumOf { it.third }
+        var peopleOpen by remember { mutableStateOf(false) }
         Panel {
-            Eyebrow("People · you get / you pay")
+            Row(Modifier.fillMaxWidth().clickable { peopleOpen = !peopleOpen },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("People · you get / you pay")
+                Text(if (peopleOpen) "hide ▴" else "details ▾", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Fact("Owed to you", money(owedToYou), ZColor.Income)
                 Fact("You owe", money(borrowedAll.sumOf { it.amount }), ZColor.Warn)
             }
-            byPerson.forEach { (person, total, bal) ->
+            if (peopleOpen) byPerson.forEach { (person, total, bal) ->
                 Spacer(Modifier.height(8.dp))
                 LendRow(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
             }
@@ -1809,7 +1791,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
                     Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
                 }.sortedByDescending { it.third }
-            if (borrowByPerson.isNotEmpty()) {
+            if (peopleOpen && borrowByPerson.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 MutedText("You owe", 12)
                 borrowByPerson.forEach { (person, total, bal) ->
@@ -1821,7 +1803,32 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     }
 
     Spacer(Modifier.height(6.dp))
-    MutedText("Private — everything stays on your phone.", 11)
+    MutedText("${allRows.size} transactions read · Private — everything stays on your phone.", 11)
+}
+
+@Composable private fun DailyCalendarBlock(
+    allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
+    daySel: Int, onDay: (Int) -> Unit, onRowClick: (Row) -> Unit,
+) {
+    val bigIds = Analytics.bigSpendIds(list)
+    val daily = Analytics.dailyTotals(allRows, month, account)
+    Panel {
+        Eyebrow("Daily spend")
+        Spacer(Modifier.height(8.dp))
+        Calendar(month, daily, daySel, onDay)
+        Spacer(Modifier.height(8.dp))
+        MutedText("Darker days cost more. Tap a date to see that day.", 12)
+    }
+    if (daySel > 0) {
+        val dayStr = "%s-%02d".format(month, daySel)
+        val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
+        val dtot = dayRows.filter { it.kind == "expense" }.sumOf { it.amount }
+        Panel {
+            Eyebrow("$daySel ${Dates.monthLong(month)} · ${money(dtot)} spent")
+            if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions on this day.") }
+            else dayRows.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
+        }
+    }
 }
 
 @Composable private fun Fact(k: String, v: String, color: Color = ZColor.Ink) {

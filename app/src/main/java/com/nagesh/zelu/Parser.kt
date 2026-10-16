@@ -352,7 +352,7 @@ object Parser {
     // Balance-only alerts ("Available Bal in HDFC Bank A/c XX5997 ... is INR 77,617.50").
     // Returns (account label, balance, received ms) or null if this isn't a balance message.
     private val BAL_WORD = Regex("""\b(avail(?:able)?\.?\s*bal(?:ance)?|a/?c\s*bal(?:ance)?|current\s*balance|bal(?:ance)?\s*(?:is|:))""", RegexOption.IGNORE_CASE)
-    private val BAL_AMT = Regex("""(?:bal(?:ance)?[^0-9₹]{0,60}?)(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val BAL_AMT = Regex("""bal(?:ance)?.{0,90}?(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
     private val TXN_WORD = Regex("""\b(debited|credited|spent|withdrawn|paid|sent|received|purchase|txn|transaction)\b""", RegexOption.IGNORE_CASE)
 
     private val TXN_BAL = Regex("""(?:avl|avail(?:able)?)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
