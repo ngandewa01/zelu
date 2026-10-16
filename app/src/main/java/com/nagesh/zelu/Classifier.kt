@@ -4,13 +4,15 @@ object Classifier {
 
     // Category -> keywords, matched against counterparty + SMS text (lowercased).
     // Order matters: earlier entries win.
+    // Old built-in names folded into the standard set (applied to stored rules/overrides too).
+    val ALIAS = mapOf("Milk & Dairy" to "Groceries", "FASTag" to "Transport", "Gym" to "Health", "Internet" to "Bills",
+        "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
+
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
         "Food" to listOf("swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
-        "Groceries" to listOf("blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail"),
-        "Milk & Dairy" to listOf("country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
+        "Groceries" to listOf("blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail", "country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
         "Fuel" to listOf("petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
-        "FASTag" to listOf("toll", "toll plaza", "fastag", "fasttag", "netc"),
-        "Transport" to listOf("uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri"),
+        "Transport" to listOf("uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri", "toll", "toll plaza", "fastag", "fasttag", "netc"),
         "Shopping" to listOf("amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "tatacliq", "croma", "reliance digital", "shoppers stop", "lifestyle", "decathlon", "ikea", "westside", "pantaloons", "firstcry", "pepperfry", "urban ladder", "lenskart", "titan", "tanishq", "caratlane", "bata", "vijay sales", "max fashion", "reliance trends", "trends", "oneplus", "one plus", "mi store", "samsung", "shopping mall", "yousta", "urbanofashion", "urbano fashion", "urbano", "zudio", "trendz", "centro",
             "van heusen", "vanheusen", "louis philippe", "allen solly", "peter england", "blackberrys", "raymond", "park avenue", "color plus", "colorplus",
             "jockey", "jack & jones", "jack and jones", "vero moda", "pepe jeans", "flying machine", "us polo", "uspa", "united colors of benetton", "benetton",
@@ -21,22 +23,18 @@ object Classifier {
             "poorvika", "sangeetha mobiles", "bajaj electronics", "girias", "pai international", "lot mobiles",
             "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora", "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail", "shoppe", "shoe mart"),
         "Investment" to listOf("zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
-        "Gym" to listOf("cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first", "healthifyme", "gym ", "fitso"),
         "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
         "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
-        "Home services" to listOf("urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman"),
+        "Home services" to listOf("urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Entertainment" to listOf("netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
         "Subscriptions" to listOf("adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
-        "Internet" to listOf("broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi"),
-        "Mobile" to listOf("mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
-        "Bills" to listOf("electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill"),
+        "Bills" to listOf("electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi", "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
         "Travel" to listOf("irctc", "makemytrip", "goibibo", "cleartrip", "indigo", "vistara", "air india", "oyo", "airbnb", "ixigo"),
-        "Laundry" to listOf("laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat"),
-        "Maid" to listOf("maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
         "EMI" to listOf("emi", "loan", "installment", "instalment", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
-        "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana"),
+        "Health" to listOf("pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "hospital", "clinic", "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana", "cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first", "healthifyme", "gym ", "fitso"),
+        "Education" to listOf("school fee", "tuition", "college fee", "university", "byju", "unacademy", "udemy", "coursera", "vedantu", "upgrad", "exam fee", "coaching"),
         "Rent" to listOf("rent"),
     )
 

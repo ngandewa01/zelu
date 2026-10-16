@@ -90,6 +90,7 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Transfer" to ZColor.Muted,
     "Card bill" to ZColor.Muted,
     "Wallet" to Color(0xFF8A7CB8),
+    "Education" to Color(0xFF5B8DB8),
 )
 
 // Emoji shown instead of a letter for service/abstract categories that rarely have a
@@ -104,6 +105,7 @@ val CAT_ICON: Map<String, String> = mapOf(
     "ATM / Cash" to "🏧",      // ATM
     "Transfer" to "↔️",        // left-right arrow
     "Card bill" to "💳",       // credit card
+    "Education" to "🎓",
     "Wallet" to "👛",          // coin purse
     "Donation" to "🙏",        // folded hands
     "Maid" to "🧹",            // broom

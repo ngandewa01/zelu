@@ -55,6 +55,7 @@ object Storage {
                 row = row.copy(kind = k, category = c)
             }
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
+            Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             row
         }.sortedByDescending { it.date }
         detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows)))
