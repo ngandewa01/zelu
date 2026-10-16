@@ -187,6 +187,7 @@ fun ZeluApp() {
     var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgetsOpen by remember { mutableStateOf(false) }
+    var savingsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var menuOpen by remember { mutableStateOf(false) }
     var rangeOpen by remember { mutableStateOf(false) }
@@ -559,6 +560,7 @@ fun ZeluApp() {
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
                 MenuRow("Budgets", "Monthly caps per category · mark fixed costs") { menuOpen = false; budgetsOpen = true }
+                MenuRow("Savings plan", "What's left each month · SIP, EMI and goal planner") { menuOpen = false; savingsOpen = true }
                 MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
                 MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
                     menuOpen = false
@@ -573,6 +575,7 @@ fun ZeluApp() {
         DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
     }
 
+    if (savingsOpen) SavingsDialog(rows, onDismiss = { savingsOpen = false })
     if (budgetsOpen) {
         val spendCats = Analytics.byCategory(list).map { it.first }
         val allCats = (fixed.keys + spendCats + budgets.keys + Classifier.CATEGORIES.keys + CustomCats.names).distinct()
@@ -717,6 +720,108 @@ private fun fmtPlain(n: Double): String =
                     }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
+    }
+}
+
+@Composable private fun SavingsDialog(rows: List<Row>, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val saved = remember { Storage.loadPlan(context) }
+    var sip by remember { mutableStateOf(saved["sip"] ?: "") }
+    var emi by remember { mutableStateOf(saved["emi"] ?: "") }
+    var goal by remember { mutableStateOf(saved["goal"] ?: "") }
+    var years by remember { mutableStateOf(saved["years"] ?: "5") }
+    var ret by remember { mutableStateOf(saved["ret"] ?: "12") }
+    val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
+    val mi = Analytics.monthlySpendIncome(rows, months, "All")
+    val avgIn = mi.sumOf { it.third } / 3.0
+    val avgSpent = mi.sumOf { it.second } / 3.0
+    val left = avgIn - avgSpent
+    fun num(t: String) = t.replace(",", "").toDoubleOrNull() ?: 0.0
+    val sipN = num(sip); val emiN = num(emi); val goalN = num(goal)
+    val yrs = num(years).coerceIn(1.0, 40.0); val rate = num(ret).coerceIn(0.0, 30.0)
+    val free = left - sipN - emiN
+    val n = (yrs * 12).toInt(); val r = rate / 1200.0
+    // Future value of a monthly investment of 1 over n months (paid at month start).
+    val factor = if (r == 0.0) n.toDouble() else ((Math.pow(1 + r, n.toDouble()) - 1) / r) * (1 + r)
+    val fv = sipN * factor
+    val needed = if (goalN > 0 && factor > 0) goalN / factor else 0.0
+    @Composable fun field(label: String, v: String, set: (String) -> Unit) {
+        OutlinedTextField(
+            value = v, onValueChange = { x -> set(x.filter { it.isDigit() || it == '.' }) }, singleLine = true,
+            label = { Text(label) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    Dialog(onDismissRequest = {
+        Storage.savePlan(context, mapOf("sip" to sip, "emi" to emi, "goal" to goal, "years" to years, "ret" to ret)); onDismiss()
+    }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+            .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+            Text("Savings plan", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Based on your last 3 full months.", 12)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Fact("Money in / month", money(avgIn), ZColor.Income)
+                Fact("Spent / month", money(avgSpent))
+                Fact("Left", money(left), if (left >= 0) ZColor.Income else ZColor.Warn)
+            }
+            Spacer(Modifier.height(14.dp))
+            field("Monthly SIP (₹)", sip) { sip = it }
+            Spacer(Modifier.height(8.dp))
+            field("New EMI to plan for (₹ / month)", emi) { emi = it }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) { field("Years", years) { years = it } }
+                Box(Modifier.weight(1f)) { field("Return % / year", ret) { ret = it } }
+            }
+            Spacer(Modifier.height(8.dp))
+            field("Goal amount (₹, e.g. down payment)", goal) { goal = it }
+            Spacer(Modifier.height(14.dp))
+            Panel {
+                Fact("Free each month after SIP and EMI", (if (free < 0) "−" else "") + money(kotlin.math.abs(free)),
+                    if (free >= 0) ZColor.Income else ZColor.Warn)
+                if (sipN > 0) {
+                    Spacer(Modifier.height(8.dp))
+                    Fact("SIP in ${fmtPlain(yrs)} years at ${fmtPlain(rate)}%", money(fv))
+                }
+                if (goalN > 0) {
+                    Spacer(Modifier.height(8.dp))
+                    Fact("Needed each month for the goal", money(needed))
+                    MutedText(if (needed <= left - emiN) "Within what you have left each month." else
+                        "More than you have left each month — raise the years or lower the goal.", 12)
+                }
+                Spacer(Modifier.height(6.dp))
+                MutedText("An estimate: returns are an assumption, not a promise.", 11)
+            }
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable {
+                        Storage.savePlan(context, mapOf("sip" to sip, "emi" to emi, "goal" to goal, "years" to years, "ret" to ret))
+                        onDismiss()
+                    }.padding(horizontal = 22.dp, vertical = 10.dp),
+            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+@Composable private fun PersonCard(person: String, total: Double, bal: Double, color: Color, verb: String, onClick: () -> Unit) {
+    val settled = bal <= 0.0
+    Column(
+        Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { onClick() }.padding(12.dp),
+    ) {
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(17.dp)).background(color.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Text(person.trim().take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MutedText(verb, 11)
+        Spacer(Modifier.height(4.dp))
+        Text(if (settled) "Settled ✓" else money(bal), color = if (settled) ZColor.Muted else color,
+            fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        if (!settled && bal < total) MutedText("of ${money(total)}", 11)
     }
 }
 
@@ -1741,34 +1846,27 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 Triple(person, total, (total - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
         val owedToYou = byPerson.sumOf { it.third }
-        var peopleOpen by remember { mutableStateOf(false) }
+        val borrowByPerson = borrowedAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
+            .map { (person, rs) ->
+                val tot = rs.sumOf { it.amount }
+                val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
+                Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
+            }.sortedByDescending { it.third }
         Panel {
-            Row(Modifier.fillMaxWidth().clickable { peopleOpen = !peopleOpen },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("People · you get / you pay")
-                Text(if (peopleOpen) "hide ▴" else "details ▾", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
+            Eyebrow("People · you get / you pay")
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Fact("Owed to you", money(owedToYou), ZColor.Income)
-                Fact("You owe", money(borrowedAll.sumOf { it.amount }), ZColor.Warn)
+                Fact("You owe", money(borrowByPerson.sumOf { it.third }), ZColor.Warn)
             }
-            if (peopleOpen) byPerson.forEach { (person, total, bal) ->
-                Spacer(Modifier.height(8.dp))
-                LendRow(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
-            }
-            val borrowByPerson = borrowedAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
-                .map { (person, rs) ->
-                    val tot = rs.sumOf { it.amount }
-                    val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
-                    Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
-                }.sortedByDescending { it.third }
-            if (peopleOpen && borrowByPerson.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                MutedText("You owe", 12)
-                borrowByPerson.forEach { (person, total, bal) ->
-                    Spacer(Modifier.height(8.dp))
-                    LendRow(person, total, bal, ZColor.Warn, "you owe") { onOpenBorrow(person) }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Open balances first, settled ones at the end.
+                byPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
+                    PersonCard(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
+                }
+                borrowByPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
+                    PersonCard(person, total, bal, ZColor.Warn, "you owe") { onOpenBorrow(person) }
                 }
             }
         }

@@ -350,6 +350,22 @@ object Storage {
         file(context, "refund_links.json").writeText(o.toString())
     }
 
+    // ---- savings plan inputs (SIP, EMI, goal...) ----
+    fun loadPlan(context: Context): Map<String, String> = synchronized(lock) {
+        val f = file(context, "plan.json")
+        if (!f.exists()) return emptyMap()
+        try {
+            val o = JSONObject(f.readText()); val m = HashMap<String, String>()
+            val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getString(k) }
+            m
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    fun savePlan(context: Context, m: Map<String, String>): Unit = synchronized(lock) {
+        val o = JSONObject(); for ((k, v) in m) o.put(k, v)
+        file(context, "plan.json").writeText(o.toString())
+    }
+
     // ---- per-card preferences: billing cycle day + monthly budget ----
     fun loadCardPrefs(context: Context): Map<String, Pair<Int, Double>> = synchronized(lock) {
         val f = file(context, "card_prefs.json")
