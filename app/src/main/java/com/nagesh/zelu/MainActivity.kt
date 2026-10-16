@@ -906,20 +906,20 @@ private fun fmtPlain(n: Double): String =
 }
 
 @Composable private fun NewCategoryDialog(onCreate: (String, String, Long) -> Unit, onDismiss: () -> Unit) {
-    val emojis = listOf("🍽️", "🛒", "🏠", "🚗", "⛽", "💊", "🎬", "✈️", "📱", "💡", "🎓", "👶", "🐶", "🎁", "💇", "🏋️", "🧹", "🛠️")
     val colors = listOf(0xFFE57373, 0xFFF4A261, 0xFFE9C46A, 0xFF81B29A, 0xFF4DB6AC, 0xFF64B5F6, 0xFF7986CB, 0xFFBA68C8, 0xFFA1887F, 0xFF90A4AE)
     var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("🏷️") }
+    var icon by remember { mutableStateOf("cart") }
     var color by remember { mutableStateOf(colors[5]) }
     Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+            .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
             Text("New category", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(color).copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center,
-                ) { Text(emoji, fontSize = 22.sp) }
+                ) { androidx.compose.material3.Icon(CatIcons.forKey(icon), null, tint = Color(color), modifier = Modifier.size(24.dp)) }
                 Spacer(Modifier.width(12.dp))
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
@@ -927,9 +927,23 @@ private fun fmtPlain(n: Double): String =
                 )
             }
             Spacer(Modifier.height(12.dp))
-            MutedText("Symbol", 12)
+            MutedText("Icon", 12)
             Spacer(Modifier.height(6.dp))
-            ChipScroll { emojis.forEach { e -> Chip(e, e == emoji) { emoji = e } } }
+            CatIcons.picker.keys.toList().chunked(6).forEach { rowKeys ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    rowKeys.forEach { k ->
+                        Box(
+                            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp))
+                                .background(if (k == icon) Color(color).copy(alpha = 0.2f) else ZColor.Paper)
+                                .border(if (k == icon) 2.dp else 0.dp, Color(color), RoundedCornerShape(12.dp))
+                                .clickable { icon = k },
+                            contentAlignment = Alignment.Center,
+                        ) { androidx.compose.material3.Icon(CatIcons.forKey(k), null,
+                            tint = if (k == icon) Color(color) else ZColor.InkSoft, modifier = Modifier.size(22.dp)) }
+                    }
+                    repeat(6 - rowKeys.size) { Spacer(Modifier.size(42.dp)) }
+                }
+            }
             Spacer(Modifier.height(10.dp))
             MutedText("Colour", 12)
             Spacer(Modifier.height(6.dp))
@@ -945,7 +959,7 @@ private fun fmtPlain(n: Double): String =
             Spacer(Modifier.height(16.dp))
             Box(
                 Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { if (name.trim().isNotEmpty()) onCreate(name.trim(), emoji, color) }
+                    .clickable { if (name.trim().isNotEmpty()) onCreate(name.trim(), "i:$icon", color) }
                     .padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Create", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
@@ -1089,7 +1103,7 @@ private fun fmtPlain(n: Double): String =
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify(if (c == "Investment") "invest" else "expense", c) } }
                     CustomCats.names.forEach { c ->
-                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { onReclassify("expense", c) }
+                        Chip(customLabel(c), false) { onReclassify("expense", c) }
                     }
                     Chip("＋ New", false, filled = true) { onNewCat { c -> onReclassify("expense", c) } }
                 }
@@ -1798,7 +1812,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                         Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
                     CustomCats.names.forEach { c ->
-                        Chip((CustomCats.map[c]?.first ?: "") + " " + c, false) { decide(next.id, "expense", c, next.counterparty, true) }
+                        Chip(customLabel(c), false) { decide(next.id, "expense", c, next.counterparty, true) }
                     }
                     Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
                 }

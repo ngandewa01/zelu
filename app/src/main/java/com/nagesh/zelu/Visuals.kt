@@ -3,6 +3,7 @@ package com.nagesh.zelu
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -131,6 +132,12 @@ object CustomCats {
     val names: List<String> get() = map.keys.toList()
 }
 
+// Chip label for a custom category (old ones carry an emoji; new ones use an icon, so just the name).
+fun customLabel(c: String): String {
+    val e = CustomCats.map[c]?.first
+    return if (e == null || e.startsWith("i:")) c else "$e $c"
+}
+
 fun catColor(cat: String): Color =
     CAT_COLORS[cat] ?: CustomCats.map[cat]?.let { Color(it.second) } ?: Color(0xFF7B8C85)
 
@@ -171,12 +178,14 @@ fun bankLogoRes(account: String): Int? = when (bankEntry(account)?.second) {
 @Composable
 fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String = "") {
     val b = brandFor(name)
-    // Transfers and person-to-person lending get the banking-style ⇄ symbol.
-    val symbol = when {
+    // Transfers and person-to-person lending get the banking-style swap icon.
+    val icon = when {
         b != null -> null
-        kind == "transfer" || kind == "lent" || kind == "borrowed" -> "↔️"
-        else -> CAT_ICON[category] ?: CustomCats.map[category]?.first
+        kind == "transfer" || kind == "lent" || kind == "borrowed" -> CatIcons.forCategory("Transfer")
+        else -> CatIcons.forCategory(category)
     }
+    // Old custom categories may still hold an emoji.
+    val emoji = if (b == null && icon == null) CustomCats.map[category]?.first?.takeIf { !it.startsWith("i:") } else null
     val bg = b?.bg ?: catColor(category).copy(alpha = 0.18f)
     val fg = b?.fg ?: catColor(category)
     Box(
@@ -185,7 +194,8 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String 
     ) {
         when {
             b != null -> Text(b.mark, color = b.fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
-            symbol != null -> Text(symbol, fontSize = (size.value * 0.44f).sp)
+            icon != null -> Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(size * 0.54f))
+            emoji != null -> Text(emoji, fontSize = (size.value * 0.44f).sp)
             else -> Text((name.ifBlank { category }).trim().take(1).uppercase(),
                 color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
         }
