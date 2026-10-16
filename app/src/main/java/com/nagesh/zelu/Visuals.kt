@@ -134,16 +134,38 @@ object CustomCats {
 fun catColor(cat: String): Color =
     CAT_COLORS[cat] ?: CustomCats.map[cat]?.let { Color(it.second) } ?: Color(0xFF7B8C85)
 
-fun bankColor(account: String): Color {
-    val a = account.uppercase()
-    return when {
-        a.startsWith("HDFC") -> Color(0xFF004C8F)
-        a.startsWith("ICICI") -> Color(0xFFB02A30)
-        a.startsWith("SBI") -> Color(0xFF22409A)
-        a.startsWith("AXIS") -> Color(0xFF97144D)
-        a.startsWith("KOTAK") -> Color(0xFFD71921)
-        else -> ZColor.Ink
-    }
+// (match words in the account label, logo slug, brand colour)
+private val BANKS_UI = listOf(
+    Triple(listOf("HDFC"), "hdfc", 0xFF004C8F), Triple(listOf("ICICI"), "icic", 0xFFB02A30),
+    Triple(listOf("SBI"), "sbin", 0xFF22409A), Triple(listOf("AXIS"), "utib", 0xFF97144D),
+    Triple(listOf("KOTAK"), "kkbk", 0xFFD71921), Triple(listOf("UNION"), "ubin", 0xFFD2232A),
+    Triple(listOf("YES"), "yesb", 0xFF0B5FA5), Triple(listOf("IDFC"), "idfb", 0xFF9C1D26),
+    Triple(listOf("INDUS"), "indb", 0xFF8B1C3A), Triple(listOf("BARODA", "BOB"), "barb", 0xFFEF7D00),
+    Triple(listOf("PNB", "PUNJAB"), "punb", 0xFFA6192E), Triple(listOf("CANARA"), "cnrb", 0xFF1B75BB),
+    Triple(listOf("BANK OF INDIA", "BOI"), "bkid", 0xFF0A4D8C), Triple(listOf("FEDERAL"), "fdrl", 0xFF1C4E9A),
+    Triple(listOf("RBL"), "ratn", 0xFF21409A), Triple(listOf("IDBI"), "ibkl", 0xFF00796B),
+    Triple(listOf("KARNATAKA"), "karb", 0xFFB71C1C), Triple(listOf("SOUTH INDIAN", "SIB"), "sibl", 0xFF1E5AA8),
+    Triple(listOf("KVB", "VYSYA"), "kvbl", 0xFF7B2D8E), Triple(listOf("STANDARD CHARTERED", "SCB"), "scbl", 0xFF0473EA),
+    Triple(listOf("AU "), "aubl", 0xFFE8731A), Triple(listOf("PAYTM"), "pytm", 0xFF0A8FD6),
+)
+
+private fun bankEntry(account: String) = account.uppercase().let { a ->
+    BANKS_UI.firstOrNull { e -> e.first.any { a.startsWith(it) || a.contains(" $it") } }
+}
+
+fun bankColor(account: String): Color = bankEntry(account)?.let { Color(it.third) } ?: ZColor.Ink
+
+// Drawable resource id of the bank's logo, or null when we have none.
+fun bankLogoRes(account: String): Int? = when (bankEntry(account)?.second) {
+    "hdfc" -> R.drawable.bank_hdfc; "icic" -> R.drawable.bank_icic; "sbin" -> R.drawable.bank_sbin
+    "utib" -> R.drawable.bank_utib; "kkbk" -> R.drawable.bank_kkbk; "ubin" -> R.drawable.bank_ubin
+    "yesb" -> R.drawable.bank_yesb; "idfb" -> R.drawable.bank_idfb; "indb" -> R.drawable.bank_indb
+    "barb" -> R.drawable.bank_barb; "punb" -> R.drawable.bank_punb; "cnrb" -> R.drawable.bank_cnrb
+    "bkid" -> R.drawable.bank_bkid; "fdrl" -> R.drawable.bank_fdrl; "ratn" -> R.drawable.bank_ratn
+    "ibkl" -> R.drawable.bank_ibkl; "karb" -> R.drawable.bank_karb; "sibl" -> R.drawable.bank_sibl
+    "kvbl" -> R.drawable.bank_kvbl; "scbl" -> R.drawable.bank_scbl; "aubl" -> R.drawable.bank_aubl
+    "pytm" -> R.drawable.bank_pytm
+    else -> null
 }
 
 @Composable

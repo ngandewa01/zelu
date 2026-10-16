@@ -948,6 +948,45 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
+@Composable private fun AccountCard(account: String, bal: Pair<Double, Long>?, spent: Double, modifier: Modifier) {
+    val parts = account.trim().split(" ")
+    val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } }
+    val name = if (last4 != null) parts.dropLast(1).joinToString(" ") else account
+    val tint = bankColor(account)
+    val logo = bankLogoRes(account)
+    val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.US)
+    Row(modifier.height(112.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))) {
+        Column(
+            Modifier.weight(0.42f).fillMaxHeight().background(tint.copy(alpha = 0.22f)).padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Box(
+                Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (logo != null) androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                ) else Text(name.take(1).uppercase(), color = tint, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Column {
+                Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (last4 != null) MutedText("xx$last4", 11)
+            }
+        }
+        Column(
+            Modifier.weight(0.58f).fillMaxHeight().background(ZColor.Card).padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(if (bal != null) money(bal.first) else "—", color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
+            }
+            MutedText("Spent  " + money(spent), 12)
+        }
+    }
+}
+
 @Composable private fun TopIcon(onClick: () -> Unit, dot: Boolean = false, content: @Composable () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
@@ -1355,38 +1394,34 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     val spentBy = Analytics.spentByAccount(list, accounts).toMap()
     val acctNames = (balances.keys + spentBy.keys).distinct()
         .sortedByDescending { balances[it]?.first ?: -1.0 }
+    var allAccountsOpen by remember { mutableStateOf(false) }
     if (acctNames.isNotEmpty()) {
         Panel {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clickable { allAccountsOpen = true },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Eyebrow("Accounts")
-                if (balances.isNotEmpty())
-                    Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (balances.isNotEmpty())
+                        Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
             Spacer(Modifier.height(10.dp))
-            val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.US)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 acctNames.forEach { a ->
-                    val bal = balances[a]
-                    Column(
-                        Modifier.width(168.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
-                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(bankColor(a)))
-                            Spacer(Modifier.width(8.dp))
-                            Text(a, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        MutedText("Balance", 11)
-                        Text(if (bal != null) money(bal.first) else "—", color = ZColor.Ink, fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold)
-                        MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
-                        Spacer(Modifier.height(8.dp))
-                        MutedText("Spent  " + money(spentBy[a] ?: 0.0), 12)
-                    }
+                    AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.width(280.dp))
                 }
+            }
+        }
+    }
+    if (allAccountsOpen) {
+        Dialog(onDismissRequest = { allAccountsOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Paper).padding(16.dp)
+                .heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                acctNames.forEach { a -> AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth()) }
             }
         }
     }
