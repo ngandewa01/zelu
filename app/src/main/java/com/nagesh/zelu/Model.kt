@@ -54,5 +54,6 @@ data class Row(
 
 // Refunds that look like they belong to an earlier spend, waiting for a Yes/No. (refund, spend)
 object Refunds {
-    @Volatile var suggestions: List<Pair<Row, Row>> = emptyList()
+    // Compose state, so the card appears/disappears as soon as the list changes.
+    var suggestions: List<Pair<Row, Row>> by androidx.compose.runtime.mutableStateOf(emptyList())
 }
