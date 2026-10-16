@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -661,7 +663,6 @@ fun ZeluApp() {
                 Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
-                MenuRow("Budgets", "Monthly caps per category · mark fixed costs") { menuOpen = false; budgetsOpen = true }
                 MenuRow("Savings plan", "What's left each month · SIP, EMI and goal planner") { menuOpen = false; savingsOpen = true }
                 MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
                 MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
@@ -1756,12 +1757,30 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     run {
         if (f.period == "month" && f.month == Dates.todayMonth()) {
             val alerts = Analytics.unusual(allRows, f.month)
-            if (alerts.isNotEmpty()) Panel {
-                Eyebrow("Heads up")
+            if (alerts.isNotEmpty()) Column(
+                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFFFFEFE6)).border(1.dp, Color(0xFFF6C9B0), RoundedCornerShape(18.dp)).padding(18.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Warn, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("HEADS UP", color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
                 alerts.forEach { (t, d) ->
-                    Spacer(Modifier.height(8.dp))
-                    Text(t, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    MutedText(d, 12)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFFFFFFF)),
+                            contentAlignment = Alignment.Center) {
+                            val ic = CatIcons.forCategory(t.substringBefore(" is "))
+                            if (ic != null) androidx.compose.material3.Icon(ic, null, tint = ZColor.Warn, modifier = Modifier.size(20.dp))
+                            else androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Warn, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(t, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text(d, color = ZColor.InkSoft, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
@@ -1846,19 +1865,34 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     if (ins != null) {
         Panel {
             Eyebrow("At a glance")
-            Spacer(Modifier.height(8.dp))
-            Text("Most went to ${ins.topCat} — ${money(ins.topCatAmt)}",
-                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("${ins.topCatPct}% of spend", 13)
-            Spacer(Modifier.height(14.dp))
-            MutedText("Biggest spend", 12)
-            Text("${ins.biggestName} · ${money(ins.biggestAmt)}", color = ZColor.Ink,
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
+                    MerchantTile("", ins.topCat, 34.dp)
+                    Spacer(Modifier.height(8.dp))
+                    MutedText("Top category", 11)
+                    Text(ins.topCat, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(ins.topCatAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("${ins.topCatPct}% of spend", color = ZColor.Income, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFEFE6)).padding(12.dp)) {
+                    MerchantTile(ins.biggestName, "", 34.dp)
+                    Spacer(Modifier.height(8.dp))
+                    MutedText("Biggest spend", 11)
+                    Text(ins.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(ins.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            }
             val tips = glanceTips(ins, s.spent, s.income)
             if (tips.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
-                Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFE3F0EC)).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
             }
         }
     }
