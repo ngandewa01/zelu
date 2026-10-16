@@ -27,9 +27,10 @@ object Ingest {
             val txn = Parser.parseSms(msg.body, msg.date, msg.address)
             if (txn == null) {
                 // Balance-only alert -> remember the latest balance per account.
-                Parser.parseBalance(msg.body, msg.date, msg.address)?.let { (a, b, d) ->
-                    val cur = balances[a]
-                    if (cur == null || d >= cur.second) balances[a] = b to d
+                val bal = Parser.parseBalance(msg.body, msg.date, msg.address)
+                if (bal != null) {
+                    val cur = balances[bal.first]
+                    if (cur == null || bal.third >= cur.second) balances[bal.first] = bal.second to bal.third
                     continue
                 }
                 // Not a completed payment — it may be a bill/EMI reminder for the Dues page.

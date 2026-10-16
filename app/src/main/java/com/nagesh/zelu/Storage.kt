@@ -259,8 +259,8 @@ object Storage {
         } catch (_: Exception) { emptyMap() }
     }
 
-    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>) = synchronized(lock) {
-        if (fresh.isEmpty()) return
+    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>): Unit = synchronized(lock) {
+        if (fresh.isEmpty()) return@synchronized
         val cur = loadBalances(context).toMutableMap()
         for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) cur[k] = v }
         val o = JSONObject()
