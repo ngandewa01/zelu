@@ -30,5 +30,7 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".CategorizeReceiver" android:exported="false" />
+
     </application>
 </manifest>

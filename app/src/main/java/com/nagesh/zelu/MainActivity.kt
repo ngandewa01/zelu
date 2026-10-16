@@ -1078,7 +1078,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 }
             }
             Spacer(Modifier.height(6.dp))
-            MutedText("From your latest balance alerts", 11)
+            val asOn = balances.values.maxOf { it.second }
+            MutedText("From your latest balance alert" + if (asOn > 0) " · " +
+                java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(asOn)) else "", 11)
         }
     }
 

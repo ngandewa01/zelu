@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 
 // Posts a local "bills due soon" notification. Best-effort: if the notification
@@ -57,9 +58,19 @@ object Notifier {
             val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
             val verb = if (r.direction == "credit") "received" else "spent"
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: r.account
+            if (r.category == "Unknown" && r.direction == "debit") {
+                val nid = (r.id.hashCode() and 0x7fffffff) % 900000 + 2000
+                for ((i, cat) in listOf("Food", "Groceries", "Shopping").withIndex()) {
+                    val it = Intent(context, CategorizeReceiver::class.java)
+                        .putExtra("id", r.id).putExtra("payee", r.counterparty ?: "")
+                        .putExtra("category", cat).putExtra("nid", nid)
+                    val act = PendingIntent.getBroadcast(context, nid * 4 + i, it, flags)
+                    builder.addAction(Notification.Action.Builder(null, cat, act).build())
+                }
+            }
             builder.setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("$amt $verb" + if (who.isNotBlank()) " · $who" else "")
-                .setContentText(if (r.category.isBlank()) "Uncategorised" else r.category)
+                .setContentText(if (r.category == "Unknown") "Unknown payee — tag it" else r.category)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
             nm.notify((r.id.hashCode() and 0x7fffffff) % 900000 + 2000, builder.build())
