@@ -244,27 +244,42 @@ object Storage {
     }
 
     // ---- latest known bank balance per account (account -> amount, receivedMs) ----
-    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+    // Source "b" = a balance-only alert (authoritative); "t" = tail of a debit/credit alert,
+    // used only for accounts that never send a balance-only alert.
+    private fun readBalFile(context: Context): MutableMap<String, Triple<Double, Long, String>> {
         val f = file(context, "balances.json")
-        if (!f.exists()) return emptyMap()
+        val m = LinkedHashMap<String, Triple<Double, Long, String>>()
+        if (!f.exists()) return m
         try {
             val o = JSONObject(f.readText())
-            val m = LinkedHashMap<String, Pair<Double, Long>>()
             val ks = o.keys()
             while (ks.hasNext()) {
                 val k = ks.next(); val e = o.getJSONObject(k)
-                m[k] = e.getDouble("a") to e.getLong("d")
+                m[k] = Triple(e.getDouble("a"), e.getLong("d"), e.optString("s", "b"))
             }
-            m
-        } catch (_: Exception) { emptyMap() }
+        } catch (_: Exception) {}
+        return m
     }
 
-    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>): Unit = synchronized(lock) {
+    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+        readBalFile(context).mapValues { it.value.first to it.value.second }
+    }
+
+    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>, source: String): Unit = synchronized(lock) {
         if (fresh.isEmpty()) return@synchronized
-        val cur = loadBalances(context).toMutableMap()
-        for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) cur[k] = v }
+        val cur = readBalFile(context)
+        for ((k, v) in fresh) {
+            val c = cur[k]
+            val take = when {
+                c == null -> true
+                source == "b" && c.third == "t" -> true
+                source == "t" && c.third == "b" -> false
+                else -> v.second >= c.second
+            }
+            if (take) cur[k] = Triple(v.first, v.second, source)
+        }
         val o = JSONObject()
-        for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
+        for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second).put("s", v.third))
         file(context, "balances.json").writeText(o.toString())
     }
 

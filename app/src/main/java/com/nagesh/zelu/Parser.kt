@@ -355,6 +355,12 @@ object Parser {
     private val BAL_AMT = Regex("""(?:bal(?:ance)?[^0-9₹]{0,60}?)(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
     private val TXN_WORD = Regex("""\b(debited|credited|spent|withdrawn|paid|sent|received|purchase|txn|transaction)\b""", RegexOption.IGNORE_CASE)
 
+    private val TXN_BAL = Regex("""(?:avl|avail(?:able)?)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+
+    // "Avl Bal Rs 32,855.00" tail on a debit/credit alert (for banks with no daily balance SMS).
+    fun balanceFromTxn(body: String): Double? =
+        TXN_BAL.find(body.replace("\n", " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+
     fun parseBalance(body: String, receivedMs: Long?, source: String): Triple<String, Double, Long>? {
         val text = body.replace("\n", " ").trim()
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null

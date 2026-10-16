@@ -1346,39 +1346,41 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
     
-    // Latest bank balances read from balance SMS
-    if (balances.isNotEmpty()) {
+    // Accounts — latest balance + spend this period per account, swipeable
+    val spentBy = Analytics.spentByAccount(list, accounts).toMap()
+    val acctNames = (balances.keys + spentBy.keys).distinct()
+        .sortedByDescending { balances[it]?.first ?: -1.0 }
+    if (acctNames.isNotEmpty()) {
         Panel {
-            Eyebrow("Bank balance")
-            Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            balances.entries.sortedByDescending { it.value.first }.forEach { (acct, v) ->
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    MutedText(acct, 13)
-                    Text(money(v.first), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Accounts")
+                if (balances.isNotEmpty())
+                    Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(6.dp))
-            val asOn = balances.values.maxOf { it.second }
-            MutedText("From your latest balance alert" + if (asOn > 0) " · " +
-                java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(asOn)) else "", 11)
-        }
-    }
-
-    // Spent by account
-    val accTotals = Analytics.spentByAccount(list, accounts)
-    if (accTotals.isNotEmpty()) {
-        val accMax = accTotals.maxOf { it.second }.coerceAtLeast(1.0)
-        Panel {
-            Eyebrow("Spent by account")
-            accTotals.forEach { (a, v) ->
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(a, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                        modifier = Modifier.width(110.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Box(Modifier.weight(1f)) { Meter((v / accMax).toFloat(), ZColor.Ink) }
-                    Spacer(Modifier.width(10.dp))
-                    Text(money(v), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.US)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                acctNames.forEach { a ->
+                    val bal = balances[a]
+                    Column(
+                        Modifier.width(168.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(bankColor(a)))
+                            Spacer(Modifier.width(8.dp))
+                            Text(a, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        MutedText("Balance", 11)
+                        Text(if (bal != null) money(bal.first) else "—", color = ZColor.Ink, fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold)
+                        MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
+                        Spacer(Modifier.height(8.dp))
+                        MutedText("Spent  " + money(spentBy[a] ?: 0.0), 12)
+                    }
                 }
             }
         }
