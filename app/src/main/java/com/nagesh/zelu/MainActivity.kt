@@ -192,6 +192,8 @@ fun ZeluApp() {
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
+    var cardPrefs by remember { mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap()) }
+    var cardOpen by remember { mutableStateOf<String?>(null) }
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
     var view by remember { mutableStateOf("ledger") }
@@ -226,6 +228,7 @@ fun ZeluApp() {
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
+            cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
             CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
         }
     }
@@ -241,6 +244,13 @@ fun ZeluApp() {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.setBudget(context, category, amount) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+        }
+    }
+
+    fun setCardPref(account: String, day: Int, budget: Double) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.setCardPref(context, account, day, budget) }
+            cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
         }
     }
 
@@ -488,7 +498,7 @@ fun ZeluApp() {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders)
+                    repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { fixedOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it })
                 "spend" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
@@ -507,6 +517,15 @@ fun ZeluApp() {
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
+        cardOpen?.let { a ->
+            CardDetailScreen(
+                account = a, allRows = rows, limit = limits[a]?.first, reminders = reminders,
+                reminderState = reminderState, pref = cardPrefs[a],
+                onSavePref = { d, b -> setCardPref(a, d, b) },
+                onMarkPaid = { id -> markReminder(id, true) },
+                onRowClick = { detailRow = it }, onBack = { cardOpen = null },
+            )
+        }
     }
 
     if (menuOpen) {
@@ -989,6 +1008,228 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
+// ---------- credit card detail ----------
+
+private fun cycleYmd(idx: Int, d: Int): String {
+    val y = idx / 12; val mo = idx % 12
+    val cal = java.util.Calendar.getInstance().apply { clear(); set(y, mo, 1) }
+    val maxd = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+    return String.format(java.util.Locale.US, "%04d-%02d-%02d", y, mo + 1, minOf(d, maxd))
+}
+
+// Billing cycle [start, end] for a cycle-start day; offset 0 = the cycle containing today.
+private fun cycleRange(day: Int, offset: Int): Pair<String, String> {
+    val now = java.util.Calendar.getInstance()
+    val idxNow = now.get(java.util.Calendar.YEAR) * 12 + now.get(java.util.Calendar.MONTH)
+    val startIdx = (if (now.get(java.util.Calendar.DAY_OF_MONTH) >= day) idxNow else idxNow - 1) + offset
+    return cycleYmd(startIdx, day) to Dates.shiftDays(cycleYmd(startIdx + 1, day), -1)
+}
+
+private fun prettyDay(ymd: String): String {
+    val m = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    return ymd.substring(8, 10).toInt().toString() + " " + m[ymd.substring(5, 7).toInt() - 1]
+}
+
+@Composable private fun CardDetailScreen(
+    account: String, allRows: List<Row>, limit: Double?, reminders: List<Reminder>,
+    reminderState: Map<String, Boolean>, pref: Pair<Int, Double>?,
+    onSavePref: (Int, Double) -> Unit, onMarkPaid: (String) -> Unit,
+    onRowClick: (Row) -> Unit, onBack: () -> Unit,
+) {
+    androidx.activity.compose.BackHandler { onBack() }
+    var tab by remember { mutableStateOf(0) }
+    var offset by remember { mutableStateOf(0) }
+    var dayDialog by remember { mutableStateOf(false) }
+    var budgetDialog by remember { mutableStateOf(false) }
+    val day = pref?.first ?: 1
+    val budget = pref?.second ?: 0.0
+    val (from, to) = cycleRange(day, offset)
+    val rows = allRows.filter { it.account == account && it.date >= from && it.date <= to }
+        .sortedByDescending { it.date }
+    val spendRows = rows.filter { it.kind == "expense" }
+    val spent = spendRows.sumOf { it.amount }
+    val parts = account.trim().split(" ")
+    val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
+    val bank = parts.firstOrNull() ?: account
+    val logo = bankLogoRes(account)
+    val today = Dates.today()
+    val due = reminders.filter { r ->
+        r.account.takeLast(4) == account.takeLast(4) && !(reminderState[r.id] ?: r.done)
+    }.sortedBy { it.dueDate }.firstOrNull { it.dueDate >= today }
+
+    Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = if (due != null) 130.dp else 40.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TopIcon(onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp) }
+                Spacer(Modifier.width(12.dp))
+                Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                    if (logo != null) androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(28.dp),
+                    ) else Text(bank.take(1).uppercase(), color = bankColor(account), fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("$bank Credit Card", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    MutedText("•••• $last4", 12)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                NavButton("‹") { offset -= 1 }
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp)).clickable { dayDialog = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(prettyDay(from) + " – " + prettyDay(to) + "  ▾", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (offset < 0) NavButton("›") { offset += 1 }
+            }
+            Spacer(Modifier.height(20.dp))
+            val track = ZColor.Line; val arc = if (budget > 0 && spent > budget) ZColor.Warn else ZColor.Accent
+            val frac = if (budget > 0) (spent / budget).coerceIn(0.0, 1.0).toFloat() else if (spent > 0) 1f else 0f
+            Box(Modifier.align(Alignment.CenterHorizontally).size(190.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = 16f
+                    val sz = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
+                    val tl = androidx.compose.ui.geometry.Offset(w / 2, w / 2)
+                    drawArc(track, 0f, 360f, false, tl, sz, style = Stroke(width = w))
+                    if (frac > 0f) drawArc(arc, -90f, 360f * frac, false, tl, sz, style = Stroke(width = w, cap = StrokeCap.Round))
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    MutedText("Spent", 12)
+                    Text(money(spent), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    if (budget > 0) MutedText("of " + money(budget), 12)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f).clickable { budgetDialog = true }) {
+                    MutedText("Monthly budget", 12)
+                    Text(if (budget > 0) money(budget) else "Set budget ›", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                    MutedText("Available credit", 12)
+                    Text(if (limit != null) money(limit) else "—", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            ChipScroll {
+                listOf("Transactions", "Categories", "Merchants").forEachIndexed { i, t -> Chip(t, tab == i, filled = true) { tab = i } }
+            }
+            Spacer(Modifier.height(6.dp))
+            when (tab) {
+                0 -> Panel {
+                    if (rows.isEmpty()) MutedText("No transactions in this cycle.")
+                    else rows.forEach { TxnRow(it, false, onRowClick) }
+                }
+                1 -> Panel {
+                    val items = Analytics.byCategory(spendRows)
+                    if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
+                    val mx = items.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
+                    items.forEach { (c, v) ->
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MerchantTile("", c, 30.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(c, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Meter((v / mx).toFloat(), catColor(c))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(money(v), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                else -> Panel {
+                    val items = spendRows.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Unknown" }
+                        .map { (k, v) -> Triple(k, v.sumOf { it.amount }, v.first().category) }.sortedByDescending { it.second }
+                    if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
+                    val mx = items.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
+                    items.forEach { (k, v, c) ->
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MerchantTile(k, c, 30.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(k, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Meter((v / mx).toFloat(), catColor(c))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(money(v), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+        if (due != null) {
+            Row(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 26.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Pending bill · due " + prettyDay(due.dueDate), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(money(due.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    due.minAmount?.let { MutedText("Min payable " + money(it), 12) }
+                }
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { onMarkPaid(due.id) }.padding(horizontal = 18.dp, vertical = 12.dp),
+                ) { Text("Mark as paid", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+
+    if (dayDialog) {
+        Dialog(onDismissRequest = { dayDialog = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)) {
+                Text("Billing cycle starts on", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("For a cycle 1 Apr – 30 Apr choose 1. Check your card bill for the exact day.", 12)
+                Spacer(Modifier.height(12.dp))
+                (1..31).chunked(7).forEach { weekDays ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        weekDays.forEach { d ->
+                            Box(
+                                Modifier.size(38.dp).clip(RoundedCornerShape(19.dp))
+                                    .background(if (d == day) ZColor.Ink else ZColor.Card)
+                                    .border(1.dp, ZColor.Line, RoundedCornerShape(19.dp))
+                                    .clickable { onSavePref(d, budget); offset = 0; dayDialog = false },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("$d", color = if (d == day) ZColor.Paper else ZColor.Ink, fontSize = 13.sp) }
+                        }
+                        repeat(7 - weekDays.size) { Spacer(Modifier.size(38.dp)) }
+                    }
+                }
+            }
+        }
+    }
+    if (budgetDialog) {
+        var text by remember { mutableStateOf(if (budget > 0) fmtPlain(budget) else "") }
+        Dialog(onDismissRequest = { budgetDialog = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Monthly card budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
+                    singleLine = true, placeholder = { Text("₹ per cycle") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(14.dp))
+                Box(
+                    Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { onSavePref(day, text.toDoubleOrNull() ?: 0.0); budgetDialog = false }
+                        .padding(horizontal = 22.dp, vertical = 10.dp),
+                ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+}
+
 @Composable private fun TopIcon(onClick: () -> Unit, dot: Boolean = false, content: @Composable () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
@@ -1267,6 +1508,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     onNewCat: (((String) -> Unit)) -> Unit = {},
     limits: Map<String, Pair<Double, Long>> = emptyMap(),
     reminders: List<Reminder> = emptyList(),
+    onOpenCard: (String) -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
@@ -1445,7 +1687,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     val today = Dates.today()
                     val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
                         .minByOrNull { it.dueDate }
-                    CardTile(a, spent, limits[a]?.first, due) { onDrill(a, cardRows) }
+                    CardTile(a, spent, limits[a]?.first, due) { onOpenCard(a) }
                 }
             }
             Spacer(Modifier.height(10.dp))
