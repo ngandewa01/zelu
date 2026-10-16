@@ -282,11 +282,8 @@ fun ZeluApp() {
                 Ingest.ingest(context, SmsReader.readInbox(context, 5000))
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
             }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
-            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
-            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
-            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+            // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows.
+            reload()
             loading = false
             if (stage == "scan") stage = "app"
         }
