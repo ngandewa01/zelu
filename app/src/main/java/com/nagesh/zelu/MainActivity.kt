@@ -40,6 +40,9 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -107,8 +110,44 @@ import java.util.Locale
 import kotlin.math.atan2
 
 class MainActivity : ComponentActivity() {
+    // App lock: asks for the phone's own PIN / pattern / fingerprint when opening, and again after the app
+    // has been away for over 30 seconds. Off by default; switched on from the menu.
+    private var locked by mutableStateOf(false)
+    private var authShowing = false
+    private var stoppedAt = 0L
+    private var skipNextAsk = false
+    private lateinit var authLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
+
+    private fun lockEnabled() = getSharedPreferences("zelu_security", MODE_PRIVATE).getBoolean("lock", false)
+
+    private fun askUnlock() {
+        if (authShowing) return
+        val km = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
+        val i = if (km.isDeviceSecure) km.createConfirmDeviceCredentialIntent("Unlock Zelu", "Confirm it's you") else null
+        if (i == null) { locked = false; return }
+        try { authShowing = true; authLauncher.launch(i) } catch (_: Exception) { authShowing = false; locked = false }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (lockEnabled() && !locked && stoppedAt != 0L &&
+            android.os.SystemClock.elapsedRealtime() - stoppedAt > 30_000L) locked = true
+        if (locked) { if (skipNextAsk) skipNextAsk = false else askUnlock() }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stoppedAt = android.os.SystemClock.elapsedRealtime()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        authLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+            authShowing = false
+            skipNextAsk = true
+            if (res.resultCode == RESULT_OK) { locked = false; stoppedAt = 0L }
+        }
+        locked = lockEnabled()
         val sp = getSharedPreferences("zelu_theme", MODE_PRIVATE)
         val sysDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -129,7 +168,7 @@ class MainActivity : ComponentActivity() {
                 c.isAppearanceLightStatusBars = !ZTheme.dark
                 c.isAppearanceLightNavigationBars = !ZTheme.dark
             }
-            MaterialTheme(colorScheme = scheme) { ZeluApp() }
+            MaterialTheme(colorScheme = scheme) { if (locked) LockScreen { askUnlock() } else ZeluApp() }
         }
     }
 }
@@ -162,6 +201,20 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
         Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Accent),
         contentAlignment = Alignment.Center,
     ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
+}
+
+@Composable private fun LockScreen(onUnlock: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(ZColor.Paper), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            LogoMark(72f)
+            Spacer(Modifier.height(18.dp))
+            Text("Zelu is locked", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            MutedText("Use your phone's PIN, pattern or fingerprint.", 13)
+            Spacer(Modifier.height(22.dp))
+            Cta("Unlock", onUnlock)
+        }
+    }
 }
 
 @Composable private fun Cta(text: String, onClick: () -> Unit) {
@@ -313,6 +366,9 @@ fun ZeluApp() {
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var menuOpen by remember { mutableStateOf(false) }
     var themeOpen by remember { mutableStateOf(false) }
+    var lockOn by remember { mutableStateOf(context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).getBoolean("lock", false)) }
+    var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
     var rangeOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
@@ -811,7 +867,67 @@ fun ZeluApp() {
                     if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
                 }
                 MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { menuOpen = false; Notifier.openBatterySettings(context) }
+                MenuSection("Data and security")
+                MenuRow("App lock", if (lockOn) "On · asks for your phone lock" else "Off · open Zelu without a lock",
+                    Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted,
+                    trailing = { Text(if (lockOn) "ON" else "OFF", color = if (lockOn) ZColor.Income else ZColor.Muted,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                    val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                    if (!lockOn && !km.isDeviceSecure) {
+                        Toast.makeText(context, "Set a screen lock (PIN, pattern or fingerprint) in your phone settings first", Toast.LENGTH_LONG).show()
+                    } else {
+                        lockOn = !lockOn
+                        context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
+                    }
+                }
+                MenuRow("Back up data", "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
+                    menuOpen = false
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) {
+                            Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", Backup.export(context))
+                        }
+                        Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
+                    }
+                }
+                MenuRow("Restore data", "Load a backup file", Icons.Rounded.Restore) {
+                    menuOpen = false
+                    restoreLauncher.launch(arrayOf("*/*"))
+                }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    restoreUri?.let { uri ->
+        Dialog(onDismissRequest = { restoreUri = null }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Restore this backup?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                MutedText("It replaces your current transactions, categories, budgets and settings with the ones in the file.", 13)
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { restoreUri = null }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        restoreUri = null
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                try {
+                                    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                                    text != null && Backup.restore(context, text)
+                                } catch (_: Exception) { false }
+                            }
+                            if (ok) {
+                                val sp = context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
+                                ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
+                                if (sp.contains("dark")) ZTheme.dark = sp.getBoolean("dark", false)
+                                reload()
+                            }
+                            Toast.makeText(context, if (ok) "Backup restored" else "That isn't a Zelu backup file", Toast.LENGTH_LONG).show()
+                        }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Restore", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }

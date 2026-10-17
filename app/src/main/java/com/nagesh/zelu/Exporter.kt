@@ -25,6 +25,9 @@ object Exporter {
         return writeToDownloads(context, filename, "text/csv", sb.toString())
     }
 
+    fun exportText(context: Context, filename: String, mime: String, content: String): Boolean =
+        writeToDownloads(context, filename, mime, content)
+
     private fun writeToDownloads(context: Context, filename: String, mime: String, content: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         return try {
