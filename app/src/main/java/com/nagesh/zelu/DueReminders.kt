@@ -66,7 +66,7 @@ object DueReminders {
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
             val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
             val whenTxt = when (d) { 0 -> "due today"; 1 -> "due tomorrow"; else -> "due in 3 days" }
-            b.setSmallIcon(android.R.drawable.ic_popup_reminder)
+            b.setSmallIcon(R.drawable.ic_stat_zelu)
                 .setContentTitle("$who $amt $whenTxt")
                 .setContentText(if (r.minAmount != null) "Minimum due ₹" + String.format(java.util.Locale.US, "%,.0f", r.minAmount) else "Tap to open Dues")
                 .setAutoCancel(true)

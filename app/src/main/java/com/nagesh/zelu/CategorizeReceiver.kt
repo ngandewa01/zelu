@@ -12,9 +12,10 @@ class CategorizeReceiver : BroadcastReceiver() {
         val id = intent.getStringExtra("id") ?: return
         val cat = intent.getStringExtra("category") ?: return
         val payee = intent.getStringExtra("payee") ?: ""
+        val kind = intent.getStringExtra("kind") ?: "expense"
         try {
-            Storage.setOverride(context, id, "expense", cat)
-            if (payee.isNotBlank()) Storage.setPayeeRule(context, payee, "expense", cat)
+            Storage.setOverride(context, id, kind, cat)
+            if (payee.isNotBlank()) Storage.setPayeeRule(context, payee, kind, cat)
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(intent.getIntExtra("nid", 0))
         } catch (_: Exception) {
