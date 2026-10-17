@@ -6,6 +6,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      # Needed to publish the GitHub Release.
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -32,3 +35,17 @@ jobs:
         with:
           name: zelu-release-apk
           path: app/build/outputs/apk/release/app-release.apk
+
+      # Every main build becomes the latest release, so this link always serves the newest APK:
+      # https://github.com/ngandewa01/zelu/releases/latest/download/zelu.apk
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk zelu.apk
+          gh release create "build-${{ github.run_number }}" zelu.apk \
+            --target "${{ github.sha }}" \
+            --title "Zelu build ${{ github.run_number }}" \
+            --notes "$(git log -1 --format=%s)" \
+            --latest
+        env:
+          GH_TOKEN: ${{ github.token }}
