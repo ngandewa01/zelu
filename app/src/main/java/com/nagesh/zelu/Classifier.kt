@@ -160,7 +160,10 @@ object Classifier {
             return Result("income", "Income")
         }
 
-        val hay = "$cp ${t.raw}".lowercase()
+        // Names often arrive run together ("KimsHospital", "SriLakshmiMedicals"): also match on the
+        // words split at each lower->UPPER change, so "hospital", "medical"... are found.
+        val spaced = ((t.counterparty ?: "") + " " + t.raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
+        val hay = ("$cp ${t.raw} $spaced").lowercase()
         // 1) Exact brand dictionary (most specific).
         for ((category, words) in CATEGORIES) {
             if (words.any { hay.contains(it) }) return Result("expense", category)
