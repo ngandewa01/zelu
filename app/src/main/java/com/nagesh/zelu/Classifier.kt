@@ -70,7 +70,7 @@ object Classifier {
 
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
-        """card ending \d|payment[^.]{0,25}\bcard\b|towards[^.]{0,20}card|to your[^.]{0,15}card|credit card (bill|payment)""",
+        """card ending \d|payment[^.]{0,25}\bcard\b|towards[^.]{0,20}card|to your[^.]{0,15}card|credit card (bill|payment)|received on your[^.]{0,30}credit card|credit card (xx|\*+)?\d""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -153,7 +153,10 @@ object Classifier {
         if (t.direction == "credit") {
             if (Parser.REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
             // A payment landing on your credit card is settling a bill, not income.
-            if (CARD_RECV.containsMatchIn(t.raw)) return Result("transfer", "Card bill")
+            // Anything landing on an account we know is a credit card (e.g. "Payment of Rs X has
+            // been received on your ... Credit Card XX8003 through BBPS") is the same thing.
+            if (CARD_RECV.containsMatchIn(t.raw) || t.account.contains(" CC ") || t.account.startsWith("CC ") || t.account.endsWith(" CC"))
+                return Result("transfer", "Card bill")
             return Result("income", "Income")
         }
 
