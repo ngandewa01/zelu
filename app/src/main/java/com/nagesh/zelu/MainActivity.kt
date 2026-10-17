@@ -74,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -624,6 +625,13 @@ fun ZeluApp() {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
                     val isMonth = f.period == "month"
+                    val flexShown = shown
+                    val emiSpent = Analytics.summarize(Analytics.filter(rows, f).filter { it.category == "EMI" }).spent.coerceAtLeast(0.0)
+                    val fixedNote = when {
+                        emiSpent <= 0 || cat == "EMI" -> null
+                        excludeEmi -> "Leaves out " + money(emiSpent) + " of EMI"
+                        else -> "Includes " + money(emiSpent) + " of EMI. Turn on Exclude EMI in the filter to leave it out."
+                    }
                     val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                     val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
                     BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true },
@@ -638,13 +646,13 @@ fun ZeluApp() {
                         afterSummary = {
                             if (isMonth && month == Dates.todayMonth() && dayStr == null) {
                                 val todayD = Dates.dayOfMonth()
-                                val spentNow = Analytics.summarize(shown).spent.coerceAtLeast(0.0)
+                                val spentNow = Analytics.summarize(flexShown).spent.coerceAtLeast(0.0)
                                 val prevM = Dates.shiftMonth(month, -1)
                                 val prevList = Analytics.filter(rows, f.copy(month = prevM)).let { l ->
                                     if (excludeEmi && cat != "EMI") l.filter { it.category != "EMI" } else l }
                                 val prevSame = Analytics.summarize(prevList.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
-                                val curSame = Analytics.summarize(shown.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
-                                SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame)
+                                val curSame = Analytics.summarize(flexShown.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
+                                SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame, fixedNote)
                             }
                         }) { title, rows -> drill = title to rows }
                     if (dayStr == null) {
@@ -656,7 +664,7 @@ fun ZeluApp() {
                             val ds = shown.filter { it.kind == "expense" }.map { it.date }
                             wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                         }
-                        WeekdayPanel(shown, wFrom, wTo)
+                        WeekdayPanel(flexShown, wFrom, wTo, fixedNote)
                         val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
                         RecurringPanel(recurring)
                     }
@@ -2339,10 +2347,10 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Donut(groups.map { it.third to (it.second / total).toFloat() }, "${cats.size}", "categories", 150.dp, 22.dp) { i ->
+            Donut(groups.map { it.third to (it.second / total).toFloat() }, "${cats.size}", "categories", 128.dp, 20.dp) { i ->
                 onDrill(groups[i].first, rowsForGroup(groups[i].first))
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 groups.forEach { (name, v, color) ->
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(name, rowsForGroup(name)) },
@@ -2401,7 +2409,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     }
 }
 
-@Composable private fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double) {
+@Composable private fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double, note: String? = null) {
     Panel {
         Eyebrow("Right now")
         Spacer(Modifier.height(10.dp))
@@ -2430,12 +2438,13 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 } else MutedText("no data for last month", 11)
             }
         }
+        if (note != null) { Spacer(Modifier.height(10.dp)); MutedText(note, 11) }
     }
 }
 
 private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }
 
-@Composable private fun WeekdayPanel(list: List<Row>, from: String, to: String) {
+@Composable private fun WeekdayPanel(list: List<Row>, from: String, to: String, note: String? = null) {
     if (to < from) return
     var days = 0; var d = from
     while (d <= to && days < 400) { days++; d = Dates.shiftDays(d, 1) }
@@ -2451,6 +2460,7 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
         Spacer(Modifier.height(4.dp))
         Text(names[top] + "s are your heaviest day", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         MutedText(money(avg[top]) + " on average", 12)
+        if (note != null) MutedText(note, 11)
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
             avg.forEachIndexed { i, v ->
@@ -2762,11 +2772,12 @@ private fun prettyDate(iso: String): String = try {
 
 @Composable private fun PaceView(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
-    excludeEmi: Boolean = false,
+    excludeEmi: Boolean = false, leave: Set<String> = emptySet(),
 ) {
-    // Respect the "Exclude EMI" toggle for the running-total and monthly charts too.
-    val baseRows = if (excludeEmi) allRows.filter { it.category != "EMI" } else allRows
+    // The budget is for flexible spending: EMI and costs marked Fixed are left out here.
+    val baseRows = allRows.filter { it.category !in leave && !(excludeEmi && it.category == "EMI") }
     Text("Are you ahead of budget?", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    if (leave.isNotEmpty()) MutedText("Leaves out EMI and fixed costs", 12)
 
     if (f.period == "month") {
         val dim = Dates.daysInMonth(month)
@@ -2827,8 +2838,9 @@ private fun prettyDate(iso: String): String = try {
 }
 
 @Composable private fun PaceChart(run: DoubleArray, upto: Int, dim: Int, budget: Double) {
-    val maxY = budget * 1.05
-    Canvas(Modifier.fillMaxWidth().height(170.dp)) {
+    val peak = if (upto >= 1) (1..upto).maxOf { run[it] } else 0.0
+    val maxY = maxOf(budget, peak) * 1.05
+    Canvas(Modifier.fillMaxWidth().height(170.dp).clipToBounds()) {
         val w = size.width; val h = size.height
         val padL = 6f; val padR = 6f; val padB = 18f; val padT = 10f
         fun x(d: Int) = padL + (d - 1).toFloat() / (dim - 1).coerceAtLeast(1) * (w - padL - padR)

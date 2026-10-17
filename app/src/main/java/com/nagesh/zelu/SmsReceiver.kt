@@ -29,6 +29,8 @@ class SmsReceiver : BroadcastReceiver() {
             if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" }?.let {
                 Notifier.notifyTxn(context.applicationContext, it)
             }
+            // A balance-only alert ("Available Bal in HDFC Bank A/c XX5997 ... INR 79,377.50").
+            res.balanceHits.forEach { (acct, bal) -> Notifier.notifyBalance(context.applicationContext, acct, bal) }
         } catch (_: Exception) {
             // Never crash on an incoming SMS.
         }

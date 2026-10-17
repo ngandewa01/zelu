@@ -40,6 +40,38 @@ object Notifier {
         }
     }
 
+    // Quiet "₹79,377.50 · Current balance in HDFC (5997)". One per account; a newer balance replaces the older.
+    fun notifyBalance(context: Context, account: String, balance: Double) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    NotificationChannel("zelu_balance", "Account balance", NotificationManager.IMPORTANCE_LOW),
+                )
+            }
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pi = PendingIntent.getActivity(context, 2, launch, flags)
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                Notification.Builder(context, "zelu_balance") else @Suppress("DEPRECATION") Notification.Builder(context)
+            // "HDFC 5997" -> "HDFC (5997)", "HDFC CC 9065" -> "HDFC CC (9065)"
+            val shown = account.trim().let { a ->
+                val k = a.lastIndexOf(' ')
+                if (k > 0) a.substring(0, k) + " (" + a.substring(k + 1) + ")" else a
+            }
+            builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("₹" + String.format(java.util.Locale.US, "%,.2f", balance))
+                .setContentText("Current balance in $shown")
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(pi)
+            nm.notify(60000 + (account.hashCode() and 0x7fffffff) % 1000, builder.build())
+        } catch (_: Exception) {
+            // best-effort
+        }
+    }
+
     // One notification per new transaction: "₹450 spent · Swiggy" / "Food".
     fun notifyTxn(context: Context, r: Row) {
         try {

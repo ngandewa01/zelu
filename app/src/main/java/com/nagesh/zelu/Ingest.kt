@@ -4,7 +4,8 @@ import android.content.Context
 
 object Ingest {
 
-    data class Result(val found: Int, val added: Int, val rows: List<Row> = emptyList())
+    data class Result(val found: Int, val added: Int, val rows: List<Row> = emptyList(),
+                      val balanceHits: Map<String, Double> = emptyMap())
 
     // Parses and classifies raw SMS, then stores the new transactions.
     @Synchronized
@@ -17,6 +18,7 @@ object Ingest {
         val balances = HashMap<String, Pair<Double, Long>>()
         val txnBalances = HashMap<String, Pair<Double, Long>>()
         val limits = HashMap<String, Pair<Double, Long>>()
+        val balanceHits = LinkedHashMap<String, Double>()
         for (msg in raw) {
             // 1) Trust the sender first: accept only bank/financial sender IDs
             //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
@@ -38,6 +40,7 @@ object Ingest {
                 if (bal != null) {
                     val cur = balances[bal.first]
                     if (cur == null || bal.third >= cur.second) balances[bal.first] = bal.second to bal.third
+                    balanceHits[bal.first] = bal.second
                     continue
                 }
                 // Not a completed payment — it may be a bill/EMI reminder for the Dues page.
@@ -79,6 +82,6 @@ object Ingest {
         Storage.saveBalances(context, balances, "b")
         Storage.saveBalances(context, txnBalances, "t")
         Storage.saveLimits(context, limits)
-        return Result(rows.size, added, rows)
+        return Result(rows.size, added, rows, balanceHits)
     }
 }
