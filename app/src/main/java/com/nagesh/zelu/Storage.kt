@@ -58,7 +58,26 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             row
         }.sortedByDescending { it.date }
-        pairRefunds(detectSelfTransfers(dedupBillers(canonicalizeAccounts(rows))), loadRefundLinks(context))
+        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(canonicalizeAccounts(rows), overrides.keys))), loadRefundLinks(context))
+    }
+
+    // An EMI repeats: the same amount leaves the same account around the same day every month. When one
+    // payment of such a series is already known as an EMI (its SMS says so), the other months of that
+    // series that came without the word (and stayed Unknown / Transfer) are the same EMI. Nothing is
+    // hard-coded, and a category you set yourself is never touched.
+    private fun inferEmiSeries(rows: List<Row>, userSet: Set<String>): List<Row> {
+        val known = rows.filter { it.category == "EMI" && it.direction == "debit" && it.account.isNotBlank() }
+        if (known.isEmpty()) return rows
+        fun day(d: String) = d.substring(8, 10).toIntOrNull() ?: 0
+        return rows.map { c ->
+            if (c.direction != "debit" || c.account.isBlank() || c.id in userSet) return@map c
+            if (c.category != "Unknown" && c.category != "Transfer") return@map c
+            val series = known.any { e ->
+                e.account == c.account && kotlin.math.abs(e.amount - c.amount) < 0.5 &&
+                    e.date.take(7) != c.date.take(7) && kotlin.math.abs(day(e.date) - day(c.date)) <= 3
+            }
+            if (series) c.copy(kind = "expense", category = "EMI") else c
+        }
     }
 
     // A refund that looks like it belongs to an earlier spend (same merchant, or same amount on the

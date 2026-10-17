@@ -998,6 +998,27 @@ private fun fmtPlain(n: Double): String =
     }
 }
 
+// "₹2.37 L", "₹1.20 Cr", "₹57,328": short Indian-style amounts for the plan screen.
+private fun inr(v: Double): String {
+    val a = kotlin.math.abs(v)
+    val t = when {
+        a >= 1e7 -> String.format(Locale.US, "%.2f Cr", a / 1e7)
+        a >= 1e5 -> String.format(Locale.US, "%.2f L", a / 1e5)
+        else -> String.format(Locale.US, "%,.0f", a)
+    }
+    return (if (v < 0) "−₹" else "₹") + t
+}
+
+// Future value of 1 invested at the start of each month, for `months` months.
+private fun sipFactor(months: Int, monthlyRate: Double): Double =
+    if (monthlyRate == 0.0) months.toDouble()
+    else ((Math.pow(1 + monthlyRate, months.toDouble()) - 1) / monthlyRate) * (1 + monthlyRate)
+
+private fun yrMo(m: Int): String {
+    val y = m / 12; val mo = m % 12
+    return when { y == 0 -> "$mo mo"; mo == 0 -> "$y yr"; else -> "$y yr $mo mo" }
+}
+
 @Composable private fun SavingsDialog(rows: List<Row>, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val saved = remember { Storage.loadPlan(context) }
@@ -1006,6 +1027,7 @@ private fun fmtPlain(n: Double): String =
     var goal by remember { mutableStateOf(saved["goal"] ?: "") }
     var years by remember { mutableStateOf(saved["years"] ?: "5") }
     var ret by remember { mutableStateOf(saved["ret"] ?: "12") }
+    var emiOpen by remember { mutableStateOf((saved["emi"] ?: "").isNotBlank()) }
     val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
     val mi = Analytics.monthlySpendIncome(rows, months, "All")
     val avgIn = mi.sumOf { it.third } / 3.0
@@ -1016,10 +1038,16 @@ private fun fmtPlain(n: Double): String =
     val yrs = num(years).coerceIn(1.0, 40.0); val rate = num(ret).coerceIn(0.0, 30.0)
     val free = left - sipN - emiN
     val n = (yrs * 12).toInt(); val r = rate / 1200.0
-    // Future value of a monthly investment of 1 over n months (paid at month start).
-    val factor = if (r == 0.0) n.toDouble() else ((Math.pow(1 + r, n.toDouble()) - 1) / r) * (1 + r)
+    val factor = sipFactor(n, r)
     val fv = sipN * factor
+    val invested = sipN * n
     val needed = if (goalN > 0 && factor > 0) goalN / factor else 0.0
+    val goalMonths = if (goalN > 0 && sipN > 0) (1..600).firstOrNull { sipN * sipFactor(it, r) >= goalN } else null
+    fun save() {
+        Storage.savePlan(context, mapOf("sip" to sip, "emi" to emi, "goal" to goal, "years" to years, "ret" to ret))
+        onDismiss()
+    }
+    val sliderMax = (Math.ceil(maxOf(left, sipN, 10000.0) / 1000.0) * 1000.0).toFloat()
     @Composable fun field(label: String, v: String, set: (String) -> Unit) {
         OutlinedTextField(
             value = v, onValueChange = { x -> set(x.filter { it.isDigit() || it == '.' }) }, singleLine = true,
@@ -1027,56 +1055,138 @@ private fun fmtPlain(n: Double): String =
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    Dialog(onDismissRequest = {
-        Storage.savePlan(context, mapOf("sip" to sip, "emi" to emi, "goal" to goal, "years" to years, "ret" to ret)); onDismiss()
-    }) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
-            .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-            Text("Savings plan", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            MutedText("Based on your last 3 full months.", 12)
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Money in / month", money(avgIn), ZColor.Income)
-                Fact("Spent / month", money(avgSpent))
-                Fact("Left", money(left), if (left >= 0) ZColor.Income else ZColor.Warn)
-            }
-            Spacer(Modifier.height(14.dp))
-            field("Monthly SIP (₹)", sip) { sip = it }
-            Spacer(Modifier.height(8.dp))
-            field("New EMI to plan for (₹ / month)", emi) { emi = it }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f)) { field("Years", years) { years = it } }
-                Box(Modifier.weight(1f)) { field("Return % / year", ret) { ret = it } }
-            }
-            Spacer(Modifier.height(8.dp))
-            field("Goal amount (₹, e.g. down payment)", goal) { goal = it }
-            Spacer(Modifier.height(14.dp))
-            Panel {
-                Fact("Free each month after SIP and EMI", (if (free < 0) "−" else "") + money(kotlin.math.abs(free)),
-                    if (free >= 0) ZColor.Income else ZColor.Warn)
-                if (sipN > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Fact("SIP in ${fmtPlain(yrs)} years at ${fmtPlain(rate)}%", money(fv))
+    Dialog(onDismissRequest = { save() }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
+            Column(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 18.dp, end = 18.dp, top = 40.dp, bottom = 28.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Savings plan", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save() }
+                        .padding(horizontal = 22.dp, vertical = 10.dp)) {
+                        Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                if (goalN > 0) {
+
+                // 1. This month's picture
+                Panel {
+                    Eyebrow("Every month")
                     Spacer(Modifier.height(8.dp))
-                    Fact("Needed each month for the goal", money(needed))
-                    MutedText(if (needed <= left - emiN) "Within what you have left each month." else
-                        "More than you have left each month — raise the years or lower the goal.", 12)
+                    Text("You earn " + inr(avgIn) + " and spend " + inr(avgSpent) + ".", color = ZColor.Ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(if (left >= 0) inr(left) + " is left to save or invest." else "You overspend by " + inr(-left) + ".",
+                        color = if (left >= 0) ZColor.Income else ZColor.Warn, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    if (avgIn > 0 && left >= 0) {
+                        val sp = (avgSpent / avgIn).toFloat().coerceIn(0.001f, 0.999f)
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
+                            Box(Modifier.weight(sp).fillMaxHeight().background(ZColor.InkSoft))
+                            Box(Modifier.weight(1f - sp).fillMaxHeight().background(ZColor.Income))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            MutedText("Spent " + Math.round(sp * 100) + "%", 12)
+                            MutedText("Left " + Math.round((1f - sp) * 100) + "%", 12)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    MutedText("Average of your last 3 full months. Spending already includes your EMIs.", 12)
                 }
-                Spacer(Modifier.height(6.dp))
-                MutedText("An estimate: returns are an assumption, not a promise.", 11)
+
+                // 2. SIP
+                Panel {
+                    Eyebrow("Your SIP")
+                    Spacer(Modifier.height(6.dp))
+                    Text(inr(sipN) + " a month", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    androidx.compose.material3.Slider(
+                        value = sipN.toFloat().coerceIn(0f, sliderMax),
+                        onValueChange = { sip = (Math.round(it / 1000f) * 1000).toString() },
+                        valueRange = 0f..sliderMax, steps = (sliderMax / 1000f).toInt() - 1,
+                        colors = androidx.compose.material3.SliderDefaults.colors(
+                            thumbColor = ZColor.Accent, activeTrackColor = ZColor.Accent,
+                            inactiveTrackColor = ZColor.Line, activeTickColor = Color.Transparent,
+                            inactiveTickColor = Color.Transparent),
+                    )
+                    Text("Still free after SIP" + (if (emiN > 0) " and EMI" else "") + ": " + inr(free),
+                        color = if (free >= 0) ZColor.Income else ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    if (free < 0) MutedText("That is more than you have left each month.", 12)
+                    Spacer(Modifier.height(12.dp))
+                    if (!emiOpen) {
+                        Text("+ Planning a loan? Add an EMI", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { emiOpen = true })
+                    } else {
+                        field("New EMI to plan for (₹ / month)", emi) { emi = it }
+                        Spacer(Modifier.height(4.dp))
+                        MutedText("Only add a new loan. Your current EMIs are already in your spending.", 12)
+                    }
+                }
+
+                // 3. What it becomes
+                Panel {
+                    Eyebrow("What it becomes")
+                    Spacer(Modifier.height(6.dp))
+                    if (sipN > 0) {
+                        Text(inr(fv), color = ZColor.Ink, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        MutedText("in " + fmtPlain(yrs) + " years at " + fmtPlain(rate) + "% a year", 13)
+                        Spacer(Modifier.height(12.dp))
+                        val inv = (invested / fv).toFloat().coerceIn(0.001f, 0.999f)
+                        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
+                            Box(Modifier.weight(inv).fillMaxHeight().background(ZColor.InkSoft))
+                            Box(Modifier.weight(1f - inv).fillMaxHeight().background(ZColor.Accent))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.InkSoft))
+                                Spacer(Modifier.width(6.dp)); MutedText("You put in " + inr(invested), 12)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
+                                Spacer(Modifier.width(6.dp)); MutedText("Growth " + inr(fv - invested), 12)
+                            }
+                        }
+                    } else MutedText("Move the SIP slider to see how it grows.", 13)
+                    Spacer(Modifier.height(14.dp))
+                    MutedText("Years", 12); Spacer(Modifier.height(6.dp))
+                    ChipScroll { listOf(3, 5, 10, 15).forEach { y -> Chip("$y yr", num(years) == y.toDouble(), true) { years = y.toString() } } }
+                    Spacer(Modifier.height(10.dp))
+                    MutedText("Yearly return", 12); Spacer(Modifier.height(6.dp))
+                    ChipScroll { listOf(8, 10, 12, 15).forEach { p -> Chip("$p%", num(ret) == p.toDouble(), true) { ret = p.toString() } } }
+                    Spacer(Modifier.height(10.dp))
+                    MutedText("Returns are an assumption, not a promise.", 11)
+                }
+
+                // 4. Goal
+                Panel {
+                    Eyebrow("Goal (optional)")
+                    Spacer(Modifier.height(8.dp))
+                    field("Goal amount (₹), e.g. a down payment", goal) { goal = it }
+                    if (goalN > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("To reach " + inr(goalN) + " in " + fmtPlain(yrs) + " years you need " + inr(needed) + " a month.",
+                            color = ZColor.Ink, fontSize = 15.sp)
+                        Spacer(Modifier.height(6.dp))
+                        when {
+                            sipN <= 0 -> MutedText("Set a SIP above to see how long it takes.", 13)
+                            sipN >= needed - 0.5 -> Text(
+                                "Your " + inr(sipN) + " SIP gets you there in " + (goalMonths?.let { yrMo(it) } ?: "time") + " ✓",
+                                color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            else -> Text(
+                                inr(needed - sipN) + " short each month. At your SIP it takes " +
+                                    (goalMonths?.let { yrMo(it) } ?: "over 50 years") + ".",
+                                color = ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (needed > left - emiN) {
+                            Spacer(Modifier.height(4.dp))
+                            MutedText("That is more than you have left each month. Raise the years or lower the goal.", 12)
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable {
-                        Storage.savePlan(context, mapOf("sip" to sip, "emi" to emi, "goal" to goal, "years" to years, "ret" to ret))
-                        onDismiss()
-                    }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
