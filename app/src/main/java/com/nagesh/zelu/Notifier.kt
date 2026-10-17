@@ -40,6 +40,33 @@ object Notifier {
         }
     }
 
+    fun enabled(context: Context): Boolean = try {
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).areNotificationsEnabled()
+    } catch (_: Exception) { true }
+
+    fun openSettings(context: Context) {
+        try {
+            context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {}
+    }
+
+    fun openBatterySettings(context: Context) {
+        try {
+            context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {}
+    }
+
+    // A sample payment alert, so you can check alerts reach you without waiting for a real one.
+    fun notifyTest(context: Context) {
+        notifyTxn(context, Row(
+            id = "test-" + System.currentTimeMillis(), date = "", amount = 450.0, direction = "debit",
+            counterparty = "Swiggy (test)", ref = null, raw = "", source = "", account = "", kind = "expense", category = "Food",
+        ))
+    }
+
     // Quiet "₹79,377.50 · Current balance in HDFC (5997)". One per account; a newer balance replaces the older.
     fun notifyBalance(context: Context, account: String, balance: Double) {
         try {
@@ -78,7 +105,7 @@ object Notifier {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 nm.createNotificationChannel(
-                    NotificationChannel("zelu_txn", "Transactions", NotificationManager.IMPORTANCE_DEFAULT),
+                    NotificationChannel("zelu_txn_hi", "Payments", NotificationManager.IMPORTANCE_HIGH),
                 )
             }
             val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -86,7 +113,7 @@ object Notifier {
                 (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             val pi = PendingIntent.getActivity(context, 1, launch, flags)
             val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                Notification.Builder(context, "zelu_txn") else @Suppress("DEPRECATION") Notification.Builder(context)
+                Notification.Builder(context, "zelu_txn_hi") else @Suppress("DEPRECATION") Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH)
             val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
             val verb = if (r.direction == "credit") "received" else "spent"
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: r.account

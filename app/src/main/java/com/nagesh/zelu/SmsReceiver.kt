@@ -24,15 +24,21 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val raw = RawSms(address, body.toString(), date)
-        try {
+        // Keep the process alive until we have stored the message and posted the alert.
+        val pending = goAsync()
+        Thread {
+          try {
             val res = Ingest.ingest(context.applicationContext, listOf(raw))
             if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" }?.let {
                 Notifier.notifyTxn(context.applicationContext, it)
             }
             // A balance-only alert ("Available Bal in HDFC Bank A/c XX5997 ... INR 79,377.50").
             res.balanceHits.forEach { (acct, bal) -> Notifier.notifyBalance(context.applicationContext, acct, bal) }
-        } catch (_: Exception) {
+          } catch (_: Exception) {
             // Never crash on an incoming SMS.
-        }
+          } finally {
+            pending.finish()
+          }
+        }.start()
     }
 }

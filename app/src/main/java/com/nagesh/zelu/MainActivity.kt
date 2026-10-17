@@ -63,6 +63,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -415,6 +416,29 @@ fun ZeluApp() {
     }
 
 
+    // Are notifications allowed? (Android 13+ needs a separate permission, and builds installed
+    // before it was requested never got it.) Re-checked whenever the app comes back to the front.
+    var notifBlocked by remember { mutableStateOf(false) }
+    fun checkNotif() { notifBlocked = !Notifier.enabled(context) }
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        checkNotif()
+        if (!ok) Notifier.openSettings(context)
+    }
+    fun fixNotif() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED)
+            notifLauncher.launch("android.permission.POST_NOTIFICATIONS")
+        else Notifier.openSettings(context)
+    }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) checkNotif()
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     // Best-effort local reminder on open: nudge about bills due within 3 days.
     LaunchedEffect(stage, reminders) {
         if (stage != "app") return@LaunchedEffect
@@ -616,6 +640,20 @@ fun ZeluApp() {
             }
 
             Spacer(Modifier.height(8.dp))
+            if (notifBlocked) Row(
+                Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.OrangeSoft)
+                    .clickable { fixNotif() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Accent, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Alerts are off", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Allow notifications to get instant payment and balance alerts.", color = ZColor.InkSoft, fontSize = 12.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("Turn on", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
             when (view) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
@@ -732,6 +770,11 @@ fun ZeluApp() {
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
                 MenuRow("Savings plan", "What's left each month · SIP, EMI and goal planner") { menuOpen = false; savingsOpen = true }
+                MenuRow("Test notification", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert") {
+                    menuOpen = false
+                    if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
+                }
+                MenuRow("Keep Zelu alive", "Stop battery saver from blocking SMS alerts") { menuOpen = false; Notifier.openBatterySettings(context) }
                 MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
                 MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
                     menuOpen = false
