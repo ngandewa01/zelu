@@ -285,6 +285,25 @@ object Analytics {
         return out.sortedByDescending { it.amount }
     }
 
+    // Committed costs, as opposed to everyday spending. Learned from your own data: payees that repeat monthly
+    // at a steady amount (EMI, rent, subscriptions...), categories made up almost entirely of those, plus any
+    // category you marked as fixed in Budgets. Nothing about specific names is written into the app.
+    class FixedSet(val payees: Set<String>, val cats: Set<String>)
+
+    fun fixedSet(all: List<Row>, todayMonth: String, plan: Map<String, Double>): FixedSet {
+        val payees = recurring(all, todayMonth).map { it.name.trim().lowercase() }.toSet()
+        val months = (0..3).map { Dates.shiftMonth(todayMonth, -it) }
+        val recent = all.filter { it.kind == "expense" && it.date.take(7) in months }
+        val derived = recent.groupBy { it.category }.filter { (_, rs) ->
+            val tot = rs.sumOf { it.amount }
+            tot > 0 && rs.filter { (it.counterparty ?: "").trim().lowercase() in payees }.sumOf { it.amount } >= 0.8 * tot
+        }.keys.map { it.lowercase() }.toSet()
+        return FixedSet(payees, derived + plan.keys.map { it.trim().lowercase() })
+    }
+
+    fun isFixed(r: Row, fs: FixedSet): Boolean =
+        r.category.lowercase() in fs.cats || (r.counterparty ?: "").trim().lowercase() in fs.payees
+
     // Average spend per weekday (Mon=0 .. Sun=6) between two dates, counting each weekday's occurrences.
     fun weekdayAverages(list: List<Row>, from: String, to: String): DoubleArray {
         val sums = DoubleArray(7); val counts = IntArray(7)

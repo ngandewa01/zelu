@@ -729,7 +729,8 @@ fun ZeluApp() {
                     BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
                 }
                 "payees" -> PayeesView(shown, { title, rows -> drill = title to rows },
-                    { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb })
+                    { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
+                    remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) })
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
                 "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder)
@@ -1952,7 +1953,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
 
 // A rotating pool of "At a glance" one-liners, so the panel feels alive rather than
 // repeating one line. The caller picks one by a seed that shifts with day/category/month.
-private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): List<String> {
+private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fixedCats: Set<String>): List<String> {
     val cat = ins.topCat
     val pct = ins.topCatPct
     val big = ins.biggestName
@@ -1961,7 +1962,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     val under = ob != null && ob < 0
     val savings = if (income > 0) Math.round((income - spent) / income * 100).toInt() else null
     // Fixed costs (EMI, rent...) aren't something you trim, so no "cut $cat" advice for them.
-    val fixedTop = cat in setOf("EMI", "Rent", "Investment", "Card bill", "Transfer")
+    val fixedTop = cat.lowercase() in fixedCats
     return buildList {
         add("$cat is your biggest bucket at $pct% — trimming it is the quickest win.")
         add("$pct% of your spending went to $cat this month.")
@@ -2036,6 +2037,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 ) {
     val s = Analytics.summarize(list)
     val ins = Analytics.insight(list, f)
+    // Committed costs (EMI, rent...) are learned from your data; At a glance looks at everyday spending.
+    val fixedSet = remember(allRows, fixed) { Analytics.fixedSet(allRows, Dates.todayMonth(), fixed) }
+    val flexIns = Analytics.insight(list.filter { !Analytics.isFixed(it, fixedSet) }, f) ?: ins
     val bigIds = Analytics.bigSpendIds(list)
     val pct = (s.spent / Analytics.BUDGET).toFloat()
     val budgetLeft = (Analytics.BUDGET - s.spent).coerceAtLeast(0.0)
@@ -2223,30 +2227,31 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 
     // At a glance
     if (ins != null) {
+        val fi = flexIns ?: ins
         Panel {
             Eyebrow("At a glance")
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-                    MerchantTile("", ins.topCat, 34.dp)
+                    MerchantTile("", fi.topCat, 34.dp)
                     Spacer(Modifier.height(8.dp))
                     MutedText("Top category", 11)
-                    Text(ins.topCat, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(money(ins.topCatAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("${ins.topCatPct}% of spend", color = ZColor.Income, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(fi.topCat, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(fi.topCatAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("${fi.topCatPct}% of everyday spend", color = ZColor.Income, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.OrangeSoft).padding(12.dp)) {
-                    MerchantTile(ins.biggestName, "", 34.dp)
+                    MerchantTile(fi.biggestName, "", 34.dp)
                     Spacer(Modifier.height(8.dp))
                     MutedText("Biggest spend", 11)
-                    Text(ins.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(money(ins.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(fi.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(money(fi.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            val tips = glanceTips(ins, s.spent, s.income)
+            val tips = glanceTips(fi, s.spent, s.income, fixedSet.cats)
             if (tips.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + ins.topCat.hashCode() + month.hashCode())
+                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + fi.topCat.hashCode() + month.hashCode())
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.IncomeSoft).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
@@ -2820,12 +2825,10 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
 
 // ---------- Payees ----------
 
-// Categories that are fixed commitments (not everyday spending), kept apart on the Payees page.
-private val FIXED_CATS = setOf("EMI", "Rent", "Investment", "Card bill", "Transfer")
-
 @Composable private fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
     onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    fixedSet: Analytics.FixedSet,
 ) {
     val spend = list.filter { it.kind == "expense" }
     val payees = Analytics.byPayee(list)
@@ -2890,7 +2893,7 @@ private val FIXED_CATS = setOf("EMI", "Rent", "Investment", "Card bill", "Transf
         else -> filtered
     }
     val split = q.isEmpty() && sel == "All"
-    val fixedP = ordered.filter { p -> p.cats.isNotEmpty() && p.cats.all { it in FIXED_CATS } }
+    val fixedP = ordered.filter { p -> p.name.trim().lowercase() in fixedSet.payees || (p.cats.isNotEmpty() && p.cats.all { it.lowercase() in fixedSet.cats }) }
     val everyday = ordered.filter { it !in fixedP }
 
     @Composable fun section(title: String, items: List<Analytics.Payee>) {
@@ -2929,7 +2932,7 @@ private val FIXED_CATS = setOf("EMI", "Rent", "Investment", "Card bill", "Transf
     // 5. Fixed costs (EMI, rent...) are kept apart so they don't bury everyday spending.
     when {
         ordered.isEmpty() -> Panel { MutedText("No payee matches.") }
-        split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed costs", fixedP) }
+        split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
         else -> section(if (split) "All payees" else "Results", ordered)
     }
 
