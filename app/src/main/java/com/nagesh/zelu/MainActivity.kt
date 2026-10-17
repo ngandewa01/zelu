@@ -728,7 +728,8 @@ fun ZeluApp() {
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
                     BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
                 }
-                "payees" -> PayeesView(shown) { title, rows -> drill = title to rows }
+                "payees" -> PayeesView(shown, { title, rows -> drill = title to rows },
+                    { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb })
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
                 "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder)
@@ -2819,29 +2820,215 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
 
 // ---------- Payees ----------
 
-@Composable private fun PayeesView(list: List<Row>, onDrill: (String, List<Row>) -> Unit) {
+// Categories that are fixed commitments (not everyday spending), kept apart on the Payees page.
+private val FIXED_CATS = setOf("EMI", "Rent", "Investment", "Card bill", "Transfer")
+
+@Composable private fun PayeesView(
+    list: List<Row>, onDrill: (String, List<Row>) -> Unit,
+    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+) {
+    val spend = list.filter { it.kind == "expense" }
     val payees = Analytics.byPayee(list)
+    var query by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf("amount") }
+    var catSel by remember { mutableStateOf("All") }
+    var open by remember { mutableStateOf<String?>(null) }
+    fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
+    val total = payees.sumOf { it.amount }
+    val lastDate = spend.groupBy { nameOf(it) }.mapValues { e -> e.value.maxOf { it.date } }
+
     Text("Who you paid", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    if (payees.isEmpty()) { Panel { MutedText("No payments in this view.") }; return }
+
+    // 1. Summary: how concentrated your spending is.
     Panel {
-        if (payees.isEmpty()) MutedText("No payments in this view.")
-        else payees.forEachIndexed { i, p ->
-            val rows = list.filter {
-                it.kind == "expense" && (it.counterparty?.takeIf { c -> c.isNotBlank() } ?: it.category) == p.name
+        Eyebrow("This view")
+        Spacer(Modifier.height(6.dp))
+        Text("${payees.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        val top5 = payees.take(5)
+        val share = if (total > 0) top5.sumOf { it.amount } / total else 0.0
+        MutedText("Your top ${top5.size} take ${Math.round(share * 100)}% of it.", 13)
+        if (total > 0) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
+                top5.forEach { p ->
+                    Box(Modifier.weight((p.amount / total).toFloat().coerceAtLeast(0.01f)).fillMaxHeight()
+                        .background(catColor(p.cats.firstOrNull() ?: "Unknown")))
+                }
+                val rest = (1.0 - share).toFloat()
+                if (rest > 0.005f) Box(Modifier.weight(rest).fillMaxHeight().background(ZColor.Line))
             }
-            Row(
-                Modifier.fillMaxWidth().clickable { onDrill(p.name, rows) }.padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("%02d".format(i + 1), color = ZColor.Muted, fontSize = 15.sp, modifier = Modifier.width(28.dp))
-                MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown")
+        }
+    }
+
+    // 2. Search, sort and category filter.
+    Spacer(Modifier.height(14.dp))
+    OutlinedTextField(
+        value = query, onValueChange = { query = it }, singleLine = true,
+        placeholder = { Text("Search payee") }, modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    ChipScroll {
+        listOf("amount" to "Amount", "count" to "Most paid", "recent" to "Recent").forEach { (k, l) ->
+            Chip(l, sort == k, true) { sort = k }
+        }
+    }
+    val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
+        .sortedByDescending { it.value }.map { it.key }
+    val sel = if (catSel in catsPresent) catSel else "All"
+    Spacer(Modifier.height(8.dp))
+    ChipScroll {
+        Chip("All", sel == "All", true) { catSel = "All" }
+        catsPresent.forEach { c -> Chip(customLabel(c), sel == c, true) { catSel = c } }
+    }
+
+    val q = query.trim().lowercase()
+    val filtered = payees.filter { p -> (q.isEmpty() || p.name.lowercase().contains(q)) && (sel == "All" || sel in p.cats) }
+    val ordered = when (sort) {
+        "count" -> filtered.sortedByDescending { it.count }
+        "recent" -> filtered.sortedByDescending { lastDate[it.name] ?: "" }
+        else -> filtered
+    }
+    val split = q.isEmpty() && sel == "All"
+    val fixedP = ordered.filter { p -> p.cats.isNotEmpty() && p.cats.all { it in FIXED_CATS } }
+    val everyday = ordered.filter { it !in fixedP }
+
+    @Composable fun section(title: String, items: List<Analytics.Payee>) {
+        if (items.isEmpty()) return
+        val top = items.maxOf { it.amount }.coerceAtLeast(1.0)
+        Panel {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Eyebrow(title); MutedText(money(items.sumOf { it.amount }), 12)
+            }
+            items.forEachIndexed { i, p ->
+                Spacer(Modifier.height(if (i == 0) 10.dp else 14.dp))
+                val c0 = p.cats.firstOrNull() ?: "Unknown"
+                val pct = if (total > 0) Math.round(p.amount / total * 100).toInt() else 0
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MerchantTile(p.name, c0, 36.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(p.name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            MutedText("${p.count} ${if (p.count == 1) "payment" else "payments"} · ${p.cats.joinToString(", ")}", 11)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(money(p.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            MutedText(if (pct < 1) "<1%" else "$pct%", 11)
+                        }
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Meter((p.amount / top).toFloat(), catColor(c0))
+                }
+            }
+        }
+    }
+
+    // 5. Fixed costs (EMI, rent...) are kept apart so they don't bury everyday spending.
+    when {
+        ordered.isEmpty() -> Panel { MutedText("No payee matches.") }
+        split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed costs", fixedP) }
+        else -> section(if (split) "All payees" else "Results", ordered)
+    }
+
+    // 7. Payee detail.
+    open?.let { name ->
+        val rows = spend.filter { nameOf(it) == name }
+        if (rows.isEmpty()) androidx.compose.runtime.LaunchedEffect(name) { open = null }
+        else PayeeDetailDialog(name, rows, total, onSee = { open = null; onDrill(name, rows) },
+            onRecategorize = onRecategorize, onNewCat = onNewCat, onDismiss = { open = null })
+    }
+}
+
+@Composable private fun PayeeDetailDialog(
+    name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
+    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit, onDismiss: () -> Unit,
+) {
+    val total = rows.sumOf { it.amount }
+    val n = rows.size
+    val primary = rows.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown"
+    val first = rows.minOf { it.date }; val last = rows.maxOf { it.date }
+    val endM = last.take(7)
+    val months = (5 downTo 0).map { Dates.shiftMonth(endM, -it) }
+    val sums = months.map { m -> rows.filter { it.date.startsWith(m) }.sumOf { it.amount } }
+    val mx = (sums.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
+    val withPayee = rows.firstOrNull { !it.counterparty.isNullOrBlank() }
+    var editing by remember { mutableStateOf(false) }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+            .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile(name, primary)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(p.name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText("${p.count} ${if (p.count == 1) "payment" else "payments"} · ${p.cats.joinToString(", ")}", 11)
+                    Text(name, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    MutedText(primary + (if (viewTotal > 0) " · " + Math.round(total / viewTotal * 100) + "% of this view" else ""), 12)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(money(p.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(money(total), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Fact("Payments", n.toString())
+                Fact("Average", money(total / n))
+                Fact("Last paid", prettyDate(last))
+            }
+            Spacer(Modifier.height(4.dp))
+            MutedText("First paid " + prettyDate(first), 12)
+            Spacer(Modifier.height(14.dp))
+            Eyebrow("Month by month")
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                months.forEachIndexed { i, m ->
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (sums[i] > 0) shortAmt(sums[i]) else "", color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.height(52.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                            Box(Modifier.fillMaxWidth().height((52 * (sums[i] / mx)).coerceAtLeast(3.0).dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (sums[i] > 0) catColor(primary) else ZColor.Line))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(MONTH_ABBR[m.substring(5, 7).toInt() - 1], color = ZColor.Muted, fontSize = 10.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                    .clickable { onSee() }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                    Text("See payments", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (withPayee != null) Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                    .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                    Text(if (editing) "Cancel" else "Change category", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (editing && withPayee != null) {
+                fun pick(kind: String, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
+                Spacer(Modifier.height(10.dp))
+                MutedText("Applies to every payment to $name:", 12)
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    CustomCats.names.forEach { c -> Chip(customLabel(c), false) { pick("expense", c) } }
+                    Chip("＋ New", false, filled = true) { onNewCat { c -> pick("expense", c) } }
+                }
+                Spacer(Modifier.height(6.dp))
+                ChipScroll {
+                    Chip("Money in", false) { pick("income", "Income") }
+                    Chip("Lent", false) { pick("lent", "Lent") }
+                    Chip("Borrowed", false) { pick("borrowed", "Borrowed") }
+                    Chip("Ignore", false) { pick("ignore", "Ignore") }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
             }
         }
     }
