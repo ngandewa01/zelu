@@ -2159,7 +2159,21 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             Spacer(Modifier.height(6.dp))
             Text(money(rf.amount) + " refund on " + rf.date, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             MutedText("Is it for " + (sp.counterparty?.takeIf { it.isNotBlank() } ?: sp.category) + " " + money(sp.amount) + " on " + sp.date + "?", 13)
-            Spacer(Modifier.height(10.dp))
+            // The actual SMS for both, so you can check the match yourself.
+            @Composable fun smsBox(label: String, r: Row) {
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(12.dp)).padding(12.dp)) {
+                    Text(label.uppercase() + " · " + r.date + (if (r.account.isNotBlank()) " · " + r.account else ""),
+                        color = ZColor.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(r.raw.ifBlank { "(message text not stored)" }, color = ZColor.InkSoft, fontSize = 12.sp,
+                        lineHeight = 17.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            smsBox("Refund message", rf)
+            smsBox("Spend it may match", sp)
+            Spacer(Modifier.height(12.dp))
             ChipScroll {
                 Chip("Yes, same spend", false, filled = true) { onRefundAnswer(rf.id, true) }
                 Chip("No", false) { onRefundAnswer(rf.id, false) }
