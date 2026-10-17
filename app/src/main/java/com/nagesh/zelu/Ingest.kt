@@ -26,7 +26,7 @@ object Ingest {
             if (!Parser.isFinancialSender(msg.address)) continue
             // 2) A genuine bank alert never carries a link shortener or a throwaway
             //    short URL. If it does, the message is spoofed / phishing — ignore it.
-            if (Parser.hasSuspiciousLink(msg.body)) continue
+            if (Parser.hasSuspiciousLink(msg.body, msg.address)) continue
 
             Parser.cardLimit(msg.body, msg.address)?.let { (acct, amt, isTotal) ->
                 val key = if (isTotal) "$acct#total" else acct
@@ -96,7 +96,7 @@ object Ingest {
         val out = ArrayList<RawSms>()
         for (m in all) {
             if (out.size >= limit) break
-            if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body)) continue
+            if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body, m.address)) continue
             if (!MONEYISH.containsMatchIn(m.body) || !ACTIONISH.containsMatchIn(m.body) || NOT_TXN.containsMatchIn(m.body)) continue
             if (Parser.parseSms(m.body, m.date, m.address) != null) continue
             if (Parser.parseBalance(m.body, m.date, m.address) != null) continue

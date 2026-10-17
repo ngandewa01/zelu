@@ -21,7 +21,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 41
+    const val PARSER_VERSION = 42
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 

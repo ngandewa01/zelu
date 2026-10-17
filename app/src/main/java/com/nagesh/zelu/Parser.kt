@@ -133,9 +133,17 @@ object Parser {
     // Banks' own short-link domains. ICICI ends every card alert with an icici.co/... link,
     // which SHORT_LINK would otherwise flag; links on these exact hosts are ignored.
     private val TRUSTED_LINK = Regex("""https?://(?:www\.)?(?:icici\.co|icicibank\.com)/\S*""", RegexOption.IGNORE_CASE)
+    // Any other bank's own link is fine too when its name is part of the sender ID (hdfcbk.io from
+    // HDFCBK, axisbk.com from AXISBK). Those are removed before the shortener check.
+    private val ANY_LINK = Regex("""(?:https?://)?(?:www\.)?([a-z0-9-]+)\.[a-z]{2,4}/\S*""", RegexOption.IGNORE_CASE)
 
-    fun hasSuspiciousLink(body: String): Boolean {
-        val rest = TRUSTED_LINK.replace(body, " ")
+    fun hasSuspiciousLink(body: String, address: String = ""): Boolean {
+        val sender = address.uppercase().filter { it.isLetterOrDigit() }
+        var rest = TRUSTED_LINK.replace(body, " ")
+        if (sender.isNotEmpty()) rest = ANY_LINK.replace(rest) { m ->
+            val label = m.groupValues[1].uppercase().replace("-", "")
+            if (label.length >= 4 && sender.contains(label)) " " else m.value
+        }
         return SHORTENER.containsMatchIn(rest) || SHORT_LINK.containsMatchIn(rest)
     }
 
