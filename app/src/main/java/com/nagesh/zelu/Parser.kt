@@ -130,8 +130,14 @@ object Parser {
     // A generic short link: scheme + a very short host + a short path code (bit.ly/aB3x).
     private val SHORT_LINK = Regex("""https?://[a-z0-9-]{1,8}\.[a-z]{2,4}/[A-Za-z0-9]{3,}""", RegexOption.IGNORE_CASE)
 
-    fun hasSuspiciousLink(body: String): Boolean =
-        SHORTENER.containsMatchIn(body) || SHORT_LINK.containsMatchIn(body)
+    // Banks' own short-link domains. ICICI ends every card alert with an icici.co/... link,
+    // which SHORT_LINK would otherwise flag; links on these exact hosts are ignored.
+    private val TRUSTED_LINK = Regex("""https?://(?:www\.)?(?:icici\.co|icicibank\.com)/\S*""", RegexOption.IGNORE_CASE)
+
+    fun hasSuspiciousLink(body: String): Boolean {
+        val rest = TRUSTED_LINK.replace(body, " ")
+        return SHORTENER.containsMatchIn(rest) || SHORT_LINK.containsMatchIn(rest)
+    }
 
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
