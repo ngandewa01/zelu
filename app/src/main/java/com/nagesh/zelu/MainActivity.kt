@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -595,7 +596,7 @@ fun ZeluApp() {
                     AccountChips(bankAccounts, account) { account = it; daySel = 0 }
                     Spacer(Modifier.height(6.dp))
                     DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS) { type = it; daySel = 0 }
-                    DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS) { cat = it; daySel = 0 }
+                    DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS, catIcons = true, valueKey = cat) { cat = it; daySel = 0 }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, singleLine = true,
@@ -1666,7 +1667,8 @@ private fun prettyDay(ymd: String): String {
 }
 
 @Composable private fun DropdownField(
-    label: String, valueLabel: String, options: List<Pair<String, String>>, onPick: (String) -> Unit,
+    label: String, valueLabel: String, options: List<Pair<String, String>>,
+    catIcons: Boolean = false, valueKey: String = "", onPick: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1679,17 +1681,33 @@ private fun prettyDay(ymd: String): String {
                     .clickable { expanded = true }.padding(horizontal = 12.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (catIcons) { CatDot(valueKey, 26.dp); Spacer(Modifier.width(10.dp)) }
                 Text(valueLabel, color = ZColor.Ink, fontSize = 14.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Text("▾", color = ZColor.Muted, fontSize = 12.sp)
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
+                modifier = Modifier.background(ZColor.Card).heightIn(max = 420.dp)) {
                 options.forEach { (v, l) ->
-                    DropdownMenuItem(text = { Text(l, color = ZColor.Ink) },
+                    DropdownMenuItem(
+                        text = { Text(l, color = ZColor.Ink, fontWeight = if (v == valueKey) FontWeight.Bold else FontWeight.Normal) },
+                        leadingIcon = if (catIcons) ({ CatDot(v, 28.dp) }) else null,
                         onClick = { onPick(v); expanded = false })
                 }
             }
         }
+    }
+}
+
+// Small tinted tile with the category's icon ("All" gets a generic grid icon).
+@Composable private fun CatDot(cat: String, size: androidx.compose.ui.unit.Dp) {
+    val all = cat == "All" || cat.isBlank()
+    val tint = if (all) ZColor.Ink else catColor(cat)
+    val icon = if (all) Icons.Rounded.Category else CatIcons.forCategory(cat)
+    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(tint.copy(alpha = 0.18f)),
+        contentAlignment = Alignment.Center) {
+        if (icon != null) androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.58f))
+        else Text(cat.take(1).uppercase(), color = tint, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.42f).sp)
     }
 }
 
