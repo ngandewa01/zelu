@@ -72,13 +72,20 @@ object Storage {
         val suggest = ArrayList<Pair<Row, Row>>()
         for (r in rows.filter { it.kind == "refund" && it.category == "Refund" }.sortedBy { it.date }) {
             if (answers[r.id] == false) continue
-            val lo = Dates.shiftDays(r.date, -120)
+            // Only suggest a pairing that is clearly the same purchase: the same amount (within 60 days),
+            // or the same payee with a refund that is most of the original (within 45 days). A small
+            // refund against a much bigger spend at a busy merchant (Amazon...) is too uncertain to guess.
+            val lo = Dates.shiftDays(r.date, -60)
+            val lo45 = Dates.shiftDays(r.date, -45)
             val rc = norm(r.counterparty)
             val best = expenses.filter { e ->
+                val samePayee = rc.length >= 4 && norm(e.counterparty).let { ec -> ec.length >= 4 && (ec.contains(rc) || rc.contains(ec)) }
+                val exact = kotlin.math.abs(e.amount - r.amount) < 0.5
                 e.date <= r.date && e.date >= lo && (remaining[e.id] ?: 0.0) >= r.amount - 0.5 && (
-                    (rc.length >= 4 && norm(e.counterparty).let { ec -> ec.length >= 4 && (ec.contains(rc) || rc.contains(ec)) }) ||
-                        (kotlin.math.abs(e.amount - r.amount) < 0.5 && e.account.isNotBlank() && e.account == r.account))
-            }.maxByOrNull { it.date } ?: continue
+                    (samePayee && (exact || (e.date >= lo45 && r.amount >= e.amount * 0.6))) ||
+                        (exact && e.account.isNotBlank() && e.account == r.account))
+            }.sortedWith(compareByDescending<Row> { kotlin.math.abs(it.amount - r.amount) < 0.5 }.thenByDescending { it.date })
+                .firstOrNull() ?: continue
             if (answers[r.id] == true) {
                 remaining[best.id] = (remaining[best.id] ?: 0.0) - r.amount
                 paired[r.id] = best.category

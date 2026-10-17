@@ -1751,6 +1751,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     val over = ob != null && ob > 0
     val under = ob != null && ob < 0
     val savings = if (income > 0) Math.round((income - spent) / income * 100).toInt() else null
+    // Fixed costs (EMI, rent...) aren't something you trim, so no "cut $cat" advice for them.
+    val fixedTop = cat in setOf("EMI", "Rent", "Investment", "Card bill", "Transfer")
     return buildList {
         add("$cat is your biggest bucket at $pct% — trimming it is the quickest win.")
         add("$pct% of your spending went to $cat this month.")
@@ -1794,7 +1796,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             add("You're under a steady pace — comfortably on track.")
             add("Spending's calmer than a steady pace allows. Nice work.")
         }
-    }
+    }.filter { !fixedTop || !it.contains(cat) }.ifEmpty { listOf("Your fixed costs are most of this month. The flexible part is what you can steer.") }
 }
 
 @Composable private fun LedgerView(
@@ -1911,6 +1913,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                             Text(a.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(a.detail, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2)
                         }
+                        Spacer(Modifier.width(10.dp))
                         Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).padding(horizontal = 8.dp, vertical = 3.dp)) {
                             Text((a.ratio * 100).toInt().toString() + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
