@@ -521,6 +521,7 @@ fun ZeluApp() {
         if (stage != "app") return@LaunchedEffect
         // Daily 9 AM check runs in the background (DueReceiver); this just makes sure it's scheduled.
         DueReminders.schedule(context)
+        DailySummary.schedule(context)
     }
 
     LaunchedEffect(Unit) {

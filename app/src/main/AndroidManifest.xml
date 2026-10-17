@@ -33,6 +33,7 @@
 
         <receiver android:name=".CategorizeReceiver" android:exported="false" />
         <receiver android:name=".DueReceiver" android:exported="false" />
+        <receiver android:name=".DailyReceiver" android:exported="false" />
         <receiver android:name=".MarkPaidReceiver" android:exported="false" />
         <receiver android:name=".ZeluWidget" android:exported="true">
             <intent-filter>

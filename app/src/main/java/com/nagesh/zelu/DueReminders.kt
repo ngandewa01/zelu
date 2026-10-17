@@ -98,6 +98,9 @@ class MarkPaidReceiver : BroadcastReceiver() {
 // Alarms are cleared on reboot — put the daily check back.
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) DueReminders.schedule(context)
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            DueReminders.schedule(context)
+            DailySummary.schedule(context)
+        }
     }
 }
