@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.animation.core.animateFloatAsState
@@ -367,6 +368,9 @@ fun ZeluApp() {
     var menuOpen by remember { mutableStateOf(false) }
     var themeOpen by remember { mutableStateOf(false) }
     var lockOn by remember { mutableStateOf(context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).getBoolean("lock", false)) }
+    var undo by remember { mutableStateOf<Pair<String, Map<String, String?>>?>(null) }
+    var unreadOpen by remember { mutableStateOf(false) }
+    var unreadList by remember { mutableStateOf<List<RawSms>?>(null) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
     var rangeOpen by remember { mutableStateOf(false) }
@@ -427,8 +431,10 @@ fun ZeluApp() {
 
     fun answerRefund(refundId: String, yes: Boolean) {
         scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) { Storage.setRefundLink(context, refundId, yes) }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            undo = (if (yes) "Refund matched to the spend" else "Refund kept separate") to snap
         }
     }
 
@@ -547,12 +553,32 @@ fun ZeluApp() {
     // decisions
     fun decide(id: String, kind: String, category: String, payee: String?, remember: Boolean) {
         scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) {
                 Storage.setOverride(context, id, kind, category)
                 if (remember && !payee.isNullOrBlank()) Storage.setPayeeRule(context, payee, kind, category)
             }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
             askOpen = false
+            undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category" else "Moved to $category") to snap
+        }
+    }
+
+    fun renamePayee(from: String, to: String) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setAlias(context, from, to) }
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            undo = (if (to.isBlank()) "Name reset" else "Renamed to ${to.trim()}") to snap
+        }
+    }
+
+    fun undoLast() {
+        val u = undo ?: return
+        undo = null
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.restoreSnapshot(context, u.second) }
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
         }
     }
 
@@ -786,6 +812,7 @@ fun ZeluApp() {
                 }
                 "payees" -> PayeesView(shown, { title, rows -> drill = title to rows },
                     { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
+                    ::renamePayee,
                     remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) })
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
@@ -793,6 +820,16 @@ fun ZeluApp() {
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
+        undo?.let { u ->
+            LaunchedEffect(u) { delay(6000); if (undo === u) undo = null }
+            Row(Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 88.dp).fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp)).background(ZColor.Ink).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(u.first, color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("UNDO", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { undoLast() }.padding(horizontal = 14.dp, vertical = 12.dp))
+            }
+        }
         androidx.activity.compose.BackHandler(trendsOpen) { trendsOpen = false }
         if (trendsOpen) TrendsScreen(rows, accounts, onBack = { trendsOpen = false }, onReview = { t, r -> drill = t to r })
         cardOpen?.let { a ->
@@ -880,6 +917,10 @@ fun ZeluApp() {
                         context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
                     }
                 }
+                MenuRow("Couldn't read", "Bank SMS Zelu skipped, so you can report them", Icons.Rounded.Receipt) {
+                    menuOpen = false; unreadOpen = true; unreadList = null
+                    scope.launch { unreadList = withContext(Dispatchers.IO) { Ingest.unreadable(context) } }
+                }
                 MenuRow("Back up data", "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
                     menuOpen = false
                     scope.launch {
@@ -894,6 +935,43 @@ fun ZeluApp() {
                     restoreLauncher.launch(arrayOf("*/*"))
                 }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    if (unreadOpen) Dialog(onDismissRequest = { unreadOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+            .heightIn(max = 620.dp)) {
+            Text("Couldn't read", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Messages from your banks that mention money but didn't become a transaction. Tap Share to send one so the reader can learn it.", 12)
+            Spacer(Modifier.height(10.dp))
+            val list = unreadList
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                when {
+                    list == null -> MutedText("Looking through your messages…", 13)
+                    list.isEmpty() -> MutedText("Nothing missed. Every money message was understood.", 13)
+                    else -> list.forEach { m ->
+                        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp))
+                            .background(ZColor.Paper).padding(12.dp)) {
+                            MutedText(m.address + " · " + prettyDate(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(m.date))), 11)
+                            Spacer(Modifier.height(4.dp))
+                            Text(m.body, color = ZColor.Ink, fontSize = 12.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Share", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                                        .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, m.body)
+                                    try { context.startActivity(android.content.Intent.createChooser(send, "Share message")) } catch (_: Exception) {}
+                                })
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { unreadOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -2944,6 +3022,7 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
 @Composable private fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
     onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRename: (String, String) -> Unit,
     fixedSet: Analytics.FixedSet,
 ) {
     val spend = list.filter { it.kind == "expense" }
@@ -3057,14 +3136,19 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
         val rows = spend.filter { nameOf(it) == name }
         if (rows.isEmpty()) androidx.compose.runtime.LaunchedEffect(name) { open = null }
         else PayeeDetailDialog(name, rows, total, onSee = { open = null; onDrill(name, rows) },
-            onRecategorize = onRecategorize, onNewCat = onNewCat, onDismiss = { open = null })
+            onRecategorize = onRecategorize, onNewCat = onNewCat,
+            others = payees.map { it.name }.filter { !it.equals(name, ignoreCase = true) }.take(12),
+            onRename = { to -> open = null; onRename(name, to) }, onDismiss = { open = null })
     }
 }
 
 @Composable private fun PayeeDetailDialog(
     name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
-    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit, onDismiss: () -> Unit,
+    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    others: List<String>, onRename: (String) -> Unit, onDismiss: () -> Unit,
 ) {
+    var renaming by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(name) }
     val total = rows.sumOf { it.amount }
     val n = rows.size
     val primary = rows.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown"
@@ -3124,6 +3208,28 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
                 if (withPayee != null) Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                     .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp)) {
                     Text(if (editing) "Cancel" else "Change category", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { renaming = !renaming }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                Text(if (renaming) "Cancel" else "Rename or merge", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (renaming) {
+                Spacer(Modifier.height(10.dp))
+                MutedText("Give it a better name, or type another payee's name to merge the two.", 12)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (others.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    MutedText("Merge into:", 11)
+                    Spacer(Modifier.height(4.dp))
+                    ChipScroll { others.forEach { o -> Chip(o, false) { newName = o } } }
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { if (newName.isNotBlank()) onRename(newName) }.padding(horizontal = 20.dp, vertical = 9.dp)) {
+                    Text("Save name", color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             if (editing && withPayee != null) {

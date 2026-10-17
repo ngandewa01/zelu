@@ -84,4 +84,25 @@ object Ingest {
         Storage.saveLimits(context, limits)
         return Result(rows.size, added, rows, balanceHits)
     }
+
+    private val MONEYISH = Regex("""(?i)(rs\.?|inr|₹)\s*[\d,]+""")
+    private val ACTIONISH = Regex("""(?i)\b(debit(ed)?|credit(ed)?|paid|sent|spent|withdraw(n|al)?|received|deposit(ed)?|transferred|purchase|txn|upi)\b""")
+    private val NOT_TXN = Regex("""(?i)\b(otp|one time password|offer|cashback offer|apply now|pre-?approved|click)\b""")
+
+    // Bank-looking messages that mention money but that Zelu could not turn into a transaction, balance
+    // or reminder. These are the ones worth reporting so the reader can be taught about them.
+    fun unreadable(context: Context, limit: Int = 40): List<RawSms> {
+        val all = try { SmsReader.readInbox(context, 3000) } catch (_: Exception) { return emptyList() }
+        val out = ArrayList<RawSms>()
+        for (m in all) {
+            if (out.size >= limit) break
+            if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body)) continue
+            if (!MONEYISH.containsMatchIn(m.body) || !ACTIONISH.containsMatchIn(m.body) || NOT_TXN.containsMatchIn(m.body)) continue
+            if (Parser.parseSms(m.body, m.date, m.address) != null) continue
+            if (Parser.parseBalance(m.body, m.date, m.address) != null) continue
+            if (Parser.parseReminder(m.body, m.date, m.address) != null) continue
+            out.add(m)
+        }
+        return out
+    }
 }

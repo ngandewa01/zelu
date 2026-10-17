@@ -17,6 +17,7 @@ object Storage {
     private const val REMINDER_FILE = "reminders.json"   // parsed bill/payment reminders
     private const val REM_DONE_FILE = "reminder_done.json" // reminder ids ticked as paid
     private const val REPAID_FILE = "lent_repaid.json"   // person -> amount repaid against money you lent
+    private const val ALIAS_FILE = "payee_alias.json"   // payee name -> the name you renamed / merged it into
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
@@ -47,9 +48,21 @@ object Storage {
         val base = readMap(context)
         val overrides = readKv(context, OVERRIDE_FILE)
         val rules = readKv(context, RULE_FILE)
+        val aliases = readKv(context, ALIAS_FILE)
+        fun resolve(n: String?): String? {
+            var cur = n ?: return null
+            var steps = 0
+            while (steps < 6) {
+                val next = aliases[cur.lowercase().trim()]?.first?.takeIf { it.isNotBlank() } ?: break
+                if (next.equals(cur, ignoreCase = true)) break
+                cur = next; steps++
+            }
+            return cur
+        }
         val rows = base.values.map { r ->
             var row = r
-            val payeeKey = (r.counterparty ?: "").lowercase().trim()
+            if (aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
+            val payeeKey = (row.counterparty ?: "").lowercase().trim()
             if (payeeKey.isNotEmpty() && rules.containsKey(payeeKey)) {
                 val (k, c) = rules.getValue(payeeKey)
                 row = row.copy(kind = k, category = c)
@@ -537,6 +550,33 @@ object Storage {
         val kv = readKv(context, OVERRIDE_FILE).toMutableMap()
         kv[id] = kind to category
         writeKv(context, OVERRIDE_FILE, kv)
+    }
+
+    // Rename a payee, or merge it into another by giving it that payee's name. Rules follow the new name.
+    fun setAlias(context: Context, from: String, to: String): Unit = synchronized(lock) {
+        val fk = from.lowercase().trim(); val target = to.trim()
+        if (fk.isEmpty()) return@synchronized
+        val kv = readKv(context, ALIAS_FILE).toMutableMap()
+        if (target.isEmpty() || target.equals(from.trim(), ignoreCase = true)) kv.remove(fk)
+        else {
+            kv[fk] = target to ""
+            if (kv[target.lowercase()]?.first.equals(from.trim(), ignoreCase = true)) kv.remove(target.lowercase())
+            val rules = readKv(context, RULE_FILE).toMutableMap()
+            val r = rules[fk]
+            if (r != null && !rules.containsKey(target.lowercase())) { rules[target.lowercase()] = r; writeKv(context, RULE_FILE, rules) }
+        }
+        writeKv(context, ALIAS_FILE, kv)
+    }
+
+    // Undo support: a copy of everything a category / refund / rename decision can change.
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, "refund_links.json")
+
+    fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
+        UNDO_FILES.associateWith { n -> val f = file(context, n); if (f.exists()) f.readText() else null }
+    }
+
+    fun restoreSnapshot(context: Context, snap: Map<String, String?>): Unit = synchronized(lock) {
+        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeText(t) }
     }
 
     fun setPayeeRule(context: Context, payee: String, kind: String, category: String) = synchronized(lock) {
