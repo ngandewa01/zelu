@@ -139,6 +139,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         stoppedAt = android.os.SystemClock.elapsedRealtime()
+        val app = applicationContext
+        Thread { ZeluWidget.refresh(app) }.start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -2304,8 +2306,26 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 }
             }
             val shownAlerts = alerts.sortedByDescending { it.ratio }.take(3)
-            if (shownAlerts.isNotEmpty()) Panel {
-                Eyebrow("Heads up")
+            val tdy = Dates.today()
+            val spentNow = allRows.filter { it.kind == "expense" && it.date.startsWith(f.month) }.sumOf { it.amount }
+            val duesLeft = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= tdy }.sumOf { it.amount }
+            val daysToGo = (Dates.daysInMonth(f.month) - Dates.dayOfMonth()).coerceAtLeast(0)
+            val projectedEnd = spentNow + duesLeft + Analytics.typicalDaily(allRows, tdy) * daysToGo
+            if (shownAlerts.isNotEmpty() || spentNow > 0) Panel {
+                Eyebrow("For you")
+                if (spentNow > 0) Row(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.IncomeSoft), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Month-end forecast", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Spent so far + dues left + a normal day's spend", color = ZColor.Muted, fontSize = 12.sp, maxLines = 2)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text("≈ " + money(projectedEnd), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
                 shownAlerts.forEach { a ->
                     val tone = if (a.over) ZColor.Warn else ZColor.AmberInk
                     val soft = if (a.over) ZColor.WarnSoft else ZColor.AmberSoft
@@ -3347,6 +3367,51 @@ private fun prettyDate(iso: String): String = try {
 
     Spacer(Modifier.height(4.dp))
     Text("Dues & reminders", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+
+    // Summary: what is overdue, what lands this week, and where the month is heading.
+    val weekEnd = Dates.shiftDays(today, 7)
+    val overdueList = pending.filter { it.dueDate < today }
+    val weekList = pending.filter { it.dueDate >= today && it.dueDate <= weekEnd }
+    val laterList = pending.filter { it.dueDate > weekEnd }
+    val dim = Dates.daysInMonth(curMonth)
+    val spentSoFar = rows.filter { it.kind == "expense" && it.date.startsWith(curMonth) }.sumOf { it.amount }
+    val dueLeft = pending.filter { it.dueDate.take(7) == curMonth }.sumOf { it.amount }
+    val typicalDaily = remember(rows) { Analytics.typicalDaily(rows, today) }
+    val daysLeft = (dim - Dates.dayOfMonth()).coerceAtLeast(0)
+    val projected = spentSoFar + dueLeft + typicalDaily * daysLeft
+    Panel {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Fact("Overdue", money(overdueList.sumOf { it.amount }))
+            Fact("Next 7 days", money(weekList.sumOf { it.amount }))
+            Fact("Later", money(laterList.sumOf { it.amount }))
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (i in 0..6) {
+                val d = Dates.shiftDays(today, i)
+                val due = pending.filter { it.dueDate == d }
+                val letter = "SMTWTFS"[Dates.parse(d).get(java.util.Calendar.DAY_OF_WEEK) - 1].toString()
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                    .background(if (due.isNotEmpty()) ZColor.Warn.copy(alpha = 0.14f) else ZColor.Paper)
+                    .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(letter, color = ZColor.Muted, fontSize = 10.sp)
+                    Text(d.substring(8, 10).toInt().toString(), color = ZColor.Ink, fontSize = 15.sp,
+                        fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
+                    Text(if (due.isNotEmpty()) shortAmt(due.sumOf { it.amount }) else "·",
+                        color = if (due.isNotEmpty()) ZColor.Warn else ZColor.Line, fontSize = 10.sp, maxLines = 1)
+                }
+            }
+        }
+        if (spentSoFar > 0) {
+            Spacer(Modifier.height(14.dp))
+            Eyebrow("Expected by month end")
+            Spacer(Modifier.height(4.dp))
+            Text("≈ " + money(projected), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            MutedText("${money(spentSoFar)} spent" + (if (dueLeft > 0) " + ${money(dueLeft)} dues left" else "") +
+                (if (daysLeft > 0 && typicalDaily > 0) " + about ${money(typicalDaily)} a day for $daysLeft more days" else ""), 12)
+        }
+    }
+
     if (pending.isEmpty()) {
         Panel {
             Eyebrow("All clear")
@@ -3355,8 +3420,19 @@ private fun prettyDate(iso: String): String = try {
         }
     } else {
         Spacer(Modifier.height(4.dp))
-        MutedText("Tap the circle to mark a bill paid. Overdue ones are in red.", 12)
-        pending.forEach { r -> ReminderCard(r, overdue = r.dueDate < today, onOpen = { detail = r }) { onMark(r.id, true) } }
+        MutedText("Tap the circle to mark a bill paid.", 12)
+        @Composable fun group(label: String, list: List<Reminder>, overdue: Boolean) {
+            if (list.isEmpty()) return
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Eyebrow(label)
+                MutedText(money(list.sumOf { it.amount }), 12)
+            }
+            list.forEach { r -> ReminderCard(r, overdue = overdue, onOpen = { detail = r }) { onMark(r.id, true) } }
+        }
+        group("Overdue", overdueList, true)
+        group("This week", weekList, false)
+        group("Later", laterList, false)
     }
     if (paid.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))

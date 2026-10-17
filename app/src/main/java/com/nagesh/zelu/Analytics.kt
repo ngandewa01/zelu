@@ -158,6 +158,17 @@ object Analytics {
 
     data class Payee(val name: String, val amount: Double, val count: Int, val cats: List<String>)
 
+    // What a normal day costs lately: the last 30 days of spending, without the big one-offs (rent, EMI,
+    // a large purchase), which are judged against your own typical payment, not a fixed number.
+    fun typicalDaily(list: List<Row>, today: String): Double {
+        val from = Dates.shiftDays(today, -30)
+        val amts = list.filter { it.kind == "expense" && it.date >= from && it.date <= today }.map { it.amount }
+        if (amts.isEmpty()) return 0.0
+        val med = amts.sorted()[amts.size / 2]
+        val cap = (med * 3).coerceAtLeast(1.0)
+        return amts.filter { it <= cap }.sum() / 30.0
+    }
+
     fun byPayee(list: List<Row>): List<Payee> {
         val amt = LinkedHashMap<String, Double>()
         val cnt = LinkedHashMap<String, Int>()
