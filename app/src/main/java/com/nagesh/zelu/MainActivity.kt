@@ -634,7 +634,32 @@ fun ZeluApp() {
                         slot = {
                             if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                                 { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
+                        },
+                        afterSummary = {
+                            if (isMonth && month == Dates.todayMonth() && dayStr == null) {
+                                val todayD = Dates.dayOfMonth()
+                                val spentNow = Analytics.summarize(shown).spent.coerceAtLeast(0.0)
+                                val prevM = Dates.shiftMonth(month, -1)
+                                val prevList = Analytics.filter(rows, f.copy(month = prevM)).let { l ->
+                                    if (excludeEmi && cat != "EMI") l.filter { it.category != "EMI" } else l }
+                                val prevSame = Analytics.summarize(prevList.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
+                                val curSame = Analytics.summarize(shown.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
+                                SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame)
+                            }
                         }) { title, rows -> drill = title to rows }
+                    if (dayStr == null) {
+                        val wFrom: String; val wTo: String
+                        if (isMonth) {
+                            wFrom = "$month-01"
+                            wTo = if (month == Dates.todayMonth()) Dates.today() else "$month-%02d".format(Dates.daysInMonth(month))
+                        } else {
+                            val ds = shown.filter { it.kind == "expense" }.map { it.date }
+                            wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
+                        }
+                        WeekdayPanel(shown, wFrom, wTo)
+                        val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
+                        RecurringPanel(recurring)
+                    }
                     PaceView(rows, shown, f, month, account, excludeEmi)
                     if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
@@ -2239,6 +2264,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     onCalendar: (() -> Unit)? = null, calActive: Boolean = false,
     dayLabel: String? = null, onClearDay: () -> Unit = {},
     slot: @Composable () -> Unit = {},
+    afterSummary: @Composable () -> Unit = {},
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -2332,6 +2358,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
         }
     }
 
+    afterSummary()
     val top = cats.first().second
     Panel {
         Eyebrow("By category")
@@ -2371,6 +2398,106 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 else Meter((v / top).toFloat(), catColor(c))
             }
         }
+    }
+}
+
+@Composable private fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double) {
+    Panel {
+        Eyebrow("Right now")
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val left = (budget - spent).coerceAtLeast(0.0)
+            val over = budget > 0 && spent > budget
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
+                MutedText("Daily allowance", 11)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(money(if (daysLeft > 0) left / daysLeft else 0.0), color = if (over) ZColor.Warn else ZColor.Income,
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(" a day", color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 3.dp))
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(if (over) "Budget used up · " + money(spent - budget) + " over" else money(left) + " left · $daysLeft days to go",
+                    color = ZColor.InkSoft, fontSize = 11.sp)
+            }
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
+                MutedText("By the ${dayNum}${ordinal(dayNum)}", 11)
+                Text(money(curSame), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                if (prevSame > 0) {
+                    val ch = ((curSame - prevSame) / prevSame * 100).toInt()
+                    Text((if (ch > 0) "▲ $ch%" else if (ch < 0) "▼ ${kotlin.math.abs(ch)}%" else "same") + " vs " + shortAmt(prevSame) + " last month",
+                        color = if (ch > 0) ZColor.Warn else if (ch < 0) ZColor.Income else ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                } else MutedText("no data for last month", 11)
+            }
+        }
+    }
+}
+
+private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }
+
+@Composable private fun WeekdayPanel(list: List<Row>, from: String, to: String) {
+    if (to < from) return
+    var days = 0; var d = from
+    while (d <= to && days < 400) { days++; d = Dates.shiftDays(d, 1) }
+    if (days < 7) return
+    val avg = Analytics.weekdayAverages(list, from, to)
+    val mx = avg.maxOrNull() ?: 0.0
+    if (mx <= 0.0) return
+    val names = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+    val letters = listOf("M", "T", "W", "T", "F", "S", "S")
+    val top = avg.indices.maxByOrNull { avg[it] } ?: 0
+    Panel {
+        Eyebrow("Weekday pattern")
+        Spacer(Modifier.height(4.dp))
+        Text(names[top] + "s are your heaviest day", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        MutedText(money(avg[top]) + " on average", 12)
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+            avg.forEachIndexed { i, v ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(shortAmt(v), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
+                    Spacer(Modifier.height(4.dp))
+                    Box(Modifier.height(64.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        Box(Modifier.fillMaxWidth().height((64 * (v / mx)).coerceAtLeast(3.0).dp).clip(RoundedCornerShape(6.dp))
+                            .background(if (i == top) ZColor.Accent else ZColor.Line))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(letters[i], color = if (i == top) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
+                        fontWeight = if (i == top) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun RecurringPanel(list: List<Analytics.Recurring>) {
+    if (list.isEmpty()) return
+    val total = list.sumOf { it.amount }
+    Panel {
+        Eyebrow("Recurring")
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(money(total), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(" a month · ${list.size} payment${if (list.size == 1) "" else "s"}", color = ZColor.Muted, fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 3.dp))
+        }
+        list.take(6).forEach { r ->
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile(r.name, r.category, 34.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(r.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MutedText("last on " + r.last.takeLast(5).split("-").let { (mo, dd) -> "$dd/$mo" }, 11)
+                }
+                if (r.prev != null && r.amount > r.prev * 1.05) {
+                    TonePill("▲ " + money(r.amount - r.prev), ZColor.Warn, ZColor.WarnSoft)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (list.size > 6) { Spacer(Modifier.height(10.dp)); MutedText("+ ${list.size - 6} more", 12) }
     }
 }
 

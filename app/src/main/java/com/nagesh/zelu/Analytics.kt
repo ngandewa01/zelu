@@ -262,4 +262,36 @@ object Analytics {
         }
         return out.sortedByDescending { it.first }.take(3).map { it.second to it.third }
     }
+
+    // ---- Spend-page insights ----
+
+    data class Recurring(val name: String, val category: String, val amount: Double, val prev: Double?, val last: String)
+
+    // A payee you pay about the same amount to, once a month, in at least 3 of the last 4 months.
+    fun recurring(all: List<Row>, todayMonth: String): List<Recurring> {
+        val months = (0..3).map { Dates.shiftMonth(todayMonth, -it) } // newest first
+        val out = ArrayList<Recurring>()
+        val ex = all.filter { it.kind == "expense" && it.date.take(7) in months && !it.counterparty.isNullOrBlank() }
+        ex.groupBy { it.counterparty!!.trim().lowercase() }.forEach { (_, rs) ->
+            val byMonth = rs.groupBy { it.date.take(7) }
+            val present = months.filter { byMonth[it]?.size == 1 }
+            if (present.size < 3) return@forEach
+            if (months[0] !in present && months[1] !in present) return@forEach
+            val amts = present.map { byMonth[it]!![0].amount }
+            if (amts.maxOrNull()!! > amts.minOrNull()!! * 1.2) return@forEach
+            val newest = byMonth[present[0]]!![0]
+            out.add(Recurring(newest.counterparty!!.trim(), newest.category, newest.amount, amts.getOrNull(1), newest.date))
+        }
+        return out.sortedByDescending { it.amount }
+    }
+
+    // Average spend per weekday (Mon=0 .. Sun=6) between two dates, counting each weekday's occurrences.
+    fun weekdayAverages(list: List<Row>, from: String, to: String): DoubleArray {
+        val sums = DoubleArray(7); val counts = IntArray(7)
+        fun idx(d: String): Int = (Dates.parse(d).get(Calendar.DAY_OF_WEEK) + 5) % 7
+        var d = from; var guard = 0
+        while (d <= to && guard++ < 400) { counts[idx(d)]++; d = Dates.shiftDays(d, 1) }
+        list.filter { it.kind == "expense" && it.date >= from && it.date <= to }.forEach { sums[idx(it.date)] += it.amount }
+        return DoubleArray(7) { if (counts[it] > 0) sums[it] / counts[it] else 0.0 }
+    }
 }
