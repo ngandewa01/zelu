@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -312,6 +314,7 @@ fun ZeluApp() {
     var month by remember { mutableStateOf(Dates.todayMonth()) }
     var account by remember { mutableStateOf("All") }
     var daySel by remember { mutableStateOf(0) }
+    var calOpen by remember { mutableStateOf(false) }
     var askOpen by remember { mutableStateOf(false) } // category picker open for ask
     var loading by remember { mutableStateOf(false) }
     var type by remember { mutableStateOf("all") }
@@ -620,10 +623,21 @@ fun ZeluApp() {
                 "spend" -> {
                     val prevByCat = if (period == "month")
                         Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
-                    BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true }) { title, rows -> drill = title to rows }
+                    val isMonth = f.period == "month"
+                    val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
+                    val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
+                    BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true },
+                        onCalendar = if (isMonth) ({ calOpen = !calOpen }) else null,
+                        calActive = calOpen || daySel > 0,
+                        dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
+                        onClearDay = { daySel = 0 },
+                        slot = {
+                            if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                                { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
+                        }) { title, rows -> drill = title to rows }
                     PaceView(rows, shown, f, month, account, excludeEmi)
-                    if (f.period == "month") DailyCalendarBlock(rows, shown, f, month, account, daySel,
-                        { daySel = if (daySel == it) 0 else it }, { detailRow = it })
+                    if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                        { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                 }
                 "buckets" -> {
                     val prevByCat = if (period == "month")
@@ -2073,17 +2087,18 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
 @Composable private fun DailyCalendarBlock(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
     daySel: Int, onDay: (Int) -> Unit, onRowClick: (Row) -> Unit,
+    showCal: Boolean = true, showList: Boolean = true,
 ) {
     val bigIds = Analytics.bigSpendIds(list)
     val daily = Analytics.dailyTotals(allRows, month, account)
-    Panel {
+    if (showCal) Panel {
         Eyebrow("Daily spend")
         Spacer(Modifier.height(8.dp))
         Calendar(month, daily, daySel, onDay)
         Spacer(Modifier.height(8.dp))
-        MutedText("Darker days cost more. Tap a date to see that day.", 12)
+        MutedText("Darker days cost more. Tap a date to filter this page to that day.", 12)
     }
-    if (daySel > 0) {
+    if (showList && daySel > 0) {
         val dayStr = "%s-%02d".format(month, daySel)
         val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
         val dtot = dayRows.filter { it.kind == "expense" }.sumOf { it.amount }
@@ -2221,6 +2236,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
     list: List<Row>, prevByCat: Map<String, Double> = emptyMap(),
     budgets: Map<String, Double> = emptyMap(), onEditBudgets: () -> Unit = {},
     onTrends: (() -> Unit)? = null,
+    onCalendar: (() -> Unit)? = null, calActive: Boolean = false,
+    dayLabel: String? = null, onClearDay: () -> Unit = {},
+    slot: @Composable () -> Unit = {},
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -2237,11 +2255,35 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
             Spacer(Modifier.width(6.dp))
             Text("Trends", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
-        Box(
+        Row(
             Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                 .clickable { onEditBudgets() }.padding(horizontal = 14.dp, vertical = 8.dp),
-        ) { Text("Budgets", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Icon(Icons.Rounded.AccountBalanceWallet, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Budgets", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (onCalendar != null) Box(
+            Modifier.clip(RoundedCornerShape(20.dp)).background(if (calActive) ZColor.OrangeSoft else Color.Transparent)
+                .border(1.dp, if (calActive) ZColor.Accent else ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { onCalendar() }.padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) { androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp)) }
     }
+    if (dayLabel != null) {
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.clip(RoundedCornerShape(16.dp)).background(ZColor.OrangeSoft).clickable { onClearDay() }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Showing $dayLabel", color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(8.dp))
+            Text("✕", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+    slot()
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
     fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
 
@@ -2260,7 +2302,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 Text(money(total), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             }
             val prevTotal = prevByCat.values.sum()
-            if (prevTotal > 0) {
+            if (prevTotal > 0 && dayLabel == null) {
                 val ch = ((total - prevTotal) / prevTotal * 100).toInt()
                 if (ch != 0) TonePill(
                     (if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% vs last month",
@@ -2308,7 +2350,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val prev = prevByCat[c]
-                    if (prev != null && prev > 0) {
+                    if (dayLabel != null) {
+                    } else if (prev != null && prev > 0) {
                         val ch = ((v - prev) / prev * 100).toInt()
                         if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.Warn, ZColor.WarnSoft)
                         else if (ch < 0) TonePill("▼ ${kotlin.math.abs(ch)}% vs last month", ZColor.Income, ZColor.IncomeSoft)
@@ -2316,13 +2359,13 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double): L
                     } else {
                         TonePill("new this month", ZColor.Muted, ZColor.Paper)
                     }
-                    val budget = budgets[c]
+                    val budget = if (dayLabel == null) budgets[c] else null
                     if (budget != null && budget > 0) {
                         if (v > budget) TonePill("Over by " + money(v - budget), ZColor.Warn, ZColor.WarnSoft)
                         else TonePill(money(v) + " of " + money(budget), ZColor.InkSoft, ZColor.Paper)
                     }
                 }
-                val budget = budgets[c]
+                val budget = if (dayLabel == null) budgets[c] else null
                 Spacer(Modifier.height(8.dp))
                 if (budget != null && budget > 0) Meter((v / budget).toFloat().coerceIn(0f, 1f), if (v > budget) ZColor.Warn else ZColor.Income)
                 else Meter((v / top).toFloat(), catColor(c))
