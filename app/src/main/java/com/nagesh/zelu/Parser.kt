@@ -168,6 +168,9 @@ object Parser {
     // A loan EMI debit notice (NACH / ACH / e-mandate / installment). Captured as a real
     // monthly expense even though it reads like a reminder; de-duplicated to once a month.
     private val EMI_DEBIT = Regex("""\b(nach|ach|e-?mandate|installment|instalment|loan a/?c|loan ac|emi)\b.{0,70}\b(debit|debited|deduct|deducted)\b|\b(debit|debited|deduct|deducted)\b.{0,50}\b(nach|ach|emi|loan|installment|instalment)\b""", RegexOption.IGNORE_CASE)
+    // "Your Loan A/c *0126 Credited for Rs:72894.00 ... by BRANCH": the bank took the EMI from your own
+    // account and the loan account received it. That is an EMI paid (money out), never money in.
+    private val LOAN_CREDIT = Regex("""loan\s*a/?c.{0,40}\b(credited|credit)\b""", RegexOption.IGNORE_CASE)
     private val LOAN_AC = Regex("""loan\s*a/?c(?:\s*no\.?)?\s*[xX*#]*\s*(\d{3,4})""", RegexOption.IGNORE_CASE)
 
     // Canonical merchant names, so "ZOMATO LTD" / "Zomato Media Pvt Ltd" group as one payee.
@@ -225,7 +228,9 @@ object Parser {
         val completed = !future && DEBIT_DONE.containsMatchIn(text)
         val duesOnly = DUES_NOTICE.containsMatchIn(text) && !completed
         // A completed EMI/NACH debit survives SKIP; a future or dues-only EMI notice does not.
-        val isEmiDebit = EMI_DEBIT.containsMatchIn(text) && !future && !duesOnly
+        val loanCredit = LOAN_CREDIT.containsMatchIn(text) && !future && !duesOnly &&
+            !text.contains("disburs", ignoreCase = true)
+        val isEmiDebit = (EMI_DEBIT.containsMatchIn(text) || loanCredit) && !future && !duesOnly
         if (text.isEmpty() || (SKIP.containsMatchIn(text) && !isEmiDebit)) return null
         if (future || duesOnly) return null
 
@@ -245,6 +250,7 @@ object Parser {
         }
         // A biller confirming it received your bill payment is money going OUT.
         if (direction == "credit" && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text))) direction = "debit"
+        if (loanCredit) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
         val amounts = AMOUNT.findAll(text).toList()
@@ -281,7 +287,10 @@ object Parser {
             }
         }
 
-        val account = accountOf(text, source, direction)
+        // A loan-account credit names the loan (*0126), not your account: use the bank alone, which folds
+        // into that bank's main savings account.
+        val account = if (loanCredit) accountOf(text, source, direction).substringBefore(' ')
+        else accountOf(text, source, direction)
 
         val id = if (ref != null) "ref-$ref"
         else "sms-" + hash("$date|$amount|$direction|$text")
