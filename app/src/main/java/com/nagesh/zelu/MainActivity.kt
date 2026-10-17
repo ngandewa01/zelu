@@ -105,12 +105,16 @@ class MainActivity : ComponentActivity() {
         val sysDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         ZTheme.dark = if (sp.contains("dark")) sp.getBoolean("dark", false) else sysDark
+        ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
         setContent {
             val scheme = if (ZTheme.dark)
-                androidx.compose.material3.darkColorScheme(primary = ZColor.Accent, background = ZColor.Paper,
+                androidx.compose.material3.darkColorScheme(primary = ZColor.Accent, onPrimary = ZColor.AccentInk,
+                    background = ZColor.Paper,
                     surface = ZColor.Card, onSurface = ZColor.Ink, onBackground = ZColor.Ink, surfaceVariant = ZColor.Card,
                     onSurfaceVariant = ZColor.Muted, outline = ZColor.Line)
-            else androidx.compose.material3.lightColorScheme(primary = ZColor.Accent)
+            else androidx.compose.material3.lightColorScheme(primary = ZColor.Accent, onPrimary = ZColor.AccentInk,
+                background = ZColor.Paper, surface = ZColor.Card, onSurface = ZColor.Ink, onBackground = ZColor.Ink,
+                surfaceVariant = ZColor.Card, onSurfaceVariant = ZColor.Muted, outline = ZColor.Line)
             val view = androidx.compose.ui.platform.LocalView.current
             androidx.compose.runtime.SideEffect {
                 val c = androidx.core.view.WindowCompat.getInsetsController(window, view)
@@ -147,9 +151,9 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
 
 @Composable private fun LogoMark(sizeDp: Float) {
     Box(
-        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Ink),
+        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Accent),
         contentAlignment = Alignment.Center,
-    ) { Text("Z", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
+    ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
 }
 
 @Composable private fun Cta(text: String, onClick: () -> Unit) {
@@ -300,6 +304,7 @@ fun ZeluApp() {
     var trendsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var menuOpen by remember { mutableStateOf(false) }
+    var themeOpen by remember { mutableStateOf(false) }
     var rangeOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
@@ -768,6 +773,7 @@ fun ZeluApp() {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
                 Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                MenuRow("Theme", PALETTES[ZTheme.palette].name + " · colours and look") { menuOpen = false; themeOpen = true }
                 MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
                 MenuRow("Savings plan", "What's left each month · SIP, EMI and goal planner") { menuOpen = false; savingsOpen = true }
                 MenuRow("Test notification", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert") {
@@ -782,6 +788,38 @@ fun ZeluApp() {
                     Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    if (themeOpen) Dialog(onDismissRequest = { themeOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)
+            .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
+            Text("Theme", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+            PALETTES.forEachIndexed { i, p ->
+                val set = if (ZTheme.dark) p.dark else p.light
+                val sel = i == ZTheme.palette
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        ZTheme.palette = i
+                        context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
+                            .edit().putInt("palette", i).apply()
+                    }.padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(10.dp))) {
+                        listOf(set.paper, set.card, set.ink, set.accent).forEach { c ->
+                            Box(Modifier.size(width = 24.dp, height = 32.dp).background(Color(c)))
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Text(p.name, color = ZColor.Ink, fontSize = 15.sp,
+                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
+                    if (sel) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text("Use the sun / moon button for light or dark.", color = ZColor.Muted, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
         }
     }
 
@@ -1258,9 +1296,9 @@ private fun fmtPlain(n: Double): String =
 @Composable private fun BrandBar() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(ZColor.Ink),
+            Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(ZColor.Accent),
             contentAlignment = Alignment.Center,
-        ) { Text("Z", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         Spacer(Modifier.width(9.dp))
         Row {
             Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)

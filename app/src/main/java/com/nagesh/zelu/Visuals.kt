@@ -19,25 +19,72 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-// ---- Zelu palette (60-30-10: paper / card+ink / orange accent) ----
-object ZTheme { var dark by mutableStateOf(false) }
+// ---- Zelu themes: pick a palette (10 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+object ZTheme {
+    var dark by mutableStateOf(false)
+    var palette by mutableStateOf(0)
+}
+
+// One mode of a palette. Soft tints and InkSoft are blended from these.
+class PalSet(
+    val paper: Long, val card: Long, val ink: Long, val muted: Long, val line: Long,
+    val accent: Long, val accentInk: Long, val income: Long, val warn: Long,
+)
+
+class Pal(val name: String, val light: PalSet, val dark: PalSet)
+
+val PALETTES: List<Pal> = listOf(
+    Pal("Sand",
+        PalSet(0xFFF9F8F6, 0xFFEFE9E3, 0xFF2B2622, 0xFF7A6F66, 0xFFD9CFC7, 0xFFA8845A, 0xFFFFFFFF, 0xFF6F8A6E, 0xFFA65D57),
+        PalSet(0xFF1E1B18, 0xFF28241F, 0xFFEDE6DE, 0xFF9A8F85, 0xFF3A342E, 0xFFC9B59C, 0xFF2B2622, 0xFF8DAA8C, 0xFFD2807A)),
+    Pal("Moss",
+        PalSet(0xFFEAF4E9, 0xFFF6FAF5, 0xFF1F2A1D, 0xFF667563, 0xFFACC5A6, 0xFF5C7057, 0xFFFFFFFF, 0xFF4F8A8B, 0xFFA65D57),
+        PalSet(0xFF1A211A, 0xFF232B22, 0xFFE3EDE1, 0xFF8FA08C, 0xFF323E31, 0xFF89A482, 0xFF16201A, 0xFF5FA3A4, 0xFFD2807A)),
+    Pal("Honey",
+        PalSet(0xFFFCF0DA, 0xFFFFF8EA, 0xFF4C4541, 0xFF8A7F70, 0xFFE3D6B0, 0xFFB8862B, 0xFFFFFFFF, 0xFF7E8350, 0xFFB0584E),
+        PalSet(0xFF1F1C19, 0xFF2A2622, 0xFFF3E8D2, 0xFFA39983, 0xFF3A352E, 0xFFF2C46A, 0xFF2B2622, 0xFFA5AA70, 0xFFD27E72)),
+    Pal("Forest & Peach",
+        PalSet(0xFFF7EAE0, 0xFFFDF6F0, 0xFF4A2819, 0xFF8A6A5A, 0xFFE9CDB8, 0xFF1D4533, 0xFFFFFFFF, 0xFF3F7A5C, 0xFFB04A3E),
+        PalSet(0xFF14201A, 0xFF1D2B23, 0xFFF7EAE0, 0xFF9AA89F, 0xFF2C3C33, 0xFFF9D2BA, 0xFF14201A, 0xFF6FB08C, 0xFFE08A7A)),
+    Pal("Dusk & Amber",
+        PalSet(0xFFF5EFD9, 0xFFFBF8EC, 0xFF2E3347, 0xFF7B7F8E, 0xFFE8DDB4, 0xFF767F9E, 0xFFFFFFFF, 0xFF5F8F7A, 0xFFB2605A),
+        PalSet(0xFF1C1F2B, 0xFF262A39, 0xFFEDEAD8, 0xFF9A9DAC, 0xFF363B4D, 0xFF9AA3C4, 0xFF1C1F2B, 0xFF7FB09A, 0xFFD4807A)),
+    Pal("Slate",
+        PalSet(0xFFDCDFE4, 0xFFECEEF1, 0xFF272B33, 0xFF727A87, 0xFFCDD1D8, 0xFF6574AD, 0xFFFFFFFF, 0xFF5E8F78, 0xFFB5646B),
+        PalSet(0xFF1B1E23, 0xFF23272D, 0xFFE3E5E8, 0xFF8A9099, 0xFF30353C, 0xFF8F9BD0, 0xFF1B1E23, 0xFF7FAE97, 0xFFCC8087)),
+    Pal("Mocha",
+        PalSet(0xFFE3DDDA, 0xFFF0ECEA, 0xFF2E2828, 0xFF7D7471, 0xFFD3CBC7, 0xFFA8624F, 0xFFFFFFFF, 0xFF6E8F72, 0xFFA9555C),
+        PalSet(0xFF1F1B1A, 0xFF292423, 0xFFEAE4E1, 0xFF9A908C, 0xFF38312F, 0xFFD08A76, 0xFF1F1B1A, 0xFF86A98A, 0xFFCF7A80)),
+    Pal("Graphite & Copper",
+        PalSet(0xFFDFDFDD, 0xFFEEEEEC, 0xFF252525, 0xFF77776F, 0xFFCDCDC9, 0xFFA8643C, 0xFFFFFFFF, 0xFF648F78, 0xFFAD5A56),
+        PalSet(0xFF1A1A1A, 0xFF242424, 0xFFE6E6E4, 0xFF9A9A96, 0xFF333333, 0xFFD08D64, 0xFF1A1A1A, 0xFF7FAF96, 0xFFD07873)),
+    Pal("Harbour Blue",
+        PalSet(0xFFD9E0E6, 0xFFE9EEF2, 0xFF1F2A36, 0xFF6C7B8A, 0xFFC5D0DA, 0xFF457396, 0xFFFFFFFF, 0xFF5A9183, 0xFFB8686C),
+        PalSet(0xFF171C22, 0xFF202830, 0xFFE1E7ED, 0xFF8A97A4, 0xFF2D3742, 0xFF7BA6C6, 0xFF171C22, 0xFF7CB3A5, 0xFFD58A8D)),
+    Pal("Ink & Lilac",
+        PalSet(0xFFDEDFE6, 0xFFEDEEF3, 0xFF23253A, 0xFF74768C, 0xFFCDCFDC, 0xFF7A72B8, 0xFFFFFFFF, 0xFF5E9283, 0xFFB5646F),
+        PalSet(0xFF17182A, 0xFF20223A, 0xFFE4E5F2, 0xFF9496B0, 0xFF2F3250, 0xFFA9A2DB, 0xFF17182A, 0xFF7FB5A6, 0xFFD68A93)),
+)
+
+private fun mix(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.lerp(a, b, t)
 
 object ZColor {
-    val Paper get() = if (ZTheme.dark) Color(0xFF0F1613) else Color(0xFFECEEE6)
-    val Card get() = if (ZTheme.dark) Color(0xFF18221E) else Color(0xFFFFFFFF)
-    val Ink get() = if (ZTheme.dark) Color(0xFFE8EFEA) else Color(0xFF17231F)
-    val InkSoft get() = if (ZTheme.dark) Color(0xFFC3CFC8) else Color(0xFF3B4A44)
-    val Muted get() = if (ZTheme.dark) Color(0xFF8A9892) else Color(0xFF69766F)
-    val Line get() = if (ZTheme.dark) Color(0xFF2A3732) else Color(0xFFD8DDD3)
-    val Accent = Color(0xFFFF6A2B)
-    val AccentInk = Color(0xFFFFFFFF)
-    val Income get() = if (ZTheme.dark) Color(0xFF4FB8A6) else Color(0xFF16685E)
-    val Warn get() = if (ZTheme.dark) Color(0xFFFF8A6B) else Color(0xFFB5442B)
-    // Soft tints for pills and highlight tiles.
-    val WarnSoft get() = if (ZTheme.dark) Color(0xFF3A211C) else Color(0xFFFBE7E2)
-    val IncomeSoft get() = if (ZTheme.dark) Color(0xFF14302B) else Color(0xFFE3F0EC)
-    val OrangeSoft get() = if (ZTheme.dark) Color(0xFF3A2619) else Color(0xFFFFEFE6)
-    val AmberSoft get() = if (ZTheme.dark) Color(0xFF3A301A) else Color(0xFFFBF0DA)
+    private val s: PalSet get() = PALETTES[ZTheme.palette.coerceIn(0, PALETTES.size - 1)].let { if (ZTheme.dark) it.dark else it.light }
+    val Paper get() = Color(s.paper)
+    val Card get() = Color(s.card)
+    val Ink get() = Color(s.ink)
+    val InkSoft get() = mix(Color(s.ink), Color(s.paper), 0.22f)
+    val Muted get() = Color(s.muted)
+    val Line get() = Color(s.line)
+    val Accent get() = Color(s.accent)
+    val AccentInk get() = Color(s.accentInk)
+    val Income get() = Color(s.income)
+    val Warn get() = Color(s.warn)
+    // Soft tints for pills and highlight tiles, blended from the card colour.
+    val WarnSoft get() = mix(Color(s.card), Color(s.warn), 0.14f)
+    val IncomeSoft get() = mix(Color(s.card), Color(s.income), 0.14f)
+    val OrangeSoft get() = mix(Color(s.card), Color(s.accent), 0.16f)
+    val AmberSoft get() = mix(Color(s.card), AmberInk, 0.16f)
     val AmberInk get() = if (ZTheme.dark) Color(0xFFE3B35A) else Color(0xFFB7791F)
 }
 
@@ -66,7 +113,7 @@ val BRANDS = listOf(
     Brand("mother dairy", "Mother Dairy", Color(0xFF00843D), Color(0xFFFFFFFF), "M"),
 )
 
-val CAT_COLORS: Map<String, Color> = mapOf(
+private fun buildCatColors(): Map<String, Color> = mapOf(
     "Food" to ZColor.Accent,
     "Groceries" to ZColor.Income,
     "Shopping" to ZColor.Ink,
@@ -101,6 +148,16 @@ val CAT_COLORS: Map<String, Color> = mapOf(
     "Wallet" to Color(0xFF8A7CB8),
     "Education" to Color(0xFF5B8DB8),
 )
+
+// Built once per palette+mode, because a few entries follow the theme (Accent, Ink, Income, Muted).
+private var catKey = -1
+private var catCache: Map<String, Color> = emptyMap()
+val CAT_COLORS: Map<String, Color>
+    get() {
+        val k = ZTheme.palette * 2 + (if (ZTheme.dark) 1 else 0)
+        if (k != catKey) { catCache = buildCatColors(); catKey = k }
+        return catCache
+    }
 
 // Emoji shown instead of a letter for service/abstract categories that rarely have a
 // recognizable brand logo. Merchant-heavy categories (Food, Shopping…) keep the initial.
