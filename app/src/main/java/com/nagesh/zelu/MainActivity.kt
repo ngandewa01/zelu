@@ -28,7 +28,14 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -771,23 +778,38 @@ fun ZeluApp() {
     }
     if (menuOpen) {
         Dialog(onDismissRequest = { menuOpen = false }) {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(ZColor.Card).padding(vertical = 8.dp)
+                .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
                 Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
-                MenuRow("Theme", PALETTES[ZTheme.palette].name + " · colours and look") { menuOpen = false; themeOpen = true }
-                MenuRow("Monthly budget", "Overall spending limit for the month") { menuOpen = false; budgetDlg = true }
-                MenuRow("Savings plan", "What's left each month · SIP, EMI and goal planner") { menuOpen = false; savingsOpen = true }
-                MenuRow("Test notification", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert") {
-                    menuOpen = false
-                    if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
-                }
-                MenuRow("Keep Zelu alive", "Stop battery saver from blocking SMS alerts") { menuOpen = false; Notifier.openBatterySettings(context) }
-                MenuRow("Investments", "EPF, mutual funds, SIPs") { menuOpen = false; view = "invest"; daySel = 0 }
-                MenuRow("Export CSV", "Save transactions to Downloads/Zelu") {
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                MenuSection("Look")
+                MenuRow("Theme", PALETTES[ZTheme.palette].name, Icons.Rounded.Palette,
+                    trailing = {
+                        val set = PALETTES[ZTheme.palette].let { if (ZTheme.dark) it.dark else it.light }
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            listOf(set.paper, set.card, set.ink, set.accent).forEach { c ->
+                                Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(Color(c))
+                                    .border(1.dp, ZColor.Line, RoundedCornerShape(6.dp)))
+                            }
+                        }
+                    }) { menuOpen = false; themeOpen = true }
+                MenuSection("Money")
+                MenuRow("Monthly budget", "Overall limit for the month", Icons.Rounded.AccountBalanceWallet) { menuOpen = false; budgetDlg = true }
+                MenuRow("Savings plan", "What's left · SIP, EMI, goals", Icons.Rounded.Savings, ZColor.Income) { menuOpen = false; savingsOpen = true }
+                MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { menuOpen = false; view = "invest"; daySel = 0 }
+                MenuRow("Export CSV", "Save to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted) {
                     menuOpen = false
                     val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
                     Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
                 }
+                MenuSection("Alerts")
+                MenuRow("Test notification", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
+                    Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent) {
+                    menuOpen = false
+                    if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
+                }
+                MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { menuOpen = false; Notifier.openBatterySettings(context) }
+                Spacer(Modifier.height(6.dp))
             }
         }
     }
@@ -1598,11 +1620,31 @@ private fun prettyDay(ymd: String): String {
     }
 }
 
-@Composable private fun MenuRow(title: String, sub: String, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 20.dp, vertical = 12.dp)) {
-        Text(title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        MutedText(sub, 12)
+@Composable private fun MenuRow(
+    title: String, sub: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color = ZColor.Accent, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 18.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(tint.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(sub, color = ZColor.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (trailing != null) { Spacer(Modifier.width(8.dp)); trailing() }
+        androidx.compose.material3.Icon(Icons.Rounded.ChevronRight, null, tint = ZColor.Muted, modifier = Modifier.size(20.dp))
     }
+}
+
+@Composable private fun MenuSection(label: String) {
+    Text(label.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 2.dp))
 }
 
 @Composable private fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
