@@ -539,6 +539,9 @@ fun ZeluApp() {
     var missedCount by remember { mutableStateOf(0) }
     var missedSeen by remember { mutableStateOf(Storage.missedSeen(context)) }
     var eraseOpen by remember { mutableStateOf(false) }
+    var dupOk by remember { mutableStateOf(Storage.dupOk(context)) }
+    var dupOpen by remember { mutableStateOf(false) }
+    var smsOk by remember { mutableStateOf(true) }
     val lastScan = remember { longArrayOf(0L) }
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -654,15 +657,16 @@ fun ZeluApp() {
         }
     }
 
-    fun rescan(full: Boolean = false, notify: Boolean = false) {
+    fun rescan(full: Boolean = false, notify: Boolean = false, depth: Int = 5000) {
         scope.launch {
             loading = true
             lastScan[0] = System.currentTimeMillis()
             var added = 0
             var missed = 0
             withContext(Dispatchers.IO) {
-                if (full || Storage.dataVersion(context) < Storage.PARSER_VERSION) Storage.clear(context)
-                val inbox = SmsReader.readInbox(context, 5000)
+                val fresh = full || Storage.dataVersion(context) < Storage.PARSER_VERSION
+                if (fresh) Storage.clear(context)
+                val inbox = SmsReader.readInbox(context, if (fresh) maxOf(depth, 20_000) else depth)
                 added = Ingest.ingest(context, inbox).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
                 Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
@@ -704,6 +708,7 @@ fun ZeluApp() {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
             if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 checkNotif()
+                smsOk = hasPerm()
                 // Catch up on anything the phone held back while Zelu was closed.
                 if (stage == "app" && hasPerm() && System.currentTimeMillis() - lastScan[0] > 60_000L) rescan()
             }
@@ -727,7 +732,7 @@ fun ZeluApp() {
         repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         delay(1200)
-        if (hasPerm()) { stage = "app"; rescan() } else { stage = "welcome" }
+        if (hasPerm()) { stage = "app"; rescan() } else if (rows.isNotEmpty()) { stage = "app"; smsOk = false } else { stage = "welcome" }
     }
 
     val accounts = remember(rows) {
@@ -859,6 +864,33 @@ fun ZeluApp() {
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("duplicate" to c.dupOf)), false) }.padding(horizontal = 10.dp, vertical = 10.dp))
                     Text("Add", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false) }.padding(horizontal = 12.dp, vertical = 10.dp))
+                }
+            }
+            if (!smsOk) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Warn, RoundedCornerShape(16.dp))
+                    .clickable {
+                        try {
+                            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.fromParts("package", context.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (_: Exception) {}
+                    }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Zelu can't read your messages", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Android may have switched off SMS permission for an app you open rarely. Tap, then Permissions › SMS › Allow.",
+                            color = ZColor.InkSoft, fontSize = 12.sp)
+                    }
+                    Text("Fix", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
+                }
+            }
+            val dupPairs = remember(rows, dupOk) { Analytics.possibleDuplicates(rows, dupOk) }
+            if (dupPairs.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
+                    .clickable { dupOpen = true }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(plural(dupPairs.size, "possible duplicate", "possible duplicates"), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Same amount, account and day. Tap to check.", color = ZColor.InkSoft, fontSize = 12.sp)
+                    }
+                    Text("Review", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                 }
             }
             declineFor?.let { c ->
@@ -1196,6 +1228,7 @@ fun ZeluApp() {
                             val stale = nb > 0 && System.currentTimeMillis() - nb > 7L * 86_400_000L
                             MenuRow("Rescan messages", if (lr == 0L) "Look for anything new in your inbox" else "Last read " + agoText(lr) + (if (nb > 0) " · newest bank SMS " + agoText(nb) else ""),
                                 Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent) { shut(); rescan(notify = true) }
+                            MenuRow("Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore, ZColor.Muted) { shut(); rescan(notify = true, depth = 100_000) }
                             MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
                                 shut(); unreadOpen = true; unreadList = null
                                 scope.launch { val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }; unreadList = l; noteMissed(l.size) }
@@ -1254,6 +1287,49 @@ fun ZeluApp() {
         }
     }
 
+    if (dupOpen) {
+        val pairs = Analytics.possibleDuplicates(rows, dupOk)
+        if (pairs.isNotEmpty()) Dialog(onDismissRequest = { dupOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+                Text("Possible duplicates", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Two payments with the same amount, account and day. If it is one payment reported twice, hide the extra one. If you really paid twice, keep both.", 12)
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    pairs.forEach { (a, b) ->
+                        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
+                            listOf(a, b).forEach { r ->
+                                Text((r.counterparty ?: r.category) + " · " + money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                MutedText(prettyDate(r.date) + " · " + r.account + " · from " + r.source, 11)
+                                Spacer(Modifier.height(4.dp))
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                Text("Hide the extra one", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+                                    fun info(r: Row) = (if (!r.counterparty.isNullOrBlank()) 1 else 0) + (if (!r.ref.isNullOrBlank()) 1 else 0)
+                                    val drop = if (info(b) > info(a)) a else b
+                                    decide(drop.id, "ignore", "Duplicate", null, false)
+                                })
+                                Text("Keep both", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) { Storage.markDupOk(context, a.id + "|" + b.id) }
+                                        dupOk = withContext(Dispatchers.IO) { Storage.dupOk(context) }
+                                    }
+                                })
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { dupOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+
     if (eraseOpen) Dialog(onDismissRequest = { eraseOpen = false }) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
             Text("Erase everything?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -1302,7 +1378,9 @@ fun ZeluApp() {
                     MutedText(body, 13)
                     Spacer(Modifier.height(12.dp))
                 }
-                topic("Private", "Zelu reads bank messages on this phone only. Nothing is uploaded. Backups and reports leave the phone only when you send them.")
+                topic("Private", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
+                topic("Stops reading messages", "Android can switch off an app's permissions when it is not opened for a while. Zelu shows a banner if that happens. To stop it: phone Settings › Apps › Zelu › Permissions, and turn off 'Remove permissions if app isn't used'. Also keep Menu › Help › Keep Zelu alive allowed.")
+                topic("Duplicates", "If one payment is reported twice, Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
                 topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
                 topic("Missed SMS", "Messages that mention money but could not be understood. A dot on the menu icon appears when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads messages of that form by itself from then on.")
                 topic("Rescan", "Zelu reads new messages as they arrive and again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")

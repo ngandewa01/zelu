@@ -198,6 +198,26 @@ object Analytics {
 
     private val LOAN_NAME = Regex(""".*\bLoan \d{3,4}$""")
 
+    // Two payments on the same account, day, direction and amount that could be one payment reported twice
+    // (a bank alert plus a UPI app alert, say). Two different reference numbers mean two real payments.
+    fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
+        val out = ArrayList<Pair<Row, Row>>()
+        val groups = rows.filter { (it.kind == "expense" || it.kind == "income") && it.category != "EMI" && it.account.isNotBlank() }
+            .groupBy { it.account + "|" + it.date + "|" + it.direction + "|" + Math.round(it.amount * 100) }
+        for (g in groups.values) {
+            if (g.size < 2) continue
+            val sorted = g.sortedBy { it.id }
+            val first = sorted[0]
+            for (i in 1 until sorted.size) {
+                val b = sorted[i]
+                if (!first.ref.isNullOrBlank() && !b.ref.isNullOrBlank() && first.ref != b.ref) continue
+                if ((first.id + "|" + b.id) in dismissed) continue
+                out.add(first to b)
+            }
+        }
+        return out.sortedByDescending { it.first.date }
+    }
+
     fun accountCandidates(rows: List<Row>, balances: Map<String, Pair<Double, Long>>, limits: Map<String, Pair<Double, Long>>): List<AcctCandidate> {
         fun guess(k: String) = when {
             k.contains("FASTag") -> "other"

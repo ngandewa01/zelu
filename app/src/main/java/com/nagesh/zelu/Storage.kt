@@ -277,6 +277,14 @@ object Storage {
         added
     }
 
+    // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.
+    fun dupOk(context: Context): Set<String> = synchronized(lock) { readKv(context, "dup_ok.json").keys }
+    fun markDupOk(context: Context, key: String): Unit = synchronized(lock) {
+        val kv = readKv(context, "dup_ok.json").toMutableMap()
+        kv[key] = "1" to ""
+        writeKv(context, "dup_ok.json", kv)
+    }
+
     // How many missed messages you have already seen, so the menu can show a dot when new ones appear.
     fun missedSeen(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("missed_seen", 0)
     fun setMissedSeen(context: Context, n: Int) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("missed_seen", n).apply() }
