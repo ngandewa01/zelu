@@ -762,6 +762,7 @@ fun ZeluApp() {
     var helpOpen by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
     var emailOpen by remember { mutableStateOf(false) }
+    var privacyOpen by remember { mutableStateOf(false) }
     var fullConfirm by remember { mutableStateOf(false) }
     var themeOpen by remember { mutableStateOf(false) }
     var lockOn by remember { mutableStateOf(context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).getBoolean("lock", false)) }
@@ -1542,7 +1543,7 @@ fun ZeluApp() {
                         }
                         if (startTick < 0) Text("")
                     }
-                    MenuRow("Help", "How Zelu works, report a problem", Icons.Rounded.Lightbulb, ZColor.Accent) { menuPage = "help" }
+                    MenuRow("Help", "How Zelu works, privacy policy, report a problem", Icons.Rounded.Lightbulb, ZColor.Accent) { menuPage = "help" }
                 } else {
                     Row(Modifier.fillMaxWidth().clickable { menuPage = "" }.padding(horizontal = 20.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -1673,6 +1674,7 @@ fun ZeluApp() {
                             var helpAdv by remember { mutableStateOf(false) }
                             MenuRow("How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb) { shut(); helpOpen = true }
                             MenuRow("Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Warning, ZColor.Warn) { shut(); reportOpen = true }
+                            MenuRow("Privacy policy", "What Zelu reads and keeps", Icons.Rounded.Lock, ZColor.Income) { shut(); privacyOpen = true }
                             MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { shut(); Notifier.openBatterySettings(context) }
                             MenuRow("Advanced", if (helpAdv) "Hide" else "Report address, test alert", Icons.Rounded.Lightbulb, ZColor.Muted,
                                 trailing = { Text(if (helpAdv) "▲" else "▼", color = ZColor.Muted, fontSize = 12.sp) }) { helpAdv = !helpAdv }
@@ -2049,6 +2051,29 @@ fun ZeluApp() {
                         else Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
                     }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
+            }
+        }
+    }
+
+    if (privacyOpen) Dialog(onDismissRequest = { privacyOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            Text("Privacy policy", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Last updated " + PrivacyText.UPDATED, 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                Text(PrivacyText.SUMMARY, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                PrivacyText.sections.forEach { (h, b) ->
+                    Spacer(Modifier.height(14.dp))
+                    Text(h, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(b, color = ZColor.InkSoft, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { privacyOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
             }
         }
     }
