@@ -169,6 +169,12 @@ object Parser {
     private val IS_CARD = Regex("""\b(credit card|\bcc\b|card ending|on card|your card|avl lmt|avl limit|available limit|credit limit)\b""", RegexOption.IGNORE_CASE)
     // A debit card is linked to a bank account, not a separate credit-card bill.
     private val DEBIT_CARD = Regex("""\b(debit card|\bdc\b)\b""", RegexOption.IGNORE_CASE)
+    // Digits that are NOT an account: a mobile number ("linked to mobile number XXXXX64606"), a reference number.
+    private val PHONE_NOISE = Regex("""\b(?:mobile|mob|phone|ph|contact|cell|registered)\s*(?:no\.?|number|num|#)?\s*[:.\-]?\s*\+?\d?[xX*#]*\s*[\d ]{4,}""", RegexOption.IGNORE_CASE)
+    private val REF_NOISE = Regex("""\b(?:ref(?:erence)?|utr|rrn|txn|trans(?:action)?|order|id|otp)\s*(?:no\.?|number|id|#)?\s*[:.\-]?\s*[A-Za-z]{0,6}\d{5,}""", RegexOption.IGNORE_CASE)
+    // Some banks show only three digits of the account: "Account XX898".
+    private val LAST3_MASK = Regex("""(?<![A-Za-z0-9])[xX*#]{2,}\s*(\d{3})(?!\d)""")
+    private val YEAR_LIKE = Regex("""(?:19|20)\d\d""")
     private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -507,7 +513,8 @@ object Parser {
     }
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
-    private fun accountOf(text: String, source: String, direction: String): String {
+    private fun accountOf(rawText: String, source: String, direction: String): String {
+        val text = REF_NOISE.replace(PHONE_NOISE.replace(rawText, " "), " ")
         var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
         if (bank == "YESBANK") bank = "YES"
         if (bank.isEmpty()) {
@@ -527,7 +534,8 @@ object Parser {
         }
         var last4 = directional
             ?: LAST4_MASK.find(text)?.groupValues?.get(1)
-            ?: LAST4_KW.find(text)?.groupValues?.get(1) ?: ""
+            ?: LAST4_KW.find(text)?.takeIf { m -> !(YEAR_LIKE.matches(m.groupValues[1]) && !m.value.any { it in "xX*#" }) }?.groupValues?.get(1)
+            ?: LAST3_MASK.find(text)?.groupValues?.get(1) ?: ""
         // "Loan A/c *0126" names the LOAN's number: that is not a savings account of yours.
         LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln -> if (last4.isNotEmpty() && (last4 == ln || ln.endsWith(last4) || last4.endsWith(ln))) last4 = "" }
         // A debit card is the bank account, not a separate credit-card bill.

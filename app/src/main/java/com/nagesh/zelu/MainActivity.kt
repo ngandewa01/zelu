@@ -260,6 +260,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
     val typeSel = remember { mutableStateMapOf<String, String>() }   // account -> the type you chose
     fun typeOf(c: Analytics.AcctCandidate) = typeSel[c.key] ?: c.type
     var typeEdit by remember { mutableStateOf<String?>(null) }
+    var showUnsure by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf<String?>(null) }
     var queue by remember { mutableStateOf<List<Analytics.AcctCandidate>>(emptyList()) }
     fun finish() {
@@ -285,7 +286,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                 @Composable fun group(label: String, list: List<Analytics.AcctCandidate>) {
                     if (list.isEmpty()) return
                     Spacer(Modifier.height(10.dp))
-                    Eyebrow(label)
+                    if (label.isNotEmpty()) Eyebrow(label)
                     list.forEach { c ->
                         val on = isOn(c)
                         val twin = c.dupOf?.takeIf { c.key !in notDup }
@@ -361,10 +362,25 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                         }
                     }
                 }
-                group("Savings accounts", cands.filter { typeOf(it) == "savings" })
-                group("Credit cards", cands.filter { typeOf(it) == "card" })
-                group("Loans", cands.filter { typeOf(it) == "loan" })
-                group("Wallets and others", cands.filter { typeOf(it) == "other" })
+                // One-off numbers with no balance or limit are often not accounts at all (a phone number, a reference), so they wait here.
+                val firm = cands.filter { it.sure || it.dupOf != null }
+                val shaky = cands.filter { !it.sure && it.dupOf == null }
+                group("Savings accounts", firm.filter { typeOf(it) == "savings" })
+                group("Credit cards", firm.filter { typeOf(it) == "card" })
+                group("Loans", firm.filter { typeOf(it) == "loan" })
+                group("Wallets and others", firm.filter { typeOf(it) == "other" })
+                if (shaky.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showUnsure = !showUnsure }.padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Eyebrow("Not sure these are accounts (" + shaky.size + ")")
+                            MutedText("Seen once, with no balance. Open the message to check. Keep only the real ones.", 12)
+                        }
+                        Text(if (showUnsure) "Hide" else "Show", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (showUnsure) group("", shaky)
+                }
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
@@ -876,7 +892,7 @@ fun ZeluApp() {
             // A new account showed up in your messages after you set things up.
             val pendingAccts = remember(rows, balances, limits, registry, acctConfirmed) {
                 if (!acctConfirmed) emptyList()
-                else Analytics.accountCandidates(rows, balances, limits).filter { it.key !in registry && it.txns > 0 }
+                else Analytics.accountCandidates(rows, balances, limits).filter { it.key !in registry && it.txns > 0 && (it.sure || it.dupOf != null) }
             }
             pendingAccts.firstOrNull()?.let { c ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
