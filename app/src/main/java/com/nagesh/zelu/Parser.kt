@@ -11,7 +11,7 @@ import kotlin.math.abs
 // Patterns are deliberately loose because bank SMS formats vary.
 object Parser {
 
-    private val AMOUNT = Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val AMOUNT = Regex("""(?:Rs\.?|INR|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
     private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|purchase)\b""", RegexOption.IGNORE_CASE)
     private val CREDIT = Regex("""\b(credited|credit|received|deposited|refunded?)\b""", RegexOption.IGNORE_CASE)
     val REFUND = Regex("""\brefund""", RegexOption.IGNORE_CASE)
@@ -70,7 +70,7 @@ object Parser {
         RegexOption.IGNORE_CASE,
     )
     private val MIN_AMT = Regex(
-        """min(?:imum)?\s*(?:amt|amount)?\s*(?:due)?\s*[:\-]?\s*(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""",
+        """min(?:imum)?\s*(?:amt|amount)?\s*(?:due)?\s*[:\-]?\s*(?:Rs\.?|INR|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE,
     )
     private val RECURRING = Regex(
@@ -169,10 +169,13 @@ object Parser {
         RegexOption.IGNORE_CASE,
     )
     // Fallback merchant: NAME right after the amount, e.g. "INR2100.76 TOIT BREWPUB."
-    private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
+    private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*:?\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
     // Promotional / instructional phrases that must never be treated as a payee.
     private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|report|block|dispute|verify|helpline|sms|transfer|transferred|a year|a month|year|month|months|annual|debit|debited|vide|clearing|has|have|we|hi|dear)\b""", RegexOption.IGNORE_CASE)
+
+    // Union Bank style: "... by Mob Bk ref no 1896..., Fvg: NAGESH A Avl Bal ..." names the payee after Fvg.
+    private val FVG_PAYEE = Regex("""\b(?:fvg|favou?ring)\s*:?\s*([A-Za-z][A-Za-z .]{1,30}?)(?=\s+(?:avl|bal|not|ref|on)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
@@ -286,6 +289,9 @@ object Parser {
             counterparty = ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
         if (counterparty == null) {
+            counterparty = FVG_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
+        }
+        if (counterparty == null) {
             counterparty = NEFT_SENDER.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
         // Scan all "to/from/by/at NAME" matches and take the first real one (skips "by Rs …").
@@ -375,16 +381,16 @@ object Parser {
     // Balance-only alerts ("Available Bal in HDFC Bank A/c XX5997 ... is INR 77,617.50").
     // Returns (account label, balance, received ms) or null if this isn't a balance message.
     private val BAL_WORD = Regex("""\b(avail(?:able)?\.?\s*bal(?:ance)?|a/?c\s*bal(?:ance)?|current\s*balance|bal(?:ance)?\s*(?:is|:))""", RegexOption.IGNORE_CASE)
-    private val BAL_AMT = Regex("""bal(?:ance)?.{0,90}?(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val BAL_AMT = Regex("""bal(?:ance)?.{0,90}?(?:Rs\.?|INR|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
     private val TXN_WORD = Regex("""\b(debited|credited|spent|withdrawn|paid|sent|received|purchase|txn|transaction)\b""", RegexOption.IGNORE_CASE)
 
-    private val TXN_BAL = Regex("""(?:avl|avail(?:able)?)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val TXN_BAL = Regex("""(?:avl|avail(?:able)?)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
 
     // "Avl Bal Rs 32,855.00" tail on a debit/credit alert (for banks with no daily balance SMS).
     fun balanceFromTxn(body: String): Double? =
         TXN_BAL.find(body.replace("\n", " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
 
-    private val TXN_LIMIT = Regex("""(?:avl|avbl|available)\.?\s*(?:cr(?:edit)?\.?\s*)?(?:lmt|limit)\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val TXN_LIMIT = Regex("""(?:avl|avbl|available)\.?\s*(?:cr(?:edit)?\.?\s*)?(?:lmt|limit)\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
 
     // "Avl Lmt Rs 1,20,000" on a credit-card alert.
     fun limitFromTxn(body: String): Double? =
