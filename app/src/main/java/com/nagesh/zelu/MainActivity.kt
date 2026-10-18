@@ -2593,9 +2593,29 @@ private fun yrMo(m: Int): String {
     }
 }
 
+// Wraps an account or card with "Mark as closed". A closed one is frozen: a cool blue wash and a ❄ tag.
+@Composable private fun ClosableFrame(
+    closed: Boolean, radius: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, onToggle: () -> Unit, content: @Composable () -> Unit,
+) {
+    val ice = Color(0xFF6FA8D6)
+    Column(modifier) {
+        Box {
+            content()
+            if (closed) {
+                Box(Modifier.matchParentSize().clip(RoundedCornerShape(radius)).background(ice.copy(alpha = 0.34f)))
+                Text("❄ Closed", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(ice)
+                        .padding(horizontal = 8.dp, vertical = 3.dp))
+            }
+        }
+        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable { onToggle() }.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+    }
+}
+
 @Composable private fun AccountCard(account: String, bal: Pair<Double, Long>?, spent: Double, modifier: Modifier) {
     val parts = account.trim().split(" ")
-    val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } }
+    val last4 = parts.lastOrNull()?.takeIf { it.length in 2..8 && it.all { c -> c.isDigit() } }
     val name = if (last4 != null) parts.dropLast(1).joinToString(" ") else account
     val tint = bankColor(account)
     val logo = bankLogoRes(account)
@@ -2673,7 +2693,7 @@ private fun prettyDay(ymd: String): String {
     val spendRows = rows.filter { it.kind == "expense" }
     val spent = spendRows.sumOf { it.amount }
     val parts = account.trim().split(" ")
-    val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
+    val last4 = parts.lastOrNull()?.takeIf { it.length in 2..8 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
     val bank = parts.firstOrNull() ?: account
     val logo = bankLogoRes(account)
     val today = Dates.today()
@@ -3620,15 +3640,17 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 MutedText("Total balance", 12)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (balances.isNotEmpty())
-                        Text(money(balances.filterKeys { it !in hiddenAccts }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                acctNames.forEach { a ->
-                    AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.width(280.dp))
+                acctNames.sortedBy { it in closedLoans }.forEach { a ->
+                    ClosableFrame(a in closedLoans, 16.dp, Modifier.width(280.dp), onToggle = {
+                        Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
+                    }) { AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth()) }
                 }
             }
         }
@@ -3640,11 +3662,15 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 MutedText("Tap an account to see the SMS it came from. You can keep it or hide it.", 12)
-                acctNames.forEach { a ->
-                    AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth().clickable {
-                        sourceFor = a; sourceRefs = null
-                        acctScope.launch { sourceRefs = withContext(Dispatchers.IO) { Ingest.referencesFor(acctCtx, a, allRows) } }
-                    })
+                acctNames.sortedBy { it in closedLoans }.forEach { a ->
+                    ClosableFrame(a in closedLoans, 16.dp, Modifier.fillMaxWidth(), onToggle = {
+                        Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
+                    }) {
+                        AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth().clickable {
+                            sourceFor = a; sourceRefs = null
+                            acctScope.launch { sourceRefs = withContext(Dispatchers.IO) { Ingest.referencesFor(acctCtx, a, allRows) } }
+                        })
+                    }
                 }
                 if (hiddenAccts.isNotEmpty()) {
                     Eyebrow("Hidden")
@@ -3699,14 +3725,16 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                cardAccounts.forEach { a ->
+                cardAccounts.sortedBy { it in closedLoans }.forEach { a ->
                     // Card totals follow only the date range, not the Show/Category filter.
                     val cardRows = Analytics.filter(allRows, f.copy(account = a, type = "all", category = "All"))
                     val spent = cardRows.filter { it.kind == "expense" }.sumOf { it.amount }
                     val today = Dates.today()
                     val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
                         .minByOrNull { it.dueDate }
-                    CardTile(a, spent, limits[a], limits["$a#total"], due, usedSince = Analytics.cardUsedSince(allRows, a, limits[a])) { onOpenCard(a) }
+                    ClosableFrame(a in closedLoans, 18.dp, onToggle = {
+                        Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
+                    }) { CardTile(a, spent, limits[a], limits["$a#total"], due, usedSince = Analytics.cardUsedSince(allRows, a, limits[a])) { onOpenCard(a) } }
                 }
             }
             Spacer(Modifier.height(10.dp))
