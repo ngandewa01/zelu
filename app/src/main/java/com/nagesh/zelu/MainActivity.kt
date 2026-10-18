@@ -67,6 +67,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
@@ -430,6 +431,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
 @Composable private fun OnboardFlow(
     stage: String, denied: Boolean, stats: Triple<Int, Int, Int>,
     onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
+    smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
     val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
@@ -501,11 +503,17 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                     ).forEach { (t, d) ->
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
                             .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
-                            Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            val given = if (t == "SMS") smsGiven else notifGiven
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income), contentAlignment = Alignment.Center) {
+                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                             MutedText(d, 13)
                         }
                     }
-                    Cta("Allow both", onAllow)
+                    Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
@@ -617,6 +625,8 @@ fun ZeluApp() {
     var customTo by remember { mutableStateOf(Dates.today()) }
     var stage by remember { mutableStateOf("splash") } // splash, welcome, perm, scan, app
     var permDenied by remember { mutableStateOf(false) }
+    var onbSms by remember { mutableStateOf(false) }
+    var onbNotif by remember { mutableStateOf(false) }
     var detailRow by remember { mutableStateOf<Row?>(null) }
     var drill by remember { mutableStateOf<Pair<String, List<Row>>?>(null) }
 
@@ -729,7 +739,10 @@ fun ZeluApp() {
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { res ->
         val smsOk = res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true
-        if (smsOk) { stage = "scan"; rescan() } else { permDenied = true }
+        onbSms = smsOk
+        onbNotif = Notifier.enabled(context)
+        // Show the ticks for a moment before moving on.
+        if (smsOk) scope.launch { delay(900); stage = "scan"; rescan() } else { permDenied = true }
     }
 
 
@@ -853,6 +866,7 @@ fun ZeluApp() {
         val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
         val cardsN = accts.count { it.contains(" CC") }
         OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
+            smsGiven = onbSms, notifGiven = onbNotif,
             onBack = { stage = if (stage == "perm") "privacy" else "welcome" },
             onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> if (acctConfirmed) "app" else "accounts"; else -> stage } },
             onAllow = {
@@ -3303,7 +3317,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 
     // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
-    refundSuggestions.firstOrNull()?.let { (rf, sp) ->
+    val snoozeCtx = LocalContext.current
+    var snoozeTick by remember { mutableStateOf(0) }
+    refundSuggestions.firstOrNull { snoozeTick >= 0 && !Storage.refundSnoozed(snoozeCtx, it.first.id) }?.let { (rf, sp) ->
         Panel {
             Eyebrow("Needs you · refund")
             Spacer(Modifier.height(6.dp))
@@ -3327,7 +3343,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             ChipScroll {
                 Chip("Yes, same spend", false, filled = true) { onRefundAnswer(rf.id, true) }
                 Chip("No", false) { onRefundAnswer(rf.id, false) }
+                Chip("Do it later", false) { Storage.snoozeRefund(snoozeCtx, rf.id); snoozeTick++ }
             }
+            MutedText("\"Do it later\" brings this back tomorrow.", 11)
         }
     }
 
