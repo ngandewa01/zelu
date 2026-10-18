@@ -157,13 +157,13 @@ object Parser {
     // A real account/card tail: exactly 4 digits anchored to a mask (XX5997, ****9065)
     // or an explicit a/c|account|card keyword. Avoids grabbing stray 3-digit numbers.
     // A masked account tail: one or more mask chars then 4 digits (*5997, **2931, XX5997).
-    private val LAST4_MASK = Regex("""[xX*#]+\s*\d*(\d{4})\b""")
-    private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val LAST4_MASK = Regex("""(?<![A-Za-z0-9])[xX*#]+\s*(\d+)(?!\d)""")
+    private val LAST4_KW = Regex("""(?:a/?c|acct|account|card)\s*(?:no\.?|number|ending(?:\s*(?:with|in))?|is)?\s*[xX*#]*\s*(\d+)(?!\d)""", RegexOption.IGNORE_CASE)
     // Your account is the one money leaves FROM (debit) or lands in / TO (credit) — never the
     // other party's account. "debited from a/c *5997 ... to a/c **2931" -> your a/c is 5997.
     // Matches "from a/c *5997", "from HDFC Bank XX5997", etc. (a/c word optional if masked).
-    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
-    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*\d*(\d{4})\b""", RegexOption.IGNORE_CASE)
+    private val FROM_AC = Regex("""\b(?:from|frm)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d+)(?!\d)""", RegexOption.IGNORE_CASE)
+    private val TO_AC = Regex("""\b(?:to|into|in)\b[A-Za-z:. ]{0,22}?(?:(?:a/?c|acct|account)\s*(?:no\.?|number)?\s*[xX*#]*|[xX*#]+)\s*(\d+)(?!\d)""", RegexOption.IGNORE_CASE)
     // A credit card is marked by an explicit "credit card" or by a spending LIMIT (debit
     // cards / bank accounts show a balance, never a limit).
     private val IS_CARD = Regex("""\b(credit card|\bcc\b|card ending|on card|your card|avl lmt|avl limit|available limit|credit limit)\b""", RegexOption.IGNORE_CASE)
@@ -172,9 +172,6 @@ object Parser {
     // Digits that are NOT an account: a mobile number ("linked to mobile number XXXXX64606"), a reference number.
     private val PHONE_NOISE = Regex("""\b(?:mobile|mob|phone|ph|contact|cell|registered)\s*(?:no\.?|number|num|#)?\s*[:.\-]?\s*\+?\d?[xX*#]*\s*[\d ]{4,}""", RegexOption.IGNORE_CASE)
     private val REF_NOISE = Regex("""\b(?:ref(?:erence)?|utr|rrn|txn|trans(?:action)?|order|id|otp)\s*(?:no\.?|number|id|#)?\s*[:.\-]?\s*[A-Za-z]{0,6}\d{5,}""", RegexOption.IGNORE_CASE)
-    // Some banks show only three digits of the account: "Account XX898".
-    private val LAST3_MASK = Regex("""(?<![A-Za-z0-9])[xX*#]{2,}\s*(\d{3})(?!\d)""")
-    private val YEAR_LIKE = Regex("""(?:19|20)\d\d""")
     private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -515,13 +512,11 @@ object Parser {
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
     private fun accountOf(rawText: String, source: String, direction: String): String {
         val text = REF_NOISE.replace(PHONE_NOISE.replace(rawText, " "), " ")
-        var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+        // The sender id names the bank first; only when it doesn't, the message text does.
+        val src = source.uppercase()
+        var bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+        if (bank.isEmpty()) bank = BANK.find(rawText)?.value?.uppercase()?.replace(" ", "") ?: ""
         if (bank == "YESBANK") bank = "YES"
-        if (bank.isEmpty()) {
-            // Decode the bank from the sender id (code runs into letters, so match substring).
-            val src = source.uppercase()
-            bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
-        }
         // Investments aren't bank accounts you spend from — keep them out of the account filter.
         if (INVESTMENT.containsMatchIn(text)) return ""
         // FASTag / toll debits come from the FASTag wallet, not the bank account.
@@ -533,9 +528,10 @@ object Parser {
             else -> null
         }
         var last4 = directional
-            ?: LAST4_MASK.find(text)?.groupValues?.get(1)
-            ?: LAST4_KW.find(text)?.takeIf { m -> !(YEAR_LIKE.matches(m.groupValues[1]) && !m.value.any { it in "xX*#" }) }?.groupValues?.get(1)
-            ?: LAST3_MASK.find(text)?.groupValues?.get(1) ?: ""
+            ?: LAST4_KW.find(text)?.groupValues?.get(1)
+            ?: LAST4_MASK.find(text)?.groupValues?.get(1) ?: ""
+        // A full account number is shown by its end; a masked tail is kept as the bank wrote it, whatever its length.
+        if (last4.length > 6) last4 = last4.takeLast(4)
         // "Loan A/c *0126" names the LOAN's number: that is not a savings account of yours.
         LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln -> if (last4.isNotEmpty() && (last4 == ln || ln.endsWith(last4) || last4.endsWith(ln))) last4 = "" }
         // A debit card is the bank account, not a separate credit-card bill.
