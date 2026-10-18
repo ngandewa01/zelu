@@ -1237,7 +1237,7 @@ fun ZeluApp() {
                             val stale = nb > 0 && System.currentTimeMillis() - nb > 7L * 86_400_000L
                             MenuRow("Rescan messages", if (lr == 0L) "Look for anything new in your inbox" else "Last read " + agoText(lr) + (if (nb > 0) " · newest bank SMS " + agoText(nb) else ""),
                                 Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent) { shut(); rescan(notify = true) }
-                            MenuRow("Unrecognised senders", "A bank Zelu skipped? Tell it here", Icons.Rounded.AccountBalance, ZColor.Muted) {
+                            MenuRow("Unrecognised senders", "A bank or wallet Zelu skipped? Tell it here", Icons.Rounded.AccountBalance, ZColor.Muted) {
                                 shut(); sendersOpen = true; senderList = null
                                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
                             }
@@ -1332,7 +1332,7 @@ fun ZeluApp() {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
             Text("Unrecognised senders", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("Senders Zelu doesn't know as a bank, whose messages read like payments. If one is your bank, tap This is my bank and its messages are read, old ones too. Only add senders you trust.", 12)
+            MutedText("Senders Zelu doesn't recognise, whose messages read like payments. Say what each is. Bank: read as an account. Wallet: its spends are not counted again, since the top-up already was. Other: read as payments with no account. Ignore: skip it. Only add senders you trust.", 12)
             Spacer(Modifier.height(10.dp))
             val sl = senderList
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -1346,15 +1346,17 @@ fun ZeluApp() {
                             Spacer(Modifier.height(4.dp))
                             u.samples.forEach { s2 -> Text(s2, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis); Spacer(Modifier.height(3.dp)) }
                             Spacer(Modifier.height(4.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                                Text("This is my bank", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) { Storage.trustSender(context, u.address) }
-                                        senderList = senderList?.filter { it.address != u.address }
-                                        rescan(notify = true)
-                                    }
-                                })
-                                Text("Not a bank", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                listOf("bank" to "Bank", "wallet" to "Wallet", "other" to "Other").forEach { (ty, lab) ->
+                                    Text(lab, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) { Storage.trustSender(context, u.address, ty) }
+                                            senderList = senderList?.filter { it.address != u.address }
+                                            rescan(notify = true)
+                                        }
+                                    })
+                                }
+                                Text("Ignore", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                     scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, "sender|" + u.address.uppercase()) }
                                     senderList = senderList?.filter { it.address != u.address }
                                 })
@@ -1544,7 +1546,7 @@ fun ZeluApp() {
                 }
                 topic("Private", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
                 topic("Stops reading messages", "Android can switch off an app's permissions when it is not opened for a while. Zelu shows a banner if that happens. To stop it: phone Settings › Apps › Zelu › Permissions, and turn off 'Remove permissions if app isn't used'. Also keep Menu › Help › Keep Zelu alive allowed.")
-                topic("A bank is not read", "Zelu recognises banks by their sender name. If one is skipped, open Menu › Messages › Unrecognised senders and tap This is my bank. Its messages, old and new, are read from then on.")
+                topic("A bank is not read", "Zelu recognises banks by their sender name. If one is skipped, open Menu › Messages › Unrecognised senders and say whether it is a bank, a wallet or something else. Its messages, old and new, are read from then on.")
                 topic("Categories and splits", "Menu › Money › Categories lets you leave a whole category out of spending. To split one payment across categories, tap it, choose Change category, then Split.")
                 topic("Duplicates", "If one payment is reported twice, Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
                 topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")

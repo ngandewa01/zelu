@@ -36,7 +36,10 @@ object Ingest {
                 val cur = limits[key]
                 if (cur == null || msg.date >= cur.second) limits[key] = amt to msg.date
             }
-            val txn = Parser.parseSms(msg.body, msg.date, msg.address) ?: Taught.apply(taught, msg)
+            val upSender = msg.address.uppercase()
+            val sideSender = upSender in Parser.walletSenders || upSender in Parser.otherSenders
+            val txn = (Parser.parseSms(msg.body, msg.date, msg.address) ?: Taught.apply(taught, msg))
+                ?.let { if (sideSender) it.copy(account = "") else it }
             if (txn == null) {
                 // Balance-only alert -> remember the latest balance per account.
                 val bal = Parser.parseBalance(msg.body, msg.date, msg.address)
@@ -73,7 +76,7 @@ object Ingest {
                     if (cur == null || msg.date >= cur.second) limits[txn.account] = l to msg.date
                 }
             }
-            val c = Classifier.classify(txn, own)
+            val c = if (upSender in Parser.walletSenders) Classifier.Result("ignore", "Wallet") else Classifier.classify(txn, own)
             rows.add(
                 Row(
                     id = txn.id,

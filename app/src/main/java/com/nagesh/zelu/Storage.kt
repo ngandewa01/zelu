@@ -23,7 +23,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 48
+    const val PARSER_VERSION = 49
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -301,12 +301,18 @@ object Storage {
     // ---- senders you said are your bank ----
     private const val SENDER_FILE = "trusted_senders.json"
     fun trustedSenders(context: Context): Set<String> = synchronized(lock) { readKv(context, SENDER_FILE).keys }
-    fun loadTrust(context: Context) { Parser.trusted = trustedSenders(context) }
-    fun trustSender(context: Context, address: String): Unit = synchronized(lock) {
-        val kv = readKv(context, SENDER_FILE).toMutableMap()
-        kv[address.uppercase()] = "1" to ""
-        writeKv(context, SENDER_FILE, kv)
+    fun loadTrust(context: Context) = synchronized(lock) { applyTrust(readKv(context, SENDER_FILE)) }
+    private fun applyTrust(kv: Map<String, Pair<String, String>>) {
         Parser.trusted = kv.keys.toSet()
+        Parser.walletSenders = kv.filter { it.value.first == "wallet" }.keys.toSet()
+        Parser.otherSenders = kv.filter { it.value.first == "other" }.keys.toSet()
+    }
+    // type: "bank" (read as an account), "wallet" (spends not counted again) or "other" (read, with no account).
+    fun trustSender(context: Context, address: String, type: String = "bank"): Unit = synchronized(lock) {
+        val kv = readKv(context, SENDER_FILE).toMutableMap()
+        kv[address.uppercase()] = type to ""
+        writeKv(context, SENDER_FILE, kv)
+        applyTrust(kv)
     }
 
     // ---- categories you don't want counted as spending ----
