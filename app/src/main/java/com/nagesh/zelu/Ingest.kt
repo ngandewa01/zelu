@@ -45,11 +45,13 @@ object Ingest {
                     continue
                 }
                 // A UPI AutoPay / mandate notice: remember it for the Dues page, and line up the next debit.
-                Parser.parseMandate(msg.body, msg.date, msg.address)?.let { m ->
-                    mandates.add(m)
-                    val due = m.nextDate
-                    if (due != null && m.amount != null && due >= Dates.today()) {
-                        reminders.add(Reminder("mand-" + m.key + "-" + due, due, m.amount, null, m.merchant, m.account, true, m.raw, m.source))
+                val mand = Parser.parseMandate(msg.body, msg.date, msg.address)
+                if (mand != null) {
+                    mandates.add(mand)
+                    val due = mand.nextDate
+                    val amt = mand.amount
+                    if (due != null && amt != null && due >= Dates.today()) {
+                        reminders.add(Reminder("mand-" + mand.key + "-" + due, due, amt, null, mand.merchant, mand.account, true, mand.raw, mand.source))
                     }
                     continue
                 }
