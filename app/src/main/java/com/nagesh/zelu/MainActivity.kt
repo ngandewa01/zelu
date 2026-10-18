@@ -4866,7 +4866,8 @@ private fun prettyDate(iso: String): String = try {
     val typicalDaily = remember(rows) { Analytics.typicalDaily(rows, today) }
     val daysLeft = (dim - Dates.dayOfMonth()).coerceAtLeast(0)
     val projected = spentSoFar + dueLeft + typicalDaily * daysLeft
-    if (duesTab == 0) Panel {
+    if (duesTab == 0 && (pending.isNotEmpty() || spentSoFar > 0)) Panel {
+        if (pending.isNotEmpty()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Fact("Overdue", money(overdueList.sumOf { it.amount }))
             Fact("Next 7 days", money(weekList.sumOf { it.amount }))
@@ -4889,8 +4890,9 @@ private fun prettyDate(iso: String): String = try {
                 }
             }
         }
+        }
         if (spentSoFar > 0) {
-            Spacer(Modifier.height(14.dp))
+            if (pending.isNotEmpty()) Spacer(Modifier.height(14.dp))
             Eyebrow("Expected by month end")
             Spacer(Modifier.height(4.dp))
             Text("≈ " + money(projected), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -4901,11 +4903,8 @@ private fun prettyDate(iso: String): String = try {
 
     if (duesTab != 0) { /* the Upcoming list is only on its own tab */ }
     else if (pending.isEmpty()) {
-        Panel {
-            Eyebrow("All clear")
-            Spacer(Modifier.height(8.dp))
-            MutedText("No bills to pay. Bill and EMI reminders from your SMS appear here — tap the circle to mark one paid.")
-        }
+        Spacer(Modifier.height(10.dp))
+        MutedText("Nothing due. Bill and EMI reminders from your SMS show up here.", 13)
     } else {
         Spacer(Modifier.height(4.dp))
         MutedText("Tap the circle to mark a bill paid.", 12)
