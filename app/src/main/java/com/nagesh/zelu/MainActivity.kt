@@ -2508,7 +2508,13 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     
     // Accounts — latest balance + spend this period per account, swipeable
     val spentBy = Analytics.spentByAccount(list, accounts).toMap()
+    val acctCtx = LocalContext.current
+    val acctScope = rememberCoroutineScope()
+    var hiddenAccts by remember { mutableStateOf(Storage.hiddenAccounts(acctCtx)) }
+    var sourceFor by remember { mutableStateOf<String?>(null) }
+    var sourceRefs by remember { mutableStateOf<List<Ingest.Ref>?>(null) }
     val acctNames = (balances.keys + spentBy.keys).distinct().filter { !(it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC")) }
+        .filter { it !in hiddenAccts }
         .sortedByDescending { balances[it]?.first ?: -1.0 }
     var allAccountsOpen by remember { mutableStateOf(false) }
     if (acctNames.isNotEmpty()) {
@@ -2518,7 +2524,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 Eyebrow("Accounts")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (balances.isNotEmpty())
-                        Text(money(balances.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(money(balances.filterKeys { it !in hiddenAccts }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -2537,7 +2543,55 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                acctNames.forEach { a -> AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth()) }
+                MutedText("Tap an account to see the SMS it came from. You can keep it or hide it.", 12)
+                acctNames.forEach { a ->
+                    AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth().clickable {
+                        sourceFor = a; sourceRefs = null
+                        acctScope.launch { sourceRefs = withContext(Dispatchers.IO) { Ingest.referencesFor(acctCtx, a, allRows) } }
+                    })
+                }
+                if (hiddenAccts.isNotEmpty()) {
+                    Eyebrow("Hidden")
+                    hiddenAccts.forEach { h ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(h, color = ZColor.Muted, fontSize = 14.sp)
+                            Text("Show again", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { Storage.setAccountHidden(acctCtx, h, false); hiddenAccts = Storage.hiddenAccounts(acctCtx) }.padding(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    sourceFor?.let { a ->
+        Dialog(onDismissRequest = { sourceFor = null }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
+                Text(a, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Zelu made this account from these messages. If they aren't about an account of yours, hide it.", 12)
+                Spacer(Modifier.height(10.dp))
+                val refs = sourceRefs
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    when {
+                        refs == null -> MutedText("Looking for the messages…", 13)
+                        refs.isEmpty() -> MutedText("No message found for it any more.", 13)
+                        else -> refs.forEach { r ->
+                            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
+                                MutedText(r.why + " · " + r.sender + " · " + (if (r.date.length == 10) prettyDate(r.date) else r.date), 11)
+                                Spacer(Modifier.height(4.dp))
+                                Text(r.body, color = ZColor.Ink, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Hide account", color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { Storage.setAccountHidden(acctCtx, a, true); hiddenAccts = Storage.hiddenAccounts(acctCtx); sourceFor = null }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { sourceFor = null }
+                        .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Keep", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }

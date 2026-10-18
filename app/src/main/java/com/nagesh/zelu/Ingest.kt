@@ -47,7 +47,7 @@ object Ingest {
                 Parser.parseReminder(msg.body, msg.date, msg.address)?.let { reminders.add(it) }
                 continue
             }
-            if (txn.account.isNotBlank() && !txn.account.contains(" CC")) {
+            if (txn.account.isNotBlank() && !txn.account.contains(" CC") && !Parser.isLoanAccountText(msg.body)) {
                 Parser.balanceFromTxn(msg.body)?.let { b ->
                     val cur = txnBalances[txn.account]
                     if (cur == null || msg.date >= cur.second) txnBalances[txn.account] = b to msg.date
@@ -102,6 +102,29 @@ object Ingest {
             if (Parser.parseBalance(m.body, m.date, m.address) != null) continue
             if (Parser.parseReminder(m.body, m.date, m.address) != null) continue
             out.add(m)
+        }
+        return out
+    }
+
+    // The SMS an account on the Home screen was built from, so you can judge whether it belongs there.
+    data class Ref(val sender: String, val date: String, val body: String, val why: String)
+
+    fun referencesFor(context: Context, account: String, rows: List<Row>): List<Ref> {
+        val out = ArrayList<Ref>()
+        val fmt = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US)
+        try {
+            for (m in SmsReader.readInbox(context, 5000)) {
+                if (out.size >= 3) break
+                if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body, m.address)) continue
+                val txn = Parser.parseSms(m.body, m.date, m.address)
+                val acct = txn?.account ?: Parser.parseBalance(m.body, m.date, m.address)?.first ?: continue
+                val hasBal = Parser.balanceFromTxn(m.body) != null || txn == null
+                if (acct == account && hasBal) out.add(Ref(m.address, fmt.format(java.util.Date(m.date)), m.body,
+                    if (txn == null) "Balance alert" else "Balance in a transaction alert"))
+            }
+        } catch (_: Exception) {}
+        rows.filter { it.account == account }.sortedByDescending { it.date }.take(2).forEach {
+            out.add(Ref(it.source, it.date, it.raw, "Transaction on this account"))
         }
         return out
     }

@@ -21,7 +21,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 43
+    const val PARSER_VERSION = 44
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -337,12 +337,8 @@ object Storage {
         val cur = readBalFile(context)
         for ((k, v) in fresh) {
             val c = cur[k]
-            val take = when {
-                c == null -> true
-                source == "b" && c.third == "t" -> true
-                source == "t" && c.third == "b" -> false
-                else -> v.second >= c.second
-            }
+            // The newest figure wins, whichever kind of SMS it came from.
+            val take = c == null || v.second >= c.second
             if (take) cur[k] = Triple(v.first, v.second, source)
         }
         val o = JSONObject()
@@ -593,7 +589,29 @@ object Storage {
     fun clear(context: Context) = synchronized(lock) {
         file(context, TXN_FILE).delete()
         file(context, REMINDER_FILE).delete() // reminders re-parse too; done ticks are kept
+        dropBankOnlyBalances(context) // balances that came from loan messages were wrong; real ones return on re-read
         Unit
+    }
+
+    private fun dropBankOnlyBalances(context: Context) {
+        try {
+            val f = file(context, "balances.json")
+            if (!f.exists()) return
+            val o = JSONObject(f.readText()); val keep = JSONObject()
+            val ks = o.keys()
+            while (ks.hasNext()) { val k = ks.next(); if (k.trim().split(" ").any { it.length in 3..4 && it.all(Char::isDigit) }) keep.put(k, o.get(k)) }
+            f.writeText(keep.toString())
+        } catch (_: Exception) {}
+    }
+
+    // Accounts you chose not to show on Home.
+    fun hiddenAccounts(context: Context): Set<String> =
+        splitList(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("hidden_accounts", "") ?: "").toSet()
+
+    fun setAccountHidden(context: Context, account: String, hidden: Boolean) {
+        val cur = hiddenAccounts(context).toMutableSet()
+        if (hidden) cur.add(account) else cur.remove(account)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("hidden_accounts", cur.joinToString(",")).apply()
     }
 
     // ---- transaction file ----

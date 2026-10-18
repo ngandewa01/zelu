@@ -417,8 +417,16 @@ object Parser {
         return Triple("$bank CC $last4", amt, avail == null)
     }
 
+    // A message about a LOAN account ("Your Loan A/c *0126 Credited ... Avl Bal Rs:32855"): its balance is what is
+    // left of the loan, not money in any account of yours, so it must never become an account balance.
+    fun isLoanAccountText(body: String): Boolean {
+        val t = body.replace("\n", " ")
+        return LOAN_CREDIT.containsMatchIn(t) || LOAN_AC.containsMatchIn(t)
+    }
+
     fun parseBalance(body: String, receivedMs: Long?, source: String): Triple<String, Double, Long>? {
         val text = body.replace("\n", " ").trim()
+        if (isLoanAccountText(text)) return null
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null
         val amt = BAL_AMT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: return null
         val acct = accountOf(text, source, "")
