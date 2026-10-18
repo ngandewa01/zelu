@@ -277,6 +277,23 @@ object Storage {
         added
     }
 
+    // Where "Report a problem" emails go; change it from Menu > Help.
+    const val DEFAULT_REPORT_EMAIL = "ngandewar01@gmail.com"
+    fun reportEmail(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("report_email", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_REPORT_EMAIL
+    fun setReportEmail(context: Context, email: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("report_email", email.trim()).apply()
+    }
+
+    // Accounts you said "not mine" to come back and are asked about again.
+    fun forgetDeclined(context: Context): Int = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        val n = kv.count { it.value.first == "declined" }
+        kv.entries.removeAll { it.value.first == "declined" }
+        writeKv(context, ACCOUNTS_FILE, kv)
+        n
+    }
+
     // ---- UPI AutoPay / mandates (Dues page) ----
     private const val MANDATE_FILE = "mandates.json"
     private const val MANUAL_TXN_FILE = "manual_txns.json"

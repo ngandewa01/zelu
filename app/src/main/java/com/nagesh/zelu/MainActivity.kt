@@ -519,6 +519,11 @@ fun ZeluApp() {
     var trendsOpen by remember { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var menuOpen by remember { mutableStateOf(false) }
+    var menuPage by remember { mutableStateOf("") }
+    var helpOpen by remember { mutableStateOf(false) }
+    var reportOpen by remember { mutableStateOf(false) }
+    var emailOpen by remember { mutableStateOf(false) }
+    var fullConfirm by remember { mutableStateOf(false) }
     var themeOpen by remember { mutableStateOf(false) }
     var lockOn by remember { mutableStateOf(context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).getBoolean("lock", false)) }
     var undo by remember { mutableStateOf<Pair<String, Map<String, String?>>?>(null) }
@@ -644,18 +649,20 @@ fun ZeluApp() {
         }
     }
 
-    fun rescan() {
+    fun rescan(full: Boolean = false, notify: Boolean = false) {
         scope.launch {
             loading = true
+            var added = 0
             withContext(Dispatchers.IO) {
-                if (Storage.dataVersion(context) < Storage.PARSER_VERSION) Storage.clear(context)
-                Ingest.ingest(context, SmsReader.readInbox(context, 5000))
+                if (full || Storage.dataVersion(context) < Storage.PARSER_VERSION) Storage.clear(context)
+                added = Ingest.ingest(context, SmsReader.readInbox(context, 5000)).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
             }
             // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows.
             reload()
             loading = false
             if (stage == "scan") stage = "done"
+            if (notify) Toast.makeText(context, if (full) "Read everything again" else if (added == 0) "Nothing new in your messages" else plural(added, "new payment", "new payments") + " found", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -905,54 +912,44 @@ fun ZeluApp() {
                     .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
                     Text("Filters", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    MutedText("Account", 12)
-                    Spacer(Modifier.height(6.dp))
-                    AccountChips(bankAccounts, account) { account = it; daySel = 0 }
-                    Spacer(Modifier.height(6.dp))
-                    DropdownField("Show", TYPE_OPTS.first { it.first == type }.second, TYPE_OPTS, valueKey = type,
-                        leadIcon = { k -> when (k) {
-                            "expense" -> Icons.Rounded.ArrowUpward to ZColor.Accent
-                            "income" -> Icons.Rounded.ArrowDownward to ZColor.Income
-                            "ignore" -> Icons.Rounded.VisibilityOff to ZColor.Muted
-                            else -> Icons.Rounded.Category to ZColor.Ink
-                        } }) { type = it; daySel = 0 }
-                    DropdownField("Category", if (cat == "All") "All categories" else cat, CAT_OPTS, catIcons = true, valueKey = cat) { cat = it; daySel = 0 }
-                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, singleLine = true,
                         placeholder = { Text("Search payee or amount") },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Spacer(Modifier.height(12.dp))
+                    MutedText("Account", 12)
                     Spacer(Modifier.height(6.dp))
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                            .clickable { excludeEmi = !excludeEmi }.padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            Modifier.size(22.dp).clip(RoundedCornerShape(6.dp))
-                                .background(if (excludeEmi) ZColor.Accent else ZColor.Paper)
-                                .border(1.dp, if (excludeEmi) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) { if (excludeEmi) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Exclude EMI from spending", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("See what you spend after loan EMIs", color = ZColor.Muted, fontSize = 12.sp)
+                    AccountChips(bankAccounts, account) { account = it; daySel = 0 }
+                    Spacer(Modifier.height(12.dp))
+                    MutedText("Show", 12)
+                    Spacer(Modifier.height(6.dp))
+                    ChipScroll {
+                        listOf("all" to "All", "expense" to "Spent", "income" to "Received", "ignore" to "Ignored").forEach { (k, l) ->
+                            val ic = when (k) {
+                                "expense" -> Icons.Rounded.ArrowUpward to ZColor.Accent
+                                "income" -> Icons.Rounded.ArrowDownward to ZColor.Income
+                                "ignore" -> Icons.Rounded.VisibilityOff to ZColor.Muted
+                                else -> Icons.Rounded.Category to ZColor.Ink
+                            }
+                            PickChip(l, type == k, { IconDot(ic.first, ic.second, 20.dp) }) { type = k; daySel = 0 }
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                                .clickable {
-                                    val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
-                                    Toast.makeText(context,
-                                        if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+",
-                                        Toast.LENGTH_SHORT).show()
-                                }.padding(horizontal = 16.dp, vertical = 10.dp),
-                        ) { Text("Export CSV", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-                        Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.height(12.dp))
+                    MutedText("Category", 12)
+                    Spacer(Modifier.height(6.dp))
+                    ChipScroll {
+                        CAT_OPTS.forEach { (k, l) ->
+                            PickChip(if (k == "All") "All" else l, cat == k, { CatDot(k, 20.dp) }) { cat = k; daySel = 0 }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Clear all", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+                                query = ""; account = "All"; type = "all"; cat = "All"; daySel = 0
+                            }.padding(horizontal = 14.dp, vertical = 10.dp))
+                        Spacer(Modifier.width(8.dp))
                         Box(
                             Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                                 .clickable { controlsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
@@ -1109,78 +1106,254 @@ fun ZeluApp() {
         }
     }
     if (menuOpen) {
-        Dialog(onDismissRequest = { menuOpen = false }) {
+        Dialog(onDismissRequest = { menuOpen = false; menuPage = "" }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(ZColor.Card).padding(vertical = 8.dp)
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-                Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                // Theme: one slim row with the palette's own colours as dots.
-                Row(Modifier.fillMaxWidth().clickable { menuOpen = false; themeOpen = true }.padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(ZColor.Accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-                        androidx.compose.material3.Icon(Icons.Rounded.Palette, null, tint = ZColor.Accent, modifier = Modifier.size(17.dp))
+                fun shut() { menuOpen = false; menuPage = "" }
+                if (menuPage.isEmpty()) {
+                    Text("Menu", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+                    // Theme: one slim row with the palette's own colours as dots.
+                    Row(Modifier.fillMaxWidth().clickable { shut(); themeOpen = true }.padding(horizontal = 18.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.Accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(Icons.Rounded.Palette, null, tint = ZColor.Accent, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Theme", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text(PALETTES[ZTheme.palette].name, color = ZColor.Muted, fontSize = 12.sp)
+                        }
+                        val set = PALETTES[ZTheme.palette].let { if (ZTheme.dark) it.dark else it.light }
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            listOf(set.paper, set.card, set.ink, set.accent).forEach { c ->
+                                Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(Color(c)).border(1.dp, ZColor.Line, RoundedCornerShape(6.dp)))
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        androidx.compose.material3.Icon(Icons.Rounded.ChevronRight, null, tint = ZColor.Muted, modifier = Modifier.size(20.dp))
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Text("Theme", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text("  " + PALETTES[ZTheme.palette].name, color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f), maxLines = 1)
-                    val set = PALETTES[ZTheme.palette].let { if (ZTheme.dark) it.dark else it.light }
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        listOf(set.paper, set.card, set.ink, set.accent).forEach { c ->
-                            Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(Color(c)).border(1.dp, ZColor.Line, RoundedCornerShape(6.dp)))
+                    MenuRow("Money", "Budget, savings plan, investments", Icons.Rounded.AccountBalanceWallet) { menuPage = "money" }
+                    MenuRow("Accounts", "Review, bring back removed ones", Icons.Rounded.AccountBalance) { menuPage = "accounts" }
+                    MenuRow("Messages", "Rescan, missed SMS, data check", Icons.Rounded.Receipt, ZColor.Warn) { menuPage = "messages" }
+                    MenuRow("Backup and security", "Back up, restore, app lock", Icons.Rounded.Lock, ZColor.Income) { menuPage = "backup" }
+                    MenuRow("Export CSV", "Save to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted) {
+                        shut()
+                        val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
+                        Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
+                    }
+                    MenuRow("Help", "How Zelu works, report a problem", Icons.Rounded.Lightbulb, ZColor.Accent) { menuPage = "help" }
+                } else {
+                    Row(Modifier.fillMaxWidth().clickable { menuPage = "" }.padding(horizontal = 20.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("‹", color = ZColor.Ink, fontSize = 26.sp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(when (menuPage) { "money" -> "Money"; "accounts" -> "Accounts"; "messages" -> "Messages"; "backup" -> "Backup and security"; else -> "Help" },
+                            color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    when (menuPage) {
+                        "money" -> {
+                            MenuRow("Budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set", Icons.Rounded.AccountBalanceWallet) { shut(); budgetDlg = true }
+                            MenuRow("Savings plan", "What's left · SIP, EMI, goals", Icons.Rounded.Savings, ZColor.Income) { shut(); savingsOpen = true }
+                            MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
+                        }
+                        "accounts" -> {
+                            MenuRow("Review accounts", "Mark accounts as yours, a duplicate, or not mine", Icons.Rounded.AccountBalance) { shut(); stage = "accounts" }
+                            val removed = registry.count { it.value.first == "declined" } + Storage.hiddenAccounts(context).size
+                            MenuRow("Bring back removed accounts", if (removed > 0) "$removed removed or hidden" else "Nothing removed", Icons.Rounded.Restore, ZColor.Muted) {
+                                if (removed > 0) {
+                                    shut()
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            Storage.forgetDeclined(context)
+                                            Storage.hiddenAccounts(context).forEach { Storage.setAccountHidden(context, it, false) }
+                                        }
+                                        registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
+                                        reload()
+                                        Toast.makeText(context, "Zelu will ask about them again", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        }
+                        "messages" -> {
+                            MenuRow("Rescan messages", "Look for anything new in your inbox", Icons.Rounded.Restore, ZColor.Accent) { shut(); rescan(notify = true) }
+                            MenuRow("Missed SMS", "Money messages Zelu couldn't read · add by hand", Icons.Rounded.Receipt, ZColor.Warn) {
+                                shut(); unreadOpen = true; unreadList = null
+                                scope.launch { unreadList = withContext(Dispatchers.IO) { Ingest.unreadable(context) } }
+                            }
+                            MenuRow("Data check", "What was read, and whether balances add up", Icons.Rounded.Receipt) {
+                                shut(); checkOpen = true; check = null
+                                scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
+                            }
+                            MenuRow("Read everything again", "Clears payments and reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted) { shut(); fullConfirm = true }
+                        }
+                        "backup" -> {
+                            MenuRow("Back up now", "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
+                                shut()
+                                scope.launch {
+                                    val ok = withContext(Dispatchers.IO) {
+                                        Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", Backup.export(context))
+                                    }
+                                    Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            MenuRow("Restore data", "Load a backup file", Icons.Rounded.Restore, ZColor.Muted) { shut(); restoreLauncher.launch(arrayOf("*/*")) }
+                            MenuRow("Weekly backup", "Saved to Downloads/Zelu every week", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
+                                trailing = { Text(if (autoBackup) "ON" else "OFF", color = if (autoBackup) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                                autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup)
+                            }
+                            MenuRow("App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted,
+                                trailing = { Text(if (lockOn) "ON" else "OFF", color = if (lockOn) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                                val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                                if (!lockOn && !km.isDeviceSecure) {
+                                    Toast.makeText(context, "Set a screen lock (PIN, pattern or fingerprint) in your phone settings first", Toast.LENGTH_LONG).show()
+                                } else {
+                                    lockOn = !lockOn
+                                    context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
+                                }
+                            }
+                        }
+                        else -> {
+                            MenuRow("How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb) { shut(); helpOpen = true }
+                            MenuRow("Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Warning, ZColor.Warn) { shut(); reportOpen = true }
+                            MenuRow("Report address", Storage.reportEmail(context), Icons.Rounded.Palette, ZColor.Muted) { shut(); emailOpen = true }
+                            MenuRow("Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
+                                Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent) {
+                                shut()
+                                if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
+                            }
+                            MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { shut(); Notifier.openBatterySettings(context) }
                         }
                     }
                 }
-                MenuSection("Money")
-                MenuGrid(listOf(
-                    MI("Budget", Icons.Rounded.AccountBalanceWallet) { menuOpen = false; budgetDlg = true },
-                    MI("Savings plan", Icons.Rounded.Savings, ZColor.Income) { menuOpen = false; savingsOpen = true },
-                    MI("Investments", Icons.Rounded.TrendingUp, ZColor.Income) { menuOpen = false; view = "invest"; daySel = 0 },
-                    MI("Export CSV", Icons.Rounded.FileDownload, ZColor.Muted) {
-                        menuOpen = false
-                        val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
-                        Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
-                    },
-                ))
-                MenuSection("Settings and data")
-                MenuGrid(listOf(
-                    MI("Test alert", Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent,
-                        if (notifBlocked) "OFF" else null, if (notifBlocked) ZColor.Warn else ZColor.Muted) {
-                        menuOpen = false
-                        if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
-                    },
-                    MI("Keep alive", Icons.Rounded.BatteryChargingFull, ZColor.Accent) { menuOpen = false; Notifier.openBatterySettings(context) },
-                    MI("App lock", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted, if (lockOn) "ON" else "OFF",
-                        if (lockOn) ZColor.Income else ZColor.Muted) {
-                        val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-                        if (!lockOn && !km.isDeviceSecure) {
-                            Toast.makeText(context, "Set a screen lock (PIN, pattern or fingerprint) in your phone settings first", Toast.LENGTH_LONG).show()
-                        } else {
-                            lockOn = !lockOn
-                            context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
-                        }
-                    },
-                    MI("Missed SMS", Icons.Rounded.Receipt, ZColor.Warn) {
-                        menuOpen = false; unreadOpen = true; unreadList = null
-                        scope.launch { unreadList = withContext(Dispatchers.IO) { Ingest.unreadable(context) } }
-                    },
-                    MI("Data check", Icons.Rounded.Receipt, ZColor.Accent) {
-                        menuOpen = false; checkOpen = true; check = null
-                        scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
-                    },
-                    MI("Back up", Icons.Rounded.CloudUpload) {
-                        menuOpen = false
-                        scope.launch {
-                            val ok = withContext(Dispatchers.IO) {
-                                Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", Backup.export(context))
-                            }
-                            Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    MI("Restore", Icons.Rounded.Restore, ZColor.Muted) { menuOpen = false; restoreLauncher.launch(arrayOf("*/*")) },
-                    MI("Auto backup", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted, if (autoBackup) "ON" else "OFF",
-                        if (autoBackup) ZColor.Income else ZColor.Muted) { autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup) },
-                ))
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    if (fullConfirm) Dialog(onDismissRequest = { fullConfirm = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("Read everything again?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            MutedText("Zelu clears its payment list and reads all your messages from scratch. Renames, categories, accounts, budgets and payments you added by hand are kept.", 13)
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { fullConfirm = false }.padding(12.dp))
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { fullConfirm = false; rescan(full = true, notify = true) }
+                    .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Read again", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+
+    if (helpOpen) Dialog(onDismissRequest = { helpOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
+            Text("How Zelu works", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                @Composable fun topic(head: String, body: String) {
+                    Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
+                    MutedText(body, 13)
+                    Spacer(Modifier.height(12.dp))
+                }
+                topic("Private", "Zelu reads bank messages on this phone only. Nothing is uploaded. Backups and reports leave the phone only when you send them.")
+                topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
+                topic("Missed SMS", "Messages that mention money but could not be understood. Open Menu › Messages › Missed SMS to add one by hand, or hide it.")
+                topic("Rescan", "Zelu reads new messages as they arrive and again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")
+                topic("Dues", "Bills, EMIs and card dues from your messages show on Dues. Tap the circle once paid. UPI AutoPay mandates are listed at the bottom; Add to dues turns one into a monthly reminder.")
+                topic("Accounts", "Zelu lists the accounts it finds. Mark each as yours, a duplicate of another, or not mine. Menu › Accounts reopens that list and brings removed ones back.")
+                topic("Backup", "Back up saves one file to Downloads/Zelu with everything you taught Zelu. Restore loads it on a new phone. Weekly backup does it automatically.")
+                topic("Something wrong?", "Menu › Help › Report a problem opens an email with the app details filled in. You choose what to include and press Send yourself.")
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { helpOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+
+    if (emailOpen) {
+        var addr by remember { mutableStateOf(Storage.reportEmail(context)) }
+        Dialog(onDismissRequest = { emailOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Report address", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Problem reports are emailed here.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = addr, onValueChange = { addr = it.trim() }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { emailOpen = false }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        if (addr.contains("@") && addr.contains(".")) { Storage.setReportEmail(context, addr); emailOpen = false }
+                        else Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+    }
+
+    if (reportOpen) {
+        var what by remember { mutableStateOf("") }
+        var withInfo by remember { mutableStateOf(true) }
+        var withMissed by remember { mutableStateOf(false) }
+        val to = remember { Storage.reportEmail(context) }
+        Dialog(onDismissRequest = { reportOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+                .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
+                Text("Report a problem", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Opens an email to $to. Nothing is sent until you press Send in your mail app.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = what, onValueChange = { what = it }, placeholder = { Text("What went wrong?") },
+                    minLines = 3, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                @Composable fun tick(on: Boolean, title: String, sub: String, flip: () -> Unit) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { flip() }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (on) ZColor.Accent else ZColor.Paper)
+                            .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                            if (on) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(sub, color = ZColor.Muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                tick(withInfo, "App details", "Version, phone model and counts. No names or amounts.") { withInfo = !withInfo }
+                tick(withMissed, "Messages Zelu couldn't read", "Up to 3 message texts, which include amounts") { withMissed = !withMissed }
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { reportOpen = false }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        scope.launch {
+                            val sb = StringBuilder(what.trim()).append("\n\n")
+                            if (withInfo) {
+                                val ver = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (_: Exception) { "?" }
+                                sb.append("--\nZelu ").append(ver).append(" · parser ").append(Storage.PARSER_VERSION)
+                                    .append("\nAndroid ").append(Build.VERSION.RELEASE).append(" · ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL)
+                                    .append("\n").append(rows.size).append(" payments · ").append(reminders.size).append(" dues · ")
+                                    .append(registry.size).append(" accounts decided\n")
+                            }
+                            if (withMissed) {
+                                val miss = withContext(Dispatchers.IO) { Ingest.unreadable(context, 3) }
+                                miss.forEach { sb.append("\n[").append(it.address).append("] ").append(it.body).append("\n") }
+                            }
+                            val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+                                .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(to))
+                                .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu problem report")
+                                .putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+                            try { context.startActivity(android.content.Intent.createChooser(mail, "Send report")); reportOpen = false }
+                            catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
+                        }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Write email", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }
@@ -2337,31 +2510,15 @@ private fun prettyDay(ymd: String): String {
     }
 }
 
-private class MI(
-    val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tint: Color = ZColor.Accent,
-    val state: String? = null, val stateColor: Color = ZColor.Muted, val onClick: () -> Unit,
-)
-
-// Two small tiles per row, icon first: the whole menu fits on one screen.
-@Composable private fun MenuGrid(items: List<MI>) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                pair.forEach { it2 ->
-                    Row(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
-                        .clickable { it2.onClick() }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(it2.tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-                            androidx.compose.material3.Icon(it2.icon, null, tint = it2.tint, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(it2.title, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        if (it2.state != null) Text(it2.state, color = it2.stateColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
+@Composable private fun PickChip(label: String, selected: Boolean, lead: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(20.dp)).background(if (selected) ZColor.Ink else ZColor.Card)
+            .border(1.dp, if (selected) ZColor.Ink else ZColor.Line, RoundedCornerShape(20.dp))
+            .clickable { onClick() }.padding(start = if (lead != null) 6.dp else 14.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (lead != null) { lead(); Spacer(Modifier.width(7.dp)) }
+        Text(label, color = if (selected) ZColor.Paper else ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
