@@ -6,7 +6,7 @@ import java.io.File
 
 // Keeps the details of the last crash on the phone (nothing is sent anywhere), so "Report a problem" can attach them
 // when you choose to.
-class ZeluApp : Application() {
+class ZeluApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val previous = Thread.getDefaultUncaughtExceptionHandler()
