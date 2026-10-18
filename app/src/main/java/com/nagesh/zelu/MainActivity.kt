@@ -536,6 +536,11 @@ fun ZeluApp() {
     var autoBackup by remember { mutableStateOf(Backup.autoOn(context)) }
     var unreadList by remember { mutableStateOf<List<RawSms>?>(null) }
     var addFor by remember { mutableStateOf<RawSms?>(null) }
+    var missedCount by remember { mutableStateOf(0) }
+    var missedSeen by remember { mutableStateOf(Storage.missedSeen(context)) }
+    var eraseOpen by remember { mutableStateOf(false) }
+    val lastScan = remember { longArrayOf(0L) }
+    fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
     var rangeOpen by remember { mutableStateOf(false) }
@@ -652,12 +657,18 @@ fun ZeluApp() {
     fun rescan(full: Boolean = false, notify: Boolean = false) {
         scope.launch {
             loading = true
+            lastScan[0] = System.currentTimeMillis()
             var added = 0
+            var missed = 0
             withContext(Dispatchers.IO) {
                 if (full || Storage.dataVersion(context) < Storage.PARSER_VERSION) Storage.clear(context)
-                added = Ingest.ingest(context, SmsReader.readInbox(context, 5000)).added
+                val inbox = SmsReader.readInbox(context, 5000)
+                added = Ingest.ingest(context, inbox).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
+                Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
+                missed = Ingest.unreadable(context).size
             }
+            missedCount = missed
             // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows.
             reload()
             loading = false
@@ -691,7 +702,11 @@ fun ZeluApp() {
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
-            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) checkNotif()
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                checkNotif()
+                // Catch up on anything the phone held back while Zelu was closed.
+                if (stage == "app" && hasPerm() && System.currentTimeMillis() - lastScan[0] > 60_000L) rescan()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
@@ -820,7 +835,7 @@ fun ZeluApp() {
                             null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
                     }
                     TopIcon(onClick = { controlsOpen = true }, dot = advActiveTop) { FunnelIcon() }
-                    TopIcon(onClick = { menuOpen = true }) { MenuIcon() }
+                    TopIcon(onClick = { menuOpen = true }, dot = missedCount > missedSeen) { MenuIcon() }
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -1135,7 +1150,7 @@ fun ZeluApp() {
                     }
                     MenuRow("Money", "Budget, savings plan, investments", Icons.Rounded.AccountBalanceWallet) { menuPage = "money" }
                     MenuRow("Accounts", "Review, bring back removed ones", Icons.Rounded.AccountBalance) { menuPage = "accounts" }
-                    MenuRow("Messages", "Rescan, missed SMS, data check", Icons.Rounded.Receipt, ZColor.Warn) { menuPage = "messages" }
+                    MenuRow("Messages", if (missedCount > missedSeen) (missedCount - missedSeen).toString() + " new missed" else "Rescan, missed SMS, data check", Icons.Rounded.Receipt, ZColor.Warn) { menuPage = "messages" }
                     MenuRow("Backup and security", "Back up, restore, app lock", Icons.Rounded.Lock, ZColor.Income) { menuPage = "backup" }
                     MenuRow("Export CSV", "Save to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted) {
                         shut()
@@ -1176,10 +1191,14 @@ fun ZeluApp() {
                             }
                         }
                         "messages" -> {
-                            MenuRow("Rescan messages", "Look for anything new in your inbox", Icons.Rounded.Restore, ZColor.Accent) { shut(); rescan(notify = true) }
-                            MenuRow("Missed SMS", "Money messages Zelu couldn't read · add by hand", Icons.Rounded.Receipt, ZColor.Warn) {
+                            val lr = Storage.lastRead(context)
+                            val nb = Storage.newestBank(context)
+                            val stale = nb > 0 && System.currentTimeMillis() - nb > 7L * 86_400_000L
+                            MenuRow("Rescan messages", if (lr == 0L) "Look for anything new in your inbox" else "Last read " + agoText(lr) + (if (nb > 0) " · newest bank SMS " + agoText(nb) else ""),
+                                Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent) { shut(); rescan(notify = true) }
+                            MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
                                 shut(); unreadOpen = true; unreadList = null
-                                scope.launch { unreadList = withContext(Dispatchers.IO) { Ingest.unreadable(context) } }
+                                scope.launch { val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }; unreadList = l; noteMissed(l.size) }
                             }
                             MenuRow("Data check", "What was read, and whether balances add up", Icons.Rounded.Receipt) {
                                 shut(); checkOpen = true; check = null
@@ -1188,12 +1207,14 @@ fun ZeluApp() {
                             MenuRow("Read everything again", "Clears payments and reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted) { shut(); fullConfirm = true }
                         }
                         "backup" -> {
-                            MenuRow("Back up now", "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
+                            val lb = Backup.lastAny(context)
+                            MenuRow("Back up now", if (lb > 0) "Last saved " + java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(lb)) + " · Downloads/Zelu" else "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
                                 shut()
                                 scope.launch {
                                     val ok = withContext(Dispatchers.IO) {
                                         Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", Backup.export(context))
                                     }
+                                    if (ok) Backup.markManual(context)
                                     Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
                                 }
                             }
@@ -1212,7 +1233,9 @@ fun ZeluApp() {
                                     context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
                                 }
                             }
+                            MenuRow("Erase everything", "Delete all Zelu data from this phone", Icons.Rounded.Warning, ZColor.Warn) { shut(); eraseOpen = true }
                         }
+                        "erase" -> {}
                         else -> {
                             MenuRow("How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb) { shut(); helpOpen = true }
                             MenuRow("Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Warning, ZColor.Warn) { shut(); reportOpen = true }
@@ -1227,6 +1250,28 @@ fun ZeluApp() {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    if (eraseOpen) Dialog(onDismissRequest = { eraseOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("Erase everything?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            MutedText("This deletes every payment, rule, account choice and setting Zelu keeps on this phone. Your messages are not touched. Backup files already saved in Downloads/Zelu stay there: delete them in your Files app if you don't want them.", 13)
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { eraseOpen = false }.padding(12.dp))
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Warn).clickable {
+                    eraseOpen = false
+                    scope.launch {
+                        withContext(Dispatchers.IO) { Storage.eraseAll(context) }
+                        ZeluWidget.refresh(context)
+                        Toast.makeText(context, "Erased. Open Zelu again to start fresh.", Toast.LENGTH_LONG).show()
+                        (context as? android.app.Activity)?.finishAffinity()
+                    }
+                }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Erase", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -1259,10 +1304,12 @@ fun ZeluApp() {
                 }
                 topic("Private", "Zelu reads bank messages on this phone only. Nothing is uploaded. Backups and reports leave the phone only when you send them.")
                 topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
-                topic("Missed SMS", "Messages that mention money but could not be understood. Open Menu › Messages › Missed SMS to add one by hand, or hide it.")
+                topic("Missed SMS", "Messages that mention money but could not be understood. A dot on the menu icon appears when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads messages of that form by itself from then on.")
                 topic("Rescan", "Zelu reads new messages as they arrive and again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")
                 topic("Dues", "Bills, EMIs and card dues from your messages show on Dues. Tap the circle once paid. UPI AutoPay mandates are listed at the bottom; Add to dues turns one into a monthly reminder.")
                 topic("Accounts", "Zelu lists the accounts it finds. Mark each as yours, a duplicate of another, or not mine. Menu › Accounts reopens that list and brings removed ones back.")
+                topic("Not covered", "Zelu reads SMS only. A payment that exists only in a chat app, an RCS bank chat or the bank's own app is not visible to it.")
+                topic("Erase", "Menu › Backup and security › Erase everything deletes all of Zelu's data from this phone.")
                 topic("Backup", "Back up saves one file to Downloads/Zelu with everything you taught Zelu. Restore loads it on a new phone. Weekly backup does it automatically.")
                 topic("Something wrong?", "Menu › Help › Report a problem opens an email with the app details filled in. You choose what to include and press Send yourself.")
             }
@@ -1430,6 +1477,7 @@ fun ZeluApp() {
                                     modifier = Modifier.clickable {
                                         scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, Ingest.smsKey(m)) }
                                         unreadList = unreadList?.filter { it !== m }
+                                        noteMissed(unreadList?.size ?: 0)
                                     })
                                 Text("Share", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.clickable {
@@ -1457,6 +1505,7 @@ fun ZeluApp() {
         val sugg = remember(sms) { Parser.suggestTitles(sms.body, null) }
         var payee by remember(sms) { mutableStateOf(sugg.firstOrNull() ?: "") }
         var day by remember(sms) { mutableStateOf(Dates.fmtMs(sms.date)) }
+        var learnIt by remember(sms) { mutableStateOf(true) }
         Dialog(onDismissRequest = { addFor = null }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                 .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
@@ -1483,7 +1532,19 @@ fun ZeluApp() {
                     .clickable { pickDate(context, day) { day = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
                     Text(prettyDate(day), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { learnIt = !learnIt }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (learnIt) ZColor.Accent else ZColor.Paper)
+                        .border(1.dp, if (learnIt) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                        if (learnIt) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Do the same for similar messages", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Zelu learns this message's form and reads the next ones itself", color = ZColor.Muted, fontSize = 12.sp)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { addFor = null }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
@@ -1499,9 +1560,12 @@ fun ZeluApp() {
                                     val own = Storage.splitList(Storage.loadSettings(context).ownAccounts)
                                     val c = Classifier.classify(Txn(id, day, amount, dir, name, null, sms.body, sms.address, acct), own)
                                     Storage.addManualTxn(context, Row(id, day, amount, dir, name, null, sms.body, sms.address, acct, c.kind, c.category), Ingest.smsKey(sms))
+                                    if (learnIt) Taught.learn(context, sms.body, sms.address, name, dir)
                                 }
-                                unreadList = unreadList?.filter { it !== sms }
                                 addFor = null
+                                if (learnIt) rescan()
+                                val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }
+                                unreadList = l; noteMissed(l.size)
                                 reload()
                                 Toast.makeText(context, "Added to your payments", Toast.LENGTH_SHORT).show()
                             }
@@ -1661,6 +1725,16 @@ fun ZeluApp() {
                     .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
             ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
+    }
+}
+
+private fun agoText(ms: Long): String {
+    val min = (System.currentTimeMillis() - ms) / 60_000L
+    return when {
+        min < 1 -> "just now"
+        min < 60 -> "$min min ago"
+        min < 1440 -> "${min / 60} h ago"
+        else -> "${min / 1440} days ago"
     }
 }
 

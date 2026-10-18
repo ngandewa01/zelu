@@ -66,6 +66,15 @@ object Backup {
     fun lastAuto(context: Context): Long =
         context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).getLong("last", 0L)
 
+    fun lastManual(context: Context): Long =
+        context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).getLong("manual", 0L)
+
+    fun markManual(context: Context) {
+        context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("manual", System.currentTimeMillis()).apply()
+    }
+
+    fun lastAny(context: Context): Long = maxOf(lastAuto(context), lastManual(context))
+
     fun maybeAuto(context: Context) {
         if (!autoOn(context)) return
         val now = System.currentTimeMillis()

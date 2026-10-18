@@ -16,6 +16,7 @@ object Ingest {
         val rows = ArrayList<Row>()
         val reminders = ArrayList<Reminder>()
         val mandates = ArrayList<Mandate>()
+        val taught = Taught.load(context)
         val balances = HashMap<String, Pair<Double, Long>>()
         val txnBalances = HashMap<String, Pair<Double, Long>>()
         val limits = HashMap<String, Pair<Double, Long>>()
@@ -34,7 +35,7 @@ object Ingest {
                 val cur = limits[key]
                 if (cur == null || msg.date >= cur.second) limits[key] = amt to msg.date
             }
-            val txn = Parser.parseSms(msg.body, msg.date, msg.address)
+            val txn = Parser.parseSms(msg.body, msg.date, msg.address) ?: Taught.apply(taught, msg)
             if (txn == null) {
                 // Balance-only alert -> remember the latest balance per account.
                 val bal = Parser.parseBalance(msg.body, msg.date, msg.address)
@@ -108,6 +109,7 @@ object Ingest {
 
     fun unreadable(context: Context, limit: Int = 40): List<RawSms> {
         val handled = Storage.handledSms(context)
+        val taught = Taught.load(context)
         val all = try { SmsReader.readInbox(context, 3000) } catch (_: Exception) { return emptyList() }
         val out = ArrayList<RawSms>()
         for (m in all) {
@@ -119,6 +121,7 @@ object Ingest {
             if (Parser.parseReminder(m.body, m.date, m.address) != null) continue
             if (Parser.parseMandate(m.body, m.date, m.address) != null) continue
             if (smsKey(m) in handled) continue
+            if (Taught.apply(taught, m) != null) continue
             out.add(m)
         }
         return out

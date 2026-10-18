@@ -277,6 +277,23 @@ object Storage {
         added
     }
 
+    // How many missed messages you have already seen, so the menu can show a dot when new ones appear.
+    fun missedSeen(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("missed_seen", 0)
+    fun setMissedSeen(context: Context, n: Int) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("missed_seen", n).apply() }
+
+    // When messages were last read, and the date of the newest bank message found.
+    fun setReadStamp(context: Context, readAt: Long, newestBank: Long) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("last_read", readAt).putLong("newest_bank", newestBank).apply()
+    }
+    fun lastRead(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("last_read", 0L)
+    fun newestBank(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("newest_bank", 0L)
+
+    // Deletes everything Zelu keeps on this phone (files and saved settings). Theme and app lock are left alone.
+    fun eraseAll(context: Context): Unit = synchronized(lock) {
+        context.filesDir.listFiles()?.forEach { if (it.isFile) it.delete() }
+        for (n in listOf(PREFS, "zelu_backup", "zelu_recap")) context.getSharedPreferences(n, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
     // Where "Report a problem" emails go; change it from Menu > Help.
     const val DEFAULT_REPORT_EMAIL = "ngandewar01@gmail.com"
     fun reportEmail(context: Context): String =
