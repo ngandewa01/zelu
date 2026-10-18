@@ -39,7 +39,7 @@ object Parser {
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|bill pay|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|auto[- ]?debited on|request(ed)? (money|rs|inr)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
 
     // A debit that has NOT happened yet: a scheduled / future auto-debit, e.g.
     // "your EMI will be auto-debited on 5th". Money hasn't left the account.
@@ -328,6 +328,59 @@ object Parser {
         else "sms-" + hash("$date|$amount|$direction|$text")
 
         return Txn(id, date, amount, direction, counterparty, ref, text, source, account)
+    }
+
+    // For the "add by hand" screen: the first rupee amount in a message, and the account it names.
+    fun firstAmount(body: String): Double? =
+        AMOUNT.find(WS.replace(body, " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+
+    fun accountFor(body: String, source: String, direction: String): String =
+        accountOf(WS.replace(body, " ").trim(), source, direction)
+
+    // ---- UPI AutoPay / mandates ----
+    private val M_WORD = Regex("""\b(upi[- ]?(?:auto ?pay|mandate)|auto ?pay|e-?mandate|mandate)\b""", RegexOption.IGNORE_CASE)
+    private val M_END = Regex("""\b(revok(?:ed|e)|cancel+ed|deleted|removed|expired|terminated|declined|rejected|failed|unsuccessful|closed)\b""", RegexOption.IGNORE_CASE)
+    private val M_PAUSE = Regex("""\bpaus(?:ed|e)\b""", RegexOption.IGNORE_CASE)
+    private val M_NEW = Regex("""\b(created|registered|activated|approved|set ?up|successfully|resumed|modified|accepted)\b""", RegexOption.IGNORE_CASE)
+    private val M_SCHED = Regex("""\b(scheduled|will be debited|pre-?debit|upcoming)\b""", RegexOption.IGNORE_CASE)
+    private val M_OTP = Regex("""\b(otp|one[- ]time password|offer|cashback|click|apply now)\b""", RegexOption.IGNORE_CASE)
+    private val M_NAME = listOf(
+        Regex("""towards\s+(.+?)\s*(?:auto ?pay\b|from\b|for\b|of\b|\.|,|$)""", RegexOption.IGNORE_CASE),
+        Regex("""auto ?pay\s+for\s+(.+?)\s+(?:debit|of|is|has|for|from)\b""", RegexOption.IGNORE_CASE),
+        Regex("""mandate\s+(?:on|for|with|to|towards)\s+(.+?)\s+(?:for|of|from|is|has|worth|rs|inr|₹)\b""", RegexOption.IGNORE_CASE),
+        Regex("""merchant\s*(?:name)?\s*[:\-]\s*(.+?)(?:\.|,|\s{2}|$)""", RegexOption.IGNORE_CASE),
+    )
+    private val M_ON = Regex("""\bon\s*\.?\s*(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""", RegexOption.IGNORE_CASE)
+
+    fun parseMandate(body: String, receivedMs: Long?, source: String): Mandate? {
+        val text = WS.replace(body, " ").trim()
+        if (text.isEmpty() || !M_WORD.containsMatchIn(text) || M_OTP.containsMatchIn(text)) return null
+        val status = when {
+            M_END.containsMatchIn(text) -> "ended"
+            M_PAUSE.containsMatchIn(text) -> "paused"
+            M_SCHED.containsMatchIn(text) -> "scheduled"
+            M_NEW.containsMatchIn(text) -> "active"
+            else -> return null
+        }
+        var name: String? = null
+        for (r in M_NAME) {
+            val g = r.find(text)?.groupValues?.get(1)?.replace("<", "")?.replace(">", "")?.trim(' ', '.', ',', ':', '-') ?: continue
+            if (g.length in 2..40 && !g.equals("upi", true)) { name = g; break }
+        }
+        name ?: return null
+        val merchant = if (name == name.uppercase()) titleCase(name) else name
+        val amount = AMOUNT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+        val next = if (status == "scheduled") M_ON.find(text)?.let { m ->
+            try {
+                val dd = m.groupValues[1].toInt(); val mm = m.groupValues[2].toInt()
+                var yy = m.groupValues[3].toInt(); if (yy < 100) yy += 2000
+                val cal = GregorianCalendar(IST); cal.isLenient = false; cal.clear(); cal.set(yy, mm - 1, dd)
+                fmt(cal.timeInMillis)
+            } catch (_: Exception) { null }
+        } else null
+        val ms = receivedMs ?: System.currentTimeMillis()
+        val account = accountOf(text, source, "debit")
+        return Mandate(merchant.lowercase().replace(Regex("[^a-z0-9]"), ""), merchant, amount, account, if (status == "scheduled" && next == null) "active" else status, next, ms, ms, text, source)
     }
 
     // Parse a bill / payment reminder (a "due" or "will be debited" notice) into a Reminder.

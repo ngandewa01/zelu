@@ -38,6 +38,21 @@ data class Reminder(
 
 // A stored transaction: a Txn plus its classification.
 // kind is one of: expense, income, refund, transfer, lent, borrowed, invest, ignore
+// A UPI AutoPay / e-mandate you set up (or that was changed), built from the bank's messages.
+// status: "active", "scheduled" (a debit is lined up for nextDate), "paused" or "ended".
+data class Mandate(
+    val key: String,
+    val merchant: String,
+    val amount: Double?,
+    val account: String,
+    val status: String,
+    val nextDate: String?,
+    val since: Long,
+    val lastMs: Long,
+    val raw: String,
+    val source: String,
+)
+
 data class Row(
     val id: String,
     val date: String,

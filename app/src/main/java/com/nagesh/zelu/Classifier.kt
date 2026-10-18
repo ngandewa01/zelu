@@ -146,6 +146,8 @@ object Classifier {
         }
     }
 
+    private val BILL_PAY = Regex("""\bbill ?pay\b""")
+
     fun classify(t: Txn, ownAccounts: List<String>): Result {
         val cp = (t.counterparty ?: "").lowercase()
 
@@ -188,6 +190,8 @@ object Classifier {
         val raw = EMI_OFFER.replace(t.raw, " ")
         val spaced = ((t.counterparty ?: "") + " " + raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
         val hay = ("$cp $raw $spaced").lowercase()
+        // "Amazon Bill Pay", "BillPay"... is a bill payment through the platform, whatever the platform sells.
+        if (BILL_PAY.containsMatchIn(cp)) return Result("expense", "Bills")
         // 1) Exact brand dictionary (most specific).
         for ((category, words) in CATEGORIES) {
             if (words.any { has(hay, it) }) return Result("expense", category)

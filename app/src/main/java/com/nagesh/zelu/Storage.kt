@@ -23,7 +23,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 46
+    const val PARSER_VERSION = 47
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -47,7 +47,7 @@ object Storage {
 
     // Load transactions with learned payee rules and per-transaction overrides applied.
     fun loadRows(context: Context): List<Row> = synchronized(lock) {
-        val base = readMap(context)
+        val base = readMap(context) + manualTxns(context)
         val overrides = readKv(context, OVERRIDE_FILE)
         val rules = readKv(context, RULE_FILE)
         val aliases = readKv(context, ALIAS_FILE)
@@ -276,6 +276,75 @@ object Storage {
         writeMap(context, map)
         added
     }
+
+    // ---- UPI AutoPay / mandates (Dues page) ----
+    private const val MANDATE_FILE = "mandates.json"
+    private const val MANUAL_TXN_FILE = "manual_txns.json"
+    private const val HANDLED_FILE = "handled_sms.json"
+
+    private fun mandateToJson(m: Mandate) = JSONObject().put("key", m.key).put("merchant", m.merchant)
+        .put("amount", m.amount ?: JSONObject.NULL).put("account", m.account).put("status", m.status)
+        .put("next", m.nextDate ?: JSONObject.NULL).put("since", m.since).put("last", m.lastMs)
+        .put("raw", m.raw).put("source", m.source)
+
+    private fun mandateFromJson(o: JSONObject) = Mandate(
+        o.getString("key"), o.getString("merchant"), if (o.isNull("amount")) null else o.getDouble("amount"),
+        o.optString("account"), o.getString("status"), if (o.isNull("next")) null else o.getString("next"),
+        o.optLong("since"), o.optLong("last"), o.optString("raw"), o.optString("source"))
+
+    fun loadMandates(context: Context): List<Mandate> = synchronized(lock) {
+        val f = file(context, MANDATE_FILE)
+        if (!f.exists()) emptyList() else try {
+            val obj = JSONObject(f.readText()); val out = ArrayList<Mandate>()
+            for (k in obj.keys()) out.add(mandateFromJson(obj.getJSONObject(k)))
+            out.sortedByDescending { it.lastMs }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    // The newest message about a mandate decides its status; older ones only fill in what is missing.
+    fun saveMandates(context: Context, found: List<Mandate>): Unit = synchronized(lock) {
+        val cur = loadMandates(context).associateBy { it.key }.toMutableMap()
+        for (m in found.sortedBy { it.lastMs }) {
+            val e = cur[m.key]
+            cur[m.key] = if (e == null) m else if (m.lastMs >= e.lastMs) m.copy(
+                amount = m.amount ?: e.amount, account = m.account.ifBlank { e.account }, since = minOf(e.since, m.since),
+                nextDate = if (m.status == "scheduled" || m.status == "active") (m.nextDate ?: e.nextDate) else null)
+            else e.copy(amount = e.amount ?: m.amount, account = e.account.ifBlank { m.account }, since = minOf(e.since, m.since))
+        }
+        if (found.isNotEmpty()) {
+            val obj = JSONObject()
+            for ((k, v) in cur) obj.put(k, mandateToJson(v))
+            file(context, MANDATE_FILE).writeText(obj.toString())
+        }
+    }
+
+    // ---- payments you added by hand from a message Zelu couldn't read ----
+    fun addManualTxn(context: Context, row: Row, smsKey: String): Unit = synchronized(lock) {
+        val f = file(context, MANUAL_TXN_FILE)
+        val obj = try { if (f.exists()) JSONObject(f.readText()) else JSONObject() } catch (_: Exception) { JSONObject() }
+        obj.put(row.id, rowToJson(row))
+        f.writeText(obj.toString())
+        markSmsHandled(context, smsKey)
+    }
+
+    private fun manualTxns(context: Context): Map<String, Row> {
+        val f = file(context, MANUAL_TXN_FILE)
+        if (!f.exists()) return emptyMap()
+        return try {
+            val obj = JSONObject(f.readText()); val out = HashMap<String, Row>()
+            for (k in obj.keys()) out[k] = rowFromJson(obj.getJSONObject(k))
+            out
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    // A message you added as a payment, or told Zelu to stop listing.
+    fun markSmsHandled(context: Context, key: String): Unit = synchronized(lock) {
+        val kv = readKv(context, HANDLED_FILE).toMutableMap()
+        kv[key] = "1" to ""
+        writeKv(context, HANDLED_FILE, kv)
+    }
+
+    fun handledSms(context: Context): Set<String> = synchronized(lock) { readKv(context, HANDLED_FILE).keys }
 
     // ---- reminders (Dues page) ----
     fun saveReminders(context: Context, newOnes: List<Reminder>): Int = synchronized(lock) {
@@ -688,6 +757,7 @@ object Storage {
 
     fun clear(context: Context) = synchronized(lock) {
         file(context, TXN_FILE).delete()
+        file(context, MANDATE_FILE).delete() // mandates are re-read from the messages too
         file(context, REMINDER_FILE).delete() // reminders re-parse too; done ticks are kept
         dropBankOnlyBalances(context) // balances that came from loan messages were wrong; real ones return on re-read
         Unit

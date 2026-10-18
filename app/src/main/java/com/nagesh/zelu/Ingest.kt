@@ -15,6 +15,7 @@ object Ingest {
 
         val rows = ArrayList<Row>()
         val reminders = ArrayList<Reminder>()
+        val mandates = ArrayList<Mandate>()
         val balances = HashMap<String, Pair<Double, Long>>()
         val txnBalances = HashMap<String, Pair<Double, Long>>()
         val limits = HashMap<String, Pair<Double, Long>>()
@@ -41,6 +42,15 @@ object Ingest {
                     val cur = balances[bal.first]
                     if (cur == null || bal.third >= cur.second) balances[bal.first] = bal.second to bal.third
                     balanceHits[bal.first] = bal.second
+                    continue
+                }
+                // A UPI AutoPay / mandate notice: remember it for the Dues page, and line up the next debit.
+                Parser.parseMandate(msg.body, msg.date, msg.address)?.let { m ->
+                    mandates.add(m)
+                    val due = m.nextDate
+                    if (due != null && m.amount != null && due >= Dates.today()) {
+                        reminders.add(Reminder("mand-" + m.key + "-" + due, due, m.amount, null, m.merchant, m.account, true, m.raw, m.source))
+                    }
                     continue
                 }
                 // Not a completed payment — it may be a bill/EMI reminder for the Dues page.
@@ -79,6 +89,7 @@ object Ingest {
 
         val added = Storage.saveRows(context, rows)
         Storage.saveReminders(context, reminders)
+        Storage.saveMandates(context, mandates)
         Storage.saveBalances(context, balances, "b")
         Storage.saveBalances(context, txnBalances, "t")
         Storage.saveLimits(context, limits)
@@ -91,7 +102,10 @@ object Ingest {
 
     // Bank-looking messages that mention money but that Zelu could not turn into a transaction, balance
     // or reminder. These are the ones worth reporting so the reader can be taught about them.
+    fun smsKey(m: RawSms): String = m.date.toString() + "|" + m.body.hashCode()
+
     fun unreadable(context: Context, limit: Int = 40): List<RawSms> {
+        val handled = Storage.handledSms(context)
         val all = try { SmsReader.readInbox(context, 3000) } catch (_: Exception) { return emptyList() }
         val out = ArrayList<RawSms>()
         for (m in all) {
@@ -101,6 +115,8 @@ object Ingest {
             if (Parser.parseSms(m.body, m.date, m.address) != null) continue
             if (Parser.parseBalance(m.body, m.date, m.address) != null) continue
             if (Parser.parseReminder(m.body, m.date, m.address) != null) continue
+            if (Parser.parseMandate(m.body, m.date, m.address) != null) continue
+            if (smsKey(m) in handled) continue
             out.add(m)
         }
         return out

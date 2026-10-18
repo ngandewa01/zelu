@@ -12,6 +12,7 @@ object Dates {
     private fun sdf(p: String) = SimpleDateFormat(p, Locale.US).apply { timeZone = IST }
 
     fun today(): String = sdf("yyyy-MM-dd").format(Date())
+    fun fmtMs(ms: Long): String = sdf("yyyy-MM-dd").format(Date(ms))
     fun todayMonth(): String = sdf("yyyy-MM").format(Date())
     fun dayOfMonth(): Int = GregorianCalendar(IST).get(Calendar.DAY_OF_MONTH)
 
