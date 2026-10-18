@@ -19,6 +19,7 @@ object Storage {
     private const val REPAID_FILE = "lent_repaid.json"   // person -> amount repaid against money you lent
     private const val ALIAS_FILE = "payee_alias.json"   // payee name -> the name you renamed / merged it into
     private const val ACCOUNTS_FILE = "accounts.json"   // account / loan -> accepted or declined, and its type
+    private const val TITLE_FILE = "title_overrides.json" // transaction id -> the title you gave it
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
@@ -60,9 +61,16 @@ object Storage {
             }
             return cur
         }
+        val titles = readKv(context, TITLE_FILE)
+        val own = splitList(loadSettings(context).ownAccounts)
         val rows = base.values.map { r ->
             var row = r
-            if (aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
+            // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
+            titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
+                val c = Classifier.classify(Txn(r.id, r.date, r.amount, r.direction, t, r.ref, r.raw, r.source, r.account), own)
+                row = row.copy(counterparty = t, kind = c.kind, category = c.category)
+            }
+            if (titles[r.id] == null && aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
             val payeeKey = (row.counterparty ?: "").lowercase().trim()
             if (payeeKey.isNotEmpty() && rules.containsKey(payeeKey)) {
                 val (k, c) = rules.getValue(payeeKey)
@@ -643,7 +651,7 @@ object Storage {
     }
 
     // Undo support: a copy of everything a category / refund / rename decision can change.
-    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, "refund_links.json")
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json")
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
         UNDO_FILES.associateWith { n -> val f = file(context, n); if (f.exists()) f.readText() else null }
@@ -651,6 +659,12 @@ object Storage {
 
     fun restoreSnapshot(context: Context, snap: Map<String, String?>): Unit = synchronized(lock) {
         for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeText(t) }
+    }
+
+    fun setTitle(context: Context, id: String, title: String): Unit = synchronized(lock) {
+        val kv = readKv(context, TITLE_FILE).toMutableMap()
+        if (title.isBlank()) kv.remove(id) else kv[id] = title.trim() to ""
+        writeKv(context, TITLE_FILE, kv)
     }
 
     fun setPayeeRule(context: Context, payee: String, kind: String, category: String) = synchronized(lock) {

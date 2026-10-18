@@ -498,6 +498,40 @@ object Parser {
         return s
     }
 
+    private val SUG_JUNK = setOf("rs", "inr", "upi", "call", "sms", "block", "acct", "acc", "account", "bank", "avl", "bal", "available",
+        "balance", "debited", "credited", "dispute", "not", "you", "your", "info", "ref", "refund", "dear", "customer", "card", "txn",
+        "transaction", "payment", "paid", "sent", "received", "transfer", "thru", "through", "via", "vide", "the", "for", "from", "with",
+        "and", "total", "limit", "lmt", "convert", "missed", "know", "more", "emi", "conversion", "mob", "bk", "dont", "share", "pin", "cvv",
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "xx", "to", "on", "at", "by")
+    private val CAP_SEQ = Regex("""\b([A-Z][A-Za-z]{2,}(?: [A-Z][A-Za-z]{2,}){0,3})\b""")
+    private val CAMEL = Regex("""\b([a-z]+[A-Z][A-Za-z]+)\b""")
+    private val VPA = Regex("""\b([A-Za-z][\w.\-]{2,})@[A-Za-z][\w.\-]*\b""")
+
+    // Names that could be the payee, read out of the SMS, best guesses first. Offered when a title looks wrong.
+    fun suggestTitles(body: String, current: String?): List<String> {
+        val text = WS.replace(body, " ").trim()
+        val found = ArrayList<String>()
+        fun add(raw: String?) {
+            var s = cleanCp(raw) ?: return
+            s = s.split("*").first().trim()
+            if (s.length < 3 || DATE_LIKE.matches(s)) return
+            val words = s.split(" ").filter { it.isNotBlank() }
+            if (words.any { it.lowercase() in SUG_JUNK } || BANK.matches(s)) return
+            if (s == s.uppercase() && s.any { it.isLetter() }) s = titleCase(s)
+            if (found.none { it.equals(s, ignoreCase = true) } && !s.equals(current?.trim(), ignoreCase = true)) found.add(s)
+        }
+        if (BILLDESK.containsMatchIn(text)) add("BillDesk")
+        SEMI_PAYEE.find(text)?.let { add(it.groupValues[1]) }
+        FVG_PAYEE.find(text)?.let { add(it.groupValues[1]) }
+        ACH_PAYEE.find(text)?.let { add(it.groupValues[1]) }
+        NEFT_SENDER.find(text)?.let { add(it.groupValues[1]) }
+        CP.findAll(text).forEach { add(it.groupValues[1]) }
+        VPA.findAll(text).forEach { add(it.groupValues[1]) }
+        CAP_SEQ.findAll(text).forEach { add(it.groupValues[1]) }
+        CAMEL.findAll(text).forEach { add(it.groupValues[1]) }
+        return found.take(6)
+    }
+
     private fun titleCase(s: String): String =
         s.lowercase().split(" ").joinToString(" ") { w ->
             if (w.isEmpty()) w else w.replaceFirstChar { it.uppercase() }

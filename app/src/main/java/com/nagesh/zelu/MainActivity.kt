@@ -715,6 +715,15 @@ fun ZeluApp() {
         }
     }
 
+    fun retitle(id: String, title: String) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setTitle(context, id, title) }
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            undo = "Title changed" to snap
+        }
+    }
+
     fun undoLast() {
         val u = undo ?: return
         undo = null
@@ -1328,6 +1337,7 @@ fun ZeluApp() {
                 detailRow = null
             },
             onNewCat = { cb -> newCatCallback = cb },
+            onRetitle = { title -> retitle(r.id, title); detailRow = null },
             onDismiss = { detailRow = null },
         )
     }
@@ -1794,7 +1804,9 @@ private fun yrMo(m: Int): String {
     }
 }
 
-@Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit, onDismiss: () -> Unit) {
+@Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRetitle: (String) -> Unit = {}, onDismiss: () -> Unit) {
+    val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
@@ -1822,6 +1834,29 @@ private fun yrMo(m: Int): String {
             Eyebrow("Why this label")
             Spacer(Modifier.height(4.dp))
             MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
+            Spacer(Modifier.height(12.dp))
+            var retitling by remember { mutableStateOf(false) }
+            var newTitle by remember { mutableStateOf(t.counterparty ?: "") }
+            Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { retitling = !retitling }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                Text(if (retitling) "Cancel" else "Edit title", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (retitling) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = newTitle, onValueChange = { newTitle = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Who was this?") })
+                if (titleIdeas.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    MutedText("Names in the message:", 11)
+                    Spacer(Modifier.height(4.dp))
+                    ChipScroll { titleIdeas.forEach { n -> Chip(n, newTitle.equals(n, ignoreCase = true)) { newTitle = n } } }
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { if (newTitle.isNotBlank()) onRetitle(newTitle) }.padding(horizontal = 20.dp, vertical = 9.dp)) {
+                    Text("Save title", color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
             Spacer(Modifier.height(16.dp))
             var editing by remember { mutableStateOf(false) }
             Row(
