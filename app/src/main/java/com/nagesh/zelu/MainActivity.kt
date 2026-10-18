@@ -1380,8 +1380,8 @@ fun ZeluApp() {
                 Spacer(Modifier.width(8.dp))
                 Text("Turn on", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            // Only the new page is drawn, fading in; two tall pages are never layered on top of each other.
-            Box(Modifier.graphicsLayer { alpha = pageAlpha.value }) {
+            // Only the new page is drawn, fading in. A Column (not a Box) so the page's parts stack top to bottom.
+            Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value }) {
             val pageView = view
             when (pageView) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
