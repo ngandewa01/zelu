@@ -614,6 +614,8 @@ fun ZeluApp() {
     var account by remember { mutableStateOf("All") }
     var daySel by remember { mutableStateOf(0) }
     var calOpen by remember { mutableStateOf(false) }
+    // Spend page sub-tab: 0 Overview, 1 Categories, 2 Patterns.
+    var spendTab by remember { mutableStateOf(0) }
     var askOpen by remember { mutableStateOf(false) } // category picker open for ask
     var loading by remember { mutableStateOf(false) }
     var type by remember { mutableStateOf("all") }
@@ -1107,6 +1109,16 @@ fun ZeluApp() {
                         calActive = calOpen || daySel > 0,
                         dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
                         onClearDay = { daySel = 0 },
+                        tabs = {
+                            Spacer(Modifier.height(12.dp))
+                            ChipScroll {
+                                listOf("Overview", "Categories", "Patterns").forEachIndexed { i, t ->
+                                    Chip(t, spendTab == i, filled = true) { spendTab = i }
+                                }
+                            }
+                        },
+                        showSummary = spendTab == 0,
+                        showCategories = spendTab == 1,
                         slot = {
                             if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                                 { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
@@ -1123,7 +1135,7 @@ fun ZeluApp() {
                                 SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame, fixedNote)
                             }
                         }) { title, rows -> drill = title to rows }
-                    if (dayStr == null) {
+                    if (spendTab == 2 && dayStr == null) {
                         val wFrom: String; val wTo: String
                         if (isMonth) {
                             wFrom = "$month-01"
@@ -1136,7 +1148,7 @@ fun ZeluApp() {
                         val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
                         RecurringPanel(recurring)
                     }
-                    PaceView(rows, shown, f, month, account, excludeEmi)
+                    if (spendTab == 2) PaceView(rows, shown, f, month, account, excludeEmi)
                     if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                 }
@@ -3952,6 +3964,9 @@ private object LimitAsk {
     dayLabel: String? = null, onClearDay: () -> Unit = {},
     slot: @Composable () -> Unit = {},
     afterSummary: @Composable () -> Unit = {},
+    tabs: @Composable () -> Unit = {},
+    showSummary: Boolean = true,
+    showCategories: Boolean = true,
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -3996,6 +4011,7 @@ private object LimitAsk {
             Text("✕", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
+    tabs()
     slot()
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
     fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
@@ -4008,7 +4024,7 @@ private object LimitAsk {
     fun rowsForGroup(name: String) =
         if (name == "Other") rest.flatMap { rowsFor(it.first) } else rowsFor(name)
 
-    Panel {
+    if (showSummary) Panel {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Eyebrow("Spent")
@@ -4045,7 +4061,8 @@ private object LimitAsk {
         }
     }
 
-    afterSummary()
+    if (showSummary) afterSummary()
+    if (!showCategories) return
     val top = cats.first().second
     Panel {
         Eyebrow("By category")
