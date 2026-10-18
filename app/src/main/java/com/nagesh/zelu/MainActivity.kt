@@ -849,20 +849,33 @@ fun ZeluApp() {
 
     fun reload() {
         scope.launch {
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
-            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
-            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
-            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
-            monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
-            fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
-            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
-            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
-            LimitAsk.manual = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
-            cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
-            CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
-            registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
-            withContext(Dispatchers.IO) { IncomeCats.load(context) }
+            // Read everything first, then show it in one go, so balances never trail behind the payments.
+            class Loaded(
+                val rows: List<Row>, val reminders: List<Reminder>, val reminderState: Map<String, Boolean>,
+                val repaid: Map<String, Double>, val budgets: Map<String, Double>, val monthlyBudget: Double,
+                val fixed: Map<String, Double>, val balances: Map<String, Pair<Double, Long>>,
+                val limits: Map<String, Pair<Double, Long>>, val manual: Set<String>,
+                val cardPrefs: Map<String, Pair<Int, Double>>, val customCats: Map<String, Pair<String, Long>>,
+                val registry: Map<String, Pair<String, String>>,
+            )
+            val l = withContext(Dispatchers.IO) {
+                IncomeCats.load(context)
+                Loaded(
+                    Storage.loadRows(context), Storage.loadReminders(context), Storage.loadReminderState(context),
+                    Storage.loadRepaid(context), Storage.loadBudgets(context), Storage.loadMonthlyBudget(context),
+                    Storage.loadFixed(context), Storage.loadBalances(context), Storage.loadLimits(context),
+                    Storage.manualLimitKeys(context), Storage.loadCardPrefs(context), Storage.loadCustomCats(context),
+                    Storage.accountRegistry(context),
+                )
+            }
+            LimitAsk.manual = l.manual
+            cardPrefs = l.cardPrefs
+            CustomCats.map = l.customCats
+            registry = l.registry
+            reminders = l.reminders; reminderState = l.reminderState; repaid = l.repaid
+            budgets = l.budgets; monthlyBudget = l.monthlyBudget; fixed = l.fixed
+            balances = l.balances; limits = l.limits
+            rows = l.rows
         }
     }
 
