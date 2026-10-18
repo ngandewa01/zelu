@@ -35,6 +35,10 @@ object Parser {
     // not income — flip it to a debit.
     private val INVEST_OUT = Regex("""\b(tier\s?1|tier\s?2|\bnps\b|pran)\b""", RegexOption.IGNORE_CASE)
 
+    // "RTGS money transfer ... has been credited to <PERSON>" is the bank telling YOU a transfer you made reached them: money out.
+    // "credited to your a/c" or to a masked account is the opposite, and stays money in.
+    private val BENEFICIARY_CREDIT = Regex("""\b(?:neft|rtgs|imps)\b[^.]{0,40}\btransfer\b.{0,120}\bhas been credited to\s+(?!your\b|a/?c\b|account\b|[xX*#]|(?:hdfc|icici|sbi|axis|kotak|union|yes|idfc|pnb|bob|canara)\b)[A-Za-z]""", RegexOption.IGNORE_CASE)
+
     // FASTag / toll transactions come from the FASTag wallet, not the bank account.
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
@@ -287,7 +291,7 @@ object Parser {
             else -> return null
         }
         // A biller confirming it received your bill payment is money going OUT.
-        if (direction == "credit" && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text))) direction = "debit"
+        if (direction == "credit" && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text) || BENEFICIARY_CREDIT.containsMatchIn(text))) direction = "debit"
         if (loanCredit) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.

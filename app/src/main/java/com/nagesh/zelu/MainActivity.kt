@@ -1602,26 +1602,47 @@ fun ZeluApp() {
             Text("How Zelu works", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                @Composable fun topic(head: String, body: String) {
-                    Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(2.dp))
-                    MutedText(body, 13)
-                    Spacer(Modifier.height(12.dp))
+                var openTopic by remember { mutableStateOf("") }
+                // One line each; tap to read more.
+                @Composable fun topic(icon: androidx.compose.ui.graphics.vector.ImageVector, head: String, short: String, body: String) {
+                    val open = openTopic == head
+                    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper)
+                        .clickable { openTopic = if (open) "" else head }.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(ZColor.Accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                androidx.compose.material3.Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                MutedText(short, 12)
+                            }
+                            Text(if (open) "−" else "+", color = ZColor.Muted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (open) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(body, color = ZColor.InkSoft, fontSize = 13.sp, lineHeight = 19.sp)
+                        }
+                    }
                 }
-                topic("Private", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
-                topic("Stops reading messages", "Android can switch off an app's permissions when it is not opened for a while. Zelu shows a banner if that happens. To stop it: phone Settings › Apps › Zelu › Permissions, and turn off 'Remove permissions if app isn't used'. Also keep Menu › Help › Keep Zelu alive allowed.")
-                topic("A bank is not read", "Zelu recognises banks by their sender name. If one is skipped, open Menu › Messages › Unrecognised senders and say whether it is a bank, a wallet or something else. Its messages, old and new, are read from then on.")
-                topic("Categories and splits", "Menu › Money › Categories lets you leave a whole category out of spending. To split one payment across categories, tap it, choose Change category, then Split.")
-                topic("Duplicates", "If one payment is reported twice, Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
-                topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
-                topic("Missed SMS", "Messages that mention money but could not be understood. A dot on the menu icon appears when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads messages of that form by itself from then on.")
-                topic("Rescan", "Zelu reads new messages as they arrive and again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")
-                topic("Dues", "Bills, EMIs and card dues from your messages show on Dues. Tap the circle once paid. UPI AutoPay mandates are listed at the bottom; Add to dues turns one into a monthly reminder.")
-                topic("Accounts", "Zelu lists the accounts it finds. Mark each as yours, a duplicate of another, or not mine. Menu › Accounts reopens that list and brings removed ones back.")
-                topic("Not covered", "Zelu reads SMS only. A payment that exists only in a chat app, an RCS bank chat or the bank's own app is not visible to it.")
-                topic("Erase", "Menu › Backup and security › Erase everything deletes all of Zelu's data from this phone.")
-                topic("Backup", "Back up saves one file to Downloads/Zelu with everything you taught Zelu. Restore loads it on a new phone. Weekly backup does it automatically.")
-                topic("Something wrong?", "Menu › Help › Report a problem opens an email with the app details filled in. You choose what to include and press Send yourself.")
+                @Composable fun heading(t: String) { Spacer(Modifier.height(6.dp)); Eyebrow(t); Spacer(Modifier.height(8.dp)) }
+                heading("Reading your messages")
+                topic(Icons.Rounded.Lock, "Private", "Everything stays on this phone.", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
+                topic(Icons.Rounded.Restore, "Rescan", "New messages are read as they arrive.", "Zelu also reads again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")
+                topic(Icons.Rounded.AccountBalance, "A bank is not read", "Say what an unknown sender is.", "Zelu knows banks by sender name. If one is skipped, open Menu › Messages › Unrecognised senders and say whether it is a bank, a wallet or something else. Its messages, old and new, are read from then on.")
+                topic(Icons.Rounded.Warning, "Missed SMS", "Money messages Zelu could not understand.", "A dot on the menu icon shows when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads that form by itself from then on.")
+                topic(Icons.Rounded.BatteryChargingFull, "Stops reading messages", "Android may switch off permissions.", "Android removes permissions from apps not opened for a while. Zelu shows a banner if that happens. To stop it: Settings › Apps › Zelu › Permissions, turn off 'Remove permissions if app isn't used', and keep Menu › Help › Keep Zelu alive allowed.")
+                topic(Icons.Rounded.VisibilityOff, "Not covered", "SMS only.", "A payment that exists only in a chat app, an RCS bank chat or the bank's own app is not visible to Zelu.")
+                heading("Your money")
+                topic(Icons.Rounded.Receipt, "Payments", "Every money message becomes a payment.", "Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
+                topic(Icons.Rounded.Category, "Categories and splits", "Leave a category out, or split a payment.", "Menu › Money › Categories lets you leave a whole category out of spending. To split one payment, tap it, choose Change category, then Split.")
+                topic(Icons.Rounded.Warning, "Duplicates", "One payment reported twice.", "Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
+                topic(Icons.Rounded.CalendarMonth, "Dues", "Bills, EMIs and card dues.", "They come from your messages. Tap the circle once paid. UPI AutoPay mandates are on the Autopay tab; Add to dues turns one into a monthly reminder.")
+                topic(Icons.Rounded.AccountBalance, "Accounts", "Mark each as yours, a duplicate or not mine.", "Menu › Accounts reopens the list and brings removed ones back. Change type fixes an account Zelu mistook for a card or the other way round.")
+                heading("Your data")
+                topic(Icons.Rounded.CloudUpload, "Backup", "One file with everything you taught Zelu.", "Back up saves it to Downloads/Zelu. Restore loads it on a new phone. Weekly backup does it automatically.")
+                topic(Icons.Rounded.Warning, "Erase", "Delete all of Zelu's data from this phone.", "Menu › Backup and security › Erase everything.")
+                topic(Icons.Rounded.Lightbulb, "Something wrong?", "Report a problem by email.", "Menu › Help › Report a problem opens an email with the app details filled in. You choose what to include and press Send yourself.")
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
@@ -2567,6 +2588,7 @@ private fun yrMo(m: Int): String {
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Chip("Money in", false) { onReclassify("income", "Income") }
+                    Chip("Transfer", false) { onReclassify("transfer", "Transfer") }
                     Chip("Lent", false) { onReclassify("lent", "Lent") }
                     Chip("Borrowed", false) { onReclassify("borrowed", "Borrowed") }
                     Chip("Ignore", false) { onReclassify("ignore", "Ignore") }
@@ -4641,6 +4663,11 @@ private fun prettyDate(iso: String): String = try {
 
     val pending = reminders.filter { !settled(it) }.sortedBy { it.dueDate }
     val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
+    // Dues page tabs: what is coming, what is paid, and the autopay set-ups. Older months stay out of the way.
+    var duesTab by remember { mutableStateOf(0) }
+    var showOlderPaid by remember { mutableStateOf(false) }
+    val paidNow = paid.filter { it.dueDate.take(7) >= curMonth }
+    val paidOlder = paid.filter { it.dueDate.take(7) < curMonth }
 
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -4649,6 +4676,13 @@ private fun prettyDate(iso: String): String = try {
             .clickable { adding = true }.padding(horizontal = 14.dp, vertical = 8.dp)) {
             Text("+ Add bill", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
+    }
+
+    Spacer(Modifier.height(12.dp))
+    ChipScroll {
+        Chip("Upcoming" + if (pending.isNotEmpty()) " (" + pending.size + ")" else "", duesTab == 0, filled = true) { duesTab = 0 }
+        Chip("Paid", duesTab == 1, filled = true) { duesTab = 1 }
+        if (mandates.isNotEmpty()) Chip("Autopay", duesTab == 2, filled = true) { duesTab = 2 }
     }
 
     // Summary: what is overdue, what lands this week, and where the month is heading.
@@ -4662,7 +4696,7 @@ private fun prettyDate(iso: String): String = try {
     val typicalDaily = remember(rows) { Analytics.typicalDaily(rows, today) }
     val daysLeft = (dim - Dates.dayOfMonth()).coerceAtLeast(0)
     val projected = spentSoFar + dueLeft + typicalDaily * daysLeft
-    Panel {
+    if (duesTab == 0) Panel {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Fact("Overdue", money(overdueList.sumOf { it.amount }))
             Fact("Next 7 days", money(weekList.sumOf { it.amount }))
@@ -4695,7 +4729,8 @@ private fun prettyDate(iso: String): String = try {
         }
     }
 
-    if (pending.isEmpty()) {
+    if (duesTab != 0) { /* the Upcoming list is only on its own tab */ }
+    else if (pending.isEmpty()) {
         Panel {
             Eyebrow("All clear")
             Spacer(Modifier.height(8.dp))
@@ -4717,12 +4752,21 @@ private fun prettyDate(iso: String): String = try {
         group("This week", weekList, false)
         group("Later", laterList, false)
     }
-    if (paid.isNotEmpty()) {
-        Spacer(Modifier.height(18.dp))
-        Eyebrow("Paid")
-        paid.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
+    if (duesTab == 1) {
+        Spacer(Modifier.height(14.dp))
+        if (paidNow.isEmpty() && paidOlder.isEmpty()) Panel { MutedText("Nothing paid yet. Bills you tick off appear here.") }
+        if (paidNow.isNotEmpty()) {
+            Eyebrow("Paid this month")
+            paidNow.forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
+        }
+        if (paidOlder.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(if (showOlderPaid) "Hide earlier months" else "Show earlier months (" + paidOlder.size + ")", color = ZColor.Accent,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { showOlderPaid = !showOlderPaid }.padding(vertical = 6.dp))
+            if (showOlderPaid) paidOlder.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
+        }
     }
-    if (mandates.isNotEmpty()) {
+    if (duesTab == 2 && mandates.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Eyebrow("Autopay & mandates")
