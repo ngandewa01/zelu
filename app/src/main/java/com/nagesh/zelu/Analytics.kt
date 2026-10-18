@@ -186,6 +186,38 @@ object Analytics {
         return net
     }
 
+    class LinkSuggestion(val key: String, val target: String, val reason: String)
+
+    private val DEBIT_WORD = Regex("""debit\s*card|\bdc\b""", RegexOption.IGNORE_CASE)
+
+    // A debit card or second label that probably belongs to one of your accounts. Only suggested when the messages
+    // themselves point to it: another account's messages mention this number, or this one is worded as a debit card.
+    fun linkSuggestions(rows: List<Row>, registry: Map<String, Pair<String, String>>, rejected: Set<String>): List<LinkSuggestion> {
+        fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.contains(" Loan ")
+        fun bank(a: String) = if (a.contains(' ')) a.substringBefore(' ') else ""
+        fun tail(a: String) = a.substringAfterLast(' ').takeIf { t -> t.length >= 3 && t.all { it.isDigit() } } ?: ""
+        val groups = rows.filter { plain(it.account) }.groupBy { it.account }
+        val out = ArrayList<LinkSuggestion>()
+        for ((small, sr) in groups) {
+            if (registry[small]?.first == "duplicate") continue
+            val b = bank(small); if (b.isEmpty()) continue
+            val peers = groups.filter { (k, v) -> k != small && bank(k) == b && v.size >= sr.size }
+            if (peers.isEmpty()) continue
+            val t = tail(small)
+            val main = peers.maxByOrNull { it.value.size }!!.key
+            val mention = if (t.isNotEmpty()) peers.entries.firstOrNull { e -> e.value.any { it.raw.contains(t) } }?.key else null
+            val reason = when {
+                mention != null -> "Messages of $mention mention $t"
+                sr.count { DEBIT_WORD.containsMatchIn(it.raw) } * 2 >= sr.size -> "Its messages call it a debit card"
+                else -> null
+            } ?: continue
+            val target = mention ?: main
+            if ("$small|$target" in rejected) continue
+            out.add(LinkSuggestion(small, target, reason))
+        }
+        return out.sortedByDescending { groups[it.key]?.size ?: 0 }.take(5)
+    }
+
     // An account, card or loan Zelu found in your messages, with the evidence for it.
     data class AcctCandidate(
         val key: String, val type: String, // type: savings, card, loan, other

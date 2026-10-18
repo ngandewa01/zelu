@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.CreditCard
@@ -217,6 +218,105 @@ private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan
 private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.account == key || (it.counterparty ?: "") == key }
 
 // "Not mine" on something that has payments: show them and ask once more. Removing deletes the account AND those payments from Zelu.
+@Composable private fun LinkAccountsDialog(
+    rows: List<Row>, registry: Map<String, Pair<String, String>>, suggestions: List<Analytics.LinkSuggestion>,
+    onLink: (String, String) -> Unit, onUnlink: (String) -> Unit, onReject: (String, String) -> Unit, onDismiss: () -> Unit,
+) {
+    val linked = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
+    fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.contains(" Loan ")
+    val mains = (rows.map { it.account }.filter { plain(it) } + linked.keys.filter { plain(it) }).distinct().sorted()
+    var picking by remember { mutableStateOf<String?>(null) }
+    @Composable fun logoBox(a: String) {
+        val logo = bankLogoRes(a)
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+            if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp))
+            else Text(a.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+        }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
+            Text("Link accounts", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("A debit card or a second label of the same account counts under that account: one balance, one spend.", 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                if (suggestions.isNotEmpty()) {
+                    Eyebrow("Zelu thinks these belong together")
+                    suggestions.forEach { s ->
+                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                logoBox(s.key); Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(s.key + "  →  " + s.target, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                    MutedText(s.reason, 12)
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                Text("Link", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onLink(s.key, s.target) }.padding(vertical = 4.dp))
+                                Text("Not the same", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onReject(s.key, s.target) }.padding(vertical = 4.dp))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+                Eyebrow("Your accounts")
+                if (mains.isEmpty()) MutedText("No accounts yet.", 12)
+                mains.forEach { m ->
+                    Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            logoBox(m); Spacer(Modifier.width(10.dp))
+                            Text(m, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        val kids = linked[m].orEmpty()
+                        if (kids.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            kids.forEach { k ->
+                                Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("└", color = ZColor.Line, fontSize = 16.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(k, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("Unlink", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { onUnlink(k) }.padding(horizontal = 8.dp, vertical = 8.dp))
+                                }
+                            }
+                        }
+                        Text("+ Link another", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { picking = m }.padding(top = 8.dp, bottom = 2.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text("Done", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
+            }
+        }
+    }
+    picking?.let { target ->
+        val options = mains.filter { it != target && it !in linked.keys }
+        Dialog(onDismissRequest = { picking = null }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 560.dp)) {
+                Text("Link to $target", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Pick the account or card that belongs under it.", 12)
+                Spacer(Modifier.height(8.dp))
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    if (options.isEmpty()) MutedText("There is nothing else to link yet.", 13)
+                    options.forEach { o ->
+                        Row(Modifier.fillMaxWidth().clickable { onLink(o, target); picking = null }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            logoBox(o); Spacer(Modifier.width(10.dp))
+                            Text(o, color = ZColor.Ink, fontSize = 14.sp)
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { picking = null }.padding(12.dp))
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun DeclineConfirmDialog(c: Analytics.AcctCandidate, rows: List<Row>, onKeep: () -> Unit, onRemove: () -> Unit) {
     val mine = remember(rows, c.key) { rowsOfAccount(rows, c.key).sortedByDescending { it.date } }
     Dialog(onDismissRequest = onKeep) {
@@ -580,6 +680,9 @@ fun ZeluApp() {
     var registry by remember { mutableStateOf(Storage.accountRegistry(context)) }
     var acctConfirmed by remember { mutableStateOf(Storage.accountsConfirmed(context)) }
     var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
+    var linkOpen by remember { mutableStateOf(false) }
+    var linkRejected by remember { mutableStateOf(Storage.linkRejected(context)) }
+    LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
     var check by remember { mutableStateOf<Ingest.Check?>(null) }
     var autoBackup by remember { mutableStateOf(Backup.autoOn(context)) }
     var unreadList by remember { mutableStateOf<List<RawSms>?>(null) }
@@ -854,9 +957,27 @@ fun ZeluApp() {
         undo = null
         scope.launch {
             withContext(Dispatchers.IO) { Storage.restoreSnapshot(context, u.second) }
+            registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
             rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
+            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
         }
     }
+
+    fun relink(msg: String, change: () -> Unit) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { change() }
+            registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
+            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
+            undo = msg to snap
+        }
+    }
+    fun linkAcct(key: String, target: String) = relink("$key linked to $target") { Storage.linkAccount(context, key, target) }
+    fun unlinkAcct(key: String) = relink("$key unlinked") { Storage.unlinkAccount(context, key) }
+    fun rejectLink(key: String, target: String) { Storage.rejectLink(context, key, target); linkRejected = Storage.linkRejected(context) }
 
     // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
     LaunchedEffect(stage, rows.size, acctConfirmed) {
@@ -930,6 +1051,22 @@ fun ZeluApp() {
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("duplicate" to c.dupOf)), false) }.padding(horizontal = 10.dp, vertical = 10.dp))
                     Text("Add", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false) }.padding(horizontal = 12.dp, vertical = 10.dp))
+                }
+            }
+            val linkSugg = remember(rows, registry, linkRejected, acctConfirmed) {
+                if (!acctConfirmed) emptyList() else Analytics.linkSuggestions(rows, registry, linkRejected)
+            }
+            if (pendingAccts.isEmpty()) linkSugg.firstOrNull()?.let { ls ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
+                    .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Link " + ls.key + "?", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(ls.reason + " · part of " + ls.target + "?", color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text("Not the same", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { rejectLink(ls.key, ls.target) }.padding(horizontal = 10.dp, vertical = 10.dp))
+                    Text("Link", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { linkAcct(ls.key, ls.target) }.padding(horizontal = 12.dp, vertical = 10.dp))
                 }
             }
             if (!smsOk) {
@@ -1259,6 +1396,7 @@ fun ZeluApp() {
                     MenuRow("Money", "Budget, savings plan, investments", Icons.Rounded.AccountBalanceWallet) { menuPage = "money" }
                     MenuRow("Accounts", "Review, bring back removed ones", Icons.Rounded.AccountBalance) { menuPage = "accounts" }
                     MenuRow("Messages", if (missedCount > missedSeen) (missedCount - missedSeen).toString() + " new missed" else "Rescan, missed SMS, data check", Icons.Rounded.Receipt, ZColor.Warn) { menuPage = "messages" }
+                    MenuRow("Notifications", "Payment alerts, daily summary, bill reminders", Icons.Rounded.Notifications, ZColor.Accent) { menuPage = "notify" }
                     MenuRow("Backup and security", "Back up, restore, app lock", Icons.Rounded.Lock, ZColor.Income) { menuPage = "backup" }
                     MenuRow("Export CSV", "Save to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted) {
                         shut()
@@ -1271,10 +1409,39 @@ fun ZeluApp() {
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("‹", color = ZColor.Ink, fontSize = 26.sp)
                         Spacer(Modifier.width(12.dp))
-                        Text(when (menuPage) { "money" -> "Money"; "accounts" -> "Accounts"; "messages" -> "Messages"; "backup" -> "Backup and security"; else -> "Help" },
+                        Text(when (menuPage) { "money" -> "Money"; "accounts" -> "Accounts"; "messages" -> "Messages"; "backup" -> "Backup and security"; "notify" -> "Notifications"; else -> "Help" },
                             color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                     when (menuPage) {
+                        "notify" -> {
+                            var nv by remember { mutableStateOf(0) }
+                            val seen = nv
+                            fun onOff(on: Boolean) = @Composable { Text(if (on) "ON" else "OFF", color = if (on) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                            val spendOn = NotifyPrefs.spend(context)
+                            MenuRow("Payment alerts", "A note for every payment or balance message", Icons.Rounded.Notifications, if (spendOn) ZColor.Income else ZColor.Muted, trailing = onOff(spendOn)) {
+                                NotifyPrefs.setSpend(context, !spendOn); nv++
+                            }
+                            val dailyOn = NotifyPrefs.dailyOn(context)
+                            MenuRow("Daily summary", "What you spent today", Icons.Rounded.BarChart, if (dailyOn) ZColor.Income else ZColor.Muted, trailing = onOff(dailyOn)) {
+                                NotifyPrefs.setDailyOn(context, !dailyOn); nv++
+                            }
+                            if (dailyOn) MenuRow("Daily summary time", NotifyPrefs.timeText(NotifyPrefs.dailyAt(context)), Icons.Rounded.CalendarMonth, ZColor.Muted) {
+                                val at = NotifyPrefs.dailyAt(context)
+                                android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); nv++ }, at / 60, at % 60, false).show()
+                            }
+                            val duesOn = NotifyPrefs.duesOn(context)
+                            MenuRow("Bill reminders", "Before a bill or card is due", Icons.Rounded.Receipt, if (duesOn) ZColor.Income else ZColor.Muted, trailing = onOff(duesOn)) {
+                                NotifyPrefs.setDuesOn(context, !duesOn); nv++
+                            }
+                            if (duesOn) MenuRow("Remind me", NotifyPrefs.LEAD_PRESETS[NotifyPrefs.leadIndex(context)].first + " · tap to change", Icons.Rounded.CalendarMonth, ZColor.Muted) {
+                                NotifyPrefs.setLeadIndex(context, (NotifyPrefs.leadIndex(context) + 1) % NotifyPrefs.LEAD_PRESETS.size); nv++
+                            }
+                            val recapOn = NotifyPrefs.recapOn(context)
+                            MenuRow("Monthly recap", "A note in the first days of a new month", Icons.Rounded.TrendingUp, if (recapOn) ZColor.Income else ZColor.Muted, trailing = onOff(recapOn)) {
+                                NotifyPrefs.setRecapOn(context, !recapOn); nv++
+                            }
+                            if (seen >= 0) MutedText("Bill reminders go out around 9 AM.", 11)
+                        }
                         "money" -> {
                             MenuRow("Budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set", Icons.Rounded.AccountBalanceWallet) { shut(); budgetDlg = true }
                             MenuRow("Categories", "Choose which count as spending", Icons.Rounded.Category, ZColor.Accent) { shut(); catsOpen = true }
@@ -1284,6 +1451,9 @@ fun ZeluApp() {
                         "accounts" -> {
                             MenuRow("Review accounts", "Mark accounts as yours, a duplicate, or not mine", Icons.Rounded.AccountBalance) { shut(); stage = "accounts" }
                             val removed = registry.count { it.value.first == "declined" } + Storage.hiddenAccounts(context).size
+                            val linkSugN = Analytics.linkSuggestions(rows, registry, linkRejected).size
+                            MenuRow("Link accounts", if (linkSugN > 0) "$linkSugN suggested · debit cards and duplicate labels" else "Put a debit card or duplicate label under one account",
+                                Icons.Rounded.Link) { shut(); linkOpen = true }
                             MenuRow("Bring back removed accounts", if (removed > 0) "$removed removed or hidden" else "Nothing removed", Icons.Rounded.Restore, ZColor.Muted) {
                                 if (removed > 0) {
                                     shut()
@@ -1986,6 +2156,9 @@ fun ZeluApp() {
             }
         }
     }
+
+    if (linkOpen) LinkAccountsDialog(rows, registry, Analytics.linkSuggestions(rows, registry, linkRejected),
+        onLink = { k, t -> linkAcct(k, t) }, onUnlink = { k -> unlinkAcct(k) }, onReject = { k, t -> rejectLink(k, t) }, onDismiss = { linkOpen = false })
 
     if (themeOpen) Dialog(onDismissRequest = { themeOpen = false }) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)
@@ -2705,6 +2878,8 @@ private fun yrMo(m: Int): String {
             Column {
                 Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (last4 != null) MutedText("xx$last4", 11)
+                val nLinked = LinkInfo.map[account]?.size ?: 0
+                if (nLinked > 0) Text("+$nLinked linked", color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Column(

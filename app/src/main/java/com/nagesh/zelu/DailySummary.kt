@@ -11,7 +11,7 @@ import android.content.Intent
 import android.os.Build
 import java.util.Calendar
 
-// Nightly (about 10 PM IST) "₹8,091 spent today · ₹62,279 in October" notification.
+// Nightly (10 PM IST unless you pick another time) "₹8,091 spent today · ₹62,279 in October" notification.
 // Quiet days with no spending post nothing.
 object DailySummary {
     private const val CHANNEL = "zelu_daily"
@@ -20,8 +20,10 @@ object DailySummary {
     fun schedule(context: Context) {
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!NotifyPrefs.dailyOn(context)) { am.cancel(pending(context)); return }
+            val mins = NotifyPrefs.dailyAt(context)
             val at = Calendar.getInstance(Dates.IST).apply {
-                set(Calendar.HOUR_OF_DAY, 22); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                set(Calendar.HOUR_OF_DAY, mins / 60); set(Calendar.MINUTE, mins % 60); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                 if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
             }
             am.setInexactRepeating(AlarmManager.RTC, at.timeInMillis, AlarmManager.INTERVAL_DAY, pending(context))
@@ -36,6 +38,7 @@ object DailySummary {
     }
 
     fun notifyToday(context: Context) {
+        if (!NotifyPrefs.dailyOn(context)) return
         val today = Dates.today()
         // An inexact alarm can fire twice in a day; post once.
         val sp = context.getSharedPreferences("zelu_daily", Context.MODE_PRIVATE)

@@ -147,6 +147,28 @@ object Storage {
         writeKv(context, ACCOUNTS_FILE, kv)
     }
 
+    // ---- linked accounts: a debit card or duplicate label that belongs to one of your accounts ----
+    // Stored in the same registry as a "duplicate", so its payments, balance and spend already count under the main account.
+    fun linkedMap(context: Context): Map<String, List<String>> =
+        accountRegistry(context).filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
+
+    fun linkAccount(context: Context, key: String, target: String) =
+        setAccountStatuses(context, mapOf(key to ("duplicate" to target)))
+
+    fun unlinkAccount(context: Context, key: String): Unit = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        kv[key] = "accepted" to (if (key.contains(" CC")) "card" else "savings")
+        writeKv(context, ACCOUNTS_FILE, kv)
+    }
+
+    fun linkRejected(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet("link_rejected", emptySet()) ?: emptySet()
+
+    fun rejectLink(context: Context, key: String, target: String) {
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        sp.edit().putStringSet("link_rejected", (linkRejected(context) + "$key|$target").toSet()).apply()
+    }
+
     fun accountsConfirmed(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("accounts_confirmed", false)
 
@@ -930,7 +952,7 @@ object Storage {
     }
 
     // Undo support: a copy of everything a category / refund / rename decision can change.
-    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json")
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE)
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
         UNDO_FILES.associateWith { n -> val f = file(context, n); if (f.exists()) f.readText() else null }

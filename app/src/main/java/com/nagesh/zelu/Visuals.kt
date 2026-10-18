@@ -260,3 +260,8 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String 
         }
     }
 }
+
+// Which accounts have others linked under them (main account -> linked ones). Read by the account tiles and the Link accounts page.
+object LinkInfo {
+    var map by mutableStateOf<Map<String, List<String>>>(emptyMap())
+}

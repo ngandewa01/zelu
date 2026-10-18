@@ -12,6 +12,7 @@ object Recap {
     private const val CHANNEL = "zelu_recap"
 
     fun maybe(context: Context) {
+        if (!NotifyPrefs.recapOn(context)) return
         val month = Dates.todayMonth()
         val sp = context.getSharedPreferences("zelu_recap", Context.MODE_PRIVATE)
         if (Dates.dayOfMonth() > 3 || sp.getString("last", "") == month) return

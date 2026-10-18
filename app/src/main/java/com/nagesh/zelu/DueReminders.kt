@@ -41,6 +41,8 @@ object DueReminders {
     }
 
     fun check(context: Context) {
+        if (!NotifyPrefs.duesOn(context)) return
+        val leads = NotifyPrefs.leadDays(context)
         val reminders = Storage.loadReminders(context).filter { !it.done }
         if (reminders.isEmpty()) return
         val debits = Storage.loadRows(context).filter { it.direction == "debit" }
@@ -53,7 +55,7 @@ object DueReminders {
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
         for (r in reminders) {
             val d = daysLeft(r.dueDate)
-            if (d != 3 && d != 1 && d != 0) continue
+            if (d !in leads) continue
             // Already paid? A debit of the same amount since just before the bill was raised.
             val from = Dates.shiftDays(r.dueDate, -25)
             if (debits.any { it.date >= from && kotlin.math.abs(it.amount - r.amount) < 1.0 }) continue
@@ -65,7 +67,7 @@ object DueReminders {
                 Notification.Builder(context, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
             val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
-            val whenTxt = when (d) { 0 -> "due today"; 1 -> "due tomorrow"; else -> "due in 3 days" }
+            val whenTxt = when (d) { 0 -> "due today"; 1 -> "due tomorrow"; else -> "due in $d days" }
             b.setSmallIcon(R.drawable.ic_stat_zelu)
                 .setContentTitle("$who $amt $whenTxt")
                 .setContentText(if (r.minAmount != null) "Minimum due ₹" + String.format(java.util.Locale.US, "%,.0f", r.minAmount) else "Tap to open Dues")

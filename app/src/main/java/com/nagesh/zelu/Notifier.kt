@@ -129,6 +129,7 @@ object Notifier {
     // Quiet "HDFC (5997) · ₹79,377.50 · Current balance". The account shows once, in the header.
     // One per account; a newer balance replaces the older.
     fun notifyBalance(context: Context, account: String, balance: Double) {
+        if (!NotifyPrefs.spend(context)) return
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -161,6 +162,7 @@ object Notifier {
 
     // One notification per new transaction: "₹450 spent at Swiggy" / "Food · ₹2,100 left" (+ account header).
     fun notifyTxn(context: Context, r: Row) {
+        if (!NotifyPrefs.spend(context)) return
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
