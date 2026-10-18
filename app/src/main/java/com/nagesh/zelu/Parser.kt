@@ -116,8 +116,12 @@ object Parser {
     // Matched as substrings because sender headers are smooshed (e.g. "VM-HDFCBK").
     private val FIN_TOKEN = Regex("""(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA|EPF|EPFO|UAN|NSDL|NPS|PFRDA|PRAN|CAMS|KFIN|CDSL|MFUT|DEPOS|INVEST|SEBI)""", RegexOption.IGNORE_CASE)
 
+    // Senders you told Zelu are your bank (Menu > Messages > Unrecognised senders). Loaded by Storage.loadTrust.
+    @Volatile var trusted: Set<String> = emptySet()
+
     fun isFinancialSender(address: String): Boolean {
         val a = address.uppercase()
+        if (a in trusted) return true
         if (a.none { it.isLetter() }) return false          // plain phone number -> personal
         if (SENDER_CODES.any { a.contains(it.first) }) return true
         if (BANK.containsMatchIn(a)) return true

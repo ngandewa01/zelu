@@ -10,6 +10,7 @@ object Ingest {
     // Parses and classifies raw SMS, then stores the new transactions.
     @Synchronized
     fun ingest(context: Context, raw: List<RawSms>): Result {
+        Storage.loadTrust(context)
         val settings = Storage.loadSettings(context)
         val own = Storage.splitList(settings.ownAccounts)
 
@@ -108,6 +109,7 @@ object Ingest {
     fun smsKey(m: RawSms): String = m.date.toString() + "|" + m.body.hashCode()
 
     fun unreadable(context: Context, limit: Int = 40): List<RawSms> {
+        Storage.loadTrust(context)
         val handled = Storage.handledSms(context)
         val taught = Taught.load(context)
         val all = try { SmsReader.readInbox(context, 3000) } catch (_: Exception) { return emptyList() }
@@ -127,10 +129,30 @@ object Ingest {
         return out
     }
 
+    // Senders Zelu skipped as "not a bank" although their messages read like payments.
+    data class UnknownSender(val address: String, val count: Int, val samples: List<String>)
+
+    fun unrecognisedSenders(context: Context): List<UnknownSender> {
+        Storage.loadTrust(context)
+        val skipped = Storage.handledSms(context)
+        val all = try { SmsReader.readInbox(context, 5000) } catch (_: Exception) { return emptyList() }
+        val by = LinkedHashMap<String, MutableList<String>>()
+        for (m in all) {
+            if (m.address.isBlank() || Parser.isFinancialSender(m.address)) continue
+            if (("sender|" + m.address.uppercase()) in skipped) continue
+            if (Parser.hasSuspiciousLink(m.body, m.address)) continue
+            if (!MONEYISH.containsMatchIn(m.body) || !ACTIONISH.containsMatchIn(m.body) || NOT_TXN.containsMatchIn(m.body)) continue
+            if (Parser.parseSms(m.body, m.date, m.address) == null) continue
+            by.getOrPut(m.address) { ArrayList() }.add(m.body)
+        }
+        return by.entries.map { UnknownSender(it.key, it.value.size, it.value.take(2)) }.sortedByDescending { it.count }.take(15)
+    }
+
     // The SMS an account on the Home screen was built from, so you can judge whether it belongs there.
     data class Ref(val sender: String, val date: String, val body: String, val why: String)
 
     fun referencesFor(context: Context, account: String, rows: List<Row>): List<Ref> {
+        Storage.loadTrust(context)
         val out = ArrayList<Ref>()
         val fmt = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US)
         try {
@@ -159,6 +181,7 @@ object Ingest {
     // transaction alerts that state a balance must add up (previous balance +/- the amount = next balance);
     // where they don't, a message is missing between them.
     fun diagnose(context: Context): Check {
+        Storage.loadTrust(context)
         var bank = 0; var txns = 0; var bal = 0; var rem = 0; var unread = 0
         val points = HashMap<String, ArrayList<Triple<Long, Double, Double>>>() // account -> (time, balance, signed amount)
         val all = try { SmsReader.readInbox(context, 5000) } catch (_: Exception) { emptyList() }

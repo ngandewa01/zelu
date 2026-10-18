@@ -65,6 +65,8 @@ object Storage {
         // to the bank's main account, since the money left from there).
         val dups = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "duplicate" }.mapValues { it.value.second }
         val titles = readKv(context, TITLE_FILE)
+        val catOff = readKv(context, CATOFF_FILE).keys
+        val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
         val rows = base.values.map { r ->
             var row = r
@@ -82,10 +84,22 @@ object Storage {
             }
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
+            if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
             row
         }.sortedByDescending { it.date }
+        // A payment you split becomes several rows that add up to it, one per category.
+        val expanded = if (splits.isEmpty()) rows else rows.flatMap { r ->
+            val parts = splits[r.id]
+            if (parts == null || r.kind != "expense" || Math.abs(parts.sumOf { it.first } - r.amount) > 0.5) listOf(r)
+            else parts.mapIndexed { i, pc ->
+                val pid = r.id + "#" + (i + 1)
+                var part = r.copy(id = pid, amount = pc.first, category = pc.second)
+                overrides[pid]?.let { (k, c) -> part = part.copy(kind = k, category = c) }
+                part
+            }
+        }
         val declined = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "declined" }.keys
-        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(canonicalizeAccounts(rows), overrides.keys))), loadRefundLinks(context))
+        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(canonicalizeAccounts(expanded), overrides.keys))), loadRefundLinks(context))
             .let { all -> if (declined.isEmpty()) all else all.filter { it.account !in declined && (it.counterparty ?: "") !in declined } }
     }
 
@@ -275,6 +289,47 @@ object Storage {
         for (r in newRows) if (!map.containsKey(r.id)) { map[r.id] = r; added++ }
         writeMap(context, map)
         added
+    }
+
+    // ---- senders you said are your bank ----
+    private const val SENDER_FILE = "trusted_senders.json"
+    fun trustedSenders(context: Context): Set<String> = synchronized(lock) { readKv(context, SENDER_FILE).keys }
+    fun loadTrust(context: Context) { Parser.trusted = trustedSenders(context) }
+    fun trustSender(context: Context, address: String): Unit = synchronized(lock) {
+        val kv = readKv(context, SENDER_FILE).toMutableMap()
+        kv[address.uppercase()] = "1" to ""
+        writeKv(context, SENDER_FILE, kv)
+        Parser.trusted = kv.keys.toSet()
+    }
+
+    // ---- categories you don't want counted as spending ----
+    private const val CATOFF_FILE = "category_off.json"
+    fun categoriesOff(context: Context): Set<String> = synchronized(lock) { readKv(context, CATOFF_FILE).keys }
+    fun setCategoryCounts(context: Context, category: String, counts: Boolean): Unit = synchronized(lock) {
+        val kv = readKv(context, CATOFF_FILE).toMutableMap()
+        if (counts) kv.remove(category) else kv[category] = "off" to ""
+        writeKv(context, CATOFF_FILE, kv)
+    }
+
+    // ---- one payment split across categories ----  id -> [(amount, category)]
+    private const val SPLIT_FILE = "splits.json"
+    fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
+        val f = file(context, SPLIT_FILE)
+        if (!f.exists()) emptyMap() else try {
+            val obj = JSONObject(f.readText()); val out = HashMap<String, List<Pair<Double, String>>>()
+            for (k in obj.keys()) {
+                val arr = obj.getJSONArray(k)
+                out[k] = (0 until arr.length()).map { i -> arr.getJSONObject(i).let { it.getDouble("a") to it.getString("c") } }
+            }
+            out
+        } catch (_: Exception) { emptyMap() }
+    }
+    fun setSplit(context: Context, id: String, parts: List<Pair<Double, String>>?): Unit = synchronized(lock) {
+        val cur = loadSplits(context).toMutableMap()
+        if (parts == null) cur.remove(id) else cur[id] = parts
+        val obj = JSONObject()
+        for ((k, v) in cur) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
+        file(context, SPLIT_FILE).writeText(obj.toString())
     }
 
     // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.

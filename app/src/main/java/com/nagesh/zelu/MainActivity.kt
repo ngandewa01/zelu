@@ -541,6 +541,11 @@ fun ZeluApp() {
     var eraseOpen by remember { mutableStateOf(false) }
     var dupOk by remember { mutableStateOf(Storage.dupOk(context)) }
     var dupOpen by remember { mutableStateOf(false) }
+    var sendersOpen by remember { mutableStateOf(false) }
+    var senderList by remember { mutableStateOf<List<Ingest.UnknownSender>?>(null) }
+    var catsOpen by remember { mutableStateOf(false) }
+    var catOff by remember { mutableStateOf(Storage.categoriesOff(context)) }
+    var splitFor by remember { mutableStateOf<Row?>(null) }
     var smsOk by remember { mutableStateOf(true) }
     val lastScan = remember { longArrayOf(0L) }
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
@@ -1201,6 +1206,7 @@ fun ZeluApp() {
                     when (menuPage) {
                         "money" -> {
                             MenuRow("Budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set", Icons.Rounded.AccountBalanceWallet) { shut(); budgetDlg = true }
+                            MenuRow("Categories", "Choose which count as spending", Icons.Rounded.Category, ZColor.Accent) { shut(); catsOpen = true }
                             MenuRow("Savings plan", "What's left · SIP, EMI, goals", Icons.Rounded.Savings, ZColor.Income) { shut(); savingsOpen = true }
                             MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
                         }
@@ -1228,6 +1234,10 @@ fun ZeluApp() {
                             val stale = nb > 0 && System.currentTimeMillis() - nb > 7L * 86_400_000L
                             MenuRow("Rescan messages", if (lr == 0L) "Look for anything new in your inbox" else "Last read " + agoText(lr) + (if (nb > 0) " · newest bank SMS " + agoText(nb) else ""),
                                 Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent) { shut(); rescan(notify = true) }
+                            MenuRow("Unrecognised senders", "A bank Zelu skipped? Tell it here", Icons.Rounded.AccountBalance, ZColor.Muted) {
+                                shut(); sendersOpen = true; senderList = null
+                                scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
+                            }
                             MenuRow("Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore, ZColor.Muted) { shut(); rescan(notify = true, depth = 100_000) }
                             MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
                                 shut(); unreadOpen = true; unreadList = null
@@ -1283,6 +1293,127 @@ fun ZeluApp() {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    if (sendersOpen) Dialog(onDismissRequest = { sendersOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            Text("Unrecognised senders", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Senders Zelu doesn't know as a bank, whose messages read like payments. If one is your bank, tap This is my bank and its messages are read, old ones too. Only add senders you trust.", 12)
+            Spacer(Modifier.height(10.dp))
+            val sl = senderList
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                when {
+                    sl == null -> MutedText("Looking through your messages…", 13)
+                    sl.isEmpty() -> MutedText("None. Every sender that sends payment messages is already read.", 13)
+                    else -> sl.forEach { u ->
+                        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
+                            Text(u.address, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            MutedText(plural(u.count, "message", "messages") + " that look like payments", 11)
+                            Spacer(Modifier.height(4.dp))
+                            u.samples.forEach { s2 -> Text(s2, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis); Spacer(Modifier.height(3.dp)) }
+                            Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                Text("This is my bank", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) { Storage.trustSender(context, u.address) }
+                                        senderList = senderList?.filter { it.address != u.address }
+                                        rescan(notify = true)
+                                    }
+                                })
+                                Text("Not a bank", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, "sender|" + u.address.uppercase()) }
+                                    senderList = senderList?.filter { it.address != u.address }
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { sendersOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+
+    if (catsOpen) Dialog(onDismissRequest = { catsOpen = false }) {
+        val names = (rows.filter { it.kind == "expense" || it.category in catOff }.map { it.category } + catOff).distinct().filter { it.isNotBlank() }.sorted()
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            Text("Categories", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Tap to choose whether a category counts as spending. Left out, its payments stay in your list under Ignored but are not in totals, the pace chart or budgets.", 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                names.forEach { c ->
+                    val counts = c !in catOff
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                        scope.launch {
+                            withContext(Dispatchers.IO) { Storage.setCategoryCounts(context, c, !counts) }
+                            catOff = withContext(Dispatchers.IO) { Storage.categoriesOff(context) }
+                            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                        }
+                    }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CatDot(c, 30.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(c, color = if (counts) ZColor.Ink else ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(if (counts) "Counted" else "Not counted", color = if (counts) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { catsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+
+    splitFor?.let { t ->
+        val amts = remember(t.id) { mutableStateListOf(fmtPlain(t.amount), "") }
+        val cats = remember(t.id) { mutableStateListOf(t.category, t.category) }
+        val assigned = amts.sumOf { it.toDoubleOrNull() ?: 0.0 }
+        val left = t.amount - assigned
+        val ok = amts.size >= 2 && amts.all { (it.toDoubleOrNull() ?: 0.0) > 0 } && Math.abs(left) < 0.5
+        Dialog(onDismissRequest = { splitFor = null }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+                .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+                Text("Split payment", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText((t.counterparty ?: t.category) + " · " + money(t.amount) + ". Give each part an amount and a category.", 12)
+                Spacer(Modifier.height(10.dp))
+                for (i in amts.indices) {
+                    DropdownField("Part ${i + 1}", cats[i], CAT_OPTS.drop(1), catIcons = true, valueKey = cats[i]) { cats[i] = it }
+                    OutlinedTextField(value = amts[i], onValueChange = { v -> amts[i] = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
+                        placeholder = { Text("Amount ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(10.dp))
+                }
+                Text(if (Math.abs(left) < 0.5) "All assigned" else if (left > 0) money(left) + " left to assign" else money(-left) + " too much",
+                    color = if (Math.abs(left) < 0.5) ZColor.Income else ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    if (amts.size < 5) Text("＋ Add part", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { amts.add(if (left > 0) fmtPlain(left) else ""); cats.add(t.category) }.padding(vertical = 8.dp))
+                    else Spacer(Modifier.width(1.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { splitFor = null }.padding(12.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Box(Modifier.clip(RoundedCornerShape(20.dp)).background(if (ok) ZColor.Ink else ZColor.Line).clickable {
+                            if (ok) {
+                                val parts = amts.indices.map { (amts[it].toDoubleOrNull() ?: 0.0) to cats[it] }
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { Storage.setSplit(context, t.id, parts) }
+                                    rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                                    splitFor = null
+                                    Toast.makeText(context, "Split into ${parts.size} parts", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = if (ok) ZColor.Paper else ZColor.Muted, fontWeight = FontWeight.SemiBold) }
+                    }
+                }
             }
         }
     }
@@ -1380,6 +1511,8 @@ fun ZeluApp() {
                 }
                 topic("Private", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
                 topic("Stops reading messages", "Android can switch off an app's permissions when it is not opened for a while. Zelu shows a banner if that happens. To stop it: phone Settings › Apps › Zelu › Permissions, and turn off 'Remove permissions if app isn't used'. Also keep Menu › Help › Keep Zelu alive allowed.")
+                topic("A bank is not read", "Zelu recognises banks by their sender name. If one is skipped, open Menu › Messages › Unrecognised senders and tap This is my bank. Its messages, old and new, are read from then on.")
+                topic("Categories and splits", "Menu › Money › Categories lets you leave a whole category out of spending. To split one payment across categories, tap it, choose Change category, then Split.")
                 topic("Duplicates", "If one payment is reported twice, Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
                 topic("Payments", "Every bank or UPI message about money going out or coming in becomes a payment. Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
                 topic("Missed SMS", "Messages that mention money but could not be understood. A dot on the menu icon appears when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads messages of that form by itself from then on.")
@@ -1766,6 +1899,16 @@ fun ZeluApp() {
             },
             onNewCat = { cb -> newCatCallback = cb },
             onRetitle = { title -> retitle(r.id, title); detailRow = null },
+            onSplit = if (r.kind == "expense" || r.id.contains('#')) ({
+                detailRow = null
+                if (r.id.contains('#')) {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { Storage.setSplit(context, r.id.substringBefore('#'), null) }
+                        rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                        Toast.makeText(context, "Split removed", Toast.LENGTH_SHORT).show()
+                    }
+                } else splitFor = r
+            }) else null,
             onDismiss = { detailRow = null },
         )
     }
@@ -2243,7 +2386,7 @@ private fun yrMo(m: Int): String {
 }
 
 @Composable private fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
-    onRetitle: (String) -> Unit = {}, onDismiss: () -> Unit) {
+    onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -2328,6 +2471,7 @@ private fun yrMo(m: Int): String {
                     Chip("Lent", false) { onReclassify("lent", "Lent") }
                     Chip("Borrowed", false) { onReclassify("borrowed", "Borrowed") }
                     Chip("Ignore", false) { onReclassify("ignore", "Ignore") }
+                    if (onSplit != null) Chip(if (t.id.contains('#')) "Remove split" else "Split…", false) { onSplit() }
                 }
             }
         }
