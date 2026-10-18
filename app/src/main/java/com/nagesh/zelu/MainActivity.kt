@@ -438,12 +438,6 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
 
 private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" else "$n $many"
 
-// Whole days from today to a yyyy-MM-dd date; negative when it has passed.
-private fun daysUntil(date: String, today: String): Int = try {
-    val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-    ((f.parse(date)!!.time - f.parse(today)!!.time) / 86_400_000L).toInt()
-} catch (_: Exception) { 99 }
-
 @Composable private fun AccountSetupScreen(
     cands: List<Analytics.AcctCandidate>, rows: List<Row>, onDone: (Map<String, Pair<String, String>>) -> Unit,
 ) {
@@ -1164,46 +1158,6 @@ fun ZeluApp() {
                 }
             }
             Spacer(Modifier.height(14.dp))
-
-            // Is Zelu getting your bank messages? Green when it is; a warning when none has come for days.
-            val newestSms = Storage.newestBank(context)
-            if (smsOk && newestSms > 0L && rows.isNotEmpty()) {
-                val quietDays = ((System.currentTimeMillis() - newestSms) / 86_400_000L).toInt()
-                val quiet = quietDays >= 3
-                val tone = if (quiet) ZColor.Warn else ZColor.Income
-                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(14.dp))
-                    .background(if (quiet) ZColor.WarnSoft else ZColor.IncomeSoft)
-                    .then(if (quiet) Modifier.clickable { Notifier.openBatterySettings(context) } else Modifier)
-                    .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (quiet) "!" else "✓", color = tone, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        if (quiet) {
-                            Text("No bank SMS for $quietDays days", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text("If you did spend, battery saver may be blocking Zelu. Tap to fix it.", color = ZColor.InkSoft, fontSize = 12.sp)
-                        } else {
-                            Text("Reading your bank alerts · last SMS " + agoText(newestSms), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            }
-
-            // The next bill or card payment that is due within a week, or overdue.
-            val dueSoon = remember(reminders) {
-                val today = Dates.today()
-                reminders.filter { !it.done && daysUntil(it.dueDate, today) <= 7 }.minByOrNull { it.dueDate }
-            }
-            dueSoon?.let { r ->
-                val n = daysUntil(r.dueDate, Dates.today())
-                val what = if (r.minAmount != null) (r.account.substringBefore(' ').ifBlank { "Card" } + " card bill") else (r.counterparty ?: "Bill")
-                val when_ = when { n < 0 -> "overdue by " + plural(-n, "day", "days"); n == 0 -> "due today"; else -> "due in " + plural(n, "day", "days") }
-                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.WarnSoft)
-                    .clickable { view = "dues"; daySel = 0 }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(what + " " + money(r.amount), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text(" · " + when_, color = if (n < 0) ZColor.Warn else ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("›", color = ZColor.Muted, fontSize = 18.sp)
-                }
-            }
 
             // A new account showed up in your messages after you set things up.
             val pendingAccts = remember(rows, balances, limits, registry, acctConfirmed) {
