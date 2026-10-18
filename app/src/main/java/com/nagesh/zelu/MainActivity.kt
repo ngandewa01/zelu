@@ -3232,7 +3232,11 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         }
     }
 
-    // Heads up — budgets nearly used or exceeded, and cards running low (current month only)
+    // Heads up — budgets nearly used or exceeded, and cards running low (current month only).
+    // These now live inside "At a glance" instead of a card of their own.
+    var glanceForecast = 0.0
+    val glanceAlerts = ArrayList<Triple<String, Boolean, () -> Unit>>()   // (what, over?, open)
+    val glanceAlertPct = ArrayList<Int>()
     run {
         if (f.period == "month" && f.month == Dates.todayMonth()) {
             // (over?, ratio, icon, title, detail, onClick)
@@ -3272,42 +3276,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             val duesLeft = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= tdy }.sumOf { it.amount }
             val daysToGo = (Dates.daysInMonth(f.month) - Dates.dayOfMonth()).coerceAtLeast(0)
             val projectedEnd = spentNow + duesLeft + Analytics.typicalDaily(allRows, tdy) * daysToGo
-            if (shownAlerts.isNotEmpty() || spentNow > 0) Panel {
-                Eyebrow("For you")
-                if (spentNow > 0) Row(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() },
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.IncomeSoft), contentAlignment = Alignment.Center) {
-                        androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Month-end forecast", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Spent so far + dues left + a normal day's spend", color = ZColor.Muted, fontSize = 12.sp, maxLines = 2)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text("≈ " + money(projectedEnd), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-                shownAlerts.forEach { a ->
-                    val tone = if (a.over) ZColor.Warn else ZColor.AmberInk
-                    val soft = if (a.over) ZColor.WarnSoft else ZColor.AmberSoft
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { a.go() },
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(soft), contentAlignment = Alignment.Center) {
-                            androidx.compose.material3.Icon(a.icon, null, tint = tone, modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(a.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(a.detail, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).padding(horizontal = 8.dp, vertical = 3.dp)) {
-                            Text((a.ratio * 100).toInt().toString() + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+            if (spentNow > 0) glanceForecast = projectedEnd
+            shownAlerts.forEach { a -> glanceAlerts.add(Triple(a.title, a.over, a.go)); glanceAlertPct.add((a.ratio * 100).toInt()) }
         }
     }
 
@@ -3423,6 +3393,28 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     Text(money(fi.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
+            if (glanceForecast > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Month-end forecast", color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("≈ " + money(glanceForecast), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (glanceAlerts.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    glanceAlerts.forEachIndexed { i, (what, over, go) ->
+                        val tone = if (over) ZColor.Warn else ZColor.AmberInk
+                        val soft = if (over) ZColor.WarnSoft else ZColor.AmberSoft
+                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).clickable { go() }.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            Text(what + " " + glanceAlertPct[i] + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                }
+            }
             val tips = glanceTips(fi, s.spent, s.income, fixedSet.cats)
             if (tips.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
@@ -3477,11 +3469,34 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         .filter { it !in hiddenAccts }
         .sortedByDescending { balances[it]?.first ?: -1.0 }
     var allAccountsOpen by remember { mutableStateOf(false) }
-    if (acctNames.isNotEmpty()) {
+    // Accounts, cards and loans share one card with tabs, so Home stays short.
+    val cardAccounts = accounts.filter { it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC") }
+    val loanGroups = allRows.filter { it.category == "EMI" && Regex(".*\\bLoan \\d{3,4}$").matches(it.counterparty ?: "") }
+        .groupBy { it.counterparty!! }
+    var moneyTab by remember { mutableStateOf("accounts") }
+    val hasAcc = acctNames.isNotEmpty(); val hasCard = cardAccounts.isNotEmpty(); val hasLoan = loanGroups.isNotEmpty()
+    val moneyTabNow = when {
+        moneyTab == "accounts" && hasAcc -> "accounts"
+        moneyTab == "cards" && hasCard -> "cards"
+        moneyTab == "loans" && hasLoan -> "loans"
+        hasAcc -> "accounts"; hasCard -> "cards"; else -> "loans"
+    }
+    @Composable fun MoneyTabs() {
+        val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
+        if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
+        else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasAcc) Chip("Accounts", moneyTabNow == "accounts") { moneyTab = "accounts" }
+            if (hasCard) Chip("Cards", moneyTabNow == "cards") { moneyTab = "cards" }
+            if (hasLoan) Chip("Loans", moneyTabNow == "loans") { moneyTab = "loans" }
+        }
+    }
+    if (hasAcc && moneyTabNow == "accounts") {
         Panel {
+            MoneyTabs()
+            Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().clickable { allAccountsOpen = true },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Accounts")
+                MutedText("Total balance", 12)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (balances.isNotEmpty())
                         Text(money(balances.filterKeys { it !in hiddenAccts }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -3557,10 +3572,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 
     // Cards
-    val cardAccounts = accounts.filter { it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC") }
-    if (cardAccounts.isNotEmpty()) {
+    if (cardAccounts.isNotEmpty() && moneyTabNow == "cards") {
         Panel {
-            Eyebrow("Cards")
+            MoneyTabs()
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -3580,11 +3594,9 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 
     // Loans — found from EMI payments named after the loan ("HDFC Loan 529"), all-time.
-    val loanGroups = allRows.filter { it.category == "EMI" && Regex(".*\\bLoan \\d{3,4}$").matches(it.counterparty ?: "") }
-        .groupBy { it.counterparty!! }
-    if (loanGroups.isNotEmpty()) {
+    if (loanGroups.isNotEmpty() && moneyTabNow == "loans") {
         Panel {
-            Eyebrow("Loans")
+            MoneyTabs()
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }.forEach { (name, rs) ->
