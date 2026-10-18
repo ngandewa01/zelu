@@ -1433,7 +1433,9 @@ fun ZeluApp() {
                                 Text((r.counterparty ?: r.category) + " · " + money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 MutedText(prettyDate(r.date) + " · " + r.account + " · from " + r.source, 11)
-                                Spacer(Modifier.height(4.dp))
+                                Spacer(Modifier.height(3.dp))
+                                Text(r.raw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(8.dp))
                             }
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
