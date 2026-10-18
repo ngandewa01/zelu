@@ -172,6 +172,10 @@ object Parser {
     // Digits that are NOT an account: a mobile number ("linked to mobile number XXXXX64606"), a reference number.
     private val PHONE_NOISE = Regex("""\b(?:mobile|mob|phone|ph|contact|cell|registered)\s*(?:no\.?|number|num|#)?\s*[:.\-]?\s*\+?\d?[xX*#]*\s*[\d ]{4,}""", RegexOption.IGNORE_CASE)
     private val REF_NOISE = Regex("""\b(?:ref(?:erence)?|utr|rrn|txn|trans(?:action)?|order|id|otp)\s*(?:no\.?|number|id|#)?\s*[:.\-]?\s*[A-Za-z]{0,6}\d{5,}""", RegexOption.IGNORE_CASE)
+    private val EXPLICIT_CARD = Regex("""\b(credit card|\bcc\b)""", RegexOption.IGNORE_CASE)
+    private val LIMIT_WORD = Regex("""\b(avl\.?\s*lmt|avl\.?\s*limit|available\s*limit|credit\s*limit|total\s*limit)""", RegexOption.IGNORE_CASE)
+    private val BAL_AFTER = Regex("""\b(avl\.?|available|avbl\.?|closing)\s*bal(ance)?""", RegexOption.IGNORE_CASE)
+    private val ATM_WORD = Regex("""\b(atm|withdrawn|withdrawal)\b""", RegexOption.IGNORE_CASE)
     private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
@@ -540,7 +544,11 @@ object Parser {
         // When a debit card shows only its card number (no a/c), attribute it to the bank
         // account itself (which then folds into the main savings) rather than the card number.
         if (debitCard && !AC_KEYWORD.containsMatchIn(text)) last4 = ""
-        val isCard = IS_CARD.containsMatchIn(text) && !debitCard
+        // A credit card is named as one or shows a spending limit. "Your card" or "block card" alone is not enough: an ATM
+        // withdrawal or a message that reports an available balance belongs to a bank account.
+        val explicitCard = EXPLICIT_CARD.containsMatchIn(text) || LIMIT_WORD.containsMatchIn(text)
+        val weakOnly = !explicitCard && (BAL_AFTER.containsMatchIn(text) || ATM_WORD.containsMatchIn(text))
+        val isCard = IS_CARD.containsMatchIn(text) && !debitCard && !weakOnly
         return when {
             bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"
             // A card with no readable number still stays a card, so it won't merge into savings.
