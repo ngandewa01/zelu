@@ -539,7 +539,7 @@ fun ZeluApp() {
     var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var cardPrefs by remember { mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap()) }
     var cardOpen by remember { mutableStateOf<String?>(null) }
-    var monthlyBudget by remember { mutableStateOf(60000.0) }
+    var monthlyBudget by remember { mutableStateOf(0.0) }
     var budgetDlg by remember { mutableStateOf(false) }
     Analytics.BUDGET = monthlyBudget
     var lendPerson by remember { mutableStateOf<String?>(null) }
@@ -1086,11 +1086,11 @@ fun ZeluApp() {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Monthly budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                MutedText("Your overall spending limit per month. Shown on Home and used for the pace chart.", 12)
+                MutedText("Your overall spending limit per month. Shown on Home and used for the pace chart. Enter 0 for no budget.", 12)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
-                    singleLine = true, placeholder = { Text("₹ per month") },
+                    singleLine = true, placeholder = { Text("₹ per month (0 = none)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(14.dp))
@@ -1098,7 +1098,7 @@ fun ZeluApp() {
                     Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable {
                             val v = text.toDoubleOrNull() ?: 0.0
-                            if (v > 0) scope.launch {
+                            scope.launch {
                                 withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, v) }
                                 monthlyBudget = v
                             }
@@ -1141,15 +1141,15 @@ fun ZeluApp() {
                         Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
                     },
                 ))
-                MenuSection("Alerts and security")
+                MenuSection("Settings and data")
                 MenuGrid(listOf(
                     MI("Test alert", Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent,
-                        if (notifBlocked) "Off · turn on" else null, if (notifBlocked) ZColor.Warn else ZColor.Muted) {
+                        if (notifBlocked) "OFF" else null, if (notifBlocked) ZColor.Warn else ZColor.Muted) {
                         menuOpen = false
                         if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
                     },
-                    MI("Keep alive", Icons.Rounded.BatteryChargingFull, ZColor.Accent, "Battery saver") { menuOpen = false; Notifier.openBatterySettings(context) },
-                    MI("App lock", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted, if (lockOn) "On" else "Off",
+                    MI("Keep alive", Icons.Rounded.BatteryChargingFull, ZColor.Accent) { menuOpen = false; Notifier.openBatterySettings(context) },
+                    MI("App lock", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted, if (lockOn) "ON" else "OFF",
                         if (lockOn) ZColor.Income else ZColor.Muted) {
                         val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                         if (!lockOn && !km.isDeviceSecure) {
@@ -1159,14 +1159,11 @@ fun ZeluApp() {
                             context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
                         }
                     },
-                ))
-                MenuSection("Data")
-                MenuGrid(listOf(
-                    MI("Missed messages", Icons.Rounded.Receipt, ZColor.Warn, "Add by hand") {
+                    MI("Missed SMS", Icons.Rounded.Receipt, ZColor.Warn) {
                         menuOpen = false; unreadOpen = true; unreadList = null
                         scope.launch { unreadList = withContext(Dispatchers.IO) { Ingest.unreadable(context) } }
                     },
-                    MI("Data check", Icons.Rounded.Receipt, ZColor.Accent, "Balances add up?") {
+                    MI("Data check", Icons.Rounded.Receipt, ZColor.Accent) {
                         menuOpen = false; checkOpen = true; check = null
                         scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
                     },
@@ -1180,7 +1177,7 @@ fun ZeluApp() {
                         }
                     },
                     MI("Restore", Icons.Rounded.Restore, ZColor.Muted) { menuOpen = false; restoreLauncher.launch(arrayOf("*/*")) },
-                    MI("Weekly backup", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted, if (autoBackup) "On" else "Off",
+                    MI("Auto backup", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted, if (autoBackup) "ON" else "OFF",
                         if (autoBackup) ZColor.Income else ZColor.Muted) { autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup) },
                 ))
                 Spacer(Modifier.height(6.dp))
@@ -2351,17 +2348,15 @@ private class MI(
         items.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 pair.forEach { it2 ->
-                    Row(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
+                    Row(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
                         .clickable { it2.onClick() }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(it2.tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                             androidx.compose.material3.Icon(it2.icon, null, tint = it2.tint, modifier = Modifier.size(17.dp))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(it2.title, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
-                                overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
-                            if (it2.state != null) Text(it2.state, color = it2.stateColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                        Text(it2.title, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (it2.state != null) Text(it2.state, color = it2.stateColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -2665,7 +2660,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     val fixedSet = remember(allRows, fixed) { Analytics.fixedSet(allRows, Dates.todayMonth(), fixed) }
     val flexIns = Analytics.insight(list.filter { !Analytics.isFixed(it, fixedSet) }, f) ?: ins
     val bigIds = Analytics.bigSpendIds(list)
-    val pct = (s.spent / Analytics.BUDGET).toFloat()
+    val pct = if (Analytics.BUDGET > 0) (s.spent / Analytics.BUDGET).toFloat() else 0f
     val budgetLeft = (Analytics.BUDGET - s.spent).coerceAtLeast(0.0)
 
     // Spent + budget
@@ -2674,14 +2669,20 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
         Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent)
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
-                color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-            )
-            MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
+        if (Analytics.BUDGET > 0) {
+            Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent)
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
+                    color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                )
+                MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
+            }
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { onEditBudget() })
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -3431,7 +3432,12 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val left = (budget - spent).coerceAtLeast(0.0)
             val over = budget > 0 && spent > budget
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
+            if (budget <= 0) Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
+                MutedText("Spent so far", 11)
+                Text(money(spent), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                Text("No budget set · $daysLeft days to go", color = ZColor.InkSoft, fontSize = 11.sp)
+            } else Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
                 MutedText("Daily allowance", 11)
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(money(if (daysLeft > 0) left / daysLeft else 0.0), color = if (over) ZColor.Warn else ZColor.Income,
@@ -4212,7 +4218,9 @@ private fun prettyDate(iso: String): String = try {
     Text("Are you ahead of budget?", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
     if (leave.isNotEmpty()) MutedText("Leaves out EMI and fixed costs", 12)
 
-    if (f.period == "month") {
+    if (Analytics.BUDGET <= 0) {
+        Panel { MutedText("Set a monthly budget from the menu to see whether you are ahead or behind.") }
+    } else if (f.period == "month") {
         val dim = Dates.daysInMonth(month)
         val isCur = month == Dates.todayMonth()
         val upto = if (isCur) Dates.dayOfMonth() else dim

@@ -588,8 +588,7 @@ object Storage {
     // ---- overall monthly spending budget ----
     fun loadMonthlyBudget(context: Context): Double = synchronized(lock) {
         val f = file(context, "monthly_budget.txt")
-        if (!f.exists()) return 60000.0
-        f.readText().trim().toDoubleOrNull()?.takeIf { it > 0 } ?: 60000.0
+        if (!f.exists()) 0.0 else f.readText().trim().toDoubleOrNull()?.takeIf { it >= 0 } ?: 0.0
     }
 
     fun saveMonthlyBudget(context: Context, amount: Double): Unit = synchronized(lock) {

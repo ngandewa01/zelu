@@ -66,7 +66,7 @@ object Dates {
 object Analytics {
 
     // Monthly spending budget; set from the user's saved value at startup (default 60,000).
-    var BUDGET = 60000.0
+    var BUDGET = 0.0
 
     data class Filter(
         val period: String,       // week|month|3m|6m|year|all|custom
@@ -275,7 +275,7 @@ object Analytics {
         val spent = expenses.sumOf { it.amount }
         val top = cats.first()
         val biggest = expenses.maxByOrNull { it.amount }!!
-        val overBy = if (f.period == "month" && f.month == Dates.todayMonth()) {
+        val overBy = if (BUDGET > 0 && f.period == "month" && f.month == Dates.todayMonth()) {
             spent - BUDGET * Dates.dayOfMonth() / Dates.daysInMonth(f.month)
         } else null
         return Insight(top.first, top.second, (top.second / spent * 100).toInt(),
