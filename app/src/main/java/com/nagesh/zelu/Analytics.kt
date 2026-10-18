@@ -199,7 +199,7 @@ object Analytics {
     private val LOAN_NAME = Regex(""".*\bLoan \d{3,4}$""")
 
     // Reference numbers named in a message: "UPI:756424637751", "UPI Ref no 123…", "Ref. no. 6085…", "reference number", "RRN", "UTR", "Txn id".
-    private val REF_IN_TEXT = Regex("""\b(?:upi(?:\s*ref(?:erence)?)?|ref(?:erence)?|rrn|utr|txn\s*id|transaction\s*id|imps)\s*(?:no\.?|number|id|#)?\s*[:#.\-]*\s*([A-Za-z]{0,4}\d{6,})""", RegexOption.IGNORE_CASE)
+    private val REF_IN_TEXT = Regex("""\b(?:upi(?:\s*ref(?:erence)?)?|ref(?:erence)?|rrn|utr|txn\s*id|transaction\s*id|imps)\s*[:#.\-]*\s*(?:no\.?|number|id|#)?\s*[:#.\-]*\s*([A-Za-z]{0,4}\d{6,})""", RegexOption.IGNORE_CASE)
     private fun refsOf(r: Row): Set<String> {
         val s = HashSet<String>()
         r.ref?.takeIf { it.isNotBlank() }?.let { s.add(it.trim()) }
