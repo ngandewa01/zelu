@@ -218,15 +218,22 @@ object Storage {
         // last4 -> (bank -> how many rows name that bank); and whether any row marked it a card.
         val bankCount = HashMap<String, HashMap<String, Int>>()
         val ccForBankLast4 = HashMap<String, Boolean>()
+        // A savings account reports "Avl Bal"; a card reports "Avl Lmt". One stray message that says "card" must
+        // not turn an account that keeps reporting balances into a credit card.
+        val ccRows = HashMap<String, Int>()
+        val balRows = HashMap<String, Int>()
         for (r in rows) {
             val (bank, cc, last4) = parse(r.account)
             if (last4.isNotEmpty() && bank.isNotEmpty()) {
                 val m = bankCount.getOrPut(last4) { HashMap() }
                 m[bank] = (m[bank] ?: 0) + 1
                 val k = "$bank|$last4"
-                ccForBankLast4[k] = (ccForBankLast4[k] ?: false) || cc
+                if (cc) ccRows[k] = (ccRows[k] ?: 0) + 1
+                else if (Parser.balanceFromTxn(r.raw) != null && Parser.limitFromTxn(r.raw) == null) balRows[k] = (balRows[k] ?: 0) + 1
             }
         }
+        for ((k, n) in ccRows) ccForBankLast4[k] = n > 0 && (balRows[k] ?: 0) < n * 2
+        for (k in balRows.keys) if (!ccForBankLast4.containsKey(k)) ccForBankLast4[k] = false
         // Savings accounts per bank (last4 not seen as a card) with their row counts, so a
         // bank-only label like "HDFC" (from loan EMIs) folds into the main HDFC savings a/c.
         val savingsCount = HashMap<String, HashMap<String, Int>>()
@@ -619,10 +626,26 @@ object Storage {
         } catch (_: Exception) { emptyMap() }
     }
 
+    // A limit you typed in because no SMS states it. A later SMS that does state it replaces it.
+    fun manualLimitKeys(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet("manual_limits", emptySet()) ?: emptySet()
+
+    fun setManualLimit(context: Context, account: String, amount: Double): Unit = synchronized(lock) {
+        val cur = loadLimits(context).toMutableMap()
+        cur[account] = amount to System.currentTimeMillis()
+        val o = JSONObject()
+        for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
+        file(context, "limits.json").writeText(o.toString())
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", manualLimitKeys(context) + account).apply()
+    }
+
     fun saveLimits(context: Context, fresh: Map<String, Pair<Double, Long>>): Unit = synchronized(lock) {
         if (fresh.isEmpty()) return@synchronized
         val cur = loadLimits(context).toMutableMap()
-        for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) cur[k] = v }
+        val man = manualLimitKeys(context).toMutableSet()
+        var manChanged = false
+        for ((k, v) in fresh) { val c = cur[k]; if (c == null || v.second >= c.second) { cur[k] = v; if (man.remove(k)) manChanged = true } }
+        if (manChanged) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", man).apply()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
         file(context, "limits.json").writeText(o.toString())

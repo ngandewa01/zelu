@@ -595,6 +595,7 @@ fun ZeluApp() {
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
+            LimitAsk.manual = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
             cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
             CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
@@ -862,6 +863,8 @@ fun ZeluApp() {
                         Text("New " + acctTypeLabel(c.type).lowercase() + " found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         Text(c.key + " · " + plural(c.txns, "payment", "payments") + (c.dupOf?.let { " · same as $it?" } ?: ""), color = ZColor.InkSoft, fontSize = 12.sp,
                             maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (c.sample.isNotBlank()) Text(c.sample, color = ZColor.Muted, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 3.dp))
                     }
                     Text("Not mine", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { declineFor = c }.padding(horizontal = 10.dp, vertical = 10.dp))
@@ -1293,6 +1296,34 @@ fun ZeluApp() {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    LimitAsk.account?.let { acct ->
+        var txt by remember(acct) { mutableStateOf("") }
+        Dialog(onDismissRequest = { LimitAsk.account = null }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Card limit", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("Your bank's messages for " + acct + " don't state the available limit. Enter what your bank app shows now. If a later message states it, Zelu uses that instead.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = txt, onValueChange = { v -> txt = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
+                    placeholder = { Text("Available limit ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { LimitAsk.account = null }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        val v = txt.toDoubleOrNull() ?: 0.0
+                        if (v > 0) scope.launch {
+                            withContext(Dispatchers.IO) { Storage.setManualLimit(context, acct, v) }
+                            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
+                            LimitAsk.manual = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
+                            LimitAsk.account = null
+                        }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }
@@ -3621,6 +3652,12 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 }
 
+// Which card is waiting for a limit you type in, and which limits were typed by you (shown as such).
+private object LimitAsk {
+    var account by mutableStateOf<String?>(null)
+    var manual by mutableStateOf<Set<String>>(emptySet())
+}
+
 @Composable private fun CardTile(account: String, spent: Double, limit: Pair<Double, Long>?, total: Pair<Double, Long>?, due: Reminder?, usedSince: Double = 0.0, onClick: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val parts = account.trim().split(" ")
@@ -3673,9 +3710,11 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Column {
+                        val isManual = account in LimitAsk.manual
                         Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = soft, fontSize = 10.sp)
-                        Text(if (shown != null) money(shown.first) else "limit not in SMS", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        if (asOf != null) Text(if (limit != null && kotlin.math.abs(usedSince) >= 1.0) "est. · SMS of $asOf, less spends since" else "as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                        Text(if (shown != null) money(shown.first) else "Add your limit ›", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                            modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
+                        if (asOf != null) Text(if (account in LimitAsk.manual) "set by you on $asOf, less spends since · tap to change" else if (limit != null && kotlin.math.abs(usedSince) >= 1.0) "est. · SMS of $asOf, less spends since" else "as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Spent", color = soft, fontSize = 10.sp)
