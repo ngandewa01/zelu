@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-// ---- Zelu themes: pick a palette (10 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (16 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -64,6 +64,24 @@ val PALETTES: List<Pal> = listOf(
     Pal("Ink & Lilac",
         PalSet(0xFFDEDFE6, 0xFFEDEEF3, 0xFF23253A, 0xFF74768C, 0xFFCDCFDC, 0xFF7A72B8, 0xFFFFFFFF, 0xFF5E9283, 0xFFB5646F),
         PalSet(0xFF17182A, 0xFF20223A, 0xFFE4E5F2, 0xFF9496B0, 0xFF2F3250, 0xFFA9A2DB, 0xFF17182A, 0xFF7FB5A6, 0xFFD68A93)),
+    Pal("Olive & Gold",
+        PalSet(0xFFE8DFC9, 0xFFF5EFE3, 0xFF2A3016, 0xFF7B7757, 0xFFD8C9A8, 0xFFA87A22, 0xFFFFFFFF, 0xFF5A7A3A, 0xFFB5574A),
+        PalSet(0xFF1E2012, 0xFF2A2D1A, 0xFFEEE8D6, 0xFFA39F7F, 0xFF3A3D26, 0xFFD4A94A, 0xFF1E2012, 0xFF93AE6E, 0xFFD0766A)),
+    Pal("Slate & Ember",
+        PalSet(0xFFE4E6DC, 0xFFF3F4ED, 0xFF2A2E2C, 0xFF6E7977, 0xFFCFD3C8, 0xFFC06014, 0xFFFFFFFF, 0xFF4F7A74, 0xFFB0443A),
+        PalSet(0xFF1B1E1D, 0xFF252928, 0xFFECEEE6, 0xFF98A3A1, 0xFF343A38, 0xFFE07F35, 0xFF1B1E1D, 0xFF7FB0A8, 0xFFD8705F)),
+    Pal("Navy & Sky",
+        PalSet(0xFFDCE2E8, 0xFFECF0F1, 0xFF1F2A3B, 0xFF6B778A, 0xFFC6CFD8, 0xFF2F86C4, 0xFFFFFFFF, 0xFF3F9A83, 0xFFC4604A),
+        PalSet(0xFF18202C, 0xFF222C3B, 0xFFECF0F1, 0xFF93A0B3, 0xFF33425B, 0xFF4AA8E8, 0xFF10161F, 0xFF5FBF9F, 0xFFFCA27A)),
+    Pal("Deep Teal",
+        PalSet(0xFFD5E5DC, 0xFFE2F1E7, 0xFF1E2F38, 0xFF5F7A7C, 0xFFC0D6CB, 0xFF387478, 0xFFFFFFFF, 0xFF4F8A6C, 0xFFB5604F),
+        PalSet(0xFF16232B, 0xFF1F303A, 0xFFE2F1E7, 0xFF8FAAA6, 0xFF2E4450, 0xFF6FB1A9, 0xFF16232B, 0xFF8DC0A4, 0xFFD4806E)),
+    Pal("Dusk Violet",
+        PalSet(0xFFE0DDEA, 0xFFEEECF4, 0xFF262B40, 0xFF70749A, 0xFFD0CCE0, 0xFF4A5D8C, 0xFFFFFFFF, 0xFF5E9A8C, 0xFFB5607A),
+        PalSet(0xFF181B2B, 0xFF22263A, 0xFFE7E5F2, 0xFF9A9EC0, 0xFF32375A, 0xFFA8A4CE, 0xFF181B2B, 0xFF7FB8AA, 0xFFD68AA0)),
+    Pal("Lagoon",
+        PalSet(0xFFE3E6E0, 0xFFF2EFE7, 0xFF1F3446, 0xFF6A8090, 0xFFD0D8D2, 0xFF3368A0, 0xFFFFFFFF, 0xFF3F8F80, 0xFFB8624F),
+        PalSet(0xFF142029, 0xFF1D2D3A, 0xFFEEF0EA, 0xFF8FA6B2, 0xFF2C4252, 0xFF66A3BF, 0xFF142029, 0xFF7FC0B0, 0xFFD5806D)),
 )
 
 private fun mix(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.lerp(a, b, t)
