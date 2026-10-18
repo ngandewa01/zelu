@@ -28,7 +28,17 @@ jobs:
           gradle-version: 8.9
 
       - name: Build release APK
-        run: gradle assembleRelease --no-daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon 2>&1 | tee build.log
+
+      # When the build breaks, show the compiler errors as annotations (readable without downloading logs).
+      - name: Show compiler errors
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |error:|What went wrong" -A1 build.log | head -40 | sed 's/^/::error::/' | tr -d '\r' || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
