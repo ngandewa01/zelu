@@ -206,6 +206,123 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
     ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
 }
 
+private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "other" -> "Wallet"; else -> "Savings account" }
+
+private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.account == key || (it.counterparty ?: "") == key }
+
+// "Not mine" on something that has payments: show them and ask once more. Removing deletes the account AND those payments from Zelu.
+@Composable private fun DeclineConfirmDialog(c: Analytics.AcctCandidate, rows: List<Row>, onKeep: () -> Unit, onRemove: () -> Unit) {
+    val mine = remember(rows, c.key) { rowsOfAccount(rows, c.key).sortedByDescending { it.date } }
+    Dialog(onDismissRequest = onKeep) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            Text("Remove " + c.key + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.sumOf { it.amount })}). " +
+                "If you remove it, these go from Zelu too: totals, payees, notifications.", 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                mine.take(10).forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(r.counterparty?.takeIf { it.isNotBlank() } ?: r.category, color = ZColor.Ink, fontSize = 14.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            MutedText(prettyDate(r.date), 11)
+                        }
+                        Text(money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (mine.size > 10) MutedText("and ${mine.size - 10} more", 12)
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text("Remove all", color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onRemove() }.padding(12.dp))
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onKeep() }
+                    .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Keep it", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+}
+
+@Composable private fun AccountSetupScreen(
+    cands: List<Analytics.AcctCandidate>, rows: List<Row>, onDone: (Map<String, Pair<String, String>>) -> Unit,
+) {
+    val checked = remember { mutableStateMapOf<String, Boolean>() }
+    fun isOn(c: Analytics.AcctCandidate) = checked[c.key] ?: c.sure
+    var expanded by remember { mutableStateOf<String?>(null) }
+    var queue by remember { mutableStateOf<List<Analytics.AcctCandidate>>(emptyList()) }
+    fun finish() = onDone(cands.associate { it.key to ((if (isOn(it)) "accepted" else "declined") to it.type) })
+    fun next() { queue = queue.drop(1); if (queue.isEmpty()) finish() }
+    Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
+            Text("Your accounts", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Zelu found these in your messages. Keep the ones that are yours.", 13)
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                @Composable fun group(label: String, list: List<Analytics.AcctCandidate>) {
+                    if (list.isEmpty()) return
+                    Spacer(Modifier.height(8.dp))
+                    Eyebrow(label)
+                    list.forEach { c ->
+                        val on = isOn(c)
+                        Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                            .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val logo = bankLogoRes(c.key)
+                                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                                    if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
+                                        contentDescription = null, modifier = Modifier.size(26.dp))
+                                    else Text(c.key.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(c.key, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    MutedText(acctTypeLabel(c.type) + " · " + when (c.type) {
+                                        "loan" -> "${c.txns} EMIs · ${money(c.amount)}"
+                                        "card" -> "${c.txns} payments" + (c.limit?.let { " · limit ${money(it)}" } ?: "")
+                                        else -> "${c.txns} payments" + (c.balance?.let { " · balance ${money(it)}" } ?: "")
+                                    }, 12)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Box(Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
+                                    .background(if (on) ZColor.Accent else Color.Transparent)
+                                    .border(1.5.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(17.dp))
+                                    .clickable { checked[c.key] = !on }, contentAlignment = Alignment.Center) {
+                                    if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                            }
+                            if (c.sample.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(if (expanded == c.key) "Hide message" else "See the message", color = ZColor.Accent, fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clickable { expanded = if (expanded == c.key) null else c.key })
+                                if (expanded == c.key) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(c.sample, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                }
+                group("Looks like yours", cands.filter { it.sure })
+                group("Not sure", cands.filter { !it.sure })
+                Spacer(Modifier.height(8.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Cta("Continue") {
+                val withSpend = cands.filter { !isOn(it) && rowsOfAccount(rows, it.key).isNotEmpty() }
+                if (withSpend.isEmpty()) finish() else queue = withSpend
+            }
+        }
+        queue.firstOrNull()?.let { c ->
+            DeclineConfirmDialog(c, rows, onKeep = { checked[c.key] = true; next() }, onRemove = { next() })
+        }
+    }
+}
+
 @Composable private fun LockScreen(onUnlock: () -> Unit) {
     Box(Modifier.fillMaxSize().background(ZColor.Paper), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -373,6 +490,9 @@ fun ZeluApp() {
     var undo by remember { mutableStateOf<Pair<String, Map<String, String?>>?>(null) }
     var unreadOpen by remember { mutableStateOf(false) }
     var checkOpen by remember { mutableStateOf(false) }
+    var registry by remember { mutableStateOf(Storage.accountRegistry(context)) }
+    var acctConfirmed by remember { mutableStateOf(Storage.accountsConfirmed(context)) }
+    var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
     var check by remember { mutableStateOf<Ingest.Check?>(null) }
     var autoBackup by remember { mutableStateOf(Backup.autoOn(context)) }
     var unreadList by remember { mutableStateOf<List<RawSms>?>(null) }
@@ -424,6 +544,22 @@ fun ZeluApp() {
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
             cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
             CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
+            registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
+        }
+    }
+
+    fun saveAccountDecisions(d: Map<String, Pair<String, String>>, confirmed: Boolean) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                Storage.setAccountStatuses(context, d)
+                if (confirmed) Storage.setAccountsConfirmed(context)
+            }
+            if (confirmed) acctConfirmed = true
+            registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
+            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
+            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
+            if (confirmed) stage = "app"
         }
     }
 
@@ -588,12 +724,22 @@ fun ZeluApp() {
         }
     }
 
+    // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
+    LaunchedEffect(stage, rows.size, acctConfirmed) {
+        if (stage == "app" && !acctConfirmed && rows.isNotEmpty()) stage = "accounts"
+        if (stage == "done" && acctConfirmed) stage = "app"
+    }
+    if (stage == "accounts") {
+        val cands = remember(rows, balances, limits) { Analytics.accountCandidates(rows, balances, limits) }
+        AccountSetupScreen(cands, rows) { d -> saveAccountDecisions(d, true) }
+        return
+    }
     if (stage != "app") {
         val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
         val cardsN = accts.count { it.contains(" CC") }
         OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
             onBack = { stage = if (stage == "perm") "privacy" else "welcome" },
-            onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> "app"; else -> stage } },
+            onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> if (acctConfirmed) "app" else "accounts"; else -> stage } },
             onAllow = {
                 val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
                 if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
@@ -627,6 +773,33 @@ fun ZeluApp() {
                 }
             }
             Spacer(Modifier.height(14.dp))
+
+            // A new account showed up in your messages after you set things up.
+            val pendingAccts = remember(rows, balances, limits, registry, acctConfirmed) {
+                if (!acctConfirmed) emptyList()
+                else Analytics.accountCandidates(rows, balances, limits).filter { it.key !in registry && it.txns > 0 }
+            }
+            pendingAccts.firstOrNull()?.let { c ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
+                    .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("New " + acctTypeLabel(c.type).lowercase() + " found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(c.key + " · " + c.txns + (if (c.txns == 1) " payment" else " payments"), color = ZColor.InkSoft, fontSize = 12.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text("Not mine", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { declineFor = c }.padding(horizontal = 10.dp, vertical = 10.dp))
+                    Text("Add", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false) }.padding(horizontal = 12.dp, vertical = 10.dp))
+                }
+            }
+            declineFor?.let { c ->
+                DeclineConfirmDialog(c, rows, onKeep = {
+                    saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false); declineFor = null
+                }, onRemove = {
+                    saveAccountDecisions(mapOf(c.key to ("declined" to c.type)), false); declineFor = null
+                })
+            }
 
             // filter bar: arrows + summary pill + collapsible dropdowns
             val rangeLabel = when (period) {

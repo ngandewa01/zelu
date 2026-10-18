@@ -185,6 +185,38 @@ object Analytics {
         return net
     }
 
+    // An account, card or loan Zelu found in your messages, with the evidence for it.
+    data class AcctCandidate(
+        val key: String, val type: String, // type: savings, card, loan, other
+        val txns: Int, val amount: Double, val balance: Double?, val limit: Double?, val sample: String,
+    ) {
+        // Several payments, or a balance / limit, make it clearly one of yours; the rest are "not sure".
+        val sure: Boolean get() = type == "loan" || txns >= 2 || balance != null || limit != null
+    }
+
+    private val LOAN_NAME = Regex(""".*\bLoan \d{3,4}$""")
+
+    fun accountCandidates(rows: List<Row>, balances: Map<String, Pair<Double, Long>>, limits: Map<String, Pair<Double, Long>>): List<AcctCandidate> {
+        fun guess(k: String) = when {
+            k.contains("FASTag") -> "other"
+            k.contains(" CC") || k.startsWith("CC ") -> "card"
+            else -> "savings"
+        }
+        val out = ArrayList<AcctCandidate>()
+        val byAcct = rows.filter { it.account.isNotBlank() }.groupBy { it.account }
+        val keys = (byAcct.keys + balances.keys + limits.keys.map { it.substringBefore("#total") }).distinct()
+        for (k in keys) {
+            val rs = byAcct[k].orEmpty()
+            out.add(AcctCandidate(k, guess(k), rs.size, rs.filter { it.direction == "debit" }.sumOf { it.amount },
+                balances[k]?.first, limits[k]?.first ?: limits["$k#total"]?.first, rs.maxByOrNull { it.date }?.raw ?: ""))
+        }
+        rows.filter { it.category == "EMI" && LOAN_NAME.matches(it.counterparty ?: "") }.groupBy { it.counterparty!! }.forEach { (n, rs) ->
+            out.add(AcctCandidate(n, "loan", rs.size, rs.sumOf { it.amount }, null, null, rs.maxByOrNull { it.date }?.raw ?: ""))
+        }
+        val order = listOf("savings", "card", "loan", "other")
+        return out.sortedWith(compareBy<AcctCandidate> { order.indexOf(it.type) }.thenByDescending { it.txns })
+    }
+
     fun byPayee(list: List<Row>): List<Payee> {
         val amt = LinkedHashMap<String, Double>()
         val cnt = LinkedHashMap<String, Int>()

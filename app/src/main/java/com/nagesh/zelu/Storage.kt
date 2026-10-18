@@ -18,6 +18,7 @@ object Storage {
     private const val REM_DONE_FILE = "reminder_done.json" // reminder ids ticked as paid
     private const val REPAID_FILE = "lent_repaid.json"   // person -> amount repaid against money you lent
     private const val ALIAS_FILE = "payee_alias.json"   // payee name -> the name you renamed / merged it into
+    private const val ACCOUNTS_FILE = "accounts.json"   // account / loan -> accepted or declined, and its type
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
@@ -71,7 +72,28 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             row
         }.sortedByDescending { it.date }
+        val declined = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "declined" }.keys
         pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(canonicalizeAccounts(rows), overrides.keys))), loadRefundLinks(context))
+            .let { all -> if (declined.isEmpty()) all else all.filter { it.account !in declined && (it.counterparty ?: "") !in declined } }
+    }
+
+    // ---- accounts you confirmed (or turned down) ----  key -> (status, type)
+    fun accountRegistry(context: Context): Map<String, Pair<String, String>> = synchronized(lock) { readKv(context, ACCOUNTS_FILE) }
+
+    fun declinedKeys(context: Context): Set<String> =
+        accountRegistry(context).filter { it.value.first == "declined" }.keys
+
+    fun setAccountStatuses(context: Context, decisions: Map<String, Pair<String, String>>): Unit = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        kv.putAll(decisions)
+        writeKv(context, ACCOUNTS_FILE, kv)
+    }
+
+    fun accountsConfirmed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("accounts_confirmed", false)
+
+    fun setAccountsConfirmed(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("accounts_confirmed", true).apply()
     }
 
     // An EMI repeats: the same amount leaves the same account around the same day every month. When one
@@ -376,7 +398,11 @@ object Storage {
         return m
     }
 
-    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = loadBalancesRaw(context).let { m ->
+        val d = declinedKeys(context); if (d.isEmpty()) m else m.filterKeys { it !in d }
+    }
+
+    private fun loadBalancesRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
         readBalFile(context).mapValues { it.value.first to it.value.second }
     }
 
@@ -395,7 +421,11 @@ object Storage {
     }
 
     // ---- latest available credit limit per card account ----
-    fun loadLimits(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
+    fun loadLimits(context: Context): Map<String, Pair<Double, Long>> = loadLimitsRaw(context).let { m ->
+        val d = declinedKeys(context); if (d.isEmpty()) m else m.filterKeys { k -> k.substringBefore("#total") !in d }
+    }
+
+    private fun loadLimitsRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
         val f = file(context, "limits.json")
         if (!f.exists()) return emptyMap()
         try {

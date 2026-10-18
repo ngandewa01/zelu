@@ -29,11 +29,12 @@ class SmsReceiver : BroadcastReceiver() {
         Thread {
           try {
             val res = Ingest.ingest(context.applicationContext, listOf(raw))
-            if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" }?.let {
+            val declined = Storage.declinedKeys(context.applicationContext)
+            if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" && it.account !in declined && (it.counterparty ?: "") !in declined }?.let {
                 Notifier.notifyTxn(context.applicationContext, it)
             }
             // A balance-only alert ("Available Bal in HDFC Bank A/c XX5997 ... INR 79,377.50").
-            res.balanceHits.forEach { (acct, bal) -> Notifier.notifyBalance(context.applicationContext, acct, bal) }
+            res.balanceHits.forEach { (acct, bal) -> if (acct !in declined) Notifier.notifyBalance(context.applicationContext, acct, bal) }
             ZeluWidget.refresh(context.applicationContext)
           } catch (_: Exception) {
             // Never crash on an incoming SMS.
