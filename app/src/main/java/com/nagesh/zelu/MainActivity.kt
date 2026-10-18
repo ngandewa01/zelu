@@ -3215,49 +3215,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     val pct = if (Analytics.BUDGET > 0) (s.spent / Analytics.BUDGET).toFloat() else 0f
     val budgetLeft = (Analytics.BUDGET - s.spent).coerceAtLeast(0.0)
 
-    // Spent + budget
-    Panel {
-        val overBudget = s.spent > Analytics.BUDGET
-        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
-        Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
-        Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-        if (Analytics.BUDGET > 0) {
-            Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent)
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
-                    color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                )
-                MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
-            }
-        } else {
-            Spacer(Modifier.height(8.dp))
-            Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable { onEditBudget() })
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Fact("Money in", money(s.income), ZColor.Income)
-                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
-            }
-            if (emiAmt > 0 || excludeEmi) {
-                Column(horizontalAlignment = Alignment.End) {
-                    if (!excludeEmi) MutedText("EMI included " + money(emiAmt), 12)
-                    Spacer(Modifier.height(4.dp))
-                    Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
-                }
-            }
-        }
-        if (fixed.isNotEmpty()) {
-            val fixedTotal = fixed.values.sum()
-            Spacer(Modifier.height(10.dp))
-            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
-                " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
-        }
-    }
-
     // Heads up — budgets nearly used or exceeded, and cards running low (current month only).
     // These now live inside "At a glance" instead of a card of their own.
     var glanceForecast = 0.0
@@ -3304,6 +3261,198 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             val projectedEnd = spentNow + duesLeft + Analytics.typicalDaily(allRows, tdy) * daysToGo
             if (spentNow > 0) glanceForecast = projectedEnd
             shownAlerts.forEach { a -> glanceAlerts.add(Triple(a.title, a.over, a.go)); glanceAlertPct.add((a.ratio * 100).toInt()) }
+        }
+    }
+
+    // One hero card: what you spent, how the month is going, and where it went.
+    Panel {
+        val overBudget = s.spent > Analytics.BUDGET
+        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
+        val isMonth = f.period == "month"
+        val liveMonth = isMonth && f.month == Dates.todayMonth()
+        Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
+        // Against the same days of last month, with whatever filters are on.
+        val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
+        val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
+        val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
+            .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+            if (prevSpent > 0 && s.spent > 0) {
+                val diff = Math.round((s.spent - prevSpent) / prevSpent * 100).toInt()
+                val down = diff <= 0
+                Box(Modifier.padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(if (down) ZColor.IncomeSoft else ZColor.WarnSoft)
+                    .padding(horizontal = 9.dp, vertical = 4.dp)) {
+                    Text((if (down) "↓ " else "↑ ") + Math.abs(diff) + "% vs " + Dates.monthLabel(prevMonth).take(3),
+                        color = if (down) ZColor.Income else ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        // How the spending built up through the month, with the budget as a dashed line.
+        val showTrend = isMonth && s.spent > 0
+        if (showTrend) {
+            val dim = Dates.daysInMonth(f.month)
+            val daily = DoubleArray(dim + 1)
+            list.filter { it.kind == "expense" }.forEach { r -> val d = r.date.substring(8, 10).toInt(); if (d in 1..dim) daily[d] += r.amount }
+            val lastDay = if (liveMonth) Dates.dayOfMonth().coerceAtMost(dim) else dim
+            val cum = DoubleArray(lastDay + 1)
+            for (d in 1..lastDay) cum[d] = cum[d - 1] + daily[d]
+            val ceil = maxOf(cum[lastDay], if (Analytics.BUDGET > 0) Analytics.BUDGET else 0.0, 1.0)
+            val lineCol = if (overBudget) ZColor.Warn else ZColor.Accent
+            val budgetCol = ZColor.Muted
+            Spacer(Modifier.height(10.dp))
+            Canvas(Modifier.fillMaxWidth().height(60.dp)) {
+                val w = size.width; val h = size.height - 6.dp.toPx()
+                fun x(d: Int) = if (dim <= 1) 0f else (d - 1).toFloat() / (dim - 1) * w
+                fun y(v: Double) = (h - (v / ceil * h)).toFloat() + 3.dp.toPx()
+                if (Analytics.BUDGET > 0) drawLine(budgetCol, Offset(0f, y(Analytics.BUDGET)), Offset(w, y(Analytics.BUDGET)), strokeWidth = 1.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
+                val line = Path(); val area = Path()
+                for (d in 1..lastDay) {
+                    if (d == 1) { line.moveTo(x(d), y(cum[d])); area.moveTo(x(d), size.height); area.lineTo(x(d), y(cum[d])) }
+                    else { line.lineTo(x(d), y(cum[d])); area.lineTo(x(d), y(cum[d])) }
+                }
+                area.lineTo(x(lastDay), size.height); area.close()
+                drawPath(area, lineCol.copy(alpha = 0.12f))
+                drawPath(line, lineCol, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
+                drawCircle(lineCol, 4.dp.toPx(), Offset(x(lastDay), y(cum[lastDay])))
+            }
+        }
+        if (Analytics.BUDGET > 0) {
+            if (!showTrend) { Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent) }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
+                    color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                )
+                MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
+            }
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { onEditBudget() })
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Fact("Money in", money(s.income), ZColor.Income)
+                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
+            }
+            if (emiAmt > 0 || excludeEmi) {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (!excludeEmi) MutedText("EMI included " + money(emiAmt), 12)
+                    Spacer(Modifier.height(4.dp))
+                    Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
+                }
+            }
+        }
+        if (fixed.isNotEmpty()) {
+            val fixedTotal = fixed.values.sum()
+            Spacer(Modifier.height(10.dp))
+            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
+                " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
+        }
+
+        // Where it went, and what to watch.
+        if (ins != null) {
+            val fi = flexIns ?: ins
+            val everyday = list.filter { it.kind == "expense" && !Analytics.isFixed(it, fixedSet) }
+            val byCat = everyday.groupBy { it.category }.map { (c, rs) -> c to rs.sumOf { it.amount } }.sortedByDescending { it.second }
+            val totalEv = byCat.sumOf { it.second }
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
+            Spacer(Modifier.height(14.dp))
+            Eyebrow("Where it went")
+            Spacer(Modifier.height(12.dp))
+            if (totalEv > 0) {
+                val topCats = byCat.take(3)
+                val rest = totalEv - topCats.sumOf { it.second }
+                val ringCols = listOf(ZColor.Accent, ZColor.Income, ZColor.AmberInk)
+                val restCol = ZColor.Muted
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.fillMaxSize()) {
+                            val st = 15.dp.toPx(); val tl = Offset(st / 2, st / 2); val sz = Size(size.width - st, size.height - st)
+                            drawArc(ZColor.Paper, 0f, 360f, false, tl, sz, style = Stroke(st))
+                            var start = -90f
+                            topCats.forEachIndexed { i, e ->
+                                val sw = (e.second / totalEv * 360.0).toFloat()
+                                drawArc(ringCols[i], start, (sw - 2f).coerceAtLeast(1f), false, tl, sz, style = Stroke(st))
+                                start += sw
+                            }
+                            if (rest > 0.0) drawArc(restCol.copy(alpha = 0.45f), start, (rest / totalEv * 360.0).toFloat().coerceAtLeast(1f), false, tl, sz, style = Stroke(st))
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(Math.round(topCats[0].second / totalEv * 100).toString() + "%", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            MutedText(topCats[0].first, 11)
+                        }
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        topCats.forEachIndexed { i, (c, amt) ->
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .clickable { onDrill(c, list.filter { it.kind == "expense" && it.category == c }) },
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(ringCols[i]))
+                                Spacer(Modifier.width(8.dp))
+                                Text(c, color = ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text(money(amt), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        if (rest > 0.5) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(restCol.copy(alpha = 0.45f)))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Everything else", color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(money(rest), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.OrangeSoft).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile(fi.biggestName, "", 34.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    MutedText("Biggest spend", 11)
+                    Text(fi.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(money(fi.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            }
+            if (glanceForecast > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Month-end forecast", color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("≈ " + money(glanceForecast), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (glanceAlerts.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    glanceAlerts.forEachIndexed { i, (what, over, go) ->
+                        val tone = if (over) ZColor.Warn else ZColor.AmberInk
+                        val soft = if (over) ZColor.WarnSoft else ZColor.AmberSoft
+                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).clickable { go() }.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            Text(what + " " + glanceAlertPct[i] + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            val tips = glanceTips(fi, s.spent, s.income, fixedSet.cats)
+            if (tips.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + fi.topCat.hashCode() + month.hashCode())
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.IncomeSoft).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
         }
     }
 
@@ -3400,65 +3549,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         }
     }
 
-    // At a glance
-    if (ins != null) {
-        val fi = flexIns ?: ins
-        Panel {
-            Eyebrow("At a glance")
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-                    MerchantTile("", fi.topCat, 34.dp)
-                    Spacer(Modifier.height(8.dp))
-                    MutedText("Top category", 11)
-                    Text(fi.topCat, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(money(fi.topCatAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("${fi.topCatPct}% of everyday spend", color = ZColor.Income, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.OrangeSoft).padding(12.dp)) {
-                    MerchantTile(fi.biggestName, "", 34.dp)
-                    Spacer(Modifier.height(8.dp))
-                    MutedText("Biggest spend", 11)
-                    Text(fi.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(money(fi.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            if (glanceForecast > 0) {
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text("Month-end forecast", color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("≈ " + money(glanceForecast), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            if (glanceAlerts.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    glanceAlerts.forEachIndexed { i, (what, over, go) ->
-                        val tone = if (over) ZColor.Warn else ZColor.AmberInk
-                        val soft = if (over) ZColor.WarnSoft else ZColor.AmberSoft
-                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).clickable { go() }.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(what + " " + glanceAlertPct[i] + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
-                    }
-                }
-            }
-            val tips = glanceTips(fi, s.spent, s.income, fixedSet.cats)
-            if (tips.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + fi.topCat.hashCode() + month.hashCode())
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.IncomeSoft).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-    }
-
     // Recent — horizontal strip
     Panel {
         val recent = list.filter { it.kind != "invest" }.sortedByDescending { it.date }
@@ -3504,6 +3594,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     val loanGroups = allRows.filter { it.category == "EMI" && Regex(".*\\bLoan \\d{3,4}$").matches(it.counterparty ?: "") }
         .groupBy { it.counterparty!! }
     var moneyTab by remember { mutableStateOf("accounts") }
+    var closedLoans by remember { mutableStateOf(Storage.closedLoans(acctCtx)) }
     val hasAcc = acctNames.isNotEmpty(); val hasCard = cardAccounts.isNotEmpty(); val hasLoan = loanGroups.isNotEmpty()
     val moneyTabNow = when {
         moneyTab == "accounts" && hasAcc -> "accounts"
@@ -3629,11 +3720,16 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }.forEach { (name, rs) ->
+                loanGroups.entries.sortedWith(compareBy<Map.Entry<String, List<Row>>> { it.key in closedLoans }
+                    .thenByDescending { e -> e.value.maxOf { it.date } }).forEach { (name, rs) ->
                     val last = rs.maxByOrNull { it.date }!!
                     val logo = bankLogoRes(name)
-                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
-                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
+                    val closed = name in closedLoans
+                    // A closed loan is frozen: cool blue instead of the usual card colours.
+                    val ice = Color(0xFF6FA8D6)
+                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp))
+                        .background(if (closed) ice.copy(alpha = 0.13f) else ZColor.Paper)
+                        .border(1.dp, if (closed) ice.copy(alpha = 0.55f) else ZColor.Line, RoundedCornerShape(16.dp))
                         .clickable { onDrill(name, rs.sortedByDescending { it.date }) }.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
@@ -3642,17 +3738,20 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                                 else Text(name.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.width(10.dp))
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                MutedText("Loan", 11)
+                                if (closed) Text("❄ Closed", color = ice, fontSize = 11.sp, fontWeight = FontWeight.Bold) else MutedText("Loan", 11)
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Monthly EMI", 11)
-                        Text(money(last.amount), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        MutedText(if (closed) "Last EMI" else "Monthly EMI", 11)
+                        Text(money(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         MutedText("Last paid " + prettyDate(last.date), 11)
                         MutedText(plural(rs.size, "EMI", "EMIs") + " · " + money(rs.sumOf { it.amount }) + " paid", 11)
+                        Spacer(Modifier.height(8.dp))
+                        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { Storage.setLoanClosed(acctCtx, name, !closed); closedLoans = Storage.closedLoans(acctCtx) })
                     }
                 }
             }
