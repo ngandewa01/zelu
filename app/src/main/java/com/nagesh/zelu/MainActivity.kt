@@ -55,7 +55,7 @@ import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -1152,7 +1152,11 @@ fun ZeluApp() {
     }
 
     val pageScroll = rememberScrollState()
-    LaunchedEffect(view) { pageScroll.scrollTo(0) }     // each tab opens at its top, not where the last one was left
+    val pageAlpha = remember { Animatable(1f) }
+    LaunchedEffect(view) {                              // each tab opens at its top and fades in
+        pageScroll.scrollTo(0)
+        pageAlpha.snapTo(0.35f); pageAlpha.animateTo(1f, tween(180))
+    }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(
             Modifier.fillMaxSize().verticalScroll(pageScroll)
@@ -1376,7 +1380,9 @@ fun ZeluApp() {
                 Spacer(Modifier.width(8.dp))
                 Text("Turn on", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            Crossfade(targetState = view, animationSpec = tween(200), label = "page") { pageView ->
+            // Only the new page is drawn, fading in; two tall pages are never layered on top of each other.
+            Box(Modifier.graphicsLayer { alpha = pageAlpha.value }) {
+            val pageView = view
             when (pageView) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
