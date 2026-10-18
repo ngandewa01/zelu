@@ -207,6 +207,13 @@ object Analytics {
         return s
     }
 
+    // The balance a message reports after the payment ("Avl Bal Rs 1,200", "Wallet Bal: Rs.600"), the time it names, the payee.
+    private val BAL_IN_TEXT = Regex("""\b(?:bal(?:ance)?|avl\.?\s*lmt|avl\.?\s*limit|available\s*limit)\s*(?:is|:|-)?\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d+)?)""", RegexOption.IGNORE_CASE)
+    private fun balanceIn(raw: String): Double? = BAL_IN_TEXT.find(raw)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+    private val TIME_IN_TEXT = Regex("""\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b""")
+    private fun timeIn(raw: String): String? = TIME_IN_TEXT.find(raw)?.value
+    private fun payeeKey(n: String?): String = (n ?: "").lowercase().filter { it.isLetterOrDigit() }
+
     // Two payments that could be one payment reported twice. The same amount, account and day is only the start:
     // the same reference number says it is one payment, different reference numbers say two real payments, and with no
     // reference at all they must come from the same sender to be worth asking about.
@@ -225,6 +232,13 @@ object Analytics {
                 val same = if (fr.isNotEmpty() && br.isNotEmpty()) fr.any { it in br }
                 else first.source.isNotBlank() && first.source == b.source
                 if (!same) continue
+                // Anything that differs between the two messages says they are two payments.
+                val bal1 = balanceIn(first.raw); val bal2 = balanceIn(b.raw)
+                if (bal1 != null && bal2 != null && Math.abs(bal1 - bal2) > 0.005) continue
+                val t1 = timeIn(first.raw); val t2 = timeIn(b.raw)
+                if (t1 != null && t2 != null && t1 != t2) continue
+                val p1 = payeeKey(first.counterparty); val p2 = payeeKey(b.counterparty)
+                if (p1.isNotEmpty() && p2.isNotEmpty() && !p1.contains(p2) && !p2.contains(p1)) continue
                 if ((first.id + "|" + b.id) in dismissed) continue
                 out.add(first to b)
             }
