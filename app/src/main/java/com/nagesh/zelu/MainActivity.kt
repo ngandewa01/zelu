@@ -19,6 +19,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -1598,56 +1600,98 @@ fun ZeluApp() {
     }
 
     if (helpOpen) Dialog(onDismissRequest = { helpOpen = false }) {
+        // Four fix-it tiles with numbered steps, small chips for everything else, and one answer shown at the top.
+        class Fix(val key: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String, val steps: List<String>)
+        val fixes = listOf(
+            Fix("pay", Icons.Rounded.Receipt, "A payment is wrong", listOf("Open the payment from Home or Spend.", "Tap Change category.",
+                "Pick a category, or Transfer, Lent, Borrowed, Ignore.", "Zelu remembers it for the same payee.")),
+            Fix("bank", Icons.Rounded.AccountBalance, "A bank is not read", listOf("Open Menu, then Messages.", "Tap Unrecognised senders.",
+                "Say whether the sender is a bank, a wallet or other.", "Its old and new messages are read from then on.")),
+            Fix("acct", Icons.Rounded.CreditCard, "An account is wrong", listOf("Open Menu, then Accounts.", "Tap Change type on the account.",
+                "Choose Savings, Card, Loan or Other.", "Link it to an account you have, or keep it separate.")),
+            Fix("data", Icons.Rounded.CloudUpload, "Back up or erase", listOf("Open Menu, then Backup and security.", "Back up saves one file to Downloads/Zelu.",
+                "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
+        )
+        val topics = listOf(
+            "Private" to "Everything stays on this phone. Zelu reads bank messages here and has no internet access.",
+            "Rescan" to "New messages are read as they arrive. Menu, Messages, Rescan reads again right now.",
+            "Missed SMS" to "Money messages Zelu could not read. Menu, Messages, Missed SMS lets you add one by hand.",
+            "Messages stop" to "Android may switch off permissions for an app you open rarely. In Settings, Apps, Zelu, Permissions, turn off 'Remove permissions if app isn't used'.",
+            "Duplicates" to "If one payment was reported twice, hide the extra one. Keep both if you really paid twice.",
+            "Dues" to "Bills, EMIs and card dues. Tap the circle when paid. AutoPay has its own tab.",
+            "Split a payment" to "Open the payment, tap Change category, then Split.",
+            "Leave a category out" to "Menu, Money, Categories. It stops counting as spending.",
+            "Not covered" to "Zelu reads SMS only. Chat apps, RCS bank chats and bank apps are not visible to it.",
+        )
+        var hq by remember { mutableStateOf("") }
+        var hsel by remember { mutableStateOf("fix:pay") }
+        val q = hq.trim().lowercase()
+        val fx = fixes.filter { q.isEmpty() || (it.title + " " + it.steps.joinToString(" ")).lowercase().contains(q) }
+        val tp = topics.filter { q.isEmpty() || (it.first + " " + it.second).lowercase().contains(q) }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
-            Text("How Zelu works", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Help", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = hq, onValueChange = { hq = it }, singleLine = true, placeholder = { Text("Search help") }, modifier = Modifier.fillMaxWidth())
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                var openTopic by remember { mutableStateOf("") }
-                // One line each; tap to read more.
-                @Composable fun topic(icon: androidx.compose.ui.graphics.vector.ImageVector, head: String, short: String, body: String) {
-                    val open = openTopic == head
-                    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper)
-                        .clickable { openTopic = if (open) "" else head }.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(ZColor.Accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                                androidx.compose.material3.Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.height(12.dp))
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(14.dp)) {
+                    val f = fixes.firstOrNull { "fix:" + it.key == hsel }
+                    val t = topics.firstOrNull { "topic:" + it.first == hsel }
+                    if (f != null) {
+                        Eyebrow(f.title)
+                        f.steps.forEachIndexed { i, st ->
+                            Spacer(Modifier.height(10.dp))
+                            Row(verticalAlignment = Alignment.Top) {
+                                Box(Modifier.size(22.dp).clip(CircleShape).background(ZColor.Accent), contentAlignment = Alignment.Center) {
+                                    Text((i + 1).toString(), color = ZColor.AccentInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Text(st, color = ZColor.InkSoft, fontSize = 14.sp, lineHeight = 20.sp)
                             }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                MutedText(short, 12)
-                            }
-                            Text(if (open) "−" else "+", color = ZColor.Muted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
-                        if (open) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(body, color = ZColor.InkSoft, fontSize = 13.sp, lineHeight = 19.sp)
+                    } else if (t != null) {
+                        Text(t.first, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(t.second, color = ZColor.InkSoft, fontSize = 14.sp, lineHeight = 20.sp)
+                    } else MutedText("Pick a problem or a topic. The answer shows here.", 13)
+                }
+                if (fx.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp)); Eyebrow("Fix something"); Spacer(Modifier.height(8.dp))
+                    fx.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { f ->
+                                val on = hsel == "fix:" + f.key
+                                Column(Modifier.weight(1f).heightIn(min = 92.dp).clip(RoundedCornerShape(16.dp)).background(if (on) ZColor.Paper else ZColor.Card)
+                                    .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(16.dp))
+                                    .clickable { hsel = "fix:" + f.key }.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(ZColor.Paper), contentAlignment = Alignment.Center) {
+                                        androidx.compose.material3.Icon(f.icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                    Text(f.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
-                @Composable fun heading(t: String) { Spacer(Modifier.height(6.dp)); Eyebrow(t); Spacer(Modifier.height(8.dp)) }
-                heading("Reading your messages")
-                topic(Icons.Rounded.Lock, "Private", "Everything stays on this phone.", "Zelu reads bank messages on this phone only. It asks for no internet access, so it cannot upload anything. Backups and reports leave the phone only when you send them.")
-                topic(Icons.Rounded.Restore, "Rescan", "New messages are read as they arrive.", "Zelu also reads again each time you open it. Menu › Messages › Rescan looks again right now. Read everything again starts the payment list afresh and keeps your edits.")
-                topic(Icons.Rounded.AccountBalance, "A bank is not read", "Say what an unknown sender is.", "Zelu knows banks by sender name. If one is skipped, open Menu › Messages › Unrecognised senders and say whether it is a bank, a wallet or something else. Its messages, old and new, are read from then on.")
-                topic(Icons.Rounded.Warning, "Missed SMS", "Money messages Zelu could not understand.", "A dot on the menu icon shows when new ones turn up. Open Menu › Messages › Missed SMS to add one by hand or hide it. Keep 'Do the same for similar messages' ticked and Zelu reads that form by itself from then on.")
-                topic(Icons.Rounded.BatteryChargingFull, "Stops reading messages", "Android may switch off permissions.", "Android removes permissions from apps not opened for a while. Zelu shows a banner if that happens. To stop it: Settings › Apps › Zelu › Permissions, turn off 'Remove permissions if app isn't used', and keep Menu › Help › Keep Zelu alive allowed.")
-                topic(Icons.Rounded.VisibilityOff, "Not covered", "SMS only.", "A payment that exists only in a chat app, an RCS bank chat or the bank's own app is not visible to Zelu.")
-                heading("Your money")
-                topic(Icons.Rounded.Receipt, "Payments", "Every money message becomes a payment.", "Tap a payment to change its title or category. Zelu remembers the change for the same payee.")
-                topic(Icons.Rounded.Category, "Categories and splits", "Leave a category out, or split a payment.", "Menu › Money › Categories lets you leave a whole category out of spending. To split one payment, tap it, choose Change category, then Split.")
-                topic(Icons.Rounded.Warning, "Duplicates", "One payment reported twice.", "Zelu shows a banner on Home. Hide the extra one, or keep both if you really paid twice.")
-                topic(Icons.Rounded.CalendarMonth, "Dues", "Bills, EMIs and card dues.", "They come from your messages. Tap the circle once paid. UPI AutoPay mandates are on the Autopay tab; Add to dues turns one into a monthly reminder.")
-                topic(Icons.Rounded.AccountBalance, "Accounts", "Mark each as yours, a duplicate or not mine.", "Menu › Accounts reopens the list and brings removed ones back. Change type fixes an account Zelu mistook for a card or the other way round.")
-                heading("Your data")
-                topic(Icons.Rounded.CloudUpload, "Backup", "One file with everything you taught Zelu.", "Back up saves it to Downloads/Zelu. Restore loads it on a new phone. Weekly backup does it automatically.")
-                topic(Icons.Rounded.Warning, "Erase", "Delete all of Zelu's data from this phone.", "Menu › Backup and security › Erase everything.")
-                topic(Icons.Rounded.Lightbulb, "Something wrong?", "Report a problem by email.", "Menu › Help › Report a problem opens an email with the app details filled in. You choose what to include and press Send yourself.")
+                if (tp.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp)); Eyebrow("Good to know"); Spacer(Modifier.height(8.dp))
+                    tp.chunked(2).forEach { pair ->
+                        Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pair.forEach { (k, _) -> Chip(k, hsel == "topic:" + k) { hsel = "topic:" + k } }
+                        }
+                    }
+                }
+                if (fx.isEmpty() && tp.isEmpty()) MutedText("Nothing matches that. Try another word, or report it.", 13)
             }
-            Spacer(Modifier.height(6.dp))
-            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                .clickable { helpOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Still stuck? Report a problem", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { helpOpen = false; reportOpen = true }.padding(vertical = 8.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { helpOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
@@ -4302,6 +4346,38 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
 
 // ---------- Payees ----------
 
+// Squarified treemap in a 100 x 100 box: each value gets a block whose area matches its share.
+private data class TmCell(val idx: Int, val x: Float, val y: Float, val w: Float, val h: Float)
+private fun treemap(values: List<Double>): List<TmCell> {
+    val total = values.sum()
+    if (total <= 0.0) return emptyList()
+    val areas = values.map { (it / total * 10000.0).toFloat() }
+    val out = ArrayList<TmCell>()
+    var x = 0f; var y = 0f; var w = 100f; var h = 100f
+    var i = 0
+    fun worst(row: List<Int>, sum: Float, side: Float): Float {
+        var m = 0f
+        row.forEach { r -> val a = areas[r]; val q = maxOf(side * side * a / (sum * sum), sum * sum / (side * side * a)); if (q > m) m = q }
+        return m
+    }
+    while (i < areas.size) {
+        val side = minOf(w, h)
+        val row = ArrayList<Int>(); var sum = 0f; var best = Float.MAX_VALUE
+        var k = i
+        while (k < areas.size) {
+            val cs = sum + areas[k]
+            val wr = worst(row + k, cs, side)
+            if (row.isNotEmpty() && wr > best) break
+            row.add(k); sum = cs; best = wr; k++
+        }
+        i += row.size
+        val thick = sum / side; var off = 0f
+        if (w >= h) { row.forEach { r -> val hh = areas[r] / thick; out.add(TmCell(r, x, y + off, thick, hh)); off += hh }; x += thick; w -= thick }
+        else { row.forEach { r -> val ww = areas[r] / thick; out.add(TmCell(r, x + off, y, ww, thick)); off += ww }; y += thick; h -= thick }
+    }
+    return out
+}
+
 @Composable private fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
     onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
@@ -4315,6 +4391,8 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
     var sort by remember { mutableStateOf("amount") }
     var catSel by remember { mutableStateOf("All") }
     var open by remember { mutableStateOf<String?>(null) }
+    var ptab by remember { mutableStateOf("overview") }
+    var limit by remember { mutableStateOf(10) }
     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
     val total = payees.sumOf { it.amount }
     val lastDate = spend.groupBy { nameOf(it) }.mapValues { e -> e.value.maxOf { it.date } }
@@ -4343,26 +4421,110 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
         }
     }
 
+    // Tabs: the picture first, the full list on its own tab.
+    val freshN = run {
+        val thisM = Dates.todayMonth()
+        val seen = HashMap<String, String>()
+        allRows.filter { it.kind == "expense" }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
+        if (seen.size <= 6) 0 else payees.count { seen[it.name]?.startsWith(thisM) == true }.coerceAtMost(6)
+    }
+    Spacer(Modifier.height(12.dp))
+    ChipScroll {
+        Chip("Overview", ptab == "overview", true) { ptab = "overview" }
+        Chip("All", ptab == "all", true) { ptab = "all" }
+        Chip("New" + (if (freshN > 0) " ($freshN)" else ""), ptab == "new", true) { ptab = "new" }
+    }
+    if (ptab == "overview") {
+        var pick by remember { mutableStateOf(0) }
+        data class Tile(val name: String, val amt: Double, val cats: List<String>, val count: Int, val rest: Boolean)
+        val topList = payees.take(9)
+        val restAmt = (total - topList.sumOf { it.amount }).coerceAtLeast(0.0)
+        val tiles = (topList.map { Tile(it.name, it.amount, it.cats, it.count, false) } +
+            (if (restAmt > 0.5 && payees.size > 9) listOf(Tile((payees.size - 9).toString() + " smaller payees", restAmt, emptyList(), 0, true)) else emptyList()))
+            .sortedByDescending { it.amt }
+        val cells = treemap(tiles.map { it.amt })
+        val cur = tiles.getOrNull(pick) ?: tiles.first()
+        Panel {
+            BoxWithConstraints(Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(14.dp))) {
+                val bw = maxWidth; val bh = maxHeight
+                cells.forEach { c ->
+                    val t = tiles[c.idx]
+                    val cw = bw * (c.w / 100f); val ch = bh * (c.h / 100f)
+                    val col = if (t.rest) ZColor.Muted.copy(alpha = 0.55f) else catColor(t.cats.firstOrNull() ?: "Unknown")
+                    val shape = RoundedCornerShape(10.dp)
+                    Box(Modifier.offset(bw * (c.x / 100f), bh * (c.y / 100f)).size(cw, ch).padding(1.5.dp).clip(shape).background(col)
+                        .then(if (pick == c.idx) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
+                        .clickable { pick = c.idx }.padding(7.dp)) {
+                        if (cw > 64.dp && ch > 30.dp) Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                            Text(if (cw > 110.dp) t.name else t.name.substringBefore(' '), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (ch > 54.dp && cw > 84.dp) Text(money(t.amt), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(cur.name, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MutedText(if (cur.rest) "Everyone else" else cur.count.toString() + (if (cur.count == 1) " payment · " else " payments · ") + cur.cats.joinToString(", "), 12)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(money(cur.amt), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    MutedText((if (total > 0) { val p = cur.amt / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else "") + " of spend", 11)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            ChipScroll {
+                if (cur.rest) Chip("See all payees", false) { ptab = "all" }
+                else {
+                    Chip("See payments", false) { onDrill(cur.name, spend.filter { nameOf(it) == cur.name }) }
+                    Chip("Rename or change category", false) { open = cur.name }
+                }
+            }
+        }
+        val freq = payees.sortedByDescending { it.count }.take(4)
+        if (freq.isNotEmpty() && freq.first().count > 1) {
+            Spacer(Modifier.height(14.dp))
+            Text("Paid most often", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                freq.forEach { p ->
+                    Column(Modifier.width(124.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                        .clickable { open = p.name }.padding(12.dp)) {
+                        Text(p.count.toString() + "×", color = ZColor.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(p.name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(money(p.amount), 12)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Chip("See all " + payees.size + " payees", false) { ptab = "all" }
+    }
+
     // 2. Search, sort and category filter.
     Spacer(Modifier.height(14.dp))
-    OutlinedTextField(
+    if (ptab == "all") OutlinedTextField(
         value = query, onValueChange = { query = it }, singleLine = true,
         placeholder = { Text("Search payee") }, modifier = Modifier.fillMaxWidth(),
     )
-    Spacer(Modifier.height(8.dp))
+    if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
         listOf("amount" to "Amount", "count" to "Most paid", "recent" to "Recent").forEach { (k, l) ->
             Chip(l, sort == k, true) { sort = k }
         }
-    }
+    } }
     val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
         .sortedByDescending { it.value }.map { it.key }
     val sel = if (catSel in catsPresent) catSel else "All"
-    Spacer(Modifier.height(8.dp))
+    androidx.compose.runtime.LaunchedEffect(query, sort, sel) { limit = 10 }
+    if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
         Chip("All", sel == "All", true) { catSel = "All" }
         catsPresent.forEach { c -> Chip(customLabel(c), sel == c, true) { catSel = c } }
-    }
+    } }
 
     val q = query.trim().lowercase()
     val filtered = payees.filter { p -> (q.isEmpty() || p.name.lowercase().contains(q)) && (sel == "All" || sel in p.cats) }
@@ -4372,8 +4534,9 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
         else -> filtered
     }
     val split = q.isEmpty() && sel == "All"
-    val fixedP = ordered.filter { p -> p.name.trim().lowercase() in fixedSet.payees || (p.cats.isNotEmpty() && p.cats.all { it.lowercase() in fixedSet.cats }) }
-    val everyday = ordered.filter { it !in fixedP }
+    val shownList = ordered.take(limit)
+    val fixedP = shownList.filter { p -> p.name.trim().lowercase() in fixedSet.payees || (p.cats.isNotEmpty() && p.cats.all { it.lowercase() in fixedSet.cats }) }
+    val everyday = shownList.filter { it !in fixedP }
 
     @Composable fun section(title: String, items: List<Analytics.Payee>) {
         if (items.isEmpty()) return
@@ -4409,7 +4572,7 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
     }
 
     // 4b. Payees you have never paid before this month, so an unfamiliar charge stands out.
-    run {
+    if (ptab == "new") run {
         val thisM = Dates.todayMonth()
         val firstSeen = HashMap<String, String>()
         allRows.filter { it.kind == "expense" }.forEach { r ->
@@ -4417,7 +4580,8 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
             if (cur == null || r.date < cur) firstSeen[n] = r.date
         }
         val fresh = payees.filter { firstSeen[it.name]?.startsWith(thisM) == true }.take(6)
-        if (fresh.isNotEmpty() && firstSeen.size > fresh.size) Panel {
+        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText("Nothing new this month. Every payee here is one you have paid before.") }
+        else Panel {
             Eyebrow("New this month")
             Spacer(Modifier.height(4.dp))
             MutedText("First time you've paid these. Check they're all yours.", 11)
@@ -4438,10 +4602,16 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
     }
 
     // 5. Fixed costs (EMI, rent...) are kept apart so they don't bury everyday spending.
-    when {
-        ordered.isEmpty() -> Panel { MutedText("No payee matches.") }
-        split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
-        else -> section(if (split) "All payees" else "Results", ordered)
+    if (ptab == "all") {
+        when {
+            ordered.isEmpty() -> Panel { MutedText("No payee matches.") }
+            split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
+            else -> section(if (split) "All payees" else "Results", shownList)
+        }
+        if (ordered.size > limit) {
+            Spacer(Modifier.height(12.dp))
+            Chip("Show 10 more (" + (ordered.size - limit) + " left)", false) { limit += 10 }
+        }
     }
 
     // 7. Payee detail.
