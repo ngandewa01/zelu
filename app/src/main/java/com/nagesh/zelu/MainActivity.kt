@@ -3319,7 +3319,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
     val snoozeCtx = LocalContext.current
     var snoozeTick by remember { mutableStateOf(0) }
-    refundSuggestions.firstOrNull { snoozeTick >= 0 && !Storage.refundSnoozed(snoozeCtx, it.first.id) }?.let { (rf, sp) ->
+    (if (snoozeTick >= 0 && Storage.refundSnoozed(snoozeCtx)) null else refundSuggestions.firstOrNull())?.let { (rf, sp) ->
         Panel {
             Eyebrow("Needs you · refund")
             Spacer(Modifier.height(6.dp))
@@ -3343,7 +3343,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             ChipScroll {
                 Chip("Yes, same spend", false, filled = true) { onRefundAnswer(rf.id, true) }
                 Chip("No", false) { onRefundAnswer(rf.id, false) }
-                Chip("Do it later", false) { Storage.snoozeRefund(snoozeCtx, rf.id); snoozeTick++ }
+                Chip("Do it later", false) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
             }
             MutedText("\"Do it later\" brings this back tomorrow.", 11)
         }

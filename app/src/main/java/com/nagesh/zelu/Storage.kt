@@ -414,12 +414,12 @@ object Storage {
         writeKv(context, "dup_ok.json", kv)
     }
 
-    // "Do it later" on a refund question: it stays out of the way for a day, then comes back.
-    fun refundSnoozed(context: Context, id: String): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("refund_later_" + id, 0L) > System.currentTimeMillis()
-    fun snoozeRefund(context: Context, id: String, hours: Int = 24) {
+    // "Do it later" on the refund question hides that whole card for a day, then it comes back.
+    fun refundSnoozed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("refund_later_until", 0L) > System.currentTimeMillis()
+    fun snoozeRefund(context: Context, hours: Int = 24) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putLong("refund_later_" + id, System.currentTimeMillis() + hours * 3_600_000L).apply()
+            .putLong("refund_later_until", System.currentTimeMillis() + hours * 3_600_000L).apply()
     }
 
     // How many missed messages you have already seen, so the menu can show a dot when new ones appear.
