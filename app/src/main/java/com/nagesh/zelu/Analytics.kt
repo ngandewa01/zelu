@@ -198,8 +198,18 @@ object Analytics {
 
     private val LOAN_NAME = Regex(""".*\bLoan \d{3,4}$""")
 
-    // Two payments on the same account, day, direction and amount that could be one payment reported twice
-    // (a bank alert plus a UPI app alert, say). Two different reference numbers mean two real payments.
+    // Reference numbers named in a message: "UPI:756424637751", "UPI Ref no 123…", "Ref. no. 6085…", "reference number", "RRN", "UTR", "Txn id".
+    private val REF_IN_TEXT = Regex("""\b(?:upi(?:\s*ref(?:erence)?)?|ref(?:erence)?|rrn|utr|txn\s*id|transaction\s*id|imps)\s*(?:no\.?|number|id|#)?\s*[:#.\-]*\s*([A-Za-z]{0,4}\d{6,})""", RegexOption.IGNORE_CASE)
+    private fun refsOf(r: Row): Set<String> {
+        val s = HashSet<String>()
+        r.ref?.takeIf { it.isNotBlank() }?.let { s.add(it.trim()) }
+        REF_IN_TEXT.findAll(r.raw).forEach { s.add(it.groupValues[1]) }
+        return s
+    }
+
+    // Two payments that could be one payment reported twice. The same amount, account and day is only the start:
+    // the same reference number says it is one payment, different reference numbers say two real payments, and with no
+    // reference at all they must come from the same sender to be worth asking about.
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
         val groups = rows.filter { (it.kind == "expense" || it.kind == "income") && it.category != "EMI" && it.account.isNotBlank() }
@@ -208,9 +218,13 @@ object Analytics {
             if (g.size < 2) continue
             val sorted = g.sortedBy { it.id }
             val first = sorted[0]
+            val fr = refsOf(first)
             for (i in 1 until sorted.size) {
                 val b = sorted[i]
-                if (!first.ref.isNullOrBlank() && !b.ref.isNullOrBlank() && first.ref != b.ref) continue
+                val br = refsOf(b)
+                val same = if (fr.isNotEmpty() && br.isNotEmpty()) fr.any { it in br }
+                else first.source.isNotBlank() && first.source == b.source
+                if (!same) continue
                 if ((first.id + "|" + b.id) in dismissed) continue
                 out.add(first to b)
             }
