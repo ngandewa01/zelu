@@ -4028,8 +4028,19 @@ private fun prettyDate(iso: String): String = try {
                 Column(Modifier.weight(1f)) {
                     Text(md.merchant, color = if (live) ZColor.Ink else ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText((md.nextDate?.let { "Next debit " + prettyDate(it) } ?: "Set up " + prettyDate(Dates.fmtMs(md.since))) +
+                    val live2 = md.status == "active" || md.status == "scheduled"
+                    // A scheduled date in the past means that month's debit has happened: show the next monthly one.
+                    val nxt = md.nextDate?.let { d0 -> var d = d0; var g = 0
+                        while (d < today && g++ < 24) { val ym = Dates.shiftMonth(d.take(7), 1); d = ym + "-" + minOf(d.substring(8, 10).toInt(), Dates.daysInMonth(ym)).toString().padStart(2, '0') }
+                        d }
+                    MutedText((if (live2 && nxt != null) "Monthly · next " + prettyDate(nxt) else "Set up " + prettyDate(Dates.fmtMs(md.since))) +
                         (if (md.account.isNotBlank()) " · " + md.account else ""), 12)
+                    val inDues = reminders.any { it.recurring && (it.counterparty ?: "").equals(md.merchant, ignoreCase = true) }
+                    if (live2 && md.amount != null) {
+                        if (inDues) Text("In your dues", color = ZColor.Income, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        else Text("Add to dues", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 2.dp).clickable { onAdd(md.merchant, md.amount, nxt ?: Dates.today(), true) })
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     if (md.amount != null) Text(money(md.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)

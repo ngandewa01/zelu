@@ -365,7 +365,7 @@ object Parser {
         var name: String? = null
         for (r in M_NAME) {
             val g = r.find(text)?.groupValues?.get(1)?.replace("<", "")?.replace(">", "")?.trim(' ', '.', ',', ':', '-') ?: continue
-            if (g.length in 2..40 && !g.equals("upi", true)) { name = g; break }
+            if (g.length in 2..90 && !g.equals("upi", true)) { name = g; break }
         }
         name ?: return null
         val merchant = if (name == name.uppercase()) titleCase(name) else name
