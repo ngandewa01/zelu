@@ -52,6 +52,8 @@ import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -1133,9 +1135,11 @@ fun ZeluApp() {
         return
     }
 
+    val pageScroll = rememberScrollState()
+    LaunchedEffect(view) { pageScroll.scrollTo(0) }     // each tab opens at its top, not where the last one was left
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize().verticalScroll(pageScroll)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 110.dp),
         ) {
@@ -1356,7 +1360,8 @@ fun ZeluApp() {
                 Spacer(Modifier.width(8.dp))
                 Text("Turn on", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            when (view) {
+            Crossfade(targetState = view, animationSpec = tween(200), label = "page") { pageView ->
+            when (pageView) {
                 "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                     { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, ::decide,
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
@@ -1440,6 +1445,7 @@ fun ZeluApp() {
                     onRemove = { id -> scope.launch {
                         withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
                         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
+            }
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
@@ -3448,9 +3454,10 @@ private fun prettyDay(ymd: String): String {
     ) {
         items.forEach { (k, label) ->
             val on = view == k
+            val pill by animateColorAsState(if (on) ZColor.Ink else ZColor.Card, tween(200), label = "tab")
             Box(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
-                    .background(if (on) ZColor.Ink else ZColor.Card)
+                    .background(pill)
                     .clickable { onPick(k) }.padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
