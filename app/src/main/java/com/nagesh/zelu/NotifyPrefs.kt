@@ -15,6 +15,12 @@ object NotifyPrefs {
     fun dailyAt(c: Context) = sp(c).getInt("daily_at", 22 * 60)
     fun setDailyAt(c: Context, minutes: Int) { sp(c).edit().putInt("daily_at", minutes).apply(); DailySummary.schedule(c) }
 
+    fun weeklyOn(c: Context) = sp(c).getBoolean("weekly", true)
+    fun setWeeklyOn(c: Context, on: Boolean) { sp(c).edit().putBoolean("weekly", on).apply(); WeeklySummary.schedule(c) }
+    // Sundays, at this time (minutes after midnight IST). 11:00 until you change it.
+    fun weeklyAt(c: Context) = sp(c).getInt("weekly_at", 11 * 60)
+    fun setWeeklyAt(c: Context, minutes: Int) { sp(c).edit().putInt("weekly_at", minutes).apply(); WeeklySummary.schedule(c) }
+
     fun duesOn(c: Context) = sp(c).getBoolean("dues", true)
     fun setDuesOn(c: Context, on: Boolean) = sp(c).edit().putBoolean("dues", on).apply()
 

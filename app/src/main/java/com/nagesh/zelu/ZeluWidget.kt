@@ -40,7 +40,8 @@ class ZeluWidget : AppWidgetProvider() {
             val budget = Storage.loadMonthlyBudget(context)
             val today = Dates.today()
             val todaySpent = rows.filter { it.kind == "expense" && it.date == today }.sumOf { it.amount }
-            fun inr(v: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", v)
+            Privacy.load(context)
+            fun inr(v: Double) = if (Privacy.hideAll) Privacy.MASK else "₹" + String.format(java.util.Locale.US, "%,.0f", v)
 
             val v = RemoteViews(context.packageName, R.layout.widget_zelu)
             v.setInt(R.id.w_root, "setBackgroundColor", set.card.toInt())

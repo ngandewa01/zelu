@@ -88,11 +88,15 @@ object CatIcons {
         "Laundry" to Icons.Rounded.LocalLaundryService, "Maid" to Icons.Rounded.CleaningServices,
         "Domestic help" to Icons.Rounded.CleaningServices, "Gym" to Icons.Rounded.FitnessCenter,
         "FASTag" to Icons.Rounded.Toll,
+        "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.TrendingUp, "Dividend" to Icons.Rounded.TrendingUp,
+        "Reimbursement" to Icons.Rounded.Receipt, "Rewards" to Icons.Rounded.Star, "Business" to Icons.Rounded.Handyman,
+        "Gift" to Icons.Rounded.VolunteerActivism, "Rent received" to Icons.Rounded.Home,
     )
 
     // Icon for a category (standard or custom), or null to fall back to a letter.
     fun forCategory(name: String): ImageVector? {
         byCategory[name]?.let { return it }
+        if (name in IncomeCats.custom) return Icons.Rounded.ArrowDownward
         val custom = CustomCats.map[name]?.first ?: return null
         return if (custom.startsWith("i:")) picker[custom.removePrefix("i:")] ?: Icons.Rounded.Category else null
     }

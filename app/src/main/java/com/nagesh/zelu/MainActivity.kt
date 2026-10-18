@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.Notifications
@@ -163,6 +164,8 @@ class MainActivity : ComponentActivity() {
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         ZTheme.dark = if (sp.contains("dark")) sp.getBoolean("dark", false) else sysDark
         ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
+        Privacy.load(this)
+        IncomeCats.load(this)
         setContent {
             val scheme = if (ZTheme.dark)
                 androidx.compose.material3.darkColorScheme(primary = ZColor.Accent, onPrimary = ZColor.AccentInk,
@@ -183,7 +186,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun money(n: Double): String = "₹" + String.format(Locale.US, "%,.0f", n)
+fun money(n: Double): String = if (Privacy.hideAll) Privacy.MASK else "₹" + String.format(Locale.US, "%,.0f", n)
+// Money coming in: hidden by "Hide income" as well as "Hide all amounts".
+fun moneyIn(n: Double): String = if (Privacy.hideIncome) Privacy.MASK else money(n)
 
 private val RANGE_OPTS = listOf(
     "week" to "This week", "month" to "By month", "3m" to "Last 3 months",
@@ -218,6 +223,94 @@ private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan
 private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.account == key || (it.counterparty ?: "") == key }
 
 // "Not mine" on something that has payments: show them and ask once more. Removing deletes the account AND those payments from Zelu.
+@Composable private fun RescanRangeDialog(onRun: (String, String) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val today = Dates.today()
+    var from by remember { mutableStateOf(Dates.shiftDays(today, -30)) }
+    var to by remember { mutableStateOf(today) }
+    fun pick(cur: String, set: (String) -> Unit) {
+        val c = Dates.parse(cur)
+        android.app.DatePickerDialog(context, { _, y, m, d -> set(String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)) },
+            c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Text("Rescan between dates", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Zelu reads only the messages of this period. Anything already in is left as it is.", 12)
+            Spacer(Modifier.height(12.dp))
+            ChipScroll {
+                val cur = Dates.todayMonth()
+                val last = Dates.shiftMonth(cur, -1)
+                Chip("Last 7 days", false) { from = Dates.shiftDays(today, -7); to = today }
+                Chip("Last 30 days", false) { from = Dates.shiftDays(today, -30); to = today }
+                Chip("This month", false) { from = "$cur-01"; to = today }
+                Chip("Last month", false) { from = "$last-01"; to = Dates.shiftDays("$cur-01", -1) }
+                Chip("Last 3 months", false) { from = Dates.shiftDays(today, -90); to = today }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                .clickable { pick(from) { from = it } }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { MutedText("Start date", 12); Text(prettyDate(from), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+                androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                .clickable { pick(to) { to = it } }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { MutedText("End date", 12); Text(prettyDate(to), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+                androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { if (from <= to) onRun(from, to) else onRun(to, from) }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                    Text("Rescan", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun IncomeCategoriesDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
+            Text("Income categories", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Pick one from a payment's details (Change category). The built-in ones stay; ones you add can be deleted.", 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                IncomeCats.all.forEach { c ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(catColor(c).copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(CatIcons.forCategory(c) ?: Icons.Rounded.ArrowDownward, null, tint = catColor(c), modifier = Modifier.size(19.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(c, color = ZColor.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        if (c in IncomeCats.custom) Text("Delete", color = ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { IncomeCats.remove(context, c) }.padding(8.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, modifier = Modifier.weight(1f),
+                    placeholder = { Text("New category") })
+                Spacer(Modifier.width(8.dp))
+                Text("Add", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+                    if (IncomeCats.add(context, name)) name = "" else Toast.makeText(context, "Type a new name", Toast.LENGTH_SHORT).show()
+                }.padding(12.dp))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text("Done", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
+            }
+        }
+    }
+}
+
 @Composable private fun LinkAccountsDialog(
     rows: List<Row>, registry: Map<String, Pair<String, String>>, suggestions: List<Analytics.LinkSuggestion>,
     onLink: (String, String) -> Unit, onUnlink: (String) -> Unit, onReject: (String, String) -> Unit, onDismiss: () -> Unit,
@@ -681,6 +774,8 @@ fun ZeluApp() {
     var acctConfirmed by remember { mutableStateOf(Storage.accountsConfirmed(context)) }
     var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
     var linkOpen by remember { mutableStateOf(false) }
+    var rangeOpen by remember { mutableStateOf(false) }
+    var incomeCatsOpen by remember { mutableStateOf(false) }
     var linkRejected by remember { mutableStateOf(Storage.linkRejected(context)) }
     LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
     var check by remember { mutableStateOf<Ingest.Check?>(null) }
@@ -713,7 +808,7 @@ fun ZeluApp() {
     Analytics.BUDGET = monthlyBudget
     var lendPerson by remember { mutableStateOf<String?>(null) }
     var borrowPerson by remember { mutableStateOf<String?>(null) }
-    var view by remember { mutableStateOf("ledger") }
+    var view by remember { mutableStateOf(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", "ledger") ?: "ledger") }
     var period by remember { mutableStateOf("month") }
     var month by remember { mutableStateOf(Dates.todayMonth()) }
     var account by remember { mutableStateOf("All") }
@@ -755,6 +850,7 @@ fun ZeluApp() {
             cardPrefs = withContext(Dispatchers.IO) { Storage.loadCardPrefs(context) }
             CustomCats.map = withContext(Dispatchers.IO) { Storage.loadCustomCats(context) }
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
+            withContext(Dispatchers.IO) { IncomeCats.load(context) }
         }
     }
 
@@ -843,6 +939,28 @@ fun ZeluApp() {
         }
     }
 
+    fun rescanRange(fromDay: String, toDay: String) {
+        scope.launch {
+            loading = true
+            var found = 0
+            var added = 0
+            var missed = 0
+            withContext(Dispatchers.IO) {
+                val from = Dates.parse(fromDay).timeInMillis
+                val to = Dates.parse(toDay).timeInMillis + 86_400_000L - 1
+                val inbox = SmsReader.readInboxBetween(context, from, to)
+                found = inbox.count { Parser.isFinancialSender(it.address) }
+                added = Ingest.ingest(context, inbox).added
+                missed = Ingest.unreadable(context).size
+            }
+            missedCount = missed
+            reload()
+            loading = false
+            Toast.makeText(context, plural(found, "bank message", "bank messages") + " in that period · " +
+                (if (added == 0) "nothing new" else plural(added, "new payment", "new payments")), Toast.LENGTH_LONG).show()
+        }
+    }
+
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { res ->
@@ -888,6 +1006,7 @@ fun ZeluApp() {
         // Daily 9 AM check runs in the background (DueReceiver); this just makes sure it's scheduled.
         DueReminders.schedule(context)
         DailySummary.schedule(context)
+        WeeklySummary.schedule(context)
     }
 
     LaunchedEffect(Unit) {
@@ -1015,6 +1134,11 @@ fun ZeluApp() {
                 verticalAlignment = Alignment.CenterVertically) {
                 BrandBar()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TopIcon(onClick = { Privacy.setAll(context, !Privacy.hideAll) }) {
+                        androidx.compose.material3.Icon(
+                            if (Privacy.hideAll) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                            null, tint = if (Privacy.hideAll) ZColor.Accent else ZColor.Ink, modifier = Modifier.size(20.dp))
+                    }
                     TopIcon(onClick = {
                         ZTheme.dark = !ZTheme.dark
                         context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
@@ -1403,6 +1527,17 @@ fun ZeluApp() {
                         val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
                         Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
                     }
+                    run {
+                        val startNow = context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", "ledger") ?: "ledger"
+                        var startTick by remember { mutableStateOf(0) }
+                        val names = listOf("ledger" to "Home", "spend" to "Spend", "payees" to "Payees", "dues" to "Dues")
+                        MenuRow("Start screen", (names.firstOrNull { it.first == startNow }?.second ?: "Home") + " · tap to change", Icons.Rounded.CalendarMonth, ZColor.Muted) {
+                            val next = names[(names.indexOfFirst { it.first == startNow }.coerceAtLeast(0) + 1) % names.size].first
+                            context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).edit().putString("start", next).apply()
+                            startTick++
+                        }
+                        if (startTick < 0) Text("")
+                    }
                     MenuRow("Help", "How Zelu works, report a problem", Icons.Rounded.Lightbulb, ZColor.Accent) { menuPage = "help" }
                 } else {
                     Row(Modifier.fillMaxWidth().clickable { menuPage = "" }.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -1429,6 +1564,14 @@ fun ZeluApp() {
                                 val at = NotifyPrefs.dailyAt(context)
                                 android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); nv++ }, at / 60, at % 60, false).show()
                             }
+                            val weeklyOn = NotifyPrefs.weeklyOn(context)
+                            MenuRow("Weekly summary", "Sundays: the week against the one before", Icons.Rounded.BarChart, if (weeklyOn) ZColor.Income else ZColor.Muted, trailing = onOff(weeklyOn)) {
+                                NotifyPrefs.setWeeklyOn(context, !weeklyOn); nv++
+                            }
+                            if (weeklyOn) MenuRow("Weekly summary time", "Sundays at " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context)), Icons.Rounded.CalendarMonth, ZColor.Muted) {
+                                val at = NotifyPrefs.weeklyAt(context)
+                                android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setWeeklyAt(context, h * 60 + m); nv++ }, at / 60, at % 60, false).show()
+                            }
                             val duesOn = NotifyPrefs.duesOn(context)
                             MenuRow("Bill reminders", "Before a bill or card is due", Icons.Rounded.Receipt, if (duesOn) ZColor.Income else ZColor.Muted, trailing = onOff(duesOn)) {
                                 NotifyPrefs.setDuesOn(context, !duesOn); nv++
@@ -1445,6 +1588,7 @@ fun ZeluApp() {
                         "money" -> {
                             MenuRow("Budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set", Icons.Rounded.AccountBalanceWallet) { shut(); budgetDlg = true }
                             MenuRow("Categories", "Choose which count as spending", Icons.Rounded.Category, ZColor.Accent) { shut(); catsOpen = true }
+                            MenuRow("Income categories", "Salary, interest and your own · " + IncomeCats.all.size, Icons.Rounded.Category, ZColor.Income) { shut(); incomeCatsOpen = true }
                             MenuRow("Savings plan", "What's left · SIP, EMI, goals", Icons.Rounded.Savings, ZColor.Income) { shut(); savingsOpen = true }
                             MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
                         }
@@ -1479,6 +1623,7 @@ fun ZeluApp() {
                                 shut(); sendersOpen = true; senderList = null
                                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
                             }
+                            MenuRow("Rescan between dates", "Read only the messages of a period you pick", Icons.Rounded.CalendarMonth, ZColor.Muted) { shut(); rangeOpen = true }
                             MenuRow("Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore, ZColor.Muted) { shut(); rescan(notify = true, depth = 100_000) }
                             MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
                                 shut(); unreadOpen = true; unreadList = null
@@ -1506,6 +1651,14 @@ fun ZeluApp() {
                             MenuRow("Weekly backup", "Saved to Downloads/Zelu every week", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
                                 trailing = { Text(if (autoBackup) "ON" else "OFF", color = if (autoBackup) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
                                 autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup)
+                            }
+                            MenuRow("Hide income", "Show ₹ •••• for money in", Icons.Rounded.VisibilityOff, if (Privacy.hideIncome) ZColor.Income else ZColor.Muted,
+                                trailing = { Text(if (Privacy.hideIncome) "ON" else "OFF", color = if (Privacy.hideIncome) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                                Privacy.setIncome(context, !Privacy.hideIncome)
+                            }
+                            MenuRow("Hide all amounts", "Balances, spends and totals. The eye on the home bar does the same.", Icons.Rounded.VisibilityOff, if (Privacy.hideAll) ZColor.Income else ZColor.Muted,
+                                trailing = { Text(if (Privacy.hideAll) "ON" else "OFF", color = if (Privacy.hideAll) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                                Privacy.setAll(context, !Privacy.hideAll)
                             }
                             MenuRow("App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted,
                                 trailing = { Text(if (lockOn) "ON" else "OFF", color = if (lockOn) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
@@ -2157,6 +2310,9 @@ fun ZeluApp() {
         }
     }
 
+    if (rangeOpen) RescanRangeDialog(onRun = { a, b -> rangeOpen = false; rescanRange(a, b) }, onDismiss = { rangeOpen = false })
+    if (incomeCatsOpen) IncomeCategoriesDialog(onDismiss = { incomeCatsOpen = false })
+
     if (linkOpen) LinkAccountsDialog(rows, registry, Analytics.linkSuggestions(rows, registry, linkRejected),
         onLink = { k, t -> linkAcct(k, t) }, onUnlink = { k -> unlinkAcct(k) }, onReject = { k, t -> rejectLink(k, t) }, onDismiss = { linkOpen = false })
 
@@ -2367,6 +2523,7 @@ private fun fmtPlain(n: Double): String =
 
 // "₹2.37 L", "₹1.20 Cr", "₹57,328": short Indian-style amounts for the plan screen.
 private fun inr(v: Double): String {
+    if (Privacy.hideAll) return Privacy.MASK
     val a = kotlin.math.abs(v)
     val t = when {
         a >= 1e7 -> String.format(Locale.US, "%.2f Cr", a / 1e7)
@@ -2803,6 +2960,12 @@ private fun yrMo(m: Int): String {
                         Chip(customLabel(c), false) { onReclassify("expense", c) }
                     }
                     Chip("＋ New", false, filled = true) { onNewCat { c -> onReclassify("expense", c) } }
+                }
+                if (t.direction == "credit") {
+                    Spacer(Modifier.height(6.dp))
+                    MutedText("Money-in category:", 12)
+                    Spacer(Modifier.height(6.dp))
+                    ChipScroll { IncomeCats.all.forEach { c -> Chip(c, t.category == c) { onReclassify("income", c) } } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
@@ -3376,7 +3539,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         "invest" -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         "ignore" -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
         "income", "refund", "borrowed" ->
-            Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text("+" + moneyIn(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),
             color = if (highlight && t.kind == "expense") ZColor.Accent else ZColor.Warn,
             fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -3599,8 +3762,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Fact("Money in", money(s.income), ZColor.Income)
-                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
+                Fact("Money in", moneyIn(s.income), ZColor.Income)
+                if (s.income > s.spent && !Privacy.hideIncome) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
             }
             if (emiAmt > 0 || excludeEmi) {
                 Column(horizontalAlignment = Alignment.End) {
@@ -3613,7 +3776,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         if (fixed.isNotEmpty()) {
             val fixedTotal = fixed.values.sum()
             Spacer(Modifier.height(10.dp))
-            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
+            MutedText("Fixed " + money(fixedTotal) + " · free " + moneyIn((s.income - fixedTotal).coerceAtLeast(0.0)) +
                 " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
         }
 
@@ -3833,7 +3996,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     Spacer(Modifier.height(8.dp))
                     Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
+                    Text(if (t.direction == "credit") moneyIn(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     MutedText(prettyDay(t.date), 11)
                 }
@@ -5464,6 +5627,7 @@ private fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
 }
 
 private fun shortAmt(v: Double): String {
+    if (Privacy.hideAll) return "••"
     val a = kotlin.math.abs(v)
     val t = when {
         a >= 100000 -> String.format(java.util.Locale.US, "%.1fL", a / 100000)
@@ -5641,9 +5805,9 @@ private fun niceCeil(x: Double): Double {
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Fact("Spent", money(b.spent), ZColor.Accent)
-                        Fact("Money in", money(b.income), ZColor.Income)
+                        Fact("Money in", moneyIn(b.income), ZColor.Income)
                         val sv = b.income - b.spent
-                        Fact("Saved", (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
+                        Fact("Saved", if (Privacy.hideIncome) Privacy.MASK else (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
                     }
                     val top = Analytics.byCategory(b.rows).take(3)
                     if (top.isNotEmpty()) {

@@ -198,7 +198,7 @@ fun customLabel(c: String): String {
 }
 
 fun catColor(cat: String): Color =
-    CAT_COLORS[cat] ?: CustomCats.map[cat]?.let { Color(it.second) } ?: Color(0xFF7B8C85)
+    CAT_COLORS[cat] ?: CustomCats.map[cat]?.let { Color(it.second) } ?: IncomeCats.color(cat) ?: Color(0xFF7B8C85)
 
 // (match words in the account label, logo slug, brand colour)
 private val BANKS_UI = listOf(
@@ -264,4 +264,15 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String 
 // Which accounts have others linked under them (main account -> linked ones). Read by the account tiles and the Link accounts page.
 object LinkInfo {
     var map by mutableStateOf<Map<String, List<String>>>(emptyMap())
+}
+
+// Hide amounts: "income" masks money in only; "all" masks every amount (balances, spends, everything).
+object Privacy {
+    var hideAll by mutableStateOf(false)
+    var hideIncome by mutableStateOf(false)
+    const val MASK = "₹ ••••"
+    private fun sp(c: android.content.Context) = c.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE)
+    fun load(c: android.content.Context) { hideAll = sp(c).getBoolean("hide_all", false); hideIncome = sp(c).getBoolean("hide_income", false) }
+    fun setAll(c: android.content.Context, on: Boolean) { hideAll = on; sp(c).edit().putBoolean("hide_all", on).apply() }
+    fun setIncome(c: android.content.Context, on: Boolean) { hideIncome = on; sp(c).edit().putBoolean("hide_income", on).apply() }
 }

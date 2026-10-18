@@ -104,6 +104,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             DueReminders.schedule(context)
             DailySummary.schedule(context)
+            WeeklySummary.schedule(context)
         }
     }
 }
