@@ -232,13 +232,46 @@ object Storage {
     // to the bank it appears under MOST often, so a stray signature ("...-SBI" on an IT
     // refund credited to an HDFC account) can't split HDFC 5997 into a phantom SBI 5997.
     // Also folds "CC 6781" into "HDFC CC 6781" and "HDFC 1208" into "HDFC CC 1208".
-    private fun canonicalizeAccounts(rows: List<Row>): List<Row> {
+    // One account written with different tails ("898" and "4898", or "8003" and "4xxx8003" read badly) is one account:
+    // same bank, same kind, and at least three trailing digits in common.
+    private fun mergeTails(rows: List<Row>): List<Row> {
+        val digits = Regex("""^\d{2,}$""")
+        fun split(s: String): Triple<String, Boolean, String>? {
+            if (s.contains("Loan") || s.contains("FASTag")) return null
+            val parts = s.trim().split(" ").filter { it.isNotEmpty() }
+            val tail = parts.lastOrNull()?.takeIf { digits.matches(it) } ?: return null
+            val bank = parts.firstOrNull { !it.equals("CC", true) && it != tail } ?: return null
+            return Triple(bank, parts.any { it.equals("CC", true) }, tail)
+        }
+        val count = HashMap<Triple<String, Boolean, String>, Int>()
+        for (r in rows) split(r.account)?.let { count[it] = (count[it] ?: 0) + 1 }
+        fun same(a: String, b: String) = a == b || (minOf(a.length, b.length) >= 3 && a.takeLast(3) == b.takeLast(3))
+        val remap = HashMap<String, String>()
+        for ((key, _) in count.entries.groupBy { it.key.first to it.key.second }) {
+            val tails = count.filter { it.key.first == key.first && it.key.second == key.second }.map { it.key.third to it.value }
+            val used = HashSet<String>()
+            for ((t, _) in tails.sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenByDescending { it.first.length })) {
+                if (t in used) continue
+                for ((u, _) in tails) if (u != t && u !in used && same(t, u)) {
+                    used.add(u)
+                    remap[key.first + (if (key.second) " CC " else " ") + u] = key.first + (if (key.second) " CC " else " ") + t
+                }
+                used.add(t)
+            }
+        }
+        return if (remap.isEmpty()) rows else rows.map { r -> remap[r.account]?.let { r.copy(account = it) } ?: r }
+    }
+
+    private fun canonicalizeAccounts(rows0: List<Row>): List<Row> {
+        val rows = mergeTails(rows0)
         val four = Regex("""^\d{4}$""")
+        val anyDigits = Regex("""^\d{2,}$""")
         fun parse(s: String): Triple<String, Boolean, String> {
             var bank = ""; var cc = false; var last4 = ""
+            val isTail = if (s.contains("Loan")) four else anyDigits
             for (p in s.trim().split(" ").filter { it.isNotEmpty() }) when {
                 p.equals("CC", true) -> cc = true
-                four.matches(p) -> last4 = p
+                isTail.matches(p) -> last4 = p
                 else -> if (bank.isEmpty()) bank = p
             }
             return Triple(bank, cc, last4)

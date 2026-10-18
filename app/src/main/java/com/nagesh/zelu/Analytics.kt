@@ -237,11 +237,13 @@ object Analytics {
         }
         // The same bank and the same number under two names ("UNION Loan 0126" and "UNION 0126") is one thing.
         fun bank(k: String) = k.substringBefore(' ').uppercase()
-        fun num(k: String) = k.trim().split(" ").last().takeIf { t -> t.length in 3..4 && t.all { it.isDigit() } }
+        fun num(k: String) = k.trim().split(" ").last().takeIf { t -> t.length >= 2 && t.all { it.isDigit() } }
+        // The same account when the whole number matches or at least three trailing digits do.
+        fun same(x: String?, y: String?) = x != null && y != null && (x == y || (minOf(x.length, y.length) >= 3 && x.takeLast(3) == y.takeLast(3)))
         val marked = out.map { c ->
             val n = num(c.key)
             val twin = if (n == null) null else out.firstOrNull { d ->
-                d.key != c.key && bank(d.key) == bank(c.key) && num(d.key) == n &&
+                d.key != c.key && bank(d.key) == bank(c.key) && same(num(d.key), n) &&
                     (if (c.type == "loan" || d.type == "loan") d.type == "loan" && c.type != "loan"
                     else d.txns > c.txns || (d.txns == c.txns && d.key < c.key))
             }
