@@ -186,9 +186,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun money(n: Double): String = if (Privacy.hideAll) Privacy.MASK else "₹" + String.format(Locale.US, "%,.0f", n)
-// Money coming in: hidden by "Hide income" as well as "Hide all amounts".
-fun moneyIn(n: Double): String = if (Privacy.hideIncome) Privacy.MASK else money(n)
+fun money(n: Double): String = "₹" + String.format(Locale.US, "%,.0f", n)
 
 private val RANGE_OPTS = listOf(
     "week" to "This week", "month" to "By month", "3m" to "Last 3 months",
@@ -1134,11 +1132,6 @@ fun ZeluApp() {
                 verticalAlignment = Alignment.CenterVertically) {
                 BrandBar()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TopIcon(onClick = { Privacy.setAll(context, !Privacy.hideAll) }) {
-                        androidx.compose.material3.Icon(
-                            if (Privacy.hideAll) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                            null, tint = if (Privacy.hideAll) ZColor.Accent else ZColor.Ink, modifier = Modifier.size(20.dp))
-                    }
                     TopIcon(onClick = {
                         ZTheme.dark = !ZTheme.dark
                         context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
@@ -1651,14 +1644,6 @@ fun ZeluApp() {
                             MenuRow("Weekly backup", "Saved to Downloads/Zelu every week", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
                                 trailing = { Text(if (autoBackup) "ON" else "OFF", color = if (autoBackup) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
                                 autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup)
-                            }
-                            MenuRow("Hide income", "Show ₹ •••• for money in", Icons.Rounded.VisibilityOff, if (Privacy.hideIncome) ZColor.Income else ZColor.Muted,
-                                trailing = { Text(if (Privacy.hideIncome) "ON" else "OFF", color = if (Privacy.hideIncome) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
-                                Privacy.setIncome(context, !Privacy.hideIncome)
-                            }
-                            MenuRow("Hide all amounts", "Balances, spends and totals. The eye on the home bar does the same.", Icons.Rounded.VisibilityOff, if (Privacy.hideAll) ZColor.Income else ZColor.Muted,
-                                trailing = { Text(if (Privacy.hideAll) "ON" else "OFF", color = if (Privacy.hideAll) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
-                                Privacy.setAll(context, !Privacy.hideAll)
                             }
                             MenuRow("App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Lock, if (lockOn) ZColor.Income else ZColor.Muted,
                                 trailing = { Text(if (lockOn) "ON" else "OFF", color = if (lockOn) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
@@ -2523,7 +2508,6 @@ private fun fmtPlain(n: Double): String =
 
 // "₹2.37 L", "₹1.20 Cr", "₹57,328": short Indian-style amounts for the plan screen.
 private fun inr(v: Double): String {
-    if (Privacy.hideAll) return Privacy.MASK
     val a = kotlin.math.abs(v)
     val t = when {
         a >= 1e7 -> String.format(Locale.US, "%.2f Cr", a / 1e7)
@@ -3050,7 +3034,7 @@ private fun yrMo(m: Int): String {
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Column {
-                Text(if (bal != null) money(bal.first) else "—", color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(if (bal != null) (if (Privacy.hideBalance) Privacy.MASK else money(bal.first)) else "—", color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
             }
             MutedText("Spent  " + money(spent), 12)
@@ -3162,7 +3146,7 @@ private fun prettyDay(ymd: String): String {
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                     MutedText("Available credit", 12)
-                    Text(if (limit != null) money(limit) else "—", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (limit != null) (if (Privacy.hideBalance) Privacy.MASK else money(limit)) else "—", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -3539,7 +3523,7 @@ private fun subtitleFor(t: Row): String = when (t.kind) {
         "invest" -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         "ignore" -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
         "income", "refund", "borrowed" ->
-            Text("+" + moneyIn(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),
             color = if (highlight && t.kind == "expense") ZColor.Accent else ZColor.Warn,
             fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -3762,8 +3746,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Fact("Money in", moneyIn(s.income), ZColor.Income)
-                if (s.income > s.spent && !Privacy.hideIncome) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
+                Fact("Money in", money(s.income), ZColor.Income)
+                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
             }
             if (emiAmt > 0 || excludeEmi) {
                 Column(horizontalAlignment = Alignment.End) {
@@ -3776,7 +3760,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         if (fixed.isNotEmpty()) {
             val fixedTotal = fixed.values.sum()
             Spacer(Modifier.height(10.dp))
-            MutedText("Fixed " + money(fixedTotal) + " · free " + moneyIn((s.income - fixedTotal).coerceAtLeast(0.0)) +
+            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
                 " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
         }
 
@@ -3996,7 +3980,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     Spacer(Modifier.height(8.dp))
                     Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (t.direction == "credit") moneyIn(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
+                    Text(if (t.direction == "credit") money(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     MutedText(prettyDay(t.date), 11)
                 }
@@ -4030,11 +4014,18 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
     @Composable fun MoneyTabs() {
         val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
-        if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
-        else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (hasAcc) Chip("Accounts", moneyTabNow == "accounts") { moneyTab = "accounts" }
-            if (hasCard) Chip("Cards", moneyTabNow == "cards") { moneyTab = "cards" }
-            if (hasLoan) Chip("Loans", moneyTabNow == "loans") { moneyTab = "loans" }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
+            else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasAcc) Chip("Accounts", moneyTabNow == "accounts") { moneyTab = "accounts" }
+                if (hasCard) Chip("Cards", moneyTabNow == "cards") { moneyTab = "cards" }
+                if (hasLoan) Chip("Loans", moneyTabNow == "loans") { moneyTab = "loans" }
+            }
+            // One switch for every balance and available limit on accounts and cards.
+            androidx.compose.material3.Icon(
+                if (Privacy.hideBalance) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null,
+                tint = if (Privacy.hideBalance) ZColor.Accent else ZColor.Muted,
+                modifier = Modifier.size(34.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }.padding(6.dp))
         }
     }
     if (hasAcc && moneyTabNow == "accounts") {
@@ -4046,7 +4037,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 MutedText("Total balance", 12)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (balances.isNotEmpty())
-                        Text(money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(if (Privacy.hideBalance) Privacy.MASK else money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -4324,7 +4315,7 @@ private object LimitAsk {
                     Column {
                         val isManual = account in LimitAsk.manual
                         Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = soft, fontSize = 10.sp)
-                        Text(if (shown != null) money(shown.first) else "Add your limit ›", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                        Text(if (shown != null) (if (Privacy.hideBalance) Privacy.MASK else money(shown.first)) else "Add your limit ›", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
                             modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
                         if (asOf != null) Text(if (account in LimitAsk.manual) "set by you on $asOf, less spends since · tap to change" else if (limit != null && kotlin.math.abs(usedSince) >= 1.0) "est. · SMS of $asOf, less spends since" else "as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
@@ -5627,7 +5618,6 @@ private fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
 }
 
 private fun shortAmt(v: Double): String {
-    if (Privacy.hideAll) return "••"
     val a = kotlin.math.abs(v)
     val t = when {
         a >= 100000 -> String.format(java.util.Locale.US, "%.1fL", a / 100000)
@@ -5805,9 +5795,9 @@ private fun niceCeil(x: Double): Double {
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Fact("Spent", money(b.spent), ZColor.Accent)
-                        Fact("Money in", moneyIn(b.income), ZColor.Income)
+                        Fact("Money in", money(b.income), ZColor.Income)
                         val sv = b.income - b.spent
-                        Fact("Saved", if (Privacy.hideIncome) Privacy.MASK else (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
+                        Fact("Saved", (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
                     }
                     val top = Analytics.byCategory(b.rows).take(3)
                     if (top.isNotEmpty()) {

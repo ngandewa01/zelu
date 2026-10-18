@@ -266,13 +266,11 @@ object LinkInfo {
     var map by mutableStateOf<Map<String, List<String>>>(emptyMap())
 }
 
-// Hide amounts: "income" masks money in only; "all" masks every amount (balances, spends, everything).
+// Hide balances: one switch for account balances, total balance and card limits.
 object Privacy {
-    var hideAll by mutableStateOf(false)
-    var hideIncome by mutableStateOf(false)
+    var hideBalance by mutableStateOf(false)
     const val MASK = "₹ ••••"
     private fun sp(c: android.content.Context) = c.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE)
-    fun load(c: android.content.Context) { hideAll = sp(c).getBoolean("hide_all", false); hideIncome = sp(c).getBoolean("hide_income", false) }
-    fun setAll(c: android.content.Context, on: Boolean) { hideAll = on; sp(c).edit().putBoolean("hide_all", on).apply() }
-    fun setIncome(c: android.content.Context, on: Boolean) { hideIncome = on; sp(c).edit().putBoolean("hide_income", on).apply() }
+    fun load(c: android.content.Context) { hideBalance = sp(c).getBoolean("hide_balance", false) }
+    fun setBalance(c: android.content.Context, on: Boolean) { hideBalance = on; sp(c).edit().putBoolean("hide_balance", on).apply() }
 }
