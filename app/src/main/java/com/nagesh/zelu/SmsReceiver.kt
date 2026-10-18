@@ -28,6 +28,7 @@ class SmsReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
           try {
+            if (Parser.isFinancialSender(address)) Storage.noteBankSms(context.applicationContext, date)
             val res = Ingest.ingest(context.applicationContext, listOf(raw))
             val declined = Storage.declinedKeys(context.applicationContext)
             if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" && it.account !in declined && (it.counterparty ?: "") !in declined }?.let {

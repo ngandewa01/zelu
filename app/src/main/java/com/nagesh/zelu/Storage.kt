@@ -482,6 +482,11 @@ object Storage {
     fun setReadStamp(context: Context, readAt: Long, newestBank: Long) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("last_read", readAt).putLong("newest_bank", newestBank).apply()
     }
+    // A bank message arrived (even with the app closed): remember its time, for the "last SMS" line on Home.
+    fun noteBankSms(context: Context, ms: Long) {
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (ms > sp.getLong("newest_bank", 0L)) sp.edit().putLong("newest_bank", ms).apply()
+    }
     fun lastRead(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("last_read", 0L)
     fun newestBank(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("newest_bank", 0L)
 
