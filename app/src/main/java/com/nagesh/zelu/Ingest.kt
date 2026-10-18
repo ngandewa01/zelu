@@ -128,4 +128,39 @@ object Ingest {
         }
         return out
     }
+
+    data class Check(
+        val bankSms: Int, val txns: Int, val balanceAlerts: Int, val reminders: Int, val unread: Int,
+        val gaps: List<Pair<String, Int>>, // account -> times the running balance doesn't add up
+    )
+
+    // Reads the inbox the way the app does and reports what became what. On each account, consecutive
+    // transaction alerts that state a balance must add up (previous balance +/- the amount = next balance);
+    // where they don't, a message is missing between them.
+    fun diagnose(context: Context): Check {
+        var bank = 0; var txns = 0; var bal = 0; var rem = 0; var unread = 0
+        val points = HashMap<String, ArrayList<Triple<Long, Double, Double>>>() // account -> (time, balance, signed amount)
+        val all = try { SmsReader.readInbox(context, 5000) } catch (_: Exception) { emptyList() }
+        for (m in all) {
+            if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body, m.address)) continue
+            bank++
+            val t = Parser.parseSms(m.body, m.date, m.address)
+            if (t != null) {
+                txns++
+                val b = Parser.balanceFromTxn(m.body)
+                if (b != null && t.account.isNotBlank() && !t.account.contains(" CC") && !Parser.isLoanAccountText(m.body))
+                    points.getOrPut(t.account) { ArrayList() }.add(Triple(m.date, b, if (t.direction == "debit") -t.amount else t.amount))
+            } else if (Parser.parseBalance(m.body, m.date, m.address) != null) bal++
+            else if (Parser.parseReminder(m.body, m.date, m.address) != null) rem++
+            else if (MONEYISH.containsMatchIn(m.body) && ACTIONISH.containsMatchIn(m.body) && !NOT_TXN.containsMatchIn(m.body)) unread++
+        }
+        val gaps = ArrayList<Pair<String, Int>>()
+        for ((acct, list) in points) {
+            val sorted = list.sortedBy { it.first }
+            var n = 0
+            for (k in 1 until sorted.size) if (kotlin.math.abs(sorted[k - 1].second + sorted[k].third - sorted[k].second) > 1.0) n++
+            if (n > 0) gaps.add(acct to n)
+        }
+        return Check(bank, txns, bal, rem, unread, gaps.sortedByDescending { it.second })
+    }
 }

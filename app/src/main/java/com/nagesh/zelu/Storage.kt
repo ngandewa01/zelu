@@ -250,7 +250,7 @@ object Storage {
 
     fun loadReminders(context: Context): List<Reminder> = synchronized(lock) {
         val state = loadReminderState(context)
-        val sorted = readReminderMap(context).values
+        val sorted = (readReminderMap(context).values + manualReminders(context))
             .map { it.copy(done = state[it.id] ?: false) }
             .sortedBy { it.dueDate }
         // Collapse true duplicates: same payee + amount whose due dates are within 3 days
@@ -266,6 +266,54 @@ object Storage {
             if (!dup) out.add(r)
         }
         out
+    }
+
+    // ---- bills you add yourself (rent, school fee...) — kept apart so an SMS re-read never removes them ----
+    private const val MANUAL_FILE = "manual_reminders.json"
+
+    private fun readManual(context: Context): org.json.JSONArray = try {
+        val f = file(context, MANUAL_FILE)
+        if (f.exists()) org.json.JSONArray(f.readText()) else org.json.JSONArray()
+    } catch (_: Exception) { org.json.JSONArray() }
+
+    fun addManualReminder(context: Context, name: String, amount: Double, dueDate: String, recurring: Boolean) = synchronized(lock) {
+        val arr = readManual(context)
+        arr.put(JSONObject().put("id", System.currentTimeMillis().toString()).put("name", name).put("amount", amount)
+            .put("due", dueDate).put("recurring", recurring))
+        file(context, MANUAL_FILE).writeText(arr.toString())
+    }
+
+    // id is a reminder id ("man-<id>" or "man-<id>-<yyyy-MM>").
+    fun removeManualReminder(context: Context, reminderId: String) = synchronized(lock) {
+        val base = reminderId.removePrefix("man-").substringBefore("-")
+        val arr = readManual(context); val keep = org.json.JSONArray()
+        for (i in 0 until arr.length()) if (arr.getJSONObject(i).getString("id") != base) keep.put(arr.getJSONObject(i))
+        file(context, MANUAL_FILE).writeText(keep.toString())
+    }
+
+    private fun manualReminders(context: Context): List<Reminder> {
+        val arr = readManual(context)
+        val out = ArrayList<Reminder>()
+        val thisMonth = Dates.todayMonth()
+        val lastMonth = Dates.shiftMonth(thisMonth, 1)
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val id = o.getString("id"); val due = o.getString("due"); val name = o.getString("name")
+            val amt = o.getDouble("amount"); val rec = o.optBoolean("recurring", false)
+            fun make(rid: String, d: String) = Reminder(rid, d, amt, null, name, "", rec, "Added by you", "manual")
+            if (!rec) { out.add(make("man-$id", due)); continue }
+            val day = due.substring(8, 10).toIntOrNull() ?: 1
+            var ym = due.take(7)
+            var guard = 0
+            while (ym <= lastMonth && guard++ < 60) {
+                if (ym >= Dates.shiftMonth(thisMonth, -3)) {
+                    val d = minOf(day, Dates.daysInMonth(ym))
+                    out.add(make("man-$id-$ym", "$ym-" + d.toString().padStart(2, '0')))
+                }
+                ym = Dates.shiftMonth(ym, 1)
+            }
+        }
+        return out
     }
 
     // ---- lending repayments ----  person key (lowercased counterparty) -> amount repaid

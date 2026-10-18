@@ -54,4 +54,24 @@ object Backup {
             return false
         }
     }
+
+    // Once a week the daily check also saves a backup file to Downloads/Zelu (can be switched off in the menu).
+    fun autoOn(context: Context): Boolean =
+        context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).getBoolean("on", true)
+
+    fun setAutoOn(context: Context, on: Boolean) {
+        context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putBoolean("on", on).apply()
+    }
+
+    fun lastAuto(context: Context): Long =
+        context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).getLong("last", 0L)
+
+    fun maybeAuto(context: Context) {
+        if (!autoOn(context)) return
+        val now = System.currentTimeMillis()
+        if (now - lastAuto(context) < 7L * 86_400_000L) return
+        if (Storage.loadRows(context).isEmpty()) return
+        val ok = Exporter.exportText(context, "zelu-backup-" + Dates.today() + ".json", "application/json", export(context))
+        if (ok) context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
+    }
 }

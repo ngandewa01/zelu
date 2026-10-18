@@ -372,6 +372,9 @@ fun ZeluApp() {
     var lockOn by remember { mutableStateOf(context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).getBoolean("lock", false)) }
     var undo by remember { mutableStateOf<Pair<String, Map<String, String?>>?>(null) }
     var unreadOpen by remember { mutableStateOf(false) }
+    var checkOpen by remember { mutableStateOf(false) }
+    var check by remember { mutableStateOf<Ingest.Check?>(null) }
+    var autoBackup by remember { mutableStateOf(Backup.autoOn(context)) }
     var unreadList by remember { mutableStateOf<List<RawSms>?>(null) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
@@ -816,10 +819,16 @@ fun ZeluApp() {
                 "payees" -> PayeesView(shown, { title, rows -> drill = title to rows },
                     { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
                     ::renamePayee,
-                    remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) })
+                    remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows)
                 "invest" -> InvestView(rows) { title, r -> drill = title to r }
                 "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
-                "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder)
+                "dues" -> RemindersView(reminders, rows, reminderState, ::markReminder,
+                    onAdd = { n, a, d, r -> scope.launch {
+                        withContext(Dispatchers.IO) { Storage.addManualReminder(context, n, a, d, r) }
+                        reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
+                    onRemove = { id -> scope.launch {
+                        withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
+                        reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
@@ -937,7 +946,63 @@ fun ZeluApp() {
                     menuOpen = false
                     restoreLauncher.launch(arrayOf("*/*"))
                 }
+                MenuRow("Weekly backup", if (autoBackup) "On · saved to Downloads/Zelu every week" else "Off",
+                    Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
+                    trailing = { Text(if (autoBackup) "ON" else "OFF", color = if (autoBackup) ZColor.Income else ZColor.Muted,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
+                    autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup)
+                }
+                MenuRow("Data check", "What was read, and whether balances add up", Icons.Rounded.Receipt) {
+                    menuOpen = false; checkOpen = true; check = null
+                    scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
+                }
                 Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+
+    if (checkOpen) Dialog(onDismissRequest = { checkOpen = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            Text("Data check", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText("Parser version ${Storage.PARSER_VERSION} · ${rows.size} transactions stored", 12)
+            Spacer(Modifier.height(10.dp))
+            val c = check
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                if (c == null) MutedText("Reading your messages…", 13) else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Fact("Bank SMS", c.bankSms.toString()); Fact("Payments", c.txns.toString()); Fact("Balances", c.balanceAlerts.toString())
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Fact("Reminders", c.reminders.toString())
+                        Fact("Couldn't read", c.unread.toString(), if (c.unread > 0) ZColor.Warn else ZColor.Income)
+                        Fact("Hidden accts", Storage.hiddenAccounts(context).size.toString())
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Eyebrow("Do balances add up?")
+                    Spacer(Modifier.height(6.dp))
+                    if (c.gaps.isEmpty()) MutedText("Yes. On every account, each alert's balance matches the one before it plus or minus the amount.", 13)
+                    else {
+                        MutedText("Where a balance jumps by more than the amount, a message is missing in between (deleted, or never sent).", 12)
+                        Spacer(Modifier.height(6.dp))
+                        c.gaps.forEach { (a, n) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(a, color = ZColor.Ink, fontSize = 14.sp)
+                                Text(if (n == 1) "1 gap" else "$n gaps", color = ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    val last = Backup.lastAuto(context)
+                    MutedText(if (last > 0) "Last weekly backup: " + java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(last))
+                    else "No weekly backup saved yet.", 12)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { checkOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -2286,8 +2351,14 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                              val title: String, val detail: String, val go: () -> Unit)
             val alerts = ArrayList<Alert>()
             val totals = Analytics.categoryTotals(allRows, f.month, "All")
+            val dayNow = Dates.dayOfMonth(); val dimNow = Dates.daysInMonth(f.month)
             budgets.forEach { (c, b) ->
                 val v = totals[c] ?: 0.0
+                if (b > 0 && v < b * 0.8 && dayNow >= 5 && v / b > dayNow.toDouble() / dimNow + 0.2) {
+                    alerts.add(Alert(false, v / b, CatIcons.forCategory(c) ?: Icons.Rounded.Warning, c,
+                        "Running ahead: " + (v / b * 100).toInt() + "% of the budget gone, " + (dayNow * 100 / dimNow) + "% of the month passed",
+                    ) { onDrill(c, allRows.filter { it.kind == "expense" && it.category == c && it.date.startsWith(f.month) }) })
+                }
                 if (b > 0 && v >= b * 0.8) {
                     val over = v > b
                     alerts.add(Alert(over, v / b, CatIcons.forCategory(c) ?: Icons.Rounded.Warning,
@@ -2657,7 +2728,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 
     Spacer(Modifier.height(6.dp))
-    MutedText("${allRows.size} transactions read · Private — everything stays on your phone.", 11)
+    MutedText("${allRows.size} transactions read" + (allRows.maxOfOrNull { it.date }?.let { " · newest " + prettyDate(it) } ?: "") +
+        " · Private — everything stays on your phone.", 11)
 }
 
 @Composable private fun DailyCalendarBlock(
@@ -3099,6 +3171,7 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
     onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRename: (String, String) -> Unit,
     fixedSet: Analytics.FixedSet,
+    allRows: List<Row> = emptyList(),
 ) {
     val spend = list.filter { it.kind == "expense" }
     val payees = Analytics.byPayee(list)
@@ -3194,6 +3267,35 @@ private fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) {
                     }
                     Spacer(Modifier.height(7.dp))
                     Meter((p.amount / top).toFloat(), catColor(c0))
+                }
+            }
+        }
+    }
+
+    // 4b. Payees you have never paid before this month, so an unfamiliar charge stands out.
+    run {
+        val thisM = Dates.todayMonth()
+        val firstSeen = HashMap<String, String>()
+        allRows.filter { it.kind == "expense" }.forEach { r ->
+            val n = nameOf(r); val cur = firstSeen[n]
+            if (cur == null || r.date < cur) firstSeen[n] = r.date
+        }
+        val fresh = payees.filter { firstSeen[it.name]?.startsWith(thisM) == true }.take(6)
+        if (fresh.isNotEmpty() && firstSeen.size > fresh.size) Panel {
+            Eyebrow("New this month")
+            Spacer(Modifier.height(4.dp))
+            MutedText("First time you've paid these. Check they're all yours.", 11)
+            fresh.forEach { p ->
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown", 30.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(p.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(prettyDate(firstSeen[p.name] ?: ""), 11)
+                    }
+                    Text(money(p.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -3387,8 +3489,11 @@ private fun prettyDate(iso: String): String = try {
 
 @Composable private fun RemindersView(
     reminders: List<Reminder>, rows: List<Row>, state: Map<String, Boolean>, onMark: (String, Boolean) -> Unit,
+    onAdd: (String, Double, String, Boolean) -> Unit = { _, _, _, _ -> }, onRemove: (String) -> Unit = {},
 ) {
     var detail by remember { mutableStateOf<Reminder?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    val ctxAdd = LocalContext.current
     val today = Dates.today()
     val curMonth = Dates.todayMonth()
     // Auto-settle: a real debit to the SAME merchant for the SAME amount within ±5 days of
@@ -3421,7 +3526,13 @@ private fun prettyDate(iso: String): String = try {
     val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
 
     Spacer(Modifier.height(4.dp))
-    Text("Dues & reminders", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("Dues & reminders", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+            .clickable { adding = true }.padding(horizontal = 14.dp, vertical = 8.dp)) {
+            Text("+ Add bill", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
 
     // Summary: what is overdue, what lands this week, and where the month is heading.
     val weekEnd = Dates.shiftDays(today, 7)
@@ -3497,10 +3608,46 @@ private fun prettyDate(iso: String): String = try {
     Spacer(Modifier.height(6.dp))
     MutedText("Reminders are never counted as spending — only money that actually leaves your bank is.", 11)
 
-    detail?.let { r -> ReminderDetailDialog(r) { detail = null } }
+    detail?.let { r -> ReminderDetailDialog(r, onRemove = if (r.id.startsWith("man-")) ({ onRemove(r.id); detail = null }) else null) { detail = null } }
+    if (adding) {
+        var name by remember { mutableStateOf("") }
+        var amt by remember { mutableStateOf("") }
+        var due by remember { mutableStateOf(Dates.today()) }
+        var monthly by remember { mutableStateOf(true) }
+        Dialog(onDismissRequest = { adding = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Add a bill", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                MutedText("For things with no SMS: rent, school fee, a loan from a friend. Zelu reminds you before the due date.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, placeholder = { Text("What is it? (Rent)") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = amt, onValueChange = { v -> amt = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
+                    placeholder = { Text("Amount ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                        .clickable { pickDate(ctxAdd, due) { due = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                        Text("Due " + prettyDate(due), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Chip("Every month", monthly, true) { monthly = !monthly }
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { adding = false }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        val a = amt.toDoubleOrNull() ?: 0.0
+                        if (name.isNotBlank() && a > 0) { onAdd(name.trim(), a, due, monthly); adding = false }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+    }
 }
 
-@Composable private fun ReminderDetailDialog(r: Reminder, onDismiss: () -> Unit) {
+@Composable private fun ReminderDetailDialog(r: Reminder, onRemove: (() -> Unit)? = null, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
@@ -3527,10 +3674,17 @@ private fun prettyDate(iso: String): String = try {
                 modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()),
             )
             Spacer(Modifier.height(16.dp))
-            Box(
-                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                if (onRemove != null) {
+                    Text("Remove bill", color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { onRemove() }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
+                ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            }
         }
     }
 }

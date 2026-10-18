@@ -80,6 +80,7 @@ object DueReminders {
 class DueReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try { Recap.maybe(context) } catch (_: Exception) {}
+        try { Backup.maybeAuto(context) } catch (_: Exception) {}
         try { ZeluWidget.refresh(context) } catch (_: Exception) {}
         try { DueReminders.check(context) } catch (_: Exception) {}
     }
