@@ -644,6 +644,7 @@ fun ZeluApp() {
             reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
             budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+            monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
@@ -792,6 +793,7 @@ fun ZeluApp() {
         reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
         repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
+        monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
         delay(1200)
         if (hasPerm()) { stage = "app"; rescan() } else if (rows.isNotEmpty()) { stage = "app"; smsOk = false } else { stage = "welcome" }
     }
@@ -3889,9 +3891,6 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
         }
     }
 
-    Spacer(Modifier.height(6.dp))
-    MutedText("${allRows.size} transactions read" + (allRows.maxOfOrNull { it.date }?.let { " · newest " + prettyDate(it) } ?: "") +
-        " · Private — everything stays on your phone.", 11)
 }
 
 @Composable private fun DailyCalendarBlock(
@@ -5136,11 +5135,11 @@ private fun prettyDate(iso: String): String = try {
 ) {
     // The budget is for flexible spending: EMI and costs marked Fixed are left out here.
     val baseRows = allRows.filter { it.category !in leave && !(excludeEmi && it.category == "EMI") }
-    Text("Are you ahead of budget?", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    Text("Budget pace", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     if (leave.isNotEmpty()) MutedText("Leaves out EMI and fixed costs", 12)
 
     if (Analytics.BUDGET <= 0) {
-        Panel { MutedText("Set a monthly budget from the menu to see whether you are ahead or behind.") }
+        MutedText("Set a monthly budget from the menu to see if you are ahead or behind.", 13)
     } else if (f.period == "month") {
         val dim = Dates.daysInMonth(month)
         val isCur = month == Dates.todayMonth()
@@ -5169,33 +5168,6 @@ private fun prettyDate(iso: String): String = try {
         }
     } else {
         Panel { MutedText("The running total works on a single month. Switch to Month to see it.") }
-    }
-
-    // Three months
-    val months = Dates.recentMonths(Dates.todayMonth(), 3)
-    val data = Analytics.monthlySpendIncome(baseRows, months, account)
-    val maxV = (data.flatMap { listOf(it.second, it.third) }.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
-    Panel {
-        Eyebrow("Three months")
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Bottom) {
-            data.forEach { (m, spent, income) ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(Modifier.height(120.dp), verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(Modifier.width(26.dp).fillMaxHeight(((spent / maxV).toFloat()).coerceIn(0.02f, 1f))
-                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)).background(ZColor.Ink))
-                        Box(Modifier.width(26.dp).fillMaxHeight(((income / maxV).toFloat()).coerceIn(0.02f, 1f))
-                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)).background(ZColor.Income))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    MutedText(Dates.monthLabel(m), 11)
-                }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        MutedText("Ink is spending. Teal is money in.", 12)
     }
 }
 
