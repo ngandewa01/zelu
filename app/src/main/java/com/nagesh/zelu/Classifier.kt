@@ -92,14 +92,23 @@ object Classifier {
         Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
-        Regex("""\b(electronics|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
+        Regex("""\b(electronics|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|kanchi|kanjeevaram|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
     )
+
+    // Card alerts end with an offer ("To convert this txn to EMI give a missed call... Know more about
+    // EMI conversion at..."). That says nothing about what was bought, so it is cut before matching.
+    private val EMI_OFFER = Regex(
+        """[^.]*\b(?:convert\w*|conversion)\b[^.]*\bemi\b[^.]*|[^.]*\bemi\b[^.]*\b(?:convert\w*|conversion)\b[^.]*""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private fun onCard(account: String) = account.contains(" CC ") || account.startsWith("CC ") || account.endsWith(" CC")
 
     data class Result(val kind: String, val category: String)
 
     // A plain-language reason for why a transaction got its label — shown in the detail dialog.
     fun explain(counterparty: String?, raw: String, kind: String, category: String): String {
-        val hay = "${counterparty ?: ""} $raw".lowercase()
+        val hay = "${counterparty ?: ""} ${EMI_OFFER.replace(raw, " ")}".lowercase()
         return when (kind) {
             "income" -> "Counted as money in — a credit to your account."
             "refund" -> "A refund credited back to you."
@@ -155,15 +164,16 @@ object Classifier {
             // A payment landing on your credit card is settling a bill, not income.
             // Anything landing on an account we know is a credit card (e.g. "Payment of Rs X has
             // been received on your ... Credit Card XX8003 through BBPS") is the same thing.
-            if (CARD_RECV.containsMatchIn(t.raw) || t.account.contains(" CC ") || t.account.startsWith("CC ") || t.account.endsWith(" CC"))
+            if (CARD_RECV.containsMatchIn(t.raw) || onCard(t.account))
                 return Result("transfer", "Card bill")
             return Result("income", "Income")
         }
 
         // Names often arrive run together ("KimsHospital", "SriLakshmiMedicals"): also match on the
         // words split at each lower->UPPER change, so "hospital", "medical"... are found.
-        val spaced = ((t.counterparty ?: "") + " " + t.raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
-        val hay = ("$cp ${t.raw} $spaced").lowercase()
+        val raw = EMI_OFFER.replace(t.raw, " ")
+        val spaced = ((t.counterparty ?: "") + " " + raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
+        val hay = ("$cp $raw $spaced").lowercase()
         // 1) Exact brand dictionary (most specific).
         for ((category, words) in CATEGORIES) {
             if (words.any { hay.contains(it) }) return Result("expense", category)
@@ -172,9 +182,10 @@ object Classifier {
         for ((re, category) in NAME_HINTS) {
             if (re.containsMatchIn(hay)) return Result("expense", category)
         }
-        // 3) Money sent to a named person (not a business) is a transfer, not a spend.
+        // 3) Money sent to a named person (not a business) is a transfer, not a spend. A card swipe
+        //    is always a purchase at a merchant, so it never takes this path.
         val who = t.counterparty?.trim()
-        if (who != null && PERSON_NAME.matches(who) && !BUSINESS_WORD.containsMatchIn(who)) {
+        if (who != null && !onCard(t.account) && PERSON_NAME.matches(who) && !BUSINESS_WORD.containsMatchIn(who)) {
             return Result("transfer", "Transfer")
         }
         // 4) Genuinely unguessable -> ask once (then remembered per payee).

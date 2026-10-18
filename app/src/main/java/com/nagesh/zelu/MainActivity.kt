@@ -2696,14 +2696,14 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                         if (asOf != null) Text("as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) else "No bill due", color = soft, fontSize = 10.sp)
-                        if (due != null) Text(money(due.amount), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Spent", color = soft, fontSize = 10.sp)
+                        Text(money(spent), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) + " · " + money(due.amount) else "No bill due",
+                            color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        MutedText("Spent this period  ${money(spent)}", 12)
     }
 }
 

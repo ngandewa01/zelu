@@ -126,7 +126,8 @@ object Notifier {
         return short to full
     }
 
-    // Quiet "₹79,377.50 · Current balance in HDFC (5997)". One per account; a newer balance replaces the older.
+    // Quiet "HDFC (5997) · ₹79,377.50 · Current balance". The account shows once, in the header.
+    // One per account; a newer balance replaces the older.
     fun notifyBalance(context: Context, account: String, balance: Double) {
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -147,7 +148,7 @@ object Notifier {
                 .setColor(accentInt(context))
                 .setSubText(shown)
                 .setContentTitle("₹" + String.format(java.util.Locale.US, "%,.2f", balance))
-                .setContentText("Current balance in $shown")
+                .setContentText("Current balance")
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(pi)
