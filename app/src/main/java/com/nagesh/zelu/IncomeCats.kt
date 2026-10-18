@@ -41,6 +41,6 @@ object IncomeCats {
 
     private fun save(c: Context, list: List<String>) {
         custom = list
-        try { file(c).writeText(JSONArray(list).toString()) } catch (_: Exception) {}
+        try { file(c).writeAtomic(JSONArray(list).toString()) } catch (_: Exception) {}
     }
 }

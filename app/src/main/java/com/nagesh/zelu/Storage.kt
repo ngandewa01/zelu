@@ -23,7 +23,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 52
+    const val PARSER_VERSION = 53
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -433,7 +433,7 @@ object Storage {
         if (parts == null) cur.remove(id) else cur[id] = parts
         val obj = JSONObject()
         for ((k, v) in cur) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
-        file(context, SPLIT_FILE).writeText(obj.toString())
+        file(context, SPLIT_FILE).writeAtomic(obj.toString())
     }
 
     // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.
@@ -523,7 +523,7 @@ object Storage {
         if (found.isNotEmpty()) {
             val obj = JSONObject()
             for ((k, v) in cur) obj.put(k, mandateToJson(v))
-            file(context, MANDATE_FILE).writeText(obj.toString())
+            file(context, MANDATE_FILE).writeAtomic(obj.toString())
         }
     }
 
@@ -532,7 +532,7 @@ object Storage {
         val f = file(context, MANUAL_TXN_FILE)
         val obj = try { if (f.exists()) JSONObject(f.readText()) else JSONObject() } catch (_: Exception) { JSONObject() }
         obj.put(row.id, rowToJson(row))
-        f.writeText(obj.toString())
+        f.writeAtomic(obj.toString())
         markSmsHandled(context, smsKey)
     }
 
@@ -596,7 +596,7 @@ object Storage {
         val arr = readManual(context)
         arr.put(JSONObject().put("id", System.currentTimeMillis().toString()).put("name", name).put("amount", amount)
             .put("due", dueDate).put("recurring", recurring))
-        file(context, MANUAL_FILE).writeText(arr.toString())
+        file(context, MANUAL_FILE).writeAtomic(arr.toString())
     }
 
     // id is a reminder id ("man-<id>" or "man-<id>-<yyyy-MM>").
@@ -604,7 +604,7 @@ object Storage {
         val base = reminderId.removePrefix("man-").substringBefore("-")
         val arr = readManual(context); val keep = org.json.JSONArray()
         for (i in 0 until arr.length()) if (arr.getJSONObject(i).getString("id") != base) keep.put(arr.getJSONObject(i))
-        file(context, MANUAL_FILE).writeText(keep.toString())
+        file(context, MANUAL_FILE).writeAtomic(keep.toString())
     }
 
     private fun manualReminders(context: Context): List<Reminder> {
@@ -650,7 +650,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(personKey) else cur[personKey] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, REPAID_FILE).writeText(o.toString())
+        file(context, REPAID_FILE).writeAtomic(o.toString())
     }
 
     // ---- per-category budgets ----
@@ -671,7 +671,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(category) else cur[category] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, BUDGET_FILE).writeText(o.toString())
+        file(context, BUDGET_FILE).writeAtomic(o.toString())
     }
 
     // ---- latest known bank balance per account (account -> amount, receivedMs) ----
@@ -711,7 +711,7 @@ object Storage {
         }
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second).put("s", v.third))
-        file(context, "balances.json").writeText(o.toString())
+        file(context, "balances.json").writeAtomic(o.toString())
     }
 
     // ---- latest available credit limit per card account ----
@@ -740,7 +740,7 @@ object Storage {
         cur[account] = amount to System.currentTimeMillis()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeText(o.toString())
+        file(context, "limits.json").writeAtomic(o.toString())
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", manualLimitKeys(context) + account).apply()
     }
 
@@ -753,7 +753,7 @@ object Storage {
         if (manChanged) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", man).apply()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeText(o.toString())
+        file(context, "limits.json").writeAtomic(o.toString())
     }
 
     // ---- refund links: refund id -> true (same spend, net it) / false (not related) ----
@@ -770,7 +770,7 @@ object Storage {
     fun setRefundLink(context: Context, refundId: String, yes: Boolean): Unit = synchronized(lock) {
         val cur = loadRefundLinks(context).toMutableMap(); cur[refundId] = yes
         val o = JSONObject(); for ((k, v) in cur) o.put(k, v)
-        file(context, "refund_links.json").writeText(o.toString())
+        file(context, "refund_links.json").writeAtomic(o.toString())
     }
 
     // ---- savings plan inputs (SIP, EMI, goal...) ----
@@ -786,7 +786,7 @@ object Storage {
 
     fun savePlan(context: Context, m: Map<String, String>): Unit = synchronized(lock) {
         val o = JSONObject(); for ((k, v) in m) o.put(k, v)
-        file(context, "plan.json").writeText(o.toString())
+        file(context, "plan.json").writeAtomic(o.toString())
     }
 
     // ---- per-card preferences: billing cycle day + monthly budget ----
@@ -807,7 +807,7 @@ object Storage {
         cur[account] = day to budget
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("d", v.first).put("b", v.second))
-        file(context, "card_prefs.json").writeText(o.toString())
+        file(context, "card_prefs.json").writeAtomic(o.toString())
     }
 
     // ---- overall monthly spending budget ----
@@ -817,7 +817,7 @@ object Storage {
     }
 
     fun saveMonthlyBudget(context: Context, amount: Double): Unit = synchronized(lock) {
-        file(context, "monthly_budget.txt").writeText(amount.toString())
+        file(context, "monthly_budget.txt").writeAtomic(amount.toString())
     }
 
     // ---- user-made categories (name -> emoji + colour) ----
@@ -838,7 +838,7 @@ object Storage {
         cur[name] = emoji to color
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("e", v.first).put("c", v.second))
-        file(context, "custom_categories.json").writeText(o.toString())
+        file(context, "custom_categories.json").writeAtomic(o.toString())
     }
 
     // ---- fixed monthly outflow plan (name -> typical monthly amount) ----
@@ -859,7 +859,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(name) else cur[name] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, "fixed_outflow.json").writeText(o.toString())
+        file(context, "fixed_outflow.json").writeAtomic(o.toString())
     }
 
     // Explicit paid(true)/unpaid(false) override per reminder. An explicit entry always
@@ -869,7 +869,7 @@ object Storage {
         m[id] = done
         val o = JSONObject()
         for ((k, v) in m) o.put(k, v)
-        file(context, REM_DONE_FILE).writeText(o.toString())
+        file(context, REM_DONE_FILE).writeAtomic(o.toString())
     }
 
     fun loadReminderState(context: Context): Map<String, Boolean> = synchronized(lock) {
@@ -906,7 +906,7 @@ object Storage {
     private fun writeReminderMap(context: Context, map: Map<String, Reminder>) {
         val obj = JSONObject()
         for ((k, r) in map) obj.put(k, reminderToJson(r))
-        file(context, REMINDER_FILE).writeText(obj.toString())
+        file(context, REMINDER_FILE).writeAtomic(obj.toString())
     }
 
     private fun reminderToJson(r: Reminder): JSONObject = JSONObject().apply {
@@ -959,7 +959,7 @@ object Storage {
     }
 
     fun restoreSnapshot(context: Context, snap: Map<String, String?>): Unit = synchronized(lock) {
-        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeText(t) }
+        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeAtomic(t) }
     }
 
     fun setTitle(context: Context, id: String, title: String): Unit = synchronized(lock) {
@@ -994,7 +994,7 @@ object Storage {
             val o = JSONObject(f.readText()); val keep = JSONObject()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); if (k.trim().split(" ").any { it.length in 3..4 && it.all(Char::isDigit) }) keep.put(k, o.get(k)) }
-            f.writeText(keep.toString())
+            f.writeAtomic(keep.toString())
         } catch (_: Exception) {}
     }
 
@@ -1011,22 +1011,33 @@ object Storage {
     // ---- transaction file ----
     private fun file(context: Context, name: String) = File(context.filesDir, name)
 
+    private fun parseMap(f: File): Map<String, Row> {
+        val obj = JSONObject(f.readText())
+        val out = HashMap<String, Row>()
+        val keys = obj.keys()
+        while (keys.hasNext()) { val k = keys.next(); out[k] = rowFromJson(obj.getJSONObject(k)) }
+        return out
+    }
+
+    // If the transaction file can't be read, fall back to the copy kept from the previous save, and keep
+    // the damaged file aside rather than letting the next save overwrite it with an almost empty list.
     private fun readMap(context: Context): Map<String, Row> {
         val f = file(context, TXN_FILE)
         if (!f.exists()) return emptyMap()
-        return try {
-            val obj = JSONObject(f.readText())
-            val out = HashMap<String, Row>()
-            val keys = obj.keys()
-            while (keys.hasNext()) { val k = keys.next(); out[k] = rowFromJson(obj.getJSONObject(k)) }
-            out
-        } catch (_: Exception) { emptyMap() }
+        return try { parseMap(f) } catch (_: Exception) {
+            val bak = File(f.parentFile, TXN_FILE + ".bak")
+            try { f.copyTo(File(f.parentFile, TXN_FILE + ".corrupt"), overwrite = true) } catch (_: Exception) {}
+            try { if (bak.exists()) parseMap(bak) else emptyMap() } catch (_: Exception) { emptyMap() }
+        }
     }
 
     private fun writeMap(context: Context, map: Map<String, Row>) {
         val obj = JSONObject()
         for ((k, r) in map) obj.put(k, rowToJson(r))
-        file(context, TXN_FILE).writeText(obj.toString())
+        val f = file(context, TXN_FILE)
+        // Keep the previous version as a safety copy before replacing it.
+        if (f.exists() && f.length() > 2) try { f.copyTo(File(f.parentFile, TXN_FILE + ".bak"), overwrite = true) } catch (_: Exception) {}
+        f.writeAtomic(obj.toString())
     }
 
     // ---- key/value files (id -> "kind|category") ----
@@ -1049,7 +1060,7 @@ object Storage {
     private fun writeKv(context: Context, name: String, kv: Map<String, Pair<String, String>>) {
         val obj = JSONObject()
         for ((k, v) in kv) obj.put(k, v.first + "|" + v.second)
-        file(context, name).writeText(obj.toString())
+        file(context, name).writeAtomic(obj.toString())
     }
 
     private fun rowToJson(r: Row): JSONObject = JSONObject().apply {

@@ -12,8 +12,10 @@ android {
         applicationId = "com.nagesh.zelu"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        // CI passes its run number, so every build has a higher version and installs over the last one.
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
+        versionCode = run
+        versionName = "0.3.$run"
     }
 
     signingConfigs {
@@ -47,9 +49,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")

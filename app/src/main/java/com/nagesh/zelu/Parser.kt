@@ -12,8 +12,11 @@ import kotlin.math.abs
 object Parser {
 
     private val AMOUNT = Regex("""(?:Rs\.?|INR|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
-    private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|purchase)\b""", RegexOption.IGNORE_CASE)
-    private val CREDIT = Regex("""\b(credited|credit|received|deposited|refunded?)\b""", RegexOption.IGNORE_CASE)
+    private val AMOUNT_BARE = Regex("""\b(?:debited|credited)\s+(?:by|with|for|of)\s+([\d,]+(?:\.\d{1,2})?)(?=\s+on\b)""", RegexOption.IGNORE_CASE)
+    // Bank statement style narration: "UPI/P2A/607222223333/LANDLORD" or "UPI/607111100002/SPOTIFY".
+    private val UPI_SLASH = Regex("""\bUPI/(?:P2[AMP]/)?\d{6,}/([A-Za-z][A-Za-z0-9 .&'\-]{1,30}?)(?=[\s.,;/]|$)""", RegexOption.IGNORE_CASE)
+    private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|purchase|thank you for using|used for (?:a )?transaction|transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account))\b""", RegexOption.IGNORE_CASE)
+    private val CREDIT = Regex("""\b(credited|credit(?!\s+(?:card|limit|lmt|bal))|thank you for (?:paying|your payment)|received|deposited|refunded?)\b""", RegexOption.IGNORE_CASE)
     val REFUND = Regex("""\brefund""", RegexOption.IGNORE_CASE)
 
     // "Payment of Rs X for your <service> connection ... received" is an OUTGOING bill
@@ -58,7 +61,7 @@ object Parser {
     )
     // Money that has ACTUALLY left the account (past tense / completed).
     private val DEBIT_DONE = Regex(
-        """\b(spent|withdrawn|purchased?|debited|deducted|paid|sent|transferred|w/?d)\b""",
+        """\b(spent|withdrawn|withdrawal|purchased?|debited|deducted|paid|sent|transferred|w/?d)\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -183,7 +186,7 @@ object Parser {
     private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})\b""")
     private val CP = Regex(
-        """\b(?:to|from|by|at)\s+(?:VPA\s+)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|of|rs|inr)\b|[.,;]|$)""",
+        """\b(?:to|from|by|at)\s+(?:VPA\s+)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|refno|via|of|rs|inr)\b|[.,;]|$)""",
         RegexOption.IGNORE_CASE,
     )
     // Fallback merchant: NAME right after the amount, e.g. "INR2100.76 TOIT BREWPUB."
@@ -295,7 +298,9 @@ object Parser {
         if (loanCredit) direction = "debit"
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
-        val amounts = AMOUNT.findAll(text).toList()
+        var amounts = AMOUNT.findAll(text).toList()
+        // Some banks (SBI UPI) write the amount with no currency: "debited by 320.0 on date ...".
+        if (amounts.isEmpty()) amounts = AMOUNT_BARE.findAll(text).toList()
         if (amounts.isEmpty()) return null
         val notBalance = amounts.filter { m ->
             val pre = text.substring(0, m.range.first)
@@ -324,6 +329,8 @@ object Parser {
         if (counterparty == null) {
             counterparty = NEFT_SENDER.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
+        if (counterparty == null) counterparty = UPI_SLASH.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }
+            ?.let { if (it == it.uppercase()) titleCase(it) else it }
         // Scan all "to/from/by/at NAME" matches and take the first real one (skips "by Rs …").
         if (counterparty == null) counterparty = CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
         if (counterparty == null) counterparty = cleanCp(MERCHANT_AFTER.find(text)?.groupValues?.get(1))
@@ -567,9 +574,12 @@ object Parser {
 
     private val SALUTATION = Regex("""^(m/?s|mr|mrs|ms|dr|shri|smt|sri)\.?\s+""", RegexOption.IGNORE_CASE)
 
+    private val UPI_REF_ONLY = Regex("""(?i)^(?:upi|imps|neft)[-/ ]?[\w-]*\d{6,}$""")
+    private val NOT_A_PAYEE = setOf("upi", "imps", "neft", "rtgs", "you", "your", "us", "me", "self", "user")
     private fun cleanCp(raw: String?): String? {
         val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "")
         if (s.length < 2) return null
+        if (s.lowercase() in NOT_A_PAYEE || UPI_REF_ONLY.matches(s)) return null
         if (DATE_LIKE.matches(s) || s.matches(Regex("""(?i)^on\s+\d.*"""))) return null
         if (CP_JUNK.containsMatchIn(s)) return null
         // A bank/account/card string (bank name plus digits) is your own account, not a payee.
@@ -616,12 +626,24 @@ object Parser {
             if (w.isEmpty()) w else w.replaceFirstChar { it.uppercase() }
         }
 
+    private val DATE_MON = Regex("""\b(\d{1,2})[-/ ]?([A-Za-z]{3})[a-z]*[-/ ]?(\d{2}|\d{4})\b""")
+
+    // The earliest date written in the message, as numbers (14-03-26) or with a month name (11-Mar-26, 12Mar26).
+    private fun firstDate(text: String): Triple<Int, Int, Int>? {
+        val a = DATE.find(text)
+        val b = DATE_MON.findAll(text).firstOrNull { MONTHS.containsKey(it.groupValues[2].lowercase()) }
+        val useB = b != null && (a == null || b.range.first < a.range.first)
+        if (useB) return Triple(b!!.groupValues[1].toInt(), MONTHS[b.groupValues[2].lowercase()]!!, b.groupValues[3].toInt())
+        if (a != null) return Triple(a.groupValues[1].toInt(), a.groupValues[2].toInt(), a.groupValues[3].toInt())
+        return null
+    }
+
     private fun parseDate(text: String, receivedMs: Long?): String {
-        val m = DATE.find(text)
+        val m = firstDate(text)
         if (m != null) {
-            val dd = m.groupValues[1].toInt()
-            val mm = m.groupValues[2].toInt()
-            var yy = m.groupValues[3].toInt()
+            val dd = m.first
+            val mm = m.second
+            var yy = m.third
             if (yy < 100) yy += 2000
             try {
                 val cal = GregorianCalendar(IST)

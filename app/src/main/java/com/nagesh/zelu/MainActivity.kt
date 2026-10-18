@@ -78,6 +78,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -786,6 +787,18 @@ fun ZeluApp() {
     val lastScan = remember { longArrayOf(0L) }
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var backupPwOpen by remember { mutableStateOf(false) }
+    var backupAfterPw by remember { mutableStateOf(false) }
+    fun backupNow() {
+        scope.launch {
+            val body = withContext(Dispatchers.IO) { Backup.exportEncrypted(context) }
+            val ok = body != null && withContext(Dispatchers.IO) {
+                Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", body)
+            }
+            if (ok) Backup.markManual(context)
+            Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
+        }
+    }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
     var rangeOpen by remember { mutableStateOf(false) }
     var newCatCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
@@ -1621,18 +1634,14 @@ fun ZeluApp() {
                         }
                         "backup" -> {
                             val lb = Backup.lastAny(context)
-                            MenuRow("Back up now", if (lb > 0) "Last saved " + java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(lb)) + " · Downloads/Zelu" else "Save everything to Downloads/Zelu", Icons.Rounded.CloudUpload) {
+                            MenuRow("Back up now", if (lb > 0) "Last saved " + java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(lb)) + " · locked with your password" else "Save everything to Downloads/Zelu, locked with a password", Icons.Rounded.CloudUpload) {
                                 shut()
-                                scope.launch {
-                                    val ok = withContext(Dispatchers.IO) {
-                                        Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", Backup.export(context))
-                                    }
-                                    if (ok) Backup.markManual(context)
-                                    Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
-                                }
+                                if (Backup.hasPassword(context)) backupNow() else { backupAfterPw = true; backupPwOpen = true }
                             }
+                            MenuRow("Backup password", if (Backup.hasPassword(context)) "Set · needed to restore on a new phone" else "Not set · backups wait until you set one", Icons.Rounded.Lock,
+                                if (Backup.hasPassword(context)) ZColor.Income else ZColor.Warn) { shut(); backupAfterPw = false; backupPwOpen = true }
                             MenuRow("Restore data", "Load a backup file", Icons.Rounded.Restore, ZColor.Muted) { shut(); restoreLauncher.launch(arrayOf("*/*")) }
-                            MenuRow("Weekly backup", "Saved to Downloads/Zelu every week", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
+                            MenuRow("Weekly backup", if (Backup.hasPassword(context)) "Saved to Downloads/Zelu every week" else "Needs a backup password first", Icons.Rounded.CloudUpload, if (autoBackup) ZColor.Income else ZColor.Muted,
                                 trailing = { Text(if (autoBackup) "ON" else "OFF", color = if (autoBackup) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold) }) {
                                 autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup)
                             }
@@ -1918,7 +1927,7 @@ fun ZeluApp() {
                 "Say whether the sender is a bank, a wallet or other.", "Its old and new messages are read from then on.")),
             Fix("acct", Icons.Rounded.CreditCard, "An account is wrong", listOf("Open Menu, then Accounts.", "Tap Change type on the account.",
                 "Choose Savings, Card, Loan or Other.", "Link it to an account you have, or keep it separate.")),
-            Fix("data", Icons.Rounded.CloudUpload, "Back up or erase", listOf("Open Menu, then Backup and security.", "Back up saves one file to Downloads/Zelu.",
+            Fix("data", Icons.Rounded.CloudUpload, "Back up or erase", listOf("Open Menu, then Backup and security.", "Back up saves one file to Downloads/Zelu, locked with a password you choose. Keep that password: Zelu cannot recover it.",
                 "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
         )
         val topics = listOf(
@@ -2260,33 +2269,87 @@ fun ZeluApp() {
         }
     }
 
+    if (backupPwOpen) {
+        var pw by remember { mutableStateOf("") }
+        var pw2 by remember { mutableStateOf("") }
+        Dialog(onDismissRequest = { backupPwOpen = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text(if (Backup.hasPassword(context)) "Change backup password" else "Set a backup password", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                MutedText("Backups are locked with this password, so nobody who finds the file can read your payments. Zelu cannot recover it: if you forget it, old backups cannot be opened.", 12)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = pw, onValueChange = { pw = it }, singleLine = true, label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = pw2, onValueChange = { pw2 = it }, singleLine = true, label = { Text("Type it again") },
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { backupPwOpen = false }.padding(12.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
+                        when {
+                            pw.length < BackupCrypto.MIN_PASSWORD -> Toast.makeText(context, "Use at least ${BackupCrypto.MIN_PASSWORD} characters", Toast.LENGTH_SHORT).show()
+                            pw != pw2 -> Toast.makeText(context, "The two passwords don't match", Toast.LENGTH_SHORT).show()
+                            else -> {
+                                Backup.setPassword(context, pw)
+                                backupPwOpen = false
+                                if (backupAfterPw) { backupAfterPw = false; backupNow() }
+                                else Toast.makeText(context, "Backup password saved", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+    }
+
     restoreUri?.let { uri ->
+        var needPw by remember(uri) { mutableStateOf(false) }
+        var pw by remember(uri) { mutableStateOf("") }
+        var wrong by remember(uri) { mutableStateOf(false) }
         Dialog(onDismissRequest = { restoreUri = null }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Restore this backup?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 MutedText("It replaces your current transactions, categories, budgets and settings with the ones in the file.", 13)
+                if (needPw) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = pw, onValueChange = { pw = it; wrong = false }, singleLine = true, label = { Text("Backup password") },
+                        isError = wrong, supportingText = { if (wrong) Text("That password doesn't open this backup") },
+                        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth())
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { restoreUri = null }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
-                        restoreUri = null
                         scope.launch {
-                            val ok = withContext(Dispatchers.IO) {
+                            val r = withContext(Dispatchers.IO) {
                                 try {
                                     val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                                    text != null && Backup.restore(context, text)
-                                } catch (_: Exception) { false }
+                                    if (text == null) Backup.Result.NOT_A_BACKUP else Backup.restoreFrom(context, text, pw)
+                                } catch (_: Exception) { Backup.Result.NOT_A_BACKUP }
                             }
-                            if (ok) {
-                                val sp = context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
-                                ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
-                                if (sp.contains("dark")) ZTheme.dark = sp.getBoolean("dark", false)
-                                reload()
+                            when (r) {
+                                Backup.Result.NEEDS_PASSWORD -> needPw = true
+                                Backup.Result.WRONG_PASSWORD -> { needPw = true; wrong = true }
+                                else -> {
+                                    restoreUri = null
+                                    val ok = r == Backup.Result.OK
+                                    if (ok) {
+                                        val sp = context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
+                                        ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
+                                        if (sp.contains("dark")) ZTheme.dark = sp.getBoolean("dark", false)
+                                        reload()
+                                    }
+                                    Toast.makeText(context, if (ok) "Backup restored" else "That isn't a Zelu backup file", Toast.LENGTH_LONG).show()
+                                }
                             }
-                            Toast.makeText(context, if (ok) "Backup restored" else "That isn't a Zelu backup file", Toast.LENGTH_LONG).show()
                         }
                     }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Restore", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }

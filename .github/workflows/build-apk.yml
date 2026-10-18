@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle assembleRelease --no-daemon 2>&1 | tee build.log
+          gradle testReleaseUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
 
       # When the build breaks, show the compiler errors as annotations (readable without downloading logs).
       - name: Show compiler errors
@@ -39,6 +39,8 @@ jobs:
         shell: bash
         run: |
           grep -E "^e: |error:|What went wrong" -A1 build.log | head -40 | sed 's/^/::error::/' | tr -d '\r' || true
+          # A parser test that fails names the message it read wrongly.
+          grep -h -E "AssertionError|Should be" app/build/test-results/testReleaseUnitTest/*.xml 2>/dev/null | head -10 | sed 's/^ *//; s/^/::error::/' | tr -d '\r' || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

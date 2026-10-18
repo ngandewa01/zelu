@@ -38,7 +38,7 @@ object Taught {
     private fun save(context: Context, list: List<Pattern>) {
         val arr = JSONArray()
         for (p in list) arr.put(JSONObject().put("s", p.sender).put("sig", p.sig).put("dir", p.direction).put("l", p.left).put("r", p.right))
-        java.io.File(context.filesDir, FILE).writeText(arr.toString())
+        java.io.File(context.filesDir, FILE).writeAtomic(arr.toString())
     }
 
     @Synchronized

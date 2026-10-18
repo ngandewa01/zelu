@@ -24,6 +24,35 @@ object Backup {
         return JSONObject().put("app", "zelu").put("version", 1).put("files", files).put("prefs", prefs).toString()
     }
 
+    enum class Result { OK, NOT_A_BACKUP, NEEDS_PASSWORD, WRONG_PASSWORD }
+
+    // Checks the file and, if needed, decrypts it; changes nothing on the phone.
+    fun open(text: String, password: String?): Pair<Result, String?> {
+        if (!BackupCrypto.isEncrypted(text)) {
+            val ok = try { JSONObject(text).optString("app") == "zelu" } catch (_: Exception) { false }
+            return if (ok) Result.OK to text else Result.NOT_A_BACKUP to null
+        }
+        if (password.isNullOrEmpty()) return Result.NEEDS_PASSWORD to null
+        val plain = BackupCrypto.decrypt(text, password) ?: return Result.WRONG_PASSWORD to null
+        return Result.OK to plain
+    }
+
+    // The backup as it is saved to disk: encrypted with the backup password (or null when none is set).
+    fun exportEncrypted(context: Context): String? {
+        val pw = BackupVault.load(context) ?: return null
+        return BackupCrypto.encrypt(export(context), pw)
+    }
+
+    fun hasPassword(context: Context): Boolean = BackupVault.has(context)
+    fun setPassword(context: Context, password: String) = BackupVault.save(context, password)
+
+    // Restores from a file's text (plain or encrypted). Changes nothing unless the result is OK.
+    fun restoreFrom(context: Context, text: String, password: String?): Result {
+        val (r, plain) = open(text, password)
+        if (r != Result.OK || plain == null) return r
+        return if (restore(context, plain)) Result.OK else Result.NOT_A_BACKUP
+    }
+
     // Returns false (and changes nothing) when the file isn't a Zelu backup.
     fun restore(context: Context, text: String): Boolean {
         val root = try { JSONObject(text) } catch (_: Exception) { return false }
@@ -32,7 +61,7 @@ object Backup {
         val names = files.keys().asSequence().toList()
         if (names.any { it.contains('/') || it.contains("..") || !(it.endsWith(".json") || it.endsWith(".txt")) }) return false
         try {
-            for (n in names) java.io.File(context.filesDir, n).writeText(files.getString(n))
+            for (n in names) java.io.File(context.filesDir, n).writeAtomic(files.getString(n))
             val prefs = root.optJSONObject("prefs")
             if (prefs != null) for (name in PREF_FILES) {
                 val o = prefs.optJSONObject(name) ?: continue
@@ -77,10 +106,12 @@ object Backup {
 
     fun maybeAuto(context: Context) {
         if (!autoOn(context)) return
+        if (!hasPassword(context)) return  // backups are always password-protected; set one under Backup and security
         val now = System.currentTimeMillis()
         if (now - lastAuto(context) < 7L * 86_400_000L) return
         if (Storage.loadRows(context).isEmpty()) return
-        val ok = Exporter.exportText(context, "zelu-backup-" + Dates.today() + ".json", "application/json", export(context))
+        val body = exportEncrypted(context) ?: return
+        val ok = Exporter.exportText(context, "zelu-backup-" + Dates.today() + ".json", "application/json", body)
         if (ok) context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
     }
 }
