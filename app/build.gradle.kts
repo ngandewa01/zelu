@@ -20,13 +20,15 @@ android {
 
     signingConfigs {
         create("release") {
-            // A fixed, committed key so every build is signed identically. This lets the
-            // app update in place instead of being an uninstall+reinstall, so saved data
-            // (classifications, payee rules, transactions) survives upgrades.
-            storeFile = file("zelu-release.jks")
-            storePassword = "zelupass"
-            keyAlias = "zelu"
-            keyPassword = "zelupass"
+            // The signing key must stay the same for every build, so the app updates in place and keeps its data.
+            // CI supplies it from secrets (ZELU_KEYSTORE_PATH, ZELU_KEYSTORE_PASSWORD, ZELU_KEY_ALIAS); without them
+            // the key committed beside this file is used, so a local build still works.
+            val envPath = System.getenv("ZELU_KEYSTORE_PATH")
+            val envPass = System.getenv("ZELU_KEYSTORE_PASSWORD")
+            storeFile = file(if (!envPath.isNullOrBlank()) envPath else "zelu-release.jks")
+            storePassword = if (!envPass.isNullOrBlank()) envPass else "zelupass"
+            keyAlias = System.getenv("ZELU_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "zelu"
+            keyPassword = if (!envPass.isNullOrBlank()) envPass else "zelupass"
         }
     }
 

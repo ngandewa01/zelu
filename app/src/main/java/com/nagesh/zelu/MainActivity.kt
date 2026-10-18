@@ -633,7 +633,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
             }
             Spacer(Modifier.width(46.dp))
         }
-        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (stage) {
                 "welcome" -> {
                     var shown by remember { mutableStateOf(false) }
@@ -699,6 +699,12 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                             }
                             MutedText(d, 13)
                         }
+                    }
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Why Zelu asks for SMS", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Your bank already texts you every payment. Zelu reads those texts to find the amount, who was paid and which account, so you never type anything.", color = ZColor.InkSoft, fontSize = 13.sp)
+                        Text("It skips OTPs and personal chats. Zelu has no internet permission, so your messages cannot leave this phone.", color = ZColor.InkSoft, fontSize = 13.sp)
                     }
                     Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
@@ -1611,26 +1617,31 @@ fun ZeluApp() {
                             }
                         }
                         "messages" -> {
+                            var advOpen by remember { mutableStateOf(false) }
                             val lr = Storage.lastRead(context)
                             val nb = Storage.newestBank(context)
                             val stale = nb > 0 && System.currentTimeMillis() - nb > 7L * 86_400_000L
                             MenuRow("Rescan messages", if (lr == 0L) "Look for anything new in your inbox" else "Last read " + agoText(lr) + (if (nb > 0) " · newest bank SMS " + agoText(nb) else ""),
                                 Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent) { shut(); rescan(notify = true) }
+                            MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
+                                shut(); unreadOpen = true; unreadList = null
+                                scope.launch { val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }; unreadList = l; noteMissed(l.size) }
+                            }
+                            MenuRow("Advanced", if (advOpen) "Hide" else "Other senders, date ranges, data check, start again", Icons.Rounded.Lightbulb, ZColor.Muted,
+                                trailing = { Text(if (advOpen) "▲" else "▼", color = ZColor.Muted, fontSize = 12.sp) }) { advOpen = !advOpen }
+                            if (advOpen) {
                             MenuRow("Unrecognised senders", "A bank or wallet Zelu skipped? Tell it here", Icons.Rounded.AccountBalance, ZColor.Muted) {
                                 shut(); sendersOpen = true; senderList = null
                                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
                             }
                             MenuRow("Rescan between dates", "Read only the messages of a period you pick", Icons.Rounded.CalendarMonth, ZColor.Muted) { shut(); rescanRangeOpen = true }
                             MenuRow("Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore, ZColor.Muted) { shut(); rescan(notify = true, depth = 100_000) }
-                            MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
-                                shut(); unreadOpen = true; unreadList = null
-                                scope.launch { val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }; unreadList = l; noteMissed(l.size) }
-                            }
                             MenuRow("Data check", "What was read, and whether balances add up", Icons.Rounded.Receipt) {
                                 shut(); checkOpen = true; check = null
                                 scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
                             }
                             MenuRow("Read everything again", "Clears payments and reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted) { shut(); fullConfirm = true }
+                            }
                         }
                         "backup" -> {
                             val lb = Backup.lastAny(context)
@@ -1659,15 +1670,20 @@ fun ZeluApp() {
                         }
                         "erase" -> {}
                         else -> {
+                            var helpAdv by remember { mutableStateOf(false) }
                             MenuRow("How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb) { shut(); helpOpen = true }
                             MenuRow("Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Warning, ZColor.Warn) { shut(); reportOpen = true }
+                            MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { shut(); Notifier.openBatterySettings(context) }
+                            MenuRow("Advanced", if (helpAdv) "Hide" else "Report address, test alert", Icons.Rounded.Lightbulb, ZColor.Muted,
+                                trailing = { Text(if (helpAdv) "▲" else "▼", color = ZColor.Muted, fontSize = 12.sp) }) { helpAdv = !helpAdv }
+                            if (helpAdv) {
                             MenuRow("Report address", Storage.reportEmail(context), Icons.Rounded.Palette, ZColor.Muted) { shut(); emailOpen = true }
                             MenuRow("Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
                                 Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent) {
                                 shut()
                                 if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
                             }
-                            MenuRow("Keep Zelu alive", "Stop battery saver blocking SMS", Icons.Rounded.BatteryChargingFull) { shut(); Notifier.openBatterySettings(context) }
+                            }
                         }
                     }
                 }
@@ -2041,6 +2057,8 @@ fun ZeluApp() {
         var what by remember { mutableStateOf("") }
         var withInfo by remember { mutableStateOf(true) }
         var withMissed by remember { mutableStateOf(false) }
+        val crash = remember { CrashLog.last(context) }
+        var withCrash by remember { mutableStateOf(crash != null) }
         val to = remember { Storage.reportEmail(context) }
         Dialog(onDismissRequest = { reportOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
@@ -2066,7 +2084,8 @@ fun ZeluApp() {
                     }
                 }
                 tick(withInfo, "App details", "Version, phone model and counts. No names or amounts.") { withInfo = !withInfo }
-                tick(withMissed, "Messages Zelu couldn't read", "Up to 3 message texts, which include amounts") { withMissed = !withMissed }
+                tick(withMissed, "Messages Zelu couldn't read", "Up to 3 message texts. Long numbers and UPI names are hidden; amounts stay.") { withMissed = !withMissed }
+                if (crash != null) tick(withCrash, "Details of the last crash", "Technical error text only. No payments.") { withCrash = !withCrash }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { reportOpen = false }.padding(12.dp))
@@ -2083,8 +2102,9 @@ fun ZeluApp() {
                             }
                             if (withMissed) {
                                 val miss = withContext(Dispatchers.IO) { Ingest.unreadable(context, 3) }
-                                miss.forEach { sb.append("\n[").append(it.address).append("] ").append(it.body).append("\n") }
+                                miss.forEach { sb.append("\n[").append(it.address).append("] ").append(Redact.message(it.body)).append("\n") }
                             }
+                            if (withCrash && crash != null) sb.append("\n--\nLast crash:\n").append(crash).append("\n")
                             val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
                                 .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(to))
                                 .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu problem report")
@@ -3411,28 +3431,6 @@ private fun prettyDay(ymd: String): String {
             ) {
                 Text(label, color = if (on) ZColor.Paper else ZColor.Muted, fontSize = 13.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable private fun ViewSwitcher(view: String, onPick: (String) -> Unit) {
-    val items = listOf("ledger" to "Ledger", "pace" to "Pace", "buckets" to "Buckets", "payees" to "Payees", "invest" to "Invest", "dues" to "Dues")
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items.forEach { (k, lbl) ->
-            val sel = view == k
-            Box(
-                Modifier.clip(RoundedCornerShape(12.dp))
-                    .background(if (sel) ZColor.Ink else ZColor.Card)
-                    .border(1.dp, if (sel) ZColor.Ink else ZColor.Line, RoundedCornerShape(12.dp))
-                    .clickable { onPick(k) }.padding(horizontal = 16.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(lbl, color = if (sel) ZColor.Paper else ZColor.Muted,
-                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }

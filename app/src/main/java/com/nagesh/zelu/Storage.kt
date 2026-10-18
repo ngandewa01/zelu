@@ -46,7 +46,29 @@ object Storage {
     }
 
     // Load transactions with learned payee rules and per-transaction overrides applied.
+    // Working out every payment's final category from years of messages is the slow part, so the result is kept
+    // until something it depends on changes (any saved file, or the own-accounts setting).
+    private var cacheKey: String? = null
+    private var cacheRows: List<Row> = emptyList()
+    private var cacheRefunds: List<Pair<Row, Row>> = emptyList()
+
+    private fun dataKey(context: Context): String {
+        val sb = StringBuilder().append(SafeFileStats.writes).append('|')
+        context.filesDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".txt")) }
+            ?.sortedBy { it.name }?.forEach { sb.append(it.name).append(':').append(it.length()).append(':').append(it.lastModified()).append(';') }
+        sb.append(loadSettings(context).ownAccounts)
+        return sb.toString()
+    }
+
     fun loadRows(context: Context): List<Row> = synchronized(lock) {
+        val key = dataKey(context)
+        if (key == cacheKey) { Refunds.suggestions = cacheRefunds; return@synchronized cacheRows }
+        val rows = computeRows(context)
+        cacheRows = rows; cacheRefunds = Refunds.suggestions; cacheKey = key
+        rows
+    }
+
+    private fun computeRows(context: Context): List<Row> {
         val base = readMap(context) + manualTxns(context)
         val overrides = readKv(context, OVERRIDE_FILE)
         val rules = readKv(context, RULE_FILE)
@@ -118,7 +140,7 @@ object Storage {
             if (n == null) r else reapply(r.copy(account = n))
         }
         val declined = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "declined" }.keys
-        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(retyped, overrides.keys))), loadRefundLinks(context))
+        return pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(retyped, overrides.keys))), loadRefundLinks(context))
             .let { all -> if (declined.isEmpty()) all else all.filter { it.account !in declined && (it.counterparty ?: "") !in declined } }
     }
 

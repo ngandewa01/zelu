@@ -27,6 +27,19 @@ jobs:
         with:
           gradle-version: 8.9
 
+      # If the signing key is stored as repository secrets, use it; otherwise the committed key is used.
+      - name: Use signing key from secrets
+        shell: bash
+        env:
+          KEY_B64: ${{ secrets.ZELU_KEYSTORE_B64 }}
+          KEY_PASS: ${{ secrets.ZELU_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEY_B64" ] && [ -n "$KEY_PASS" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/zelu-release.jks"
+            echo "ZELU_KEYSTORE_PATH=$RUNNER_TEMP/zelu-release.jks" >> "$GITHUB_ENV"
+            echo "ZELU_KEYSTORE_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+          fi
+
       - name: Build release APK
         shell: bash
         run: |
