@@ -169,6 +169,22 @@ object Analytics {
         return amts.filter { it <= cap }.sum() / 30.0
     }
 
+    // Many card SMS don't state the available limit. The last SMS that did is the anchor; what the card has
+    // spent (or been paid back) on later days, in messages that carry no limit of their own, is applied on top,
+    // so the available credit keeps falling as you spend. Returns net spent since the anchor (can be negative).
+    fun cardUsedSince(rows: List<Row>, account: String, limit: Pair<Double, Long>?): Double {
+        if (limit == null) return 0.0
+        val anchor = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply { timeZone = Dates.IST }
+            .format(java.util.Date(limit.second))
+        var net = 0.0
+        for (r in rows) {
+            if (r.account != account || r.date <= anchor) continue
+            if (Parser.limitFromTxn(r.raw) != null) continue
+            net += if (r.direction == "debit") r.amount else -r.amount
+        }
+        return net
+    }
+
     fun byPayee(list: List<Row>): List<Payee> {
         val amt = LinkedHashMap<String, Double>()
         val cnt = LinkedHashMap<String, Int>()

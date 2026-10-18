@@ -837,7 +837,7 @@ fun ZeluApp() {
         if (trendsOpen) TrendsScreen(rows, accounts, onBack = { trendsOpen = false }, onReview = { t, r -> drill = t to r })
         cardOpen?.let { a ->
             CardDetailScreen(
-                account = a, allRows = rows, limit = limits[a]?.first, reminders = reminders,
+                account = a, allRows = rows, limit = limits[a]?.let { it.first - Analytics.cardUsedSince(rows, a, it) }, reminders = reminders,
                 reminderState = reminderState, pref = cardPrefs[a],
                 onSavePref = { d, b -> setCardPref(a, d, b) },
                 onMarkPaid = { id -> markReminder(id, true) },
@@ -2298,7 +2298,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 }
             }
             accounts.filter { it.contains(" CC ") }.forEach { a ->
-                val avail = limits[a]?.first
+                val avail = limits[a]?.let { it.first - Analytics.cardUsedSince(allRows, a, it) }
                 val total = limits["$a#total"]?.first
                 if (avail != null && total != null && total > 0 && avail < total * 0.2) {
                     val used = 1.0 - avail / total
@@ -2611,7 +2611,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     val today = Dates.today()
                     val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
                         .minByOrNull { it.dueDate }
-                    CardTile(a, spent, limits[a], limits["$a#total"], due) { onOpenCard(a) }
+                    CardTile(a, spent, limits[a], limits["$a#total"], due, usedSince = Analytics.cardUsedSince(allRows, a, limits[a])) { onOpenCard(a) }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -2693,14 +2693,14 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     }
 }
 
-@Composable private fun CardTile(account: String, spent: Double, limit: Pair<Double, Long>?, total: Pair<Double, Long>?, due: Reminder?, onClick: () -> Unit = {}) {
+@Composable private fun CardTile(account: String, spent: Double, limit: Pair<Double, Long>?, total: Pair<Double, Long>?, due: Reminder?, usedSince: Double = 0.0, onClick: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val parts = account.trim().split(" ")
     val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
     val bank = parts.firstOrNull() ?: account
     val base = bankColor(account)
     val logo = bankLogoRes(account)
-    val shown = limit ?: total
+    val shown = limit?.let { (it.first - usedSince) to it.second } ?: total
     val asOf = shown?.let { java.text.SimpleDateFormat("d MMM", java.util.Locale.US).apply { timeZone = Dates.IST }.format(java.util.Date(it.second)) }
     val enquiry = when (bank.uppercase()) {
         "HDFC" -> "5676712" to "CCBAL $last4"
@@ -2747,7 +2747,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     Column {
                         Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = soft, fontSize = 10.sp)
                         Text(if (shown != null) money(shown.first) else "limit not in SMS", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        if (asOf != null) Text("as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
+                        if (asOf != null) Text(if (limit != null && kotlin.math.abs(usedSince) >= 1.0) "est. · SMS of $asOf, less spends since" else "as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Spent", color = soft, fontSize = 10.sp)
