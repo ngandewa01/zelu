@@ -65,6 +65,9 @@ object Storage {
         // to the bank's main account, since the money left from there).
         val dups = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "duplicate" }.mapValues { it.value.second }
         val titles = readKv(context, TITLE_FILE)
+        // Accounts you said are a different type than Zelu guessed (say, a savings account it read as a card).
+        val retype = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "accepted" }
+            .mapNotNull { (k, v) -> val n = relabel(k, v.second); if (n != k) k to n else null }.toMap()
         val catOff = readKv(context, CATOFF_FILE).keys
         val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
@@ -98,9 +101,34 @@ object Storage {
                 part
             }
         }
+        // A card/savings change also changes how its credits read (a card payment is a transfer; salary is income).
+        fun reapply(r0: Row): Row {
+            if (r0.id.contains('#') || overrides.containsKey(r0.id)) return r0
+            val c = Classifier.classify(Txn(r0.id, r0.date, r0.amount, r0.direction, r0.counterparty, r0.ref, r0.raw, r0.source, r0.account), own)
+            var row = r0.copy(kind = c.kind, category = c.category)
+            val pk = (row.counterparty ?: "").lowercase().trim()
+            if (pk.isNotEmpty() && rules.containsKey(pk)) { val (k, cat) = rules.getValue(pk); row = row.copy(kind = k, category = cat) }
+            Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
+            if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
+            return row
+        }
+        val canon = canonicalizeAccounts(expanded)
+        val retyped = if (retype.isEmpty()) canon else canon.map { r ->
+            val n = retype[r.account]
+            if (n == null) r else reapply(r.copy(account = n))
+        }
         val declined = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "declined" }.keys
-        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(canonicalizeAccounts(expanded), overrides.keys))), loadRefundLinks(context))
+        pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(retyped, overrides.keys))), loadRefundLinks(context))
             .let { all -> if (declined.isEmpty()) all else all.filter { it.account !in declined && (it.counterparty ?: "") !in declined } }
+    }
+
+    // The label an account takes once you say what it is: a savings account never carries "CC", a card always does.
+    fun relabel(key: String, type: String): String = when {
+        key.contains("Loan") -> key
+        type == "savings" && key.contains(" CC") -> key.replace(" CC", "")
+        type == "card" && !key.contains(" CC") && !key.startsWith("CC ") ->
+            if (key.contains(' ')) key.substringBefore(' ') + " CC " + key.substringAfter(' ') else "$key CC"
+        else -> key
     }
 
     // ---- accounts you confirmed (or turned down) ----  key -> (status, type)

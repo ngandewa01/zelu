@@ -257,12 +257,22 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
     val dup = remember { mutableStateMapOf<String, String>() }      // account -> the one you said it duplicates
     val notDup = remember { mutableStateListOf<String>() }          // "different account" answers
     fun isOn(c: Analytics.AcctCandidate) = !dup.containsKey(c.key) && (checked[c.key] ?: c.sure)
+    val typeSel = remember { mutableStateMapOf<String, String>() }   // account -> the type you chose
+    fun typeOf(c: Analytics.AcctCandidate) = typeSel[c.key] ?: c.type
+    var typeEdit by remember { mutableStateOf<String?>(null) }
     var expanded by remember { mutableStateOf<String?>(null) }
     var queue by remember { mutableStateOf<List<Analytics.AcctCandidate>>(emptyList()) }
-    fun finish() = onDone(cands.associate { c ->
-        c.key to (if (dup.containsKey(c.key)) ("duplicate" to dup.getValue(c.key))
-        else (if (isOn(c)) "accepted" else "declined") to c.type)
-    })
+    fun finish() {
+        val out = LinkedHashMap<String, Pair<String, String>>()
+        for (c in cands) {
+            val ty = typeOf(c)
+            if (dup.containsKey(c.key)) { out[c.key] = "duplicate" to dup.getValue(c.key); continue }
+            val st = if (isOn(c)) "accepted" else "declined"
+            out[c.key] = st to ty
+            if (st == "accepted") { val nl = Storage.relabel(c.key, ty); if (nl != c.key) out[nl] = "accepted" to ty }
+        }
+        onDone(out)
+    }
     fun next() { queue = queue.drop(1); if (queue.isEmpty()) finish() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
@@ -291,7 +301,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(c.key, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    MutedText(when (c.type) {
+                                    MutedText(when (typeOf(c)) {
                                         "loan" -> plural(c.txns, "EMI", "EMIs") + " · " + money(c.amount)
                                         "card" -> plural(c.txns, "payment", "payments") + (c.limit?.let { " · limit ${money(it)}" } ?: "")
                                         else -> plural(c.txns, "payment", "payments") + (c.balance?.let { " · balance ${money(it)}" } ?: "")
@@ -326,11 +336,23 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                                     }
                                 }
                             }
-                            if (c.sample.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text(if (expanded == c.key) "Hide message" else "See the message", color = ZColor.Accent, fontSize = 12.sp,
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                if (c.sample.isNotBlank()) Text(if (expanded == c.key) "Hide message" else "See the message", color = ZColor.Accent, fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.clickable { expanded = if (expanded == c.key) null else c.key })
+                                Text(if (typeEdit == c.key) "Hide types" else "Change type", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clickable { typeEdit = if (typeEdit == c.key) null else c.key })
+                            }
+                            if (typeEdit == c.key) {
+                                Spacer(Modifier.height(8.dp))
+                                ChipScroll {
+                                    listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "other" to "Wallet or other").forEach { (ty, lab) ->
+                                        PickChip(lab, typeOf(c) == ty) { typeSel[c.key] = ty; typeEdit = null }
+                                    }
+                                }
+                            }
+                            if (c.sample.isNotBlank()) {
                                 if (expanded == c.key) {
                                     Spacer(Modifier.height(6.dp))
                                     Text(c.sample, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
@@ -339,10 +361,10 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                         }
                     }
                 }
-                group("Savings accounts", cands.filter { it.type == "savings" })
-                group("Credit cards", cands.filter { it.type == "card" })
-                group("Loans", cands.filter { it.type == "loan" })
-                group("Wallets and others", cands.filter { it.type == "other" })
+                group("Savings accounts", cands.filter { typeOf(it) == "savings" })
+                group("Credit cards", cands.filter { typeOf(it) == "card" })
+                group("Loans", cands.filter { typeOf(it) == "loan" })
+                group("Wallets and others", cands.filter { typeOf(it) == "other" })
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
