@@ -774,7 +774,7 @@ fun ZeluApp() {
     var acctConfirmed by remember { mutableStateOf(Storage.accountsConfirmed(context)) }
     var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
     var linkOpen by remember { mutableStateOf(false) }
-    var rangeOpen by remember { mutableStateOf(false) }
+    var rescanRangeOpen by remember { mutableStateOf(false) }
     var incomeCatsOpen by remember { mutableStateOf(false) }
     var linkRejected by remember { mutableStateOf(Storage.linkRejected(context)) }
     LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
@@ -1623,7 +1623,7 @@ fun ZeluApp() {
                                 shut(); sendersOpen = true; senderList = null
                                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
                             }
-                            MenuRow("Rescan between dates", "Read only the messages of a period you pick", Icons.Rounded.CalendarMonth, ZColor.Muted) { shut(); rangeOpen = true }
+                            MenuRow("Rescan between dates", "Read only the messages of a period you pick", Icons.Rounded.CalendarMonth, ZColor.Muted) { shut(); rescanRangeOpen = true }
                             MenuRow("Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore, ZColor.Muted) { shut(); rescan(notify = true, depth = 100_000) }
                             MenuRow("Missed SMS", if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read", Icons.Rounded.Receipt, ZColor.Warn) {
                                 shut(); unreadOpen = true; unreadList = null
@@ -2310,7 +2310,7 @@ fun ZeluApp() {
         }
     }
 
-    if (rangeOpen) RescanRangeDialog(onRun = { a, b -> rangeOpen = false; rescanRange(a, b) }, onDismiss = { rangeOpen = false })
+    if (rescanRangeOpen) RescanRangeDialog(onRun = { a, b -> rescanRangeOpen = false; rescanRange(a, b) }, onDismiss = { rescanRangeOpen = false })
     if (incomeCatsOpen) IncomeCategoriesDialog(onDismiss = { incomeCatsOpen = false })
 
     if (linkOpen) LinkAccountsDialog(rows, registry, Analytics.linkSuggestions(rows, registry, linkRejected),
