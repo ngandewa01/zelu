@@ -3582,6 +3582,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     val loanGroups = allRows.filter { it.category == "EMI" && Regex(".*\\bLoan \\d{3,4}$").matches(it.counterparty ?: "") }
         .groupBy { it.counterparty!! }
     var moneyTab by remember { mutableStateOf("accounts") }
+    var closedLoans by remember { mutableStateOf(Storage.closedLoans(acctCtx)) }
     val hasAcc = acctNames.isNotEmpty(); val hasCard = cardAccounts.isNotEmpty(); val hasLoan = loanGroups.isNotEmpty()
     val moneyTabNow = when {
         moneyTab == "accounts" && hasAcc -> "accounts"
@@ -3707,11 +3708,16 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }.forEach { (name, rs) ->
+                loanGroups.entries.sortedWith(compareBy<Map.Entry<String, List<Row>>> { it.key in closedLoans }
+                    .thenByDescending { e -> e.value.maxOf { it.date } }).forEach { (name, rs) ->
                     val last = rs.maxByOrNull { it.date }!!
                     val logo = bankLogoRes(name)
-                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
-                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
+                    val closed = name in closedLoans
+                    // A closed loan is frozen: cool blue instead of the usual card colours.
+                    val ice = Color(0xFF6FA8D6)
+                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp))
+                        .background(if (closed) ice.copy(alpha = 0.13f) else ZColor.Paper)
+                        .border(1.dp, if (closed) ice.copy(alpha = 0.55f) else ZColor.Line, RoundedCornerShape(16.dp))
                         .clickable { onDrill(name, rs.sortedByDescending { it.date }) }.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
@@ -3720,17 +3726,20 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                                 else Text(name.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.width(10.dp))
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                MutedText("Loan", 11)
+                                if (closed) Text("❄ Closed", color = ice, fontSize = 11.sp, fontWeight = FontWeight.Bold) else MutedText("Loan", 11)
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Monthly EMI", 11)
-                        Text(money(last.amount), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        MutedText(if (closed) "Last EMI" else "Monthly EMI", 11)
+                        Text(money(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         MutedText("Last paid " + prettyDate(last.date), 11)
                         MutedText(plural(rs.size, "EMI", "EMIs") + " · " + money(rs.sumOf { it.amount }) + " paid", 11)
+                        Spacer(Modifier.height(8.dp))
+                        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { Storage.setLoanClosed(acctCtx, name, !closed); closedLoans = Storage.closedLoans(acctCtx) })
                     }
                 }
             }

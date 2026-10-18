@@ -377,6 +377,14 @@ object Storage {
     }
 
     // ---- categories you don't want counted as spending ----
+    // Loans you have paid off: name -> the day you marked it closed. They stay on Home, frozen.
+    private const val CLOSEDLOAN_FILE = "closed_loans.json"
+    fun closedLoans(context: Context): Map<String, String> = synchronized(lock) { readKv(context, CLOSEDLOAN_FILE).mapValues { it.value.first } }
+    fun setLoanClosed(context: Context, name: String, closed: Boolean) = synchronized(lock) {
+        val kv = readKv(context, CLOSEDLOAN_FILE).toMutableMap()
+        if (closed) kv[name] = Dates.today() to "" else kv.remove(name)
+        writeKv(context, CLOSEDLOAN_FILE, kv)
+    }
     private const val CATOFF_FILE = "category_off.json"
     fun categoriesOff(context: Context): Set<String> = synchronized(lock) { readKv(context, CATOFF_FILE).keys }
     fun setCategoryCounts(context: Context, category: String, counts: Boolean): Unit = synchronized(lock) {
