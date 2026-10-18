@@ -65,6 +65,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -271,41 +272,33 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
     }
 }
 
-@Composable private fun IncomeCategoriesDialog(onDismiss: () -> Unit) {
+// The income half of the Categories page: built-in ones stay, your own can be added and deleted.
+@Composable private fun ColumnScope.IncomeCategoriesBody() {
     val context = LocalContext.current
     var name by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
-            Text("Income categories", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            MutedText("Pick one from a payment's details (Change category). The built-in ones stay; ones you add can be deleted.", 12)
-            Spacer(Modifier.height(10.dp))
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                IncomeCats.all.forEach { c ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(catColor(c).copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                            androidx.compose.material3.Icon(CatIcons.forCategory(c) ?: Icons.Rounded.ArrowDownward, null, tint = catColor(c), modifier = Modifier.size(19.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Text(c, color = ZColor.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
-                        if (c in IncomeCats.custom) Text("Delete", color = ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { IncomeCats.remove(context, c) }.padding(8.dp))
-                    }
+    MutedText("Pick one from a payment's details (Change category). The built-in ones stay; ones you add can be deleted.", 12)
+    Spacer(Modifier.height(10.dp))
+    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+        IncomeCats.all.forEach { c ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(catColor(c).copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Icon(CatIcons.forCategory(c) ?: Icons.Rounded.ArrowDownward, null, tint = catColor(c), modifier = Modifier.size(19.dp))
                 }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, modifier = Modifier.weight(1f),
-                    placeholder = { Text("New category") })
-                Spacer(Modifier.width(8.dp))
-                Text("Add", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
-                    if (IncomeCats.add(context, name)) name = "" else Toast.makeText(context, "Type a new name", Toast.LENGTH_SHORT).show()
-                }.padding(12.dp))
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text("Done", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(c, color = ZColor.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                if (c in IncomeCats.custom) Text("Delete", color = ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { IncomeCats.remove(context, c) }.padding(8.dp))
             }
         }
+    }
+    Spacer(Modifier.height(10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, modifier = Modifier.weight(1f),
+            placeholder = { Text("New income category") })
+        Spacer(Modifier.width(8.dp))
+        Text("Add", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+            if (IncomeCats.add(context, name)) name = "" else Toast.makeText(context, "Type a new name", Toast.LENGTH_SHORT).show()
+        }.padding(12.dp))
     }
 }
 
@@ -773,7 +766,6 @@ fun ZeluApp() {
     var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
     var linkOpen by remember { mutableStateOf(false) }
     var rescanRangeOpen by remember { mutableStateOf(false) }
-    var incomeCatsOpen by remember { mutableStateOf(false) }
     var linkRejected by remember { mutableStateOf(Storage.linkRejected(context)) }
     LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
     var check by remember { mutableStateOf<Ingest.Check?>(null) }
@@ -1580,8 +1572,7 @@ fun ZeluApp() {
                         }
                         "money" -> {
                             MenuRow("Budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set", Icons.Rounded.AccountBalanceWallet) { shut(); budgetDlg = true }
-                            MenuRow("Categories", "Choose which count as spending", Icons.Rounded.Category, ZColor.Accent) { shut(); catsOpen = true }
-                            MenuRow("Income categories", "Salary, interest and your own · " + IncomeCats.all.size, Icons.Rounded.Category, ZColor.Income) { shut(); incomeCatsOpen = true }
+                            MenuRow("Categories", "Spending and income categories", Icons.Rounded.Category, ZColor.Accent) { shut(); catsOpen = true }
                             MenuRow("Savings plan", "What's left · SIP, EMI, goals", Icons.Rounded.Savings, ZColor.Income) { shut(); savingsOpen = true }
                             MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
                         }
@@ -1752,8 +1743,15 @@ fun ZeluApp() {
     if (catsOpen) Dialog(onDismissRequest = { catsOpen = false }) {
         val names = (rows.filter { it.kind == "expense" || it.category in catOff }.map { it.category } + catOff).distinct().filter { it.isNotBlank() }.sorted()
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
+            var catTab by remember { mutableStateOf(0) }
             Text("Categories", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Spending", catTab == 0, filled = true) { catTab = 0 }
+                Chip("Income", catTab == 1, filled = true) { catTab = 1 }
+            }
+            Spacer(Modifier.height(10.dp))
+            if (catTab == 1) IncomeCategoriesBody() else {
             MutedText("Tap to choose whether a category counts as spending. Left out, its payments stay in your list under Ignored but are not in totals, the pace chart or budgets.", 12)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -1772,6 +1770,7 @@ fun ZeluApp() {
                         Text(if (counts) "Counted" else "Not counted", color = if (counts) ZColor.Income else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
             }
             Spacer(Modifier.height(8.dp))
             Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
@@ -2296,7 +2295,6 @@ fun ZeluApp() {
     }
 
     if (rescanRangeOpen) RescanRangeDialog(onRun = { a, b -> rescanRangeOpen = false; rescanRange(a, b) }, onDismiss = { rescanRangeOpen = false })
-    if (incomeCatsOpen) IncomeCategoriesDialog(onDismiss = { incomeCatsOpen = false })
 
     if (linkOpen) LinkAccountsDialog(rows, registry, Analytics.linkSuggestions(rows, registry, linkRejected),
         onLink = { k, t -> linkAcct(k, t) }, onUnlink = { k -> unlinkAcct(k) }, onReject = { k, t -> rejectLink(k, t) }, onDismiss = { linkOpen = false })
