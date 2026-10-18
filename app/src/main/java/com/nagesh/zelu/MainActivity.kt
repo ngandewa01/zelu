@@ -48,6 +48,9 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restore
@@ -3458,24 +3461,32 @@ private fun prettyDay(ymd: String): String {
 }
 
 @Composable private fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
-    val items = listOf("ledger" to "Home", "spend" to "Spend", "payees" to "Payees", "dues" to "Dues")
+    val items = listOf(
+        Triple("ledger", "Home", Icons.Rounded.Home), Triple("spend", "Spend", Icons.Rounded.PieChart),
+        Triple("payees", "Payees", Icons.Rounded.People), Triple("dues", "Dues", Icons.Rounded.CalendarMonth),
+    )
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        items.forEach { (k, label) ->
+        items.forEach { (k, label, icon) ->
             val on = view == k
             val pill by animateColorAsState(if (on) ZColor.Ink else ZColor.Card, tween(200), label = "tab")
             Box(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
                     .background(pill)
-                    .clickable { onPick(k) }.padding(vertical = 10.dp),
+                    .clickable { onPick(k) }.padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (on) ZColor.Paper else ZColor.Muted, fontSize = 13.sp,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+                val tint by animateColorAsState(if (on) ZColor.Paper else ZColor.Muted, tween(200), label = "tabTint")
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.height(2.dp))
+                    Text(label, color = tint, fontSize = 12.sp,
+                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+                }
             }
         }
     }
