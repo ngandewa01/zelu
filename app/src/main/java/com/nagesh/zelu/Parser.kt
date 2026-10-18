@@ -177,6 +177,13 @@ object Parser {
     // Union Bank style: "... by Mob Bk ref no 1896..., Fvg: NAGESH A Avl Bal ..." names the payee after Fvg.
     private val FVG_PAYEE = Regex("""\b(?:fvg|favou?ring)\s*:?\s*([A-Za-z][A-Za-z .]{1,30}?)(?=\s+(?:avl|bal|not|ref|on)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
+    // ICICI account alerts name the payee between a semicolon and "credited": "...on 11-Oct-26; Akshay Medical credited."
+    private val SEMI_PAYEE = Regex("""[;:]\s*([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)\s+credited\b""", RegexOption.IGNORE_CASE)
+    // Bill-desk style narration: "InfoBIL*INFT*FJ27" is a bill paid through BillDesk.
+    private val BILLDESK = Regex("""\b(?:infobil|billdesk|billdk)\b""", RegexOption.IGNORE_CASE)
+    // A date is never a payee ("on 11-Oct-26").
+    private val DATE_LIKE = Regex("""^(?:on\s+)?\d{1,2}[-/ ][A-Za-z0-9]{2,9}[-/ ]\d{2,4}$""", RegexOption.IGNORE_CASE)
+
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
     // NEFT/IMPS/RTGS strings name the sender after the bank code: "NEFT Cr-BOFA0CN6215-QUALCOMM INDIA PVT LTD-…".
@@ -290,6 +297,11 @@ object Parser {
         }
         if (counterparty == null) {
             counterparty = FVG_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
+        }
+        if (counterparty == null && BILLDESK.containsMatchIn(text)) counterparty = "BillDesk"
+        if (counterparty == null) {
+            counterparty = SEMI_PAYEE.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }
+                ?.let { if (it == it.uppercase()) titleCase(it) else it }
         }
         if (counterparty == null) {
             counterparty = NEFT_SENDER.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
@@ -479,6 +491,7 @@ object Parser {
     private fun cleanCp(raw: String?): String? {
         val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "")
         if (s.length < 2) return null
+        if (DATE_LIKE.matches(s) || s.matches(Regex("""(?i)^on\s+\d.*"""))) return null
         if (CP_JUNK.containsMatchIn(s)) return null
         // A bank/account/card string (bank name plus digits) is your own account, not a payee.
         if (BANK.containsMatchIn(s) && s.any { it.isDigit() }) return null
