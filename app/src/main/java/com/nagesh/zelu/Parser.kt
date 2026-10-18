@@ -468,6 +468,8 @@ object Parser {
         var last4 = directional
             ?: LAST4_MASK.find(text)?.groupValues?.get(1)
             ?: LAST4_KW.find(text)?.groupValues?.get(1) ?: ""
+        // "Loan A/c *0126" names the LOAN's number: that is not a savings account of yours.
+        LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln -> if (last4.isNotEmpty() && (last4 == ln || ln.endsWith(last4) || last4.endsWith(ln))) last4 = "" }
         // A debit card is the bank account, not a separate credit-card bill.
         val debitCard = DEBIT_CARD.containsMatchIn(text)
         // When a debit card shows only its card number (no a/c), attribute it to the bank

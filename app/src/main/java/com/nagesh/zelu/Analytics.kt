@@ -189,6 +189,7 @@ object Analytics {
     data class AcctCandidate(
         val key: String, val type: String, // type: savings, card, loan, other
         val txns: Int, val amount: Double, val balance: Double?, val limit: Double?, val sample: String,
+        val dupOf: String? = null, // another entry this one probably is (same bank, same number)
     ) {
         // Several payments, or a balance / limit, make it clearly one of yours; the rest are "not sure".
         val sure: Boolean get() = type == "loan" || txns >= 2 || balance != null || limit != null
@@ -213,8 +214,20 @@ object Analytics {
         rows.filter { it.category == "EMI" && LOAN_NAME.matches(it.counterparty ?: "") }.groupBy { it.counterparty!! }.forEach { (n, rs) ->
             out.add(AcctCandidate(n, "loan", rs.size, rs.sumOf { it.amount }, null, null, rs.maxByOrNull { it.date }?.raw ?: ""))
         }
+        // The same bank and the same number under two names ("UNION Loan 0126" and "UNION 0126") is one thing.
+        fun bank(k: String) = k.substringBefore(' ').uppercase()
+        fun num(k: String) = k.trim().split(" ").last().takeIf { t -> t.length in 3..4 && t.all { it.isDigit() } }
+        val marked = out.map { c ->
+            val n = num(c.key)
+            val twin = if (n == null) null else out.firstOrNull { d ->
+                d.key != c.key && bank(d.key) == bank(c.key) && num(d.key) == n &&
+                    (if (c.type == "loan" || d.type == "loan") d.type == "loan" && c.type != "loan"
+                    else d.txns > c.txns || (d.txns == c.txns && d.key < c.key))
+            }
+            if (twin != null) c.copy(dupOf = twin.key) else c
+        }
         val order = listOf("savings", "card", "loan", "other")
-        return out.sortedWith(compareBy<AcctCandidate> { order.indexOf(it.type) }.thenByDescending { it.txns })
+        return marked.sortedWith(compareBy<AcctCandidate> { order.indexOf(it.type) }.thenByDescending { it.txns })
     }
 
     fun byPayee(list: List<Row>): List<Payee> {

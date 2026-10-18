@@ -245,14 +245,21 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
     }
 }
 
+private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" else "$n $many"
+
 @Composable private fun AccountSetupScreen(
     cands: List<Analytics.AcctCandidate>, rows: List<Row>, onDone: (Map<String, Pair<String, String>>) -> Unit,
 ) {
     val checked = remember { mutableStateMapOf<String, Boolean>() }
-    fun isOn(c: Analytics.AcctCandidate) = checked[c.key] ?: c.sure
+    val dup = remember { mutableStateMapOf<String, String>() }      // account -> the one you said it duplicates
+    val notDup = remember { mutableStateListOf<String>() }          // "different account" answers
+    fun isOn(c: Analytics.AcctCandidate) = !dup.containsKey(c.key) && (checked[c.key] ?: c.sure)
     var expanded by remember { mutableStateOf<String?>(null) }
     var queue by remember { mutableStateOf<List<Analytics.AcctCandidate>>(emptyList()) }
-    fun finish() = onDone(cands.associate { it.key to ((if (isOn(it)) "accepted" else "declined") to it.type) })
+    fun finish() = onDone(cands.associate { c ->
+        c.key to (if (dup.containsKey(c.key)) ("duplicate" to dup.getValue(c.key))
+        else (if (isOn(c)) "accepted" else "declined") to c.type)
+    })
     fun next() { queue = queue.drop(1); if (queue.isEmpty()) finish() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
@@ -264,10 +271,11 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 @Composable fun group(label: String, list: List<Analytics.AcctCandidate>) {
                     if (list.isEmpty()) return
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Eyebrow(label)
                     list.forEach { c ->
                         val on = isOn(c)
+                        val twin = c.dupOf?.takeIf { c.key !in notDup }
                         Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
                             .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,18 +288,39 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(c.key, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    MutedText(acctTypeLabel(c.type) + " · " + when (c.type) {
-                                        "loan" -> "${c.txns} EMIs · ${money(c.amount)}"
-                                        "card" -> "${c.txns} payments" + (c.limit?.let { " · limit ${money(it)}" } ?: "")
-                                        else -> "${c.txns} payments" + (c.balance?.let { " · balance ${money(it)}" } ?: "")
-                                    }, 12)
+                                    MutedText(when (c.type) {
+                                        "loan" -> plural(c.txns, "EMI", "EMIs") + " · " + money(c.amount)
+                                        "card" -> plural(c.txns, "payment", "payments") + (c.limit?.let { " · limit ${money(it)}" } ?: "")
+                                        else -> plural(c.txns, "payment", "payments") + (c.balance?.let { " · balance ${money(it)}" } ?: "")
+                                    } + (if (!c.sure) " · not sure" else ""), 12)
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
                                     .background(if (on) ZColor.Accent else Color.Transparent)
                                     .border(1.5.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(17.dp))
-                                    .clickable { checked[c.key] = !on }, contentAlignment = Alignment.Center) {
+                                    .clickable { checked[c.key] = !on; dup.remove(c.key) }, contentAlignment = Alignment.Center) {
                                     if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                            }
+                            if (twin != null) {
+                                Spacer(Modifier.height(8.dp))
+                                if (dup.containsKey(c.key)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Marked as the same as $twin", color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                        Text("Undo", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable { dup.remove(c.key) })
+                                    }
+                                } else {
+                                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Paper).padding(10.dp)) {
+                                        Text("Looks like the same account as $twin", color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(Modifier.height(6.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                            Text("Mark as duplicate", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.clickable { dup[c.key] = twin })
+                                            Text("It's different", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.clickable { notDup.add(c.key) })
+                                        }
+                                    }
                                 }
                             }
                             if (c.sample.isNotBlank()) {
@@ -307,13 +336,15 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
                         }
                     }
                 }
-                group("Looks like yours", cands.filter { it.sure })
-                group("Not sure", cands.filter { !it.sure })
+                group("Savings accounts", cands.filter { it.type == "savings" })
+                group("Credit cards", cands.filter { it.type == "card" })
+                group("Loans", cands.filter { it.type == "loan" })
+                group("Wallets and others", cands.filter { it.type == "other" })
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
             Cta("Continue") {
-                val withSpend = cands.filter { !isOn(it) && rowsOfAccount(rows, it.key).isNotEmpty() }
+                val withSpend = cands.filter { !dup.containsKey(it.key) && !isOn(it) && rowsOfAccount(rows, it.key).isNotEmpty() }
                 if (withSpend.isEmpty()) finish() else queue = withSpend
             }
         }
@@ -793,11 +824,13 @@ fun ZeluApp() {
                     .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("New " + acctTypeLabel(c.type).lowercase() + " found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(c.key + " · " + c.txns + (if (c.txns == 1) " payment" else " payments"), color = ZColor.InkSoft, fontSize = 12.sp,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(c.key + " · " + plural(c.txns, "payment", "payments") + (c.dupOf?.let { " · same as $it?" } ?: ""), color = ZColor.InkSoft, fontSize = 12.sp,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Text("Not mine", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { declineFor = c }.padding(horizontal = 10.dp, vertical = 10.dp))
+                    if (c.dupOf != null) Text("Same", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("duplicate" to c.dupOf)), false) }.padding(horizontal = 10.dp, vertical = 10.dp))
                     Text("Add", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false) }.padding(horizontal = 12.dp, vertical = 10.dp))
                 }
@@ -2895,6 +2928,44 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
             }
             Spacer(Modifier.height(10.dp))
             MutedText("Tap a card to see its spends. Card spends count in your totals; paying the bill is a transfer.", 11)
+        }
+    }
+
+    // Loans — found from EMI payments named after the loan ("HDFC Loan 529"), all-time.
+    val loanGroups = allRows.filter { it.category == "EMI" && Regex(".*\\bLoan \\d{3,4}$").matches(it.counterparty ?: "") }
+        .groupBy { it.counterparty!! }
+    if (loanGroups.isNotEmpty()) {
+        Panel {
+            Eyebrow("Loans")
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }.forEach { (name, rs) ->
+                    val last = rs.maxByOrNull { it.date }!!
+                    val logo = bankLogoRes(name)
+                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
+                        .clickable { onDrill(name, rs.sortedByDescending { it.date }) }.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                                if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
+                                    contentDescription = null, modifier = Modifier.size(22.dp))
+                                else Text(name.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                MutedText("Loan", 11)
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        MutedText("Monthly EMI", 11)
+                        Text(money(last.amount), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        MutedText("Last paid " + prettyDate(last.date), 11)
+                        MutedText(plural(rs.size, "EMI", "EMIs") + " · " + money(rs.sumOf { it.amount }) + " paid", 11)
+                    }
+                }
+            }
         }
     }
 

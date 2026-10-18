@@ -23,7 +23,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 45
+    const val PARSER_VERSION = 46
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -61,10 +61,14 @@ object Storage {
             }
             return cur
         }
+        // An account you marked as a duplicate of another: its payments move to that account (or, for a loan,
+        // to the bank's main account, since the money left from there).
+        val dups = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "duplicate" }.mapValues { it.value.second }
         val titles = readKv(context, TITLE_FILE)
         val own = splitList(loadSettings(context).ownAccounts)
         val rows = base.values.map { r ->
             var row = r
+            dups[r.account]?.let { t -> row = row.copy(account = if (t.contains(" Loan ")) t.substringBefore(' ') else t) }
             // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
             titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
                 val c = Classifier.classify(Txn(r.id, r.date, r.amount, r.direction, t, r.ref, r.raw, r.source, r.account), own)
@@ -90,6 +94,10 @@ object Storage {
 
     fun declinedKeys(context: Context): Set<String> =
         accountRegistry(context).filter { it.value.first == "declined" }.keys
+
+    // Declined and duplicate accounts both disappear from balances and limits.
+    private fun hiddenKeys(context: Context): Set<String> =
+        accountRegistry(context).filter { it.value.first != "accepted" }.keys
 
     fun setAccountStatuses(context: Context, decisions: Map<String, Pair<String, String>>): Unit = synchronized(lock) {
         val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
@@ -407,7 +415,7 @@ object Storage {
     }
 
     fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = loadBalancesRaw(context).let { m ->
-        val d = declinedKeys(context); if (d.isEmpty()) m else m.filterKeys { it !in d }
+        val d = hiddenKeys(context); if (d.isEmpty()) m else m.filterKeys { it !in d }
     }
 
     private fun loadBalancesRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
@@ -430,7 +438,7 @@ object Storage {
 
     // ---- latest available credit limit per card account ----
     fun loadLimits(context: Context): Map<String, Pair<Double, Long>> = loadLimitsRaw(context).let { m ->
-        val d = declinedKeys(context); if (d.isEmpty()) m else m.filterKeys { k -> k.substringBefore("#total") !in d }
+        val d = hiddenKeys(context); if (d.isEmpty()) m else m.filterKeys { k -> k.substringBefore("#total") !in d }
     }
 
     private fun loadLimitsRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
