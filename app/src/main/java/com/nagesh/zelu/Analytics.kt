@@ -300,6 +300,8 @@ object Analytics {
         fun num(k: String) = k.trim().split(" ").last().takeIf { t -> t.length >= 2 && t.all { it.isDigit() } }
         // The same account when the whole number matches or at least three trailing digits do.
         fun same(x: String?, y: String?) = x != null && y != null && (x == y || (minOf(x.length, y.length) >= 3 && x.takeLast(3) == y.takeLast(3)))
+        // A bare number with no bank name ("4040") is not an account Zelu can place, so it is not offered.
+        out.removeAll { it.key.none { ch -> ch.isLetter() } }
         val marked = out.map { c ->
             val n = num(c.key)
             val twin = if (n == null) null else out.firstOrNull { d ->
