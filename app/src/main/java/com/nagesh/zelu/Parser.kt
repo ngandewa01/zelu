@@ -269,8 +269,13 @@ object Parser {
 
     private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
+    // An insurer saying it received your premium. Your bank's own debit message already records the payment, and the
+    // insurer's text has no account in it, so it must not become an account or a second payment.
+    private val INSURER_ACK = Regex("""(received your (premium )?payment|premium.{0,40}received|thank you for choosing.{0,60}insurance).{0,160}(policy|premium|insurance)|against policy (no\b|number)""", RegexOption.IGNORE_CASE)
+
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
         val text = WS.replace(body, " ").trim()
+        if (INSURER_ACK.containsMatchIn(text)) return null
         // Only count money that has actually left the account. A future auto-debit
         // ("will be debited") or a pure dues/reminder notice (no completed payment in it)
         // never counts. A completed debit that merely MENTIONS a future due date still counts.

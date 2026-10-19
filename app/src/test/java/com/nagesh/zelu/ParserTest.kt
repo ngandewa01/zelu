@@ -147,6 +147,12 @@ class ParserTest {
     }
 
     @Test
+    fun insurerReceiptsAreNotPayments() {
+        none("VM-ICICIL-S", "Dear Customer, Thank you for choosing ICICI Lombard General Insurance as your preferred Insurance partner. We have received your payment of Rs.1398 against policy number 3005/O/309608071/00/B00.Issuance of Policy is subject to Proposal acceptance and Premium realization. Team ICICI Lombard")
+        none("VM-LICIND-S", "Dear Policyholder, premium of Rs.12,000 received against policy 123456789. Thank you. LIC")
+    }
+
+    @Test
     fun onlyBankSendersAreTrusted() {
         assertTrue(Parser.isFinancialSender("AX-HDFCBK-S"))
         // Depositories and exchanges are not bank senders.
