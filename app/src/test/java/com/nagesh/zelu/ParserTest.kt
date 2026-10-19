@@ -153,6 +153,8 @@ class ParserTest {
         ok("AX-HDFCBK-S", "Rs.450.00 debited from a/c **5997 on 14-03-26 to VPA paytm.shop@paytm (UPI Ref No 607412345678)", "debit", 450.0, "HDFC 5997", null, "2026-03-14", null)
         ok("VM-BOMBNK-S", "Your Bank of Maharashtra a/c XX1234 is credited by Rs.5000.00 on 12-10-26. Avl Bal Rs.9000", "credit", 5000.0, "BOM 1234", null, "2026-10-12", null)
         ok("VM-ABCDEF-S", "A/c XX4455 debited Rs.200 on 11-10-26 UPI Ref 123456789012. Telangana Grameena Bank", "debit", 200.0, "TGB 4455", null, "2026-10-11", null)
+        ok("VM-ABCDEF-S", "A/c XX7788 debited Rs.300 on 11-10-26 UPI Ref 123456789013. Bihar Gramin Bank", "debit", 300.0, "BIHAR GRAMIN 7788", null, "2026-10-11", null)
+        ok("VM-ABCDEF-S", "A/c XX9911 debited Rs.120 on 11-10-26 UPI Ref 123456789014. Airtel Payments Bank", "debit", 120.0, "AIRTEL 9911", null, "2026-10-11", null)
     }
 
     @Test

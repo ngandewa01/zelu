@@ -213,6 +213,7 @@ private val BANKS_UI = listOf(
     Triple(listOf("KARNATAKA"), "karb", 0xFFB71C1C), Triple(listOf("SOUTH INDIAN", "SIB"), "sibl", 0xFF1E5AA8),
     Triple(listOf("KVB", "VYSYA"), "kvbl", 0xFF7B2D8E), Triple(listOf("STANDARD CHARTERED", "SCB"), "scbl", 0xFF0473EA),
     Triple(listOf("AU "), "aubl", 0xFFE8731A), Triple(listOf("PAYTM"), "pytm", 0xFF0A8FD6),
+    Triple(listOf("UCO"), "ucba", 0xFF1F5FA8), Triple(listOf("IOB"), "ioba", 0xFF1B3F8B), Triple(listOf("BANDHAN"), "bdbl", 0xFFC62828),
 )
 
 private fun bankEntry(account: String) = account.uppercase().let { a ->
@@ -236,7 +237,10 @@ fun BankMark(account: String, fallback: Color = ZColor.Accent, size: androidx.co
 }
 
 // Drawable resource id of the bank's logo, or null when we have none.
-fun bankLogoRes(account: String): Int? = when (bankEntry(account)?.second) {
+fun bankLogoRes(account: String): Int? = logoFor(bankEntry(account)?.second
+    ?: IndianBanks.forAccount(account)?.let { IndianBanks.logoSlug[it.label] })
+
+private fun logoFor(slug: String?): Int? = when (slug) {
     "hdfc" -> R.drawable.bank_hdfc; "icic" -> R.drawable.bank_icic; "sbin" -> R.drawable.bank_sbin
     "utib" -> R.drawable.bank_utib; "kkbk" -> R.drawable.bank_kkbk; "ubin" -> R.drawable.bank_ubin
     "yesb" -> R.drawable.bank_yesb; "idfb" -> R.drawable.bank_idfb; "indb" -> R.drawable.bank_indb
@@ -245,6 +249,13 @@ fun bankLogoRes(account: String): Int? = when (bankEntry(account)?.second) {
     "ibkl" -> R.drawable.bank_ibkl; "karb" -> R.drawable.bank_karb; "sibl" -> R.drawable.bank_sibl
     "kvbl" -> R.drawable.bank_kvbl; "scbl" -> R.drawable.bank_scbl; "aubl" -> R.drawable.bank_aubl
     "pytm" -> R.drawable.bank_pytm
+    "ucba" -> R.drawable.bank_ucba; "ioba" -> R.drawable.bank_ioba; "bdbl" -> R.drawable.bank_bdbl
+    "mahb" -> R.drawable.bank_mahb; "idib" -> R.drawable.bank_idib; "cbin" -> R.drawable.bank_cbin
+    "psib" -> R.drawable.bank_psib; "jaka" -> R.drawable.bank_jaka; "csbk" -> R.drawable.bank_csbk
+    "dlxb" -> R.drawable.bank_dlxb; "ciub" -> R.drawable.bank_ciub; "tmbl" -> R.drawable.bank_tmbl
+    "ntbl" -> R.drawable.bank_ntbl; "dcbl" -> R.drawable.bank_dcbl; "esmf" -> R.drawable.bank_esmf
+    "ujvn" -> R.drawable.bank_ujvn; "fino" -> R.drawable.bank_fino; "airp" -> R.drawable.bank_airp
+    "jiop" -> R.drawable.bank_jiop
     else -> null
 }
 
