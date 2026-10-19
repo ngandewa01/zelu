@@ -1800,7 +1800,7 @@ fun ZeluApp() {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
             Text("Unrecognised senders", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("Senders Zelu doesn't recognise, whose messages read like payments. Say what each is. Bank: read as an account. Wallet: its spends are not counted again, since the top-up already was. Other: read as payments with no account. Ignore: skip it. Only add senders you trust.", 12)
+            MutedText("Senders Zelu doesn't recognise, whose messages read like payments. Say what each is, or tap Tell Zelu to ask for it to be added for everyone (only the sender id is sent). Bank: read as an account. Wallet: its spends are not counted again, since the top-up already was. Other: read as payments with no account. Ignore: skip it. Only add senders you trust.", 12)
             Spacer(Modifier.height(10.dp))
             val sl = senderList
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -1827,6 +1827,15 @@ fun ZeluApp() {
                                 Text("Ignore", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                     scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, "sender|" + u.address.uppercase()) }
                                     senderList = senderList?.filter { it.address != u.address }
+                                })
+                                // Opens an email draft with only the sender id, so the bank can be added for everyone. The user sends it.
+                                Text("Tell Zelu", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+                                        .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(Storage.reportEmail(context)))
+                                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu: please add this bank")
+                                        .putExtra(android.content.Intent.EXTRA_TEXT, "Sender id: " + u.address + "\nBank name: (please type it here)\n\nNo message text is included.")
+                                    try { context.startActivity(android.content.Intent.createChooser(mail, "Tell Zelu")) }
+                                    catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
                                 })
                             }
                         }
