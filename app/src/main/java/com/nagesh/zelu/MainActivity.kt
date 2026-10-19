@@ -1156,7 +1156,9 @@ fun ZeluApp() {
     var adsOn by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         adsOn = withContext(Dispatchers.IO) {
-            val on = BuildConfig.ADMOB_BANNER_UNIT.isNotBlank() && Sponsor.pastQuietPeriod(context)
+            // Google's test ad units show at once so you can check the layout; real ones wait out the first week.
+            val testUnit = BuildConfig.ADMOB_BANNER_UNIT.startsWith("ca-app-pub-3940256099942544")
+            val on = BuildConfig.ADMOB_BANNER_UNIT.isNotBlank() && (testUnit || Sponsor.pastQuietPeriod(context))
             if (on) com.google.android.gms.ads.MobileAds.initialize(context) {}
             on
         }
@@ -1486,8 +1488,6 @@ fun ZeluApp() {
             // Home carries one ad at the bottom: a sponsor card if one is set, otherwise an AdMob banner.
             if (view == "ledger" && sponsor == null && adsOn) {
                 Spacer(Modifier.height(16.dp))
-                MutedText("Ad", 11)
-                Spacer(Modifier.height(4.dp))
                 AdBanner(BuildConfig.ADMOB_BANNER_UNIT)
             }
             // One optional, clearly labelled sponsor card, only on Home. Nothing about the user is sent to fetch it.
