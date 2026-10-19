@@ -51,7 +51,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          grep -E "^e: |error:|What went wrong" -A1 build.log | head -40 | sed 's/^/::error::/' | tr -d '\r' || true
+          grep -E "^e: |error:|Error:|Fatal:|What went wrong" -A2 build.log | head -60 | sed 's/^/::error::/' | tr -d '\r' || true
           # A lint error that stops the release build is named in the lint report.
           cat app/build/reports/lint-results-*.txt 2>/dev/null | grep -E "Error:|Fatal:" -B1 -A3 | head -30 | sed 's/^/::error::/' | tr -d '\r' || true
           # A parser test that fails names the message it read wrongly.
