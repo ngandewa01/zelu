@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 62
+    const val PARSER_VERSION = 63
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -831,6 +831,7 @@ object Storage {
                 while (hops++ < 8) { val n = joined[t]?.second ?: break; if (n == t) break; t = n }
                 val cur = out[t]
                 if (cur == null || b.second > cur.second) out[t] = b
+                if (t != k) out.remove(k)   // a joined label is no longer an account of its own
             }
             out
         }
@@ -1125,19 +1126,9 @@ object Storage {
         file(context, TXN_FILE).delete()
         file(context, MANDATE_FILE).delete() // mandates are re-read from the messages too
         file(context, REMINDER_FILE).delete() // reminders re-parse too; done ticks are kept
-        dropBankOnlyBalances(context) // balances that came from loan messages were wrong; real ones return on re-read
+        // Balances are rebuilt from the messages on every fresh read, so one that no message produces any more does not linger.
+        file(context, "balances.json").delete()
         Unit
-    }
-
-    private fun dropBankOnlyBalances(context: Context) {
-        try {
-            val f = file(context, "balances.json")
-            if (!f.exists()) return
-            val o = JSONObject(f.readText()); val keep = JSONObject()
-            val ks = o.keys()
-            while (ks.hasNext()) { val k = ks.next(); if (k.trim().split(" ").any { it.length in 3..4 && it.all(Char::isDigit) }) keep.put(k, o.get(k)) }
-            f.writeAtomic(keep.toString())
-        } catch (_: Exception) {}
     }
 
     // Accounts you chose not to show on Home.

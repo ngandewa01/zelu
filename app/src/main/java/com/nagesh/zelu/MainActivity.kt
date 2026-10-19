@@ -4117,6 +4117,8 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
     var sourceFor by remember { mutableStateOf<String?>(null) }
     var sourceRefs by remember { mutableStateOf<List<Ingest.Ref>?>(null) }
     val acctNames = (balances.keys + spentBy.keys).distinct().filter { !(it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC")) }
+        // A debit card is not an account of its own: it counts under the savings account you link it to.
+        .filter { !it.contains(" DC ") }
         .filter { it !in hiddenAccts }
         .sortedByDescending { balances[it]?.first ?: -1.0 }
     var allAccountsOpen by remember { mutableStateOf(false) }
@@ -4158,7 +4160,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                 MutedText("Total balance", 12)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (balances.isNotEmpty())
-                        Text(if (Privacy.hideBalance) Privacy.MASK else money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(if (Privacy.hideBalance) Privacy.MASK else money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans && !it.contains(" DC ") }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
