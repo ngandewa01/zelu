@@ -223,7 +223,7 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
     ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
 }
 
-private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "other" -> "Wallet"; else -> "Savings account" }
+private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "fd" -> "Fixed deposit"; "rd" -> "Recurring deposit"; "other" -> "Wallet"; else -> "Savings account" }
 
 private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.account == key || (it.counterparty ?: "") == key }
 
@@ -485,7 +485,7 @@ private fun acctLine(type: String, count: Int) = when (type) {
                         if (a.type != "loan") {
                             Spacer(Modifier.height(10.dp))
                             ChipScroll {
-                                listOf("savings" to "Savings account", "card" to "Credit card", "other" to "Wallet or other").forEach { (ty, lab) ->
+                                listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->
                                     PickChip(lab, type == ty) { type = ty }
                                 }
                             }

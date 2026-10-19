@@ -37,7 +37,7 @@ object AccountBook {
     /** The bank in a label, or null when the label is only a number. */
     fun bankOf(key: String): String? {
         val parts = key.trim().split(" ").filter { it.isNotEmpty() }
-        val words = parts.filterIndexed { i, p -> !(i == parts.size - 1 && DIGITS.matches(p)) && !p.equals("CC", true) && p != "Loan" }
+        val words = parts.filterIndexed { i, p -> !(i == parts.size - 1 && DIGITS.matches(p)) && !p.equals("CC", true) && p != "Loan" && p != "FD" && p != "RD" }
         return words.joinToString(" ").takeIf { w -> w.any { it.isLetter() } }
     }
 
@@ -46,18 +46,23 @@ object AccountBook {
 
     fun guessType(key: String): String = when {
         key.contains(" Loan ") -> "loan"
+        key.contains(" FD ") -> "fd"
+        key.contains(" RD ") -> "rd"
         key.contains("FASTag", true) -> "other"
         key.contains(" CC") || key.startsWith("CC ") -> "card"
         else -> "savings"
     }
 
     /** The label an account takes once you say what it is: a savings account never carries "CC", a card always does. */
-    fun relabel(key: String, type: String): String = when {
-        key.contains("Loan") -> key
-        type == "savings" && key.contains(" CC") -> key.replace(" CC", "")
-        type == "card" && !key.contains(" CC") && !key.startsWith("CC ") ->
-            if (key.contains(' ')) key.substringBefore(' ') + " CC " + key.substringAfter(' ') else "$key CC"
-        else -> key
+    fun relabel(key: String, type: String): String {
+        if (key.contains("Loan")) return key
+        val marker = when (type) { "card" -> "CC"; "loan" -> "Loan"; "fd" -> "FD"; "rd" -> "RD"; else -> null }
+        if (type == "other") return key
+        val base = key.replace(" CC", "").replace(" FD", "").replace(" RD", "")
+        if (marker == null) return base
+        if (marker == "CC" && key.startsWith("CC ")) return key
+        if (key.split(' ').contains(marker)) return key
+        return if (base.contains(' ')) base.substringBefore(' ') + " $marker " + base.substringAfter(' ') else "$base $marker"
     }
 
     private fun statOf(rs: List<Row>): Stat {
@@ -184,7 +189,7 @@ object AccountBook {
         val known = vis.filter { it.bank != null }
         val unknown = vis.filter { it.bank == null }.sortedByDescending { it.count }
         val bankPays = known.groupBy { it.bank!! }.mapValues { e -> e.value.sumOf { it.count } }
-        val typeOrder = listOf("savings", "card", "loan", "other")
+        val typeOrder = listOf("savings", "card", "loan", "fd", "rd", "other")
         fun ti(t: String) = typeOrder.indexOf(t).let { if (it < 0) typeOrder.size else it }
         return known.sortedWith(
             compareByDescending<Acct> { bankPays[it.bank] ?: 0 }.thenBy { it.bank }.thenBy { ti(it.type) }.thenByDescending { it.count },

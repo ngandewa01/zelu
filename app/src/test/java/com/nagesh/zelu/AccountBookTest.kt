@@ -124,4 +124,18 @@ class AccountBookTest {
         assertEquals("HDFC 5997", known.first().key)
         assertEquals(listOf("HDFC 5997", "HDFC 1208", "HDFC 0025", "HDFC CC 9065"), known.take(4).map { it.key })
     }
+
+    @Test
+    fun loanFixedAndRecurringDepositTypes() {
+        assertEquals("HDFC Loan 0025", AccountBook.relabel("HDFC 0025", "loan"))
+        assertEquals("HDFC FD 0025", AccountBook.relabel("HDFC 0025", "fd"))
+        assertEquals("HDFC RD 0025", AccountBook.relabel("HDFC FD 0025", "rd"))
+        assertEquals("HDFC 0025", AccountBook.relabel("HDFC RD 0025", "savings"))
+        assertEquals("fd", AccountBook.guessType("HDFC FD 0025"))
+        assertEquals("HDFC", AccountBook.bankOf("HDFC RD 0025"))
+        val b = book()
+        val p = AccountBook.plan(b, emptyMap(), "HDFC 0025", emptySet(), "fd")
+        assertEquals("HDFC FD 0025", p.main)
+        assertEquals("accepted" to "fd", p.registry["HDFC FD 0025"])
+    }
 }
