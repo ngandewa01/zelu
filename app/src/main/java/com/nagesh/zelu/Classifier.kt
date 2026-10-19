@@ -192,7 +192,8 @@ object Classifier {
         val hay = ("$cp $raw $spaced").lowercase()
         // "Amazon Bill Pay", "BillPay"... is a bill payment through the platform, whatever the platform sells.
         if (BILL_PAY.containsMatchIn(cp)) return Result("expense", "Bills")
-        // 1) Exact brand dictionary (most specific).
+        // 1) Exact brand dictionary (most specific). Swiggy Instamart is groceries, though "swiggy" alone is food.
+        if (has(hay, "instamart")) return Result("expense", "Groceries")
         for ((category, words) in CATEGORIES) {
             if (words.any { has(hay, it) }) return Result("expense", category)
         }
