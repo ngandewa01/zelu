@@ -147,6 +147,25 @@ class ParserTest {
     }
 
     @Test
+    fun regionalBanksAreRecognised() {
+        // Maharashtra Gramin Bank signs "MGB"; a bank name inside the other person's UPI address is not your bank.
+        ok("VM-MAHGRM-S", "Your a/c no. XXXX883076 is debited Rs.190.00 on 19-10-26 and a/c linked to virtual address paytm.s20uk16@pty is credited (UPI Ref no 061700089155)MGB", "debit", 190.0, "MGB 883076", "paytm.s20uk16", "2026-10-19", null)
+        ok("AX-HDFCBK-S", "Rs.450.00 debited from a/c **5997 on 14-03-26 to VPA paytm.shop@paytm (UPI Ref No 607412345678)", "debit", 450.0, "HDFC 5997", null, "2026-03-14", null)
+        ok("VM-BOMBNK-S", "Your Bank of Maharashtra a/c XX1234 is credited by Rs.5000.00 on 12-10-26. Avl Bal Rs.9000", "credit", 5000.0, "BOM 1234", null, "2026-10-12", null)
+        ok("VM-ABCDEF-S", "A/c XX4455 debited Rs.200 on 11-10-26 UPI Ref 123456789012. Telangana Grameena Bank", "debit", 200.0, "TGB 4455", null, "2026-10-11", null)
+    }
+
+    @Test
+    fun sameAccountWithDifferentDigitCountsIsJoined() {
+        val m = Analytics.autoMerge(mapOf("MGB 883076" to 1400, "83076" to 680, "MGB 3076" to 30, "SBI 3076" to 29, "HDFC 5997" to 100, "HDFC CC 5997" to 5))
+        assertEquals("MGB 883076", m["83076"])
+        assertEquals("MGB 883076", m["MGB 3076"])
+        assertNull(m["SBI 3076"])           // a different bank's account is never joined
+        assertNull(m["HDFC CC 5997"])       // a card is never joined to a savings account
+        assertNull(m["MGB 883076"])
+    }
+
+    @Test
     fun insurerReceiptsAreNotPayments() {
         none("VM-ICICIL-S", "Dear Customer, Thank you for choosing ICICI Lombard General Insurance as your preferred Insurance partner. We have received your payment of Rs.1398 against policy number 3005/O/309608071/00/B00.Issuance of Policy is subject to Proposal acceptance and Premium realization. Team ICICI Lombard")
         none("VM-LICIND-S", "Dear Policyholder, premium of Rs.12,000 received against policy 123456789. Thank you. LIC")

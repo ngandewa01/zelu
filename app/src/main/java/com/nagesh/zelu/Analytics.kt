@@ -278,6 +278,33 @@ object Analytics {
         return out.sortedByDescending { it.first.date }
     }
 
+    /**
+     * The same bank account written with a different number of digits in different messages ("3076", "83076",
+     * "883076") is one account. A label whose number is the end of a longer number of the same bank joins that account.
+     * A label with no bank name joins only when exactly one bank has such a longer number. Returns old label -> main label.
+     */
+    fun autoMerge(counts: Map<String, Int>): Map<String, String> {
+        fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.startsWith("CC ") && !a.contains(" Loan ") && !a.contains("FASTag")
+        fun num(a: String) = a.trim().substringAfterLast(' ').takeIf { t -> t.length >= 4 && t.all { it.isDigit() } }
+        fun bank(a: String) = if (a.trim().contains(' ')) a.trim().substringBeforeLast(' ') else ""
+        val labels = counts.keys.filter { plain(it) && num(it) != null }
+        val step = HashMap<String, String>()
+        for (a in labels) {
+            val n = num(a)!!
+            val targets = labels.filter { b -> b != a && num(b)!!.length > n.length && num(b)!!.endsWith(n) && (bank(a).isEmpty() || bank(a) == bank(b)) }
+            if (targets.isEmpty()) continue
+            if (bank(a).isEmpty() && targets.map { bank(it) }.distinct().size > 1) continue
+            step[a] = targets.maxByOrNull { counts[it] ?: 0 }!!
+        }
+        val out = HashMap<String, String>()
+        for (a in step.keys) {
+            var cur = step.getValue(a); var hops = 0
+            while (step.containsKey(cur) && hops++ < 4) cur = step.getValue(cur)
+            if (cur != a) out[a] = cur
+        }
+        return out
+    }
+
     fun accountCandidates(rows: List<Row>, balances: Map<String, Pair<Double, Long>>, limits: Map<String, Pair<Double, Long>>): List<AcctCandidate> {
         fun guess(k: String) = when {
             k.contains("FASTag") -> "other"

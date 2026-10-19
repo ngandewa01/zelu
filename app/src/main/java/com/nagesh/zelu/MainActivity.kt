@@ -320,7 +320,7 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
         val logo = bankLogoRes(a)
         Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
             if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp))
-            else Text(a.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+            else BankMark(a)
         }
     }
     Dialog(onDismissRequest = onDismiss) {
@@ -490,7 +490,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                                     if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
                                         contentDescription = null, modifier = Modifier.size(26.dp))
-                                    else Text(c.key.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                                    else BankMark(c.key)
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
@@ -3217,7 +3217,7 @@ private fun yrMo(m: Int): String {
                 if (logo != null) androidx.compose.foundation.Image(
                     painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null,
                     modifier = Modifier.size(24.dp),
-                ) else Text(name.take(1).uppercase(), color = tint, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                ) else BankMark(account, tint, 16.sp)
             }
             Column {
                 Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -3297,7 +3297,7 @@ private fun prettyDay(ymd: String): String {
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                     if (logo != null) androidx.compose.foundation.Image(
                         painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(28.dp),
-                    ) else Text(bank.take(1).uppercase(), color = bankColor(account), fontWeight = FontWeight.Bold)
+                    ) else BankMark(account, bankColor(account))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
@@ -4344,7 +4344,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                             Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                                 if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
                                     contentDescription = null, modifier = Modifier.size(22.dp))
-                                else Text(name.take(1).uppercase(), color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                                else BankMark(name)
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
@@ -4476,7 +4476,7 @@ private object LimitAsk {
                     Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                         if (logo != null) androidx.compose.foundation.Image(
                             painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(22.dp),
-                        ) else Text(bank.take(1).uppercase(), color = base, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        ) else BankMark(account, base, 15.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("CREDIT CARD", color = soft, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium)

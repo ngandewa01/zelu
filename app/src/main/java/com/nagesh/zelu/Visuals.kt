@@ -219,7 +219,21 @@ private fun bankEntry(account: String) = account.uppercase().let { a ->
     BANKS_UI.firstOrNull { e -> e.first.any { a.startsWith(it) || a.contains(" $it") } }
 }
 
-fun bankColor(account: String): Color = bankEntry(account)?.let { Color(it.third) } ?: ZColor.Ink
+fun bankColor(account: String): Color = bankEntry(account)?.let { Color(it.third) }
+    ?: IndianBanks.forAccount(account)?.let { Color(it.color) } ?: ZColor.Ink
+
+// What to show where a logo goes when Zelu has no logo file for the bank: its short mark in its colour,
+// or the first letter when the bank is not one Zelu knows.
+@Composable
+fun BankMark(account: String, fallback: Color = ZColor.Accent, size: androidx.compose.ui.unit.TextUnit = 14.sp) {
+    val bk = IndianBanks.forAccount(account)
+    if (bk == null) {
+        Text(account.take(1).uppercase(), color = fallback, fontWeight = FontWeight.Bold, fontSize = size)
+    } else {
+        val s = when { bk.mark.length <= 2 -> size.value; bk.mark.length == 3 -> size.value * 0.8f; else -> size.value * 0.62f }
+        Text(bk.mark, color = Color(bk.color), fontWeight = FontWeight.Bold, fontSize = s.sp, maxLines = 1, softWrap = false)
+    }
+}
 
 // Drawable resource id of the bank's logo, or null when we have none.
 fun bankLogoRes(account: String): Int? = when (bankEntry(account)?.second) {

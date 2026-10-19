@@ -99,7 +99,15 @@ object Parser {
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
 
     private val REF = Regex("""\b(?:UPI\s*Ref(?:erence)?(?:\s*No\.?)?|RRN|Ref(?:\s*No\.?)?)\s*[:#-]?\s*(\d{6,})""", RegexOption.IGNORE_CASE)
-    private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI|UNION|UCO|IOB|DBS|HSBC|CITI|AMEX|DCB|PAYTM|IPPB|EQUITAS|UJJIVAN|SARASWAT)\b""", RegexOption.IGNORE_CASE)
+    private val BANK = Regex("""\b(HDFC|SBI|ICICI|AXIS|KOTAK|IDFC|YES ?BANK|PNB|BOB|CANARA|INDUSIND|RBL|AU ?BANK|BANDHAN|FEDERAL|IDBI|UNION|UCO|IOB|DBS|HSBC|CITI|AMEX|DCB|PAYTM|IPPB|EQUITAS|UJJIVAN|SARASWAT|""" + IndianBanks.namePattern + """)\b""", RegexOption.IGNORE_CASE)
+
+    // A UPI address such as "paytm.s20uk16@pty" belongs to the other person, so a bank name inside one is not your bank.
+    private val VIRTUAL_ADDR = Regex("""(?i)\b(?:virtual address|vpa)\s+([\w.\-]+)@[\w.\-]+""")
+    private val VPA_TOKEN = Regex("""\S+@\S+""")
+    private fun bankInText(text: String): String {
+        val m = BANK.find(VPA_TOKEN.replace(text, " "))?.value ?: return ""
+        return IndianBanks.labelFor(m) ?: m.uppercase().replace(" ", "")
+    }
 
     // Bank codes inside an SMS sender id (e.g. "AD-HDFCBK", "JX-UNIONB", "CBSSBI"), matched
     // as a substring because the code runs into surrounding letters. Specific codes first.
@@ -114,7 +122,7 @@ object Parser {
         "UCOBNK" to "UCO", "IOBCHN" to "IOB", "PAYTM" to "PAYTM", "PYTM" to "PAYTM",
         "DBS" to "DBS", "HSBC" to "HSBC", "CITI" to "CITI", "SCBANK" to "SCB", "AMEX" to "AMEX",
         "KVBANK" to "KVB", "KARUR" to "KVB", "RBL" to "RBL", "BOB" to "BOB", "UCO" to "UCO", "IOB" to "IOB", "BOI" to "BOI",
-    )
+    ) + IndianBanks.senderCodes
 
     // ---- Anti-phishing gate (Ingest calls these BEFORE a message is parsed) ----
     // Step 1: is the sender a bank/financial sender ID? A genuine bank/UPI alert
@@ -325,6 +333,8 @@ object Parser {
         // Prefer a known merchant (clean, groups duplicates); then the ACH biller name;
         // then the generic "to/at NAME" and "after-amount NAME" fallbacks, junk filtered out.
         var counterparty = canonicalMerchant(text)
+        // "a/c linked to virtual address paytm.s20uk16@pty is credited": the payee is that UPI address.
+        if (counterparty == null) counterparty = VIRTUAL_ADDR.find(text)?.groupValues?.get(1)?.takeIf { it.length >= 3 }
         if (counterparty == null) {
             counterparty = ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
@@ -349,7 +359,7 @@ object Parser {
         // loan is distinct in the ledger — without the loan number polluting the account filter.
         if (isEmiDebit) {
             LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
-                val bk = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+                val bk = bankInText(text)
                 counterparty = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
             }
         }
@@ -442,7 +452,7 @@ object Parser {
             ?: CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
         if (recurring) {
             LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
-                val bk = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+                val bk = bankInText(text)
                 cp = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
             }
         }
@@ -507,7 +517,7 @@ object Parser {
         val total = if (avail == null) CARD_TOTAL_LIMIT.find(text)?.groupValues?.get(1) else null
         val amt = (avail ?: total)?.replace(",", "")?.toDoubleOrNull() ?: return null
         val last4 = CARD_DIGITS.find(text)?.groupValues?.get(1) ?: return null
-        var bank = BANK.find(text)?.value?.uppercase()?.replace(" ", "") ?: ""
+        var bank = bankInText(text)
         if (bank == "YESBANK") bank = "YES"
         if (bank.isEmpty()) {
             val src = source.uppercase()
@@ -540,7 +550,7 @@ object Parser {
         // The sender id names the bank first; only when it doesn't, the message text does.
         val src = source.uppercase()
         var bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
-        if (bank.isEmpty()) bank = BANK.find(rawText)?.value?.uppercase()?.replace(" ", "") ?: ""
+        if (bank.isEmpty()) bank = bankInText(rawText)
         if (bank == "YESBANK") bank = "YES"
         // Investments aren't bank accounts you spend from — keep them out of the account filter.
         if (INVESTMENT.containsMatchIn(text)) return ""

@@ -23,7 +23,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 55
+    const val PARSER_VERSION = 56
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -93,9 +93,13 @@ object Storage {
         val catOff = readKv(context, CATOFF_FILE).keys
         val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
+        // The same account written with different digit counts is joined here, unless you decided about that label yourself.
+        val decided = readKv(context, ACCOUNTS_FILE).keys
+        val auto = Analytics.autoMerge(base.values.groupingBy { it.account }.eachCount()).filterKeys { it !in decided }
+        autoMap = auto
         val rows = base.values.map { r ->
-            var row = r
-            dups[r.account]?.let { t -> row = row.copy(account = if (t.contains(" Loan ")) t.substringBefore(' ') else t) }
+            var row = auto[r.account]?.let { r.copy(account = it) } ?: r
+            dups[row.account]?.let { t -> row = row.copy(account = if (t.contains(" Loan ")) t.substringBefore(' ') else t) }
             // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
             titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
                 val c = Classifier.classify(Txn(r.id, r.date, r.amount, r.direction, t, r.ref, r.raw, r.source, r.account), own)
@@ -719,8 +723,24 @@ object Storage {
         return m
     }
 
-    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> = loadBalancesRaw(context).let { m ->
-        val d = hiddenKeys(context); if (d.isEmpty()) m else m.filterKeys { it !in d }
+    // Old account label -> the account it was joined to (see Analytics.autoMerge). Set whenever the rows are computed.
+    @Volatile private var autoMap: Map<String, String> = emptyMap()
+
+    fun loadBalances(context: Context): Map<String, Pair<Double, Long>> {
+        loadRows(context)                                   // makes sure autoMap is current
+        val auto = autoMap
+        val raw = loadBalancesRaw(context)
+        val m = if (auto.isEmpty()) raw else {
+            val joined = LinkedHashMap<String, Pair<Double, Long>>()
+            for ((k, v) in raw) {
+                val t = auto[k] ?: k
+                val cur = joined[t]
+                if (cur == null || v.second >= cur.second) joined[t] = v
+            }
+            joined
+        }
+        val d = hiddenKeys(context)
+        return if (d.isEmpty()) m else m.filterKeys { it !in d }
     }
 
     private fun loadBalancesRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
