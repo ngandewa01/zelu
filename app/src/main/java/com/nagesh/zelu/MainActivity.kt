@@ -5307,10 +5307,12 @@ private fun prettyDate(iso: String): String = try {
 
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Dues & reminders", color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text("Dues & reminders", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+            maxLines = 2, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(10.dp))
         Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
             .clickable { adding = true }.padding(horizontal = 14.dp, vertical = 8.dp)) {
-            Text("+ Add bill", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("+ Add bill", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         }
     }
 
