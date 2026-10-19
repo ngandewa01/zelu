@@ -158,6 +158,15 @@ class ParserTest {
     }
 
     @Test
+    fun mgbIsDecidedByTheSender() {
+        // "MGB" in the text of a message from some other sender is not Maharashtra Gramin Bank.
+        ok("VM-XYZABC-S", "Rs.300.00 debited from A/c XX7788 on 11-10-26 to MGB TRADERS UPI Ref 123456789013", "debit", 300.0, "7788", null, "2026-10-11", null)
+        ok("VM-XYZABC-S", "Your a/c no. XXXX883076 is debited Rs.50.00 on 20-08-26 (UPI Ref no 481050341654) -MGB04245", "debit", 50.0, "883076", null, "2026-08-20", null)
+        // From the MGB sender it is.
+        ok("AX-MGBBNK-S", "Your a/c no. XXXX883076 is debited Rs.50.00 on 20-08-26 (UPI Ref no 481050341654) -MGB04245", "debit", 50.0, "MGB 883076", null, "2026-08-20", null)
+    }
+
+    @Test
     fun maharashtraGraminBankMessages() {
         val src = "AX-MGBBNK-S"
         ok(src, "Your A/c no XXXXX83076 is credited by RS. 931.97 through By Transfer on 07/07/2026 at 18:27:54.Current BAL: Rs. 965.08 CR. -MGB04245", "credit", 931.97, "MGB 83076", null, "2026-07-07", null)

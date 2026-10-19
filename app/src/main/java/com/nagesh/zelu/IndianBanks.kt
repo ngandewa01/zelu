@@ -43,7 +43,7 @@ object IndianBanks {
         b("UNITY", 0xFF00695C, listOf("UNITY SMALL FINANCE BANK"), listOf("UNITYB"), "USFB"),
         b("SBM", 0xFF1B5E20, listOf("SBM BANK"), listOf("SBMBNK")),
         // Rural (Gramin / Grameena) banks
-        b("MGB", 0xFF1B7A3D, listOf("MAHARASHTRA GRAMIN BANK", "MGB"), listOf("MGBBNK", "MAHGRM", "MGBANK", "MAHAGB", "MGRBNK")),
+        b("MGB", 0xFF1B7A3D, listOf("MAHARASHTRA GRAMIN BANK"), listOf("MGBBNK", "MAHGRM", "MGBANK", "MAHAGB", "MGRBNK")),
         b("VKGB", 0xFF2E7D32, listOf("VIDARBHA KONKAN GRAMIN BANK", "VKGB"), listOf("VKGBNK")),
         b("BARODA UP", 0xFFEF7D00, listOf("BARODA UP BANK", "BARODA UTTAR PRADESH GRAMIN BANK"), listOf("BUPGB", "BARUPB"), "BUPB"),
         b("BARODA GUJARAT", 0xFFEF7D00, listOf("BARODA GUJARAT GRAMIN BANK"), listOf("BGGBNK"), "BGGB"),
