@@ -229,7 +229,7 @@ object Parser {
     // "Your Loan A/c *0126 Credited for Rs:72894.00 ... by BRANCH": the bank took the EMI from your own
     // account and the loan account received it. That is an EMI paid (money out), never money in.
     private val LOAN_CREDIT = Regex("""loan\s*a/?c.{0,40}\b(credited|credit)\b""", RegexOption.IGNORE_CASE)
-    private val LOAN_AC = Regex("""loan\s*a/?c(?:\s*no\.?)?\s*[xX*#]*\s*(\d{3,4})""", RegexOption.IGNORE_CASE)
+    private val LOAN_AC = Regex("""loan\s*a(?:/c|cc(?:ount)?)(?:\s*no\.?)?\s*[xX*#]*\s*\d*?(\d{3,4})\b""", RegexOption.IGNORE_CASE)
 
     // Canonical merchant names, so "ZOMATO LTD" / "Zomato Media Pvt Ltd" group as one payee.
     private val MERCHANT_MAP: List<Pair<Regex, String>> = listOf(
@@ -358,6 +358,13 @@ object Parser {
         // For a loan EMI, name the payee after the loan account ("HDFC Loan 448") so each
         // loan is distinct in the ledger — without the loan number polluting the account filter.
         if (isEmiDebit) {
+            LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
+                val bk = bankInText(text)
+                counterparty = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
+            }
+        }
+        // A loan account's own message ("Loan Account XXXXX48453 has been Debited ...") is named after the loan.
+        if (counterparty == null || counterparty == "CR" || counterparty == "DR") {
             LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
                 val bk = bankInText(text)
                 counterparty = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
@@ -494,7 +501,7 @@ object Parser {
     private val BAL_AMT = Regex("""bal(?:ance)?.{0,90}?(?:Rs\.?|INR|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
     private val TXN_WORD = Regex("""\b(debited|credited|spent|withdrawn|paid|sent|received|purchase|txn|transaction)\b""", RegexOption.IGNORE_CASE)
 
-    private val TXN_BAL = Regex("""(?:avl|avail(?:able)?)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val TXN_BAL = Regex("""(?:avl|avail(?:able)?|current|curr|closing)\.?\s*bal(?:ance)?\.?\s*(?:is|:|-)?\s*(?:Rs\.?|INR|₹)?\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
 
     // "Avl Bal Rs 32,855.00" tail on a debit/credit alert (for banks with no daily balance SMS).
     fun balanceFromTxn(body: String): Double? =
@@ -599,6 +606,7 @@ object Parser {
     private fun cleanCp(raw: String?): String? {
         val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "")
         if (s.length < 2) return null
+        if (s.startsWith("through ", ignoreCase = true)) return null     // "through By Transfer", "through BULK POSTING": how, not who
         if (s.lowercase() in NOT_A_PAYEE || UPI_REF_ONLY.matches(s)) return null
         if (DATE_LIKE.matches(s) || s.matches(Regex("""(?i)^on\s+\d.*"""))) return null
         if (CP_JUNK.containsMatchIn(s)) return null

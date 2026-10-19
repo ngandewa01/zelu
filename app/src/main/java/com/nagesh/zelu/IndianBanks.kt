@@ -38,7 +38,7 @@ object IndianBanks {
         b("NESFB", 0xFF00796B, listOf("NORTH EAST SMALL FINANCE BANK"), listOf("NESFBL")),
         b("FINO", 0xFF1565C0, listOf("FINO PAYMENTS BANK"), listOf("FINOPB")),
         // Rural (Gramin / Grameena) banks
-        b("MGB", 0xFF1B7A3D, listOf("MAHARASHTRA GRAMIN BANK", "MGB"), listOf("MAHGRM", "MGBANK", "MAHAGB", "MGRBNK")),
+        b("MGB", 0xFF1B7A3D, listOf("MAHARASHTRA GRAMIN BANK", "MGB"), listOf("MGBBNK", "MAHGRM", "MGBANK", "MAHAGB", "MGRBNK")),
         b("VKGB", 0xFF2E7D32, listOf("VIDARBHA KONKAN GRAMIN BANK", "VKGB"), listOf("VKGBNK")),
         b("BARODA UP", 0xFFEF7D00, listOf("BARODA UP BANK", "BARODA UTTAR PRADESH GRAMIN BANK"), listOf("BUPGB", "BARUPB"), "BUPB"),
         b("BARODA GUJARAT", 0xFFEF7D00, listOf("BARODA GUJARAT GRAMIN BANK"), listOf("BGGBNK"), "BGGB"),

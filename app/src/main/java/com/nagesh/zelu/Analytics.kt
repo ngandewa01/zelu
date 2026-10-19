@@ -285,23 +285,29 @@ object Analytics {
      */
     fun autoMerge(counts: Map<String, Int>): Map<String, String> {
         fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.startsWith("CC ") && !a.contains(" Loan ") && !a.contains("FASTag")
-        fun num(a: String) = a.trim().substringAfterLast(' ').takeIf { t -> t.length >= 4 && t.all { it.isDigit() } }
+        fun num(a: String) = a.trim().substringAfterLast(' ').takeIf { t -> t.length >= 2 && t.all { it.isDigit() } }
         fun bank(a: String) = if (a.trim().contains(' ')) a.trim().substringBeforeLast(' ') else ""
         val labels = counts.keys.filter { plain(it) && num(it) != null }
         val step = HashMap<String, String>()
+        // Pass 1: numbers of four or more digits that are the end of a longer number.
         for (a in labels) {
             val n = num(a)!!
+            if (n.length < 4) continue
             val targets = labels.filter { b -> b != a && num(b)!!.length > n.length && num(b)!!.endsWith(n) && (bank(a).isEmpty() || bank(a) == bank(b)) }
             if (targets.isEmpty()) continue
             if (bank(a).isEmpty() && targets.map { bank(it) }.distinct().size > 1) continue
             step[a] = targets.maxByOrNull { counts[it] ?: 0 }!!
         }
-        val out = HashMap<String, String>()
-        for (a in step.keys) {
-            var cur = step.getValue(a); var hops = 0
-            while (step.containsKey(cur) && hops++ < 4) cur = step.getValue(cur)
-            if (cur != a) out[a] = cur
+        fun root(a: String): String { var cur = a; var hops = 0; while (step.containsKey(cur) && hops++ < 4) cur = step.getValue(cur); return cur }
+        // Pass 2: a very short tail ("76") joins only when exactly one account of that bank ends the same way.
+        for (a in labels) {
+            val n = num(a)!!
+            if (n.length >= 4 || bank(a).isEmpty()) continue
+            val roots = labels.filter { b -> b != a && num(b)!!.length > n.length && num(b)!!.endsWith(n) && bank(b) == bank(a) }.map { root(it) }.distinct()
+            if (roots.size == 1) step[a] = roots[0]
         }
+        val out = HashMap<String, String>()
+        for (a in step.keys) { val r = root(a); if (r != a) out[a] = r }
         return out
     }
 

@@ -156,6 +156,18 @@ class ParserTest {
     }
 
     @Test
+    fun maharashtraGraminBankMessages() {
+        val src = "AX-MGBBNK-S"
+        ok(src, "Your A/c no XXXXX83076 is credited by RS. 931.97 through By Transfer on 07/07/2026 at 18:27:54.Current BAL: Rs. 965.08 CR. -MGB04245", "credit", 931.97, "MGB 83076", null, "2026-07-07", null)
+        ok(src, "Your Account XXXXX83076 had a Micro ATM debit transaction of Rs. 6000.00 on 23/08/2026 at 15:52:09.available balance is Rs. 1609.08 CR MGB 04245", "debit", 6000.0, "MGB 83076", null, "2026-08-23", null)
+        ok(src, "Your a/c no. XXXX883076 is credited Rs.100.00 on 18-09-26 by a/c linked to virtual address 9860737048@ptyes (UPI Ref no 314964004488)MGB", "credit", 100.0, "MGB 883076", "9860737048", "2026-09-18", null)
+        ok(src, "Your a/c no. XXXX883076 is debited Rs.50.00 on 20-08-26 and a/c linked to virtual address 90828180822@sbi is credited (UPI Ref no 481050341654)MGB", "debit", 50.0, "MGB 883076", "90828180822", "2026-08-20", null)
+        ok(src, "ALERT: Your account 80XXXXXXXX76 has been debited by RS 10 on 02/05/2026 13:05 MGB", "debit", 10.0, "MGB 76", null, "2026-05-02", null)
+        assertEquals(11.08, Parser.balanceFromTxn("Your A/c no XXXXX83076 is credited by RS. 1.00 through BULK POSTING on 15/10/2026 at 13:34:13.Current BAL: Rs. 11.08 CR. -MGB04245")!!, 0.001)
+        assertEquals(1609.08, Parser.balanceFromTxn("Your Account XXXXX83076 had a Micro ATM debit transaction of Rs. 6000.00 on 23/08/2026 at 15:52:09.available balance is Rs. 1609.08 CR MGB 04245")!!, 0.001)
+    }
+
+    @Test
     fun sameAccountWithDifferentDigitCountsIsJoined() {
         val m = Analytics.autoMerge(mapOf("MGB 883076" to 1400, "83076" to 680, "MGB 3076" to 30, "SBI 3076" to 29, "HDFC 5997" to 100, "HDFC CC 5997" to 5))
         assertEquals("MGB 883076", m["83076"])
@@ -163,6 +175,11 @@ class ParserTest {
         assertNull(m["SBI 3076"])           // a different bank's account is never joined
         assertNull(m["HDFC CC 5997"])       // a card is never joined to a savings account
         assertNull(m["MGB 883076"])
+        // A two-digit tail joins only when exactly one account of that bank ends the same way.
+        val m2 = Analytics.autoMerge(mapOf("MGB 883076" to 1400, "MGB 83076" to 680, "MGB 76" to 3))
+        assertEquals("MGB 883076", m2["MGB 76"])
+        val m3 = Analytics.autoMerge(mapOf("SBI 247710" to 7, "SBI 868710" to 3, "SBI 10" to 2))
+        assertNull(m3["SBI 10"])
     }
 
     @Test
