@@ -21,6 +21,14 @@ android {
         val sponsorUrl = System.getenv("ZELU_SPONSOR_URL")?.takeIf { it.isNotBlank() }
             ?: (project.findProperty("zelu.sponsorUrl") as String?).orEmpty()
         buildConfigField("String", "SPONSOR_URL", "\"$sponsorUrl\"")
+        // AdMob. These defaults are Google's own TEST ids (safe to run, never earn). Put the real ids in gradle.properties
+        // (zelu.admobAppId, zelu.admobBannerUnit) or in ZELU_ADMOB_APP_ID / ZELU_ADMOB_BANNER_UNIT before publishing.
+        val admobApp = System.getenv("ZELU_ADMOB_APP_ID")?.takeIf { it.isNotBlank() }
+            ?: (project.findProperty("zelu.admobAppId") as String?).orEmpty()
+        val admobBanner = System.getenv("ZELU_ADMOB_BANNER_UNIT")?.takeIf { it.isNotBlank() }
+            ?: (project.findProperty("zelu.admobBannerUnit") as String?).orEmpty()
+        manifestPlaceholders["admobAppId"] = admobApp
+        buildConfigField("String", "ADMOB_BANNER_UNIT", "\"$admobBanner\"")
     }
 
     signingConfigs {
@@ -65,6 +73,7 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    implementation("com.google.android.gms:play-services-ads:23.4.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")

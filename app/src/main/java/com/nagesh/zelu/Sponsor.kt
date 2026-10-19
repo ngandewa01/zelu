@@ -21,11 +21,16 @@ object Sponsor {
 
     private fun prefs(context: Context) = context.getSharedPreferences("zelu_sponsor", Context.MODE_PRIVATE)
 
+    /** True once the first quiet week after install is over. Ads and sponsor cards both wait for it. */
+    fun pastQuietPeriod(context: Context): Boolean {
+        val installed = try { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime } catch (_: Exception) { 0L }
+        return installed <= 0 || System.currentTimeMillis() - installed >= QUIET_DAYS * 86_400_000L
+    }
+
     /** The card to show now, from the saved copy of the file; null when there is none, it is hidden, or it is too soon. */
     fun current(context: Context): Card? {
         if (BuildConfig.SPONSOR_URL.isBlank()) return null
-        val installed = try { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime } catch (_: Exception) { 0L }
-        if (installed > 0 && System.currentTimeMillis() - installed < QUIET_DAYS * 86_400_000L) return null
+        if (!pastQuietPeriod(context)) return null
         val text = try { java.io.File(context.filesDir, FILE).takeIf { it.exists() }?.readText() } catch (_: Exception) { null } ?: return null
         return pick(text, Dates.today(), prefs(context).getStringSet("hidden", emptySet()) ?: emptySet())
     }

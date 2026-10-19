@@ -3,15 +3,15 @@ package com.nagesh.zelu
 // The privacy policy shown in Menu, then Help. Short points, not paragraphs. Keep it in step with the published policy page.
 object PrivacyText {
     const val UPDATED = "19 October 2026"
-    const val SUMMARY = "Your messages and payments stay on your phone. Zelu goes online only to fetch one small sponsor card, and sends nothing about you."
+    const val SUMMARY = "Your messages and payments stay on your phone. Zelu shows ads through Google AdMob, and gives it none of your data."
 
     class Section(val title: String, val points: List<String>)
 
     /** The three things people most want to know, shown as tiles at the top. */
     val facts: List<Pair<String, String>> = listOf(
-        "On your phone" to "Nothing is uploaded",
-        "Nothing sent" to "Online only for the sponsor card",
-        "No tracking" to "No ads or analytics",
+        "On your phone" to "Your data stays here",
+        "Ads by Google" to "Never your messages",
+        "No login" to "No account, no server",
     )
 
     val sections: List<Section> = listOf(
@@ -24,18 +24,19 @@ object PrivacyText {
         Section("Where your data is kept", listOf(
             "Payments, categories, budgets and settings sit in the app's private storage on your phone.",
             "No account, no login, no server.",
-            "No analytics, ad network or tracking tools. Nothing about you is shared with anyone.",
+            "Zelu has no analytics or tracking tools of its own. Your messages and payments are shared with no one.",
         )),
         Section("What leaves your phone, only when you choose", listOf(
             "Backup: saved to Downloads/Zelu, locked with a password you set. Zelu cannot recover a forgotten password.",
             "CSV export: a plain file in Downloads/Zelu. Delete it in your Files app when done.",
             "Report a problem: opens an email draft. You see everything in it and send it yourself. Long numbers and UPI names are hidden first.",
         )),
-        Section("Sponsor card", listOf(
-            "Home may show one card marked Sponsored, a few days after you start using Zelu.",
-            "To get it, Zelu downloads a small text file. No account, ID, cookie, message or payment is sent with that request.",
-            "Zelu has no ad network and no tracking. Tapping the card opens the sponsor's website in your browser. That site has its own privacy policy.",
-            "Tap Hide on the card to remove it.",
+        Section("Ads", listOf(
+            "Home shows one banner ad, from Google AdMob, starting a few days after you install Zelu.",
+            "To show and measure ads, AdMob may use your phone's advertising ID and IP address, under Google's privacy policy.",
+            "Zelu never gives AdMob your messages, payments, balances or accounts.",
+            "You can reset or delete your advertising ID in Android Settings, then Privacy, then Ads.",
+            "Tapping an ad opens the advertiser's site. That site has its own privacy policy.",
         )),
         Section("Notifications", listOf(
             "Payment alerts, daily and weekly summaries, bill reminders.",

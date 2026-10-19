@@ -709,7 +709,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Why Zelu asks for SMS", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Text("Your bank already texts you every payment. Zelu reads those texts to find the amount, who was paid and which account, so you never type anything.", color = ZColor.InkSoft, fontSize = 13.sp)
-                        Text("It skips OTPs and personal chats. Your messages are never sent anywhere. Zelu goes online only to fetch a small sponsor card, and sends nothing about you.", color = ZColor.InkSoft, fontSize = 13.sp)
+                        Text("It skips OTPs and personal chats. Your messages are never sent anywhere. Zelu shows ads through Google AdMob and gives it none of your data.", color = ZColor.InkSoft, fontSize = 13.sp)
                     }
                     Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
@@ -1153,6 +1153,14 @@ fun ZeluApp() {
 
     val pageScroll = rememberScrollState()
     var sponsor by remember { mutableStateOf<Sponsor.Card?>(null) }
+    var adsOn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        adsOn = withContext(Dispatchers.IO) {
+            val on = BuildConfig.ADMOB_BANNER_UNIT.isNotBlank() && Sponsor.pastQuietPeriod(context)
+            if (on) com.google.android.gms.ads.MobileAds.initialize(context) {}
+            on
+        }
+    }
     LaunchedEffect(Unit) {                              // show the saved card at once, then refresh it in the background
         sponsor = withContext(Dispatchers.IO) { Sponsor.current(context) }
         withContext(Dispatchers.IO) { Sponsor.refresh(context) }
@@ -1474,6 +1482,13 @@ fun ZeluApp() {
                         withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
                         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
             }
+            }
+            // Home carries one ad at the bottom: a sponsor card if one is set, otherwise an AdMob banner.
+            if (view == "ledger" && sponsor == null && adsOn) {
+                Spacer(Modifier.height(16.dp))
+                MutedText("Ad", 11)
+                Spacer(Modifier.height(4.dp))
+                AdBanner(BuildConfig.ADMOB_BANNER_UNIT)
             }
             // One optional, clearly labelled sponsor card, only on Home. Nothing about the user is sent to fetch it.
             if (view == "ledger") sponsor?.let { c ->
@@ -2008,7 +2023,7 @@ fun ZeluApp() {
                 "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
         )
         val topics = listOf(
-            "Private" to "Everything stays on this phone. Zelu goes online only to fetch a small sponsor card, and sends nothing about you.",
+            "Private" to "Your messages and payments stay on this phone. Zelu shows ads through Google AdMob and gives it none of your data.",
             "Rescan" to "New messages are read as they arrive. Menu, Messages, Rescan reads again right now.",
             "Missed SMS" to "Money messages Zelu could not read. Menu, Messages, Missed SMS lets you add one by hand.",
             "Messages stop" to "Android may switch off permissions for an app you open rarely. In Settings, Apps, Zelu, Permissions, turn off 'Remove permissions if app isn't used'.",
