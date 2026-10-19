@@ -254,7 +254,7 @@ private fun logoFor(slug: String?): Int? = when (slug) {
     "psib" -> R.drawable.bank_psib; "jaka" -> R.drawable.bank_jaka; "csbk" -> R.drawable.bank_csbk
     "dlxb" -> R.drawable.bank_dlxb; "ciub" -> R.drawable.bank_ciub; "tmbl" -> R.drawable.bank_tmbl
     "ntbl" -> R.drawable.bank_ntbl; "dcbl" -> R.drawable.bank_dcbl; "esmf" -> R.drawable.bank_esmf
-    "ujvn" -> R.drawable.bank_ujvn; "fino" -> R.drawable.bank_fino; "airp" -> R.drawable.bank_airp
+    "ujvn" -> R.drawable.bank_ujvn; "fino" -> R.drawable.bank_fino; "airp" -> R.drawable.bank_airp; "mgb" -> R.drawable.bank_mgb
     "jiop" -> R.drawable.bank_jiop
     else -> null
 }

@@ -107,7 +107,7 @@ object IndianBanks {
     val logoSlug: Map<String, String> = mapOf(
         "BOM" to "mahb", "INDIAN" to "idib", "CENTRAL" to "cbin", "PSB" to "psib", "JKB" to "jaka", "CSB" to "csbk",
         "DHANLAXMI" to "dlxb", "CUB" to "ciub", "TMB" to "tmbl", "NAINITAL" to "ntbl", "DCB" to "dcbl",
-        "ESAF" to "esmf", "UTKARSH" to "ujvn", "FINO" to "fino", "AIRTEL" to "airp", "JIO" to "jiop",
+        "ESAF" to "esmf", "UTKARSH" to "ujvn", "FINO" to "fino", "AIRTEL" to "airp", "JIO" to "jiop", "MGB" to "mgb",
     )
 
     private fun rx(name: String) = name.trim().split(Regex("\\s+")).joinToString("""\s+""") { Regex.escape(it) }
