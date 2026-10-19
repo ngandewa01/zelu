@@ -18,7 +18,8 @@ object Storage {
     private const val REM_DONE_FILE = "reminder_done.json" // reminder ids ticked as paid
     private const val REPAID_FILE = "lent_repaid.json"   // person -> amount repaid against money you lent
     private const val ALIAS_FILE = "payee_alias.json"   // payee name -> the name you renamed / merged it into
-    private const val ACCOUNTS_FILE = "accounts.json"   // account / loan -> accepted or declined, and its type
+    private const val ACCOUNTS_FILE = "accounts.json"   // account / loan -> accepted, declined or joined into another ("duplicate"), and its type
+    private const val APART_FILE = "apart.json"         // accounts you separated: Zelu does not join them by itself again
     private const val TITLE_FILE = "title_overrides.json" // transaction id -> the title you gave it
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
@@ -83,23 +84,27 @@ object Storage {
             }
             return cur
         }
-        // An account you marked as a duplicate of another: its payments move to that account (or, for a loan,
-        // to the bank's main account, since the money left from there).
-        val dups = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "duplicate" }.mapValues { it.value.second }
+        val reg = readKv(context, ACCOUNTS_FILE)
+        // An account you joined into another on the Your accounts screen: its payments move to that account (or, for a
+        // loan, to the bank's main account, since the money left from there). Applied once the labels are final, below.
+        val dups = reg.filter { it.value.first == "duplicate" }.mapValues { it.value.second }
+        val apart = readKv(context, APART_FILE).keys
         val titles = readKv(context, TITLE_FILE)
         // Accounts you said are a different type than Zelu guessed (say, a savings account it read as a card).
-        val retype = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "accepted" }
+        val retype = reg.filter { it.value.first == "accepted" }
             .mapNotNull { (k, v) -> val n = relabel(k, v.second); if (n != k) k to n else null }.toMap()
         val catOff = readKv(context, CATOFF_FILE).keys
         val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
-        // The same account written with different digit counts is joined here, unless you decided about that label yourself.
-        val decided = readKv(context, ACCOUNTS_FILE).keys
-        val auto = Analytics.autoMerge(base.values.groupingBy { it.account }.eachCount()).filterKeys { it !in decided }
+        // The same account written with different digit counts is joined here, unless you decided otherwise about that
+        // label: you separated it, removed it, joined it yourself, or said it is not a savings account.
+        val keep = apart + reg.filter { it.value.first != "accepted" || (it.value.second.isNotBlank() && it.value.second != "savings") }.keys
+        val auto = Analytics.autoMerge(base.values.groupingBy { it.account }.eachCount()).filterKeys { it !in keep }
         autoMap = auto
+        val rawStats = if (auto.isEmpty()) emptyMap() else AccountBook.stats(base.values.filter { it.account in auto })
+        autoPartCache = auto.mapNotNull { (old, main) -> rawStats[old]?.let { old to (main to it) } }.toMap()
         val rows = base.values.map { r ->
             var row = auto[r.account]?.let { r.copy(account = it) } ?: r
-            dups[row.account]?.let { t -> row = row.copy(account = if (t.contains(" Loan ")) t.substringBefore(' ') else t) }
             // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
             titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
                 val c = Classifier.classify(Txn(r.id, r.date, r.amount, r.direction, t, r.ref, r.raw, r.source, r.account), own)
@@ -138,24 +143,47 @@ object Storage {
             if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
             return row
         }
-        val canon = canonicalizeAccounts(expanded)
+        val canon = canonicalizeAccounts(expanded, apart)
         val retyped = if (retype.isEmpty()) canon else canon.map { r ->
             val n = retype[r.account]
             if (n == null) r else reapply(r.copy(account = n))
         }
-        val declined = readKv(context, ACCOUNTS_FILE).filter { it.value.first == "declined" }.keys
-        return pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(retyped, overrides.keys))), loadRefundLinks(context))
-            .let { all -> if (declined.isEmpty()) all else all.filter { it.account !in declined && (it.counterparty ?: "") !in declined } }
+        // Every label before anything you joined is applied, for the Your accounts screen.
+        labelStatsCache = AccountBook.stats(retyped)
+        val joined = if (dups.isEmpty()) retyped else joinAccounts(retyped, dups)
+        val declined = reg.filter { it.value.first == "declined" }.keys
+        val processed = pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(joined, overrides.keys))), loadRefundLinks(context))
+        loanStatsCache = AccountBook.loanStats(processed)
+        return if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }
+    }
+
+    // Labels you joined into another account count under it. A label joined to a loan is that loan's EMI messages, and
+    // the money left from the bank's main account, so it counts there.
+    private fun joinAccounts(rows: List<Row>, dups: Map<String, String>): List<Row> {
+        fun root(k: String): String {
+            var c = k; var hops = 0
+            while (hops++ < 8) { val t = dups[c] ?: break; if (t == c) break; c = t }
+            return c
+        }
+        val counts = rows.groupingBy { it.account }.eachCount()
+        val mainOfBank = HashMap<String, String>()
+        fun bankMain(loan: String): String {
+            val bank = AccountBook.bankOf(loan) ?: return loan.substringBefore(' ')
+            return mainOfBank.getOrPut(bank) {
+                counts.keys.filter { AccountBook.bankOf(it) == bank && AccountBook.guessType(it) == "savings" && !dups.containsKey(it) }
+                    .maxByOrNull { counts[it] ?: 0 } ?: bank
+            }
+        }
+        val target = HashMap<String, String>()
+        for (k in counts.keys) if (dups.containsKey(k)) {
+            val t = root(k)
+            target[k] = if (t.contains(" Loan ")) bankMain(t) else t
+        }
+        return if (target.isEmpty()) rows else rows.map { r -> target[r.account]?.let { r.copy(account = it) } ?: r }
     }
 
     // The label an account takes once you say what it is: a savings account never carries "CC", a card always does.
-    fun relabel(key: String, type: String): String = when {
-        key.contains("Loan") -> key
-        type == "savings" && key.contains(" CC") -> key.replace(" CC", "")
-        type == "card" && !key.contains(" CC") && !key.startsWith("CC ") ->
-            if (key.contains(' ')) key.substringBefore(' ') + " CC " + key.substringAfter(' ') else "$key CC"
-        else -> key
-    }
+    fun relabel(key: String, type: String): String = AccountBook.relabel(key, type)
 
     // ---- accounts you confirmed (or turned down) ----  key -> (status, type)
     fun accountRegistry(context: Context): Map<String, Pair<String, String>> = synchronized(lock) { readKv(context, ACCOUNTS_FILE) }
@@ -171,28 +199,6 @@ object Storage {
         val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
         kv.putAll(decisions)
         writeKv(context, ACCOUNTS_FILE, kv)
-    }
-
-    // ---- linked accounts: a debit card or duplicate label that belongs to one of your accounts ----
-    // Stored in the same registry as a "duplicate", so its payments, balance and spend already count under the main account.
-    fun linkedMap(context: Context): Map<String, List<String>> =
-        accountRegistry(context).filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
-
-    fun linkAccount(context: Context, key: String, target: String) =
-        setAccountStatuses(context, mapOf(key to ("duplicate" to target)))
-
-    fun unlinkAccount(context: Context, key: String): Unit = synchronized(lock) {
-        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
-        kv[key] = "accepted" to (if (key.contains(" CC")) "card" else "savings")
-        writeKv(context, ACCOUNTS_FILE, kv)
-    }
-
-    fun linkRejected(context: Context): Set<String> =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet("link_rejected", emptySet()) ?: emptySet()
-
-    fun rejectLink(context: Context, key: String, target: String) {
-        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        sp.edit().putStringSet("link_rejected", (linkRejected(context) + "$key|$target").toSet()).apply()
     }
 
     fun accountsConfirmed(context: Context): Boolean =
@@ -282,7 +288,7 @@ object Storage {
     // Also folds "CC 6781" into "HDFC CC 6781" and "HDFC 1208" into "HDFC CC 1208".
     // One account written with different tails ("898" and "4898", or "8003" and "4xxx8003" read badly) is one account:
     // same bank, same kind, and at least three trailing digits in common.
-    private fun mergeTails(rows: List<Row>): List<Row> {
+    private fun mergeTails(rows: List<Row>, apart: Set<String> = emptySet()): List<Row> {
         val digits = Regex("""^\d{2,}$""")
         fun split(s: String): Triple<String, Boolean, String>? {
             if (s.contains("Loan") || s.contains("FASTag")) return null
@@ -301,8 +307,10 @@ object Storage {
             for ((t, _) in tails.sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenByDescending { it.first.length })) {
                 if (t in used) continue
                 for ((u, _) in tails) if (u != t && u !in used && same(t, u)) {
+                    val from = key.first + (if (key.second) " CC " else " ") + u
+                    if (from in apart) continue                 // you separated it
                     used.add(u)
-                    remap[key.first + (if (key.second) " CC " else " ") + u] = key.first + (if (key.second) " CC " else " ") + t
+                    remap[from] = key.first + (if (key.second) " CC " else " ") + t
                 }
                 used.add(t)
             }
@@ -310,8 +318,8 @@ object Storage {
         return if (remap.isEmpty()) rows else rows.map { r -> remap[r.account]?.let { r.copy(account = it) } ?: r }
     }
 
-    private fun canonicalizeAccounts(rows0: List<Row>): List<Row> {
-        val rows = mergeTails(rows0)
+    private fun canonicalizeAccounts(rows0: List<Row>, apart: Set<String> = emptySet()): List<Row> {
+        val rows = mergeTails(rows0, apart)
         val four = Regex("""^\d{4}$""")
         val anyDigits = Regex("""^\d{2,}$""")
         fun parse(s: String): Triple<String, Boolean, String> {
@@ -725,6 +733,51 @@ object Storage {
 
     // Old account label -> the account it was joined to (see Analytics.autoMerge). Set whenever the rows are computed.
     @Volatile private var autoMap: Map<String, String> = emptyMap()
+    // Set whenever the rows are computed, for the Your accounts screen: Zelu's own joins (old label -> main, its payments),
+    // payments per label before your joins, and EMIs per loan.
+    @Volatile private var autoPartCache: Map<String, Pair<String, AccountBook.Stat>> = emptyMap()
+    @Volatile private var labelStatsCache: Map<String, AccountBook.Stat> = emptyMap()
+    @Volatile private var loanStatsCache: Map<String, AccountBook.Stat> = emptyMap()
+
+    /** Every account for the Your accounts screen, with what is joined into each. */
+    fun accountBook(context: Context): List<AccountBook.Acct> {
+        loadRows(context)                                   // makes sure the caches below are current
+        return AccountBook.build(labelStatsCache, autoPartCache, loanStatsCache, accountRegistry(context),
+            loadBalances(context), loadLimits(context))
+    }
+
+    /** Save on an account's sheet (see [AccountBook.plan]). */
+    fun applyAccountPlan(context: Context, plan: AccountBook.Plan): Unit = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        kv.putAll(plan.registry)
+        writeKv(context, ACCOUNTS_FILE, kv)
+        val apart = readKv(context, APART_FILE).toMutableMap()
+        plan.apartAdd.forEach { apart[it] = "1" to "" }
+        plan.apartRemove.forEach { apart.remove(it) }
+        writeKv(context, APART_FILE, apart)
+    }
+
+    /** Continue on the screen: accounts shown and not removed are yours. */
+    fun confirmShownAccounts(context: Context): Unit = synchronized(lock) {
+        val plan = AccountBook.confirmPlan(accountBook(context), accountRegistry(context))
+        if (plan.isNotEmpty()) setAccountStatuses(context, plan)
+    }
+
+    /** "Not my account": removes the account and its payments from Zelu (the screen asks first). */
+    fun declineAccount(context: Context, key: String, type: String): Unit = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        kv[key] = "declined" to type
+        // What was joined into it comes back as its own accounts.
+        for ((k, v) in kv.toMap()) if (v.first == "duplicate" && v.second == key) kv[k] = "accepted" to AccountBook.guessType(k)
+        writeKv(context, ACCOUNTS_FILE, kv)
+    }
+
+    /** "This is my account" on a removed account. */
+    fun restoreAccount(context: Context, key: String): Unit = synchronized(lock) {
+        val kv = readKv(context, ACCOUNTS_FILE).toMutableMap()
+        kv[key] = "accepted" to (kv[key]?.second?.takeIf { it.isNotBlank() } ?: AccountBook.guessType(key))
+        writeKv(context, ACCOUNTS_FILE, kv)
+    }
 
     fun loadBalances(context: Context): Map<String, Pair<Double, Long>> {
         loadRows(context)                                   // makes sure autoMap is current
@@ -739,8 +792,20 @@ object Storage {
             }
             joined
         }
+        val joined = accountRegistry(context).filter { it.value.first == "duplicate" && !it.value.second.contains(" Loan ") }
+        val withJoined = if (joined.isEmpty()) m else {
+            val out = LinkedHashMap(m)
+            for ((k, v) in joined) {
+                val b = m[k] ?: continue
+                var t = v.second; var hops = 0
+                while (hops++ < 8) { val n = joined[t]?.second ?: break; if (n == t) break; t = n }
+                val cur = out[t]
+                if (cur == null || b.second > cur.second) out[t] = b
+            }
+            out
+        }
         val d = hiddenKeys(context)
-        return if (d.isEmpty()) m else m.filterKeys { it !in d }
+        return if (d.isEmpty()) withJoined else withJoined.filterKeys { it !in d }
     }
 
     private fun loadBalancesRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
@@ -999,7 +1064,7 @@ object Storage {
     }
 
     // Undo support: a copy of everything a category / refund / rename decision can change.
-    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE)
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE)
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
         UNDO_FILES.associateWith { n -> val f = file(context, n); if (f.exists()) f.readText() else null }

@@ -308,110 +308,11 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
     }
 }
 
-@Composable private fun LinkAccountsDialog(
-    rows: List<Row>, registry: Map<String, Pair<String, String>>, suggestions: List<Analytics.LinkSuggestion>,
-    onLink: (String, String) -> Unit, onUnlink: (String) -> Unit, onReject: (String, String) -> Unit, onDismiss: () -> Unit,
-) {
-    val linked = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
-    fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.contains(" Loan ")
-    val mains = (rows.map { it.account }.filter { plain(it) } + linked.keys.filter { plain(it) }).distinct().sorted()
-    var picking by remember { mutableStateOf<String?>(null) }
-    @Composable fun logoBox(a: String) {
-        val logo = bankLogoRes(a)
-        Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-            if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp))
-            else BankMark(a)
-        }
-    }
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
-            Text("Link accounts", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            MutedText("A debit card or a second label of the same account counts under that account: one balance, one spend.", 12)
-            Spacer(Modifier.height(10.dp))
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                if (suggestions.isNotEmpty()) {
-                    Eyebrow("Zelu thinks these belong together")
-                    suggestions.forEach { s ->
-                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                logoBox(s.key); Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(s.key + "  →  " + s.target, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                                    MutedText(s.reason, 12)
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                                Text("Link", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onLink(s.key, s.target) }.padding(vertical = 4.dp))
-                                Text("Not the same", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onReject(s.key, s.target) }.padding(vertical = 4.dp))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(14.dp))
-                }
-                Eyebrow("Your accounts")
-                if (mains.isEmpty()) MutedText("No accounts yet.", 12)
-                mains.forEach { m ->
-                    Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            logoBox(m); Spacer(Modifier.width(10.dp))
-                            Text(m, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        val kids = linked[m].orEmpty()
-                        if (kids.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            kids.forEach { k ->
-                                Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("└", color = ZColor.Line, fontSize = 16.sp)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(k, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("Unlink", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.clickable { onUnlink(k) }.padding(horizontal = 8.dp, vertical = 8.dp))
-                                }
-                            }
-                        }
-                        Text("+ Link another", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { picking = m }.padding(top = 8.dp, bottom = 2.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text("Done", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
-            }
-        }
-    }
-    picking?.let { target ->
-        val options = mains.filter { it != target && it !in linked.keys }
-        Dialog(onDismissRequest = { picking = null }) {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 560.dp)) {
-                Text("Link to $target", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                MutedText("Pick the account or card that belongs under it.", 12)
-                Spacer(Modifier.height(8.dp))
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                    if (options.isEmpty()) MutedText("There is nothing else to link yet.", 13)
-                    options.forEach { o ->
-                        Row(Modifier.fillMaxWidth().clickable { onLink(o, target); picking = null }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            logoBox(o); Spacer(Modifier.width(10.dp))
-                            Text(o, color = ZColor.Ink, fontSize = 14.sp)
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { picking = null }.padding(12.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable private fun DeclineConfirmDialog(c: Analytics.AcctCandidate, rows: List<Row>, onKeep: () -> Unit, onRemove: () -> Unit) {
-    val mine = remember(rows, c.key) { rowsOfAccount(rows, c.key).sortedByDescending { it.date } }
+@Composable private fun DeclineConfirmDialog(key: String, rows: List<Row>, onKeep: () -> Unit, onRemove: () -> Unit) {
+    val mine = remember(rows, key) { rowsOfAccount(rows, key).sortedByDescending { it.date } }
     Dialog(onDismissRequest = onKeep) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-            Text("Remove " + c.key + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Remove " + AccountBook.displayName(key) + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.sumOf { it.amount })}). " +
                 "If you remove it, these go from Zelu too: totals, payees, notifications.", 12)
@@ -443,148 +344,208 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
 
 private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" else "$n $many"
 
-@Composable private fun AccountSetupScreen(
-    cands: List<Analytics.AcctCandidate>, rows: List<Row>, onDone: (Map<String, Pair<String, String>>) -> Unit,
-) {
-    val checked = remember { mutableStateMapOf<String, Boolean>() }
-    val dup = remember { mutableStateMapOf<String, String>() }      // account -> the one you said it duplicates
-    val notDup = remember { mutableStateListOf<String>() }          // "different account" answers
-    fun isOn(c: Analytics.AcctCandidate) = !dup.containsKey(c.key) && (checked[c.key] ?: c.sure)
-    val typeSel = remember { mutableStateMapOf<String, String>() }   // account -> the type you chose
-    fun typeOf(c: Analytics.AcctCandidate) = typeSel[c.key] ?: c.type
-    var typeEdit by remember { mutableStateOf<String?>(null) }
-    var showUnsure by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf<String?>(null) }
-    var queue by remember { mutableStateOf<List<Analytics.AcctCandidate>>(emptyList()) }
-    fun finish() {
-        val out = LinkedHashMap<String, Pair<String, String>>()
-        for (c in cands) {
-            val ty = typeOf(c)
-            if (dup.containsKey(c.key)) { out[c.key] = "duplicate" to dup.getValue(c.key); continue }
-            val st = if (isOn(c)) "accepted" else "declined"
-            out[c.key] = st to ty
-            if (st == "accepted") { val nl = Storage.relabel(c.key, ty); if (nl != c.key) out[nl] = "accepted" to ty }
-        }
-        onDone(out)
+@Composable private fun AcctLogo(key: String, size: Int = 38) {
+    val logo = bankLogoRes(key)
+    Box(Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.29f).dp)).background(Color.White), contentAlignment = Alignment.Center) {
+        if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
+            contentDescription = null, modifier = Modifier.size((size * 0.68f).dp))
+        else BankMark(key)
     }
-    fun next() { queue = queue.drop(1); if (queue.isEmpty()) finish() }
+}
+
+private fun acctLine(type: String, count: Int) = when (type) {
+    "loan" -> acctTypeLabel(type) + " · " + plural(count, "EMI", "EMIs")
+    else -> acctTypeLabel(type) + " · " + plural(count, "payment", "payments")
+}
+
+// One screen for first setup and for Menu: your accounts, what is joined into each, and one sheet to change any of them.
+@Composable private fun AccountsScreen(
+    book: List<AccountBook.Acct>, firstRun: Boolean, undoMsg: String?, onUndo: () -> Unit,
+    onSave: (AccountBook.Plan, String) -> Unit, onDecline: (String, String) -> Unit, onRestore: (String) -> Unit,
+    onDone: () -> Unit, rows: List<Row>,
+) {
+    var open by remember { mutableStateOf<String?>(null) }
+    var showRemoved by remember { mutableStateOf(false) }
+    var declineFor by remember { mutableStateOf<AccountBook.Acct?>(null) }
+    val (known, unknown) = remember(book) { AccountBook.ordered(book) }
+    val removed = remember(book) { book.filter { it.declined } }
+    androidx.activity.compose.BackHandler(!firstRun) { if (open != null) open = null else onDone() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
             Text("Your accounts", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("Zelu found these in your messages. Keep the ones that are yours.", 13)
-            Spacer(Modifier.height(12.dp))
+            MutedText(if (firstRun) "Zelu found these in your messages. Tap one if something looks wrong."
+                else "Tap an account to see what is joined into it, or to change it.", 13)
+            Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                @Composable fun group(label: String, list: List<Analytics.AcctCandidate>) {
-                    if (list.isEmpty()) return
-                    Spacer(Modifier.height(10.dp))
-                    if (label.isNotEmpty()) Eyebrow(label)
-                    list.forEach { c ->
-                        val on = isOn(c)
-                        val twin = c.dupOf?.takeIf { c.key !in notDup }
-                        Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-                            .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val logo = bankLogoRes(c.key)
-                                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                                    if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
-                                        contentDescription = null, modifier = Modifier.size(26.dp))
-                                    else BankMark(c.key)
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(c.key, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    MutedText(when (typeOf(c)) {
-                                        "loan" -> plural(c.txns, "EMI", "EMIs") + " · " + money(c.amount)
-                                        "card" -> plural(c.txns, "payment", "payments") + (c.limit?.let { " · limit ${money(it)}" } ?: "")
-                                        else -> plural(c.txns, "payment", "payments") + (c.balance?.let { " · balance ${money(it)}" } ?: "")
-                                    } + (if (!c.sure) " · not sure" else ""), 12)
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Box(Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
-                                    .background(if (on) ZColor.Accent else Color.Transparent)
-                                    .border(1.5.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(17.dp))
-                                    .clickable { checked[c.key] = !on; dup.remove(c.key) }, contentAlignment = Alignment.Center) {
-                                    if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                }
+                @Composable fun card(a: AccountBook.Acct, faded: Boolean = false) {
+                    Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                        .clickable { open = a.key }.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AcctLogo(a.key)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(AccountBook.displayName(a.key), color = if (faded) ZColor.Muted else ZColor.Ink, fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                MutedText(acctLine(a.type, a.count), 12)
                             }
-                            if (twin != null) {
-                                Spacer(Modifier.height(8.dp))
-                                if (dup.containsKey(c.key)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Marked as the same as $twin", color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                                        Text("Undo", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.clickable { dup.remove(c.key) })
-                                    }
-                                } else {
-                                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Paper).padding(10.dp)) {
-                                        Text("Looks like the same account as $twin", color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                        Spacer(Modifier.height(6.dp))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                            Text("Mark as duplicate", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.clickable { dup[c.key] = twin })
-                                            Text("It's different", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                                modifier = Modifier.clickable { notDup.add(c.key) })
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                                if (c.sample.isNotBlank()) Text(if (expanded == c.key) "Hide message" else "See the message", color = ZColor.Accent, fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.clickable { expanded = if (expanded == c.key) null else c.key })
-                                Text(if (typeEdit == c.key) "Hide types" else "Change type", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.clickable { typeEdit = if (typeEdit == c.key) null else c.key })
-                            }
-                            if (typeEdit == c.key) {
-                                Spacer(Modifier.height(8.dp))
-                                ChipScroll {
-                                    listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "other" to "Wallet or other").forEach { (ty, lab) ->
-                                        PickChip(lab, typeOf(c) == ty) { typeSel[c.key] = ty; typeEdit = null }
-                                    }
-                                }
-                            }
-                            if (c.sample.isNotBlank()) {
-                                if (expanded == c.key) {
-                                    Spacer(Modifier.height(6.dp))
-                                    Text(c.sample, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
+                            val bal = if (a.type == "card") a.limit else a.balance
+                            if (bal != null && !faded) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (a.parts.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Includes " + a.parts.joinToString(" · ") { AccountBook.displayName(it.key) }, color = ZColor.Muted, fontSize = 12.sp,
+                                modifier = Modifier.padding(start = 50.dp))
                         }
                     }
                 }
-                // One-off numbers with no balance or limit are often not accounts at all (a phone number, a reference), so they wait here.
-                val firm = cands.filter { it.sure || it.dupOf != null }
-                val shaky = cands.filter { !it.sure && it.dupOf == null }
-                group("Savings accounts", firm.filter { typeOf(it) == "savings" })
-                group("Credit cards", firm.filter { typeOf(it) == "card" })
-                group("Loans", firm.filter { typeOf(it) == "loan" })
-                group("Wallets and others", firm.filter { typeOf(it) == "other" })
-                if (shaky.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showUnsure = !showUnsure }.padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Eyebrow("Not sure these are accounts (" + shaky.size + ")")
-                            MutedText("Seen once, with no balance. Open the message to check. Keep only the real ones.", 12)
-                        }
-                        Text(if (showUnsure) "Hide" else "Show", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    if (showUnsure) group("", shaky)
+                known.forEach { card(it) }
+                if (unknown.isNotEmpty()) {
+                    Spacer(Modifier.height(18.dp))
+                    Eyebrow("Bank not known")
+                    MutedText("Tap one to join it to your account.", 12)
+                    unknown.forEach { card(it) }
+                }
+                if (removed.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Text((if (showRemoved) "Hide " else "Show ") + plural(removed.size, "account that is not mine", "accounts that are not mine"),
+                        color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { showRemoved = !showRemoved }.padding(vertical = 8.dp))
+                    if (showRemoved) removed.forEach { card(it, faded = true) }
                 }
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Cta("Continue") {
-                val withSpend = cands.filter { !dup.containsKey(it.key) && !isOn(it) && rowsOfAccount(rows, it.key).isNotEmpty() }
-                if (withSpend.isEmpty()) finish() else queue = withSpend
+            Cta(if (firstRun) "Continue" else "Done", onDone)
+        }
+        undoMsg?.let { m ->
+            Row(Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 84.dp).fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp)).background(ZColor.Ink).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(m, color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("UNDO", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onUndo() }.padding(horizontal = 14.dp, vertical = 12.dp))
             }
         }
-        queue.firstOrNull()?.let { c ->
-            DeclineConfirmDialog(c, rows, onKeep = { checked[c.key] = true; next() }, onRemove = { next() })
+    }
+    book.firstOrNull { it.key == open }?.let { a ->
+        AccountSheet(a, book, onClose = { open = null },
+            onSave = { plan, msg -> open = null; onSave(plan, msg) },
+            onDecline = { declineFor = a }, onRestore = { open = null; onRestore(a.key) })
+    }
+    declineFor?.let { a ->
+        DeclineConfirmDialog(a.key, rows, onKeep = { declineFor = null }, onRemove = { onDecline(a.key, a.type); declineFor = null; open = null })
+    }
+}
+
+// Everything you can do to one account: its type, and which other accounts are really the same one.
+@Composable private fun AccountSheet(
+    a: AccountBook.Acct, book: List<AccountBook.Acct>, onClose: () -> Unit,
+    onSave: (AccountBook.Plan, String) -> Unit, onDecline: () -> Unit, onRestore: () -> Unit,
+) {
+    val context = LocalContext.current
+    class Opt(val key: String, val type: String, val stat: AccountBook.Stat, val auto: Boolean, val numberMatch: Boolean)
+    val options = remember(a, book) {
+        val parts = a.parts.map { Opt(it.key, AccountBook.guessType(it.key), it.stat, it.auto, AccountBook.numberMatch(a.key, it.key)) }
+        val partKeys = parts.map { it.key }.toSet()
+        parts + AccountBook.similar(book, a).filter { it.key !in partKeys }.map { Opt(it.key, it.type, it.own, false, AccountBook.numberMatch(a.key, it.key)) }
+    }
+    val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true } } }
+    var type by remember(a) { mutableStateOf(a.type) }
+    var showMsg by remember(a) { mutableStateOf(false) }
+    Dialog(onDismissRequest = onClose, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { onClose() },
+            contentAlignment = Alignment.BottomCenter) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 640.dp).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(ZColor.Paper)
+                .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {}
+                .windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 18.dp, vertical = 16.dp)) {
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AcctLogo(a.key, 42)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(AccountBook.displayName(a.key), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            MutedText(plural(a.count, if (a.type == "loan") "EMI" else "payment", if (a.type == "loan") "EMIs" else "payments"), 12)
+                        }
+                        val bal = if (a.type == "card") a.limit else a.balance
+                        if (bal != null && !a.declined) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (a.own.lastRaw.isNotBlank()) {
+                        Text(if (showMsg) "Hide the message" else "See a message", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showMsg = !showMsg }.padding(vertical = 8.dp))
+                        if (showMsg) Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card).padding(10.dp))
+                    }
+                    if (a.declined) {
+                        Spacer(Modifier.height(14.dp))
+                        MutedText("You said this is not your account, so its payments are not counted.", 13)
+                    } else {
+                        if (a.type != "loan") {
+                            Spacer(Modifier.height(10.dp))
+                            ChipScroll {
+                                listOf("savings" to "Savings account", "card" to "Credit card", "other" to "Wallet or other").forEach { (ty, lab) ->
+                                    PickChip(lab, type == ty) { type = ty }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text("Tick any that are the same account as this one", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        if (options.isEmpty()) {
+                            Spacer(Modifier.height(8.dp)); MutedText("No similar accounts.", 13)
+                        }
+                        options.forEach { o ->
+                            val on = ticked[o.key] == true
+                            Row(Modifier.fillMaxWidth().clickable { ticked[o.key] = !on }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                AcctLogo(o.key, 36)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(AccountBook.displayName(o.key), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val extra = (if (o.auto) "Joined by Zelu · " else if (o.numberMatch) "Number matches · " else "") +
+                                        plural(o.stat.count, "payment", "payments") + (if (o.stat.lastDate.isNotBlank()) " · last " + money(o.stat.lastAmount) + " on " + prettyDate(o.stat.lastDate) else "")
+                                    Text(extra, color = if (o.auto || o.numberMatch) ZColor.Income else ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                                Box(Modifier.size(24.dp).clip(RoundedCornerShape(7.dp)).background(if (on) ZColor.Accent else Color.Transparent)
+                                    .border(2.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
+                                    if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                if (a.declined) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SheetButton("Close", false, Modifier.weight(1f), onClose)
+                        SheetButton("This is my account", true, Modifier.weight(1.4f), onRestore)
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SheetButton("Cancel", false, Modifier.weight(1f), onClose)
+                        SheetButton("Save", true, Modifier.weight(1f)) {
+                            val set = ticked.filter { it.value }.keys
+                            val plan = AccountBook.plan(book, Storage.accountRegistry(context), a.key, set, type)
+                            val names = set.filter { it !in a.parts.map { p -> p.key } }
+                            val msg = when {
+                                names.isNotEmpty() -> "Joined " + names.joinToString(", ") { AccountBook.displayName(it) } + " into " + AccountBook.displayName(plan.main)
+                                a.parts.any { it.key !in set } -> "Separated " + a.parts.filter { it.key !in set }.joinToString(", ") { AccountBook.displayName(it.key) }
+                                else -> "Saved"
+                            }
+                            onSave(plan, msg)
+                        }
+                    }
+                    Text("Not my account", color = ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDecline() }.padding(top = 14.dp, bottom = 4.dp))
+                }
+            }
         }
+    }
+}
+
+@Composable private fun SheetButton(text: String, main: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(if (main) ZColor.Accent else ZColor.Card).clickable { onClick() }.padding(vertical = 13.dp),
+        contentAlignment = Alignment.Center) {
+        Text(text, color = if (main) ZColor.AccentInk else ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -776,10 +737,7 @@ fun ZeluApp() {
     var checkOpen by remember { mutableStateOf(false) }
     var registry by remember { mutableStateOf(Storage.accountRegistry(context)) }
     var acctConfirmed by remember { mutableStateOf(Storage.accountsConfirmed(context)) }
-    var declineFor by remember { mutableStateOf<Analytics.AcctCandidate?>(null) }
-    var linkOpen by remember { mutableStateOf(false) }
     var rescanRangeOpen by remember { mutableStateOf(false) }
-    var linkRejected by remember { mutableStateOf(Storage.linkRejected(context)) }
     LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
     var check by remember { mutableStateOf<Ingest.Check?>(null) }
     var autoBackup by remember { mutableStateOf(Backup.autoOn(context)) }
@@ -882,18 +840,14 @@ fun ZeluApp() {
         }
     }
 
-    fun saveAccountDecisions(d: Map<String, Pair<String, String>>, confirmed: Boolean) {
+    // Continue / Done on the Your accounts screen: what is shown and not removed is yours, so Zelu stops asking about it.
+    fun confirmAccounts() {
         scope.launch {
-            withContext(Dispatchers.IO) {
-                Storage.setAccountStatuses(context, d)
-                if (confirmed) Storage.setAccountsConfirmed(context)
-            }
-            if (confirmed) acctConfirmed = true
+            withContext(Dispatchers.IO) { Storage.confirmShownAccounts(context); Storage.setAccountsConfirmed(context) }
+            acctConfirmed = true
+            undo = null
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
-            balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
-            limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
-            if (confirmed) stage = "app"
+            stage = "app"
         }
     }
 
@@ -1122,9 +1076,9 @@ fun ZeluApp() {
             undo = msg to snap
         }
     }
-    fun linkAcct(key: String, target: String) = relink("$key linked to $target") { Storage.linkAccount(context, key, target) }
-    fun unlinkAcct(key: String) = relink("$key unlinked") { Storage.unlinkAccount(context, key) }
-    fun rejectLink(key: String, target: String) { Storage.rejectLink(context, key, target); linkRejected = Storage.linkRejected(context) }
+    fun saveAccountPlan(plan: AccountBook.Plan, msg: String) = relink(msg) { Storage.applyAccountPlan(context, plan) }
+    fun declineAcct(key: String, type: String) = relink("Removed " + AccountBook.displayName(key)) { Storage.declineAccount(context, key, type) }
+    fun restoreAcct(key: String) = relink("Brought back " + AccountBook.displayName(key)) { Storage.restoreAccount(context, key) }
 
     // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
     LaunchedEffect(stage, rows.size, acctConfirmed) {
@@ -1132,8 +1086,11 @@ fun ZeluApp() {
         if (stage == "done" && acctConfirmed) stage = "app"
     }
     if (stage == "accounts") {
-        val cands = remember(rows, balances, limits) { Analytics.accountCandidates(rows, balances, limits) }
-        AccountSetupScreen(cands, rows) { d -> saveAccountDecisions(d, true) }
+        val book = remember(rows, balances, limits, registry) { Storage.accountBook(context) }
+        undo?.let { u -> LaunchedEffect(u) { delay(6000); if (undo === u) undo = null } }
+        AccountsScreen(book, firstRun = !acctConfirmed, undoMsg = undo?.first, onUndo = { undoLast() },
+            onSave = { plan, msg -> saveAccountPlan(plan, msg) }, onDecline = { k, t -> declineAcct(k, t) },
+            onRestore = { k -> restoreAcct(k) }, onDone = { confirmAccounts() }, rows = rows)
         return
     }
     if (stage != "app") {
@@ -1202,40 +1159,16 @@ fun ZeluApp() {
             // A new account showed up in your messages after you set things up.
             val pendingAccts = remember(rows, balances, limits, registry, acctConfirmed) {
                 if (!acctConfirmed) emptyList()
-                else Analytics.accountCandidates(rows, balances, limits).filter { it.key !in registry && it.txns > 0 && (it.sure || it.dupOf != null) }
+                else Storage.accountBook(context).filter { !it.declined && it.key !in registry && it.count > 0 && (it.count >= 2 || it.balance != null || it.limit != null || it.type == "loan") }
             }
             pendingAccts.firstOrNull()?.let { c ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
-                    .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    .clickable { stage = "accounts" }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("New " + acctTypeLabel(c.type).lowercase() + " found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(c.key + " · " + plural(c.txns, "payment", "payments") + (c.dupOf?.let { " · same as $it?" } ?: ""), color = ZColor.InkSoft, fontSize = 12.sp,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (c.sample.isNotBlank()) Text(c.sample, color = ZColor.Muted, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 3.dp))
+                        Text(if (pendingAccts.size == 1) "New account found" else "${pendingAccts.size} new accounts found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(AccountBook.displayName(c.key) + " · " + plural(c.count, "payment", "payments"), color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text("Not mine", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { declineFor = c }.padding(horizontal = 10.dp, vertical = 10.dp))
-                    if (c.dupOf != null) Text("Same", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("duplicate" to c.dupOf)), false) }.padding(horizontal = 10.dp, vertical = 10.dp))
-                    Text("Add", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false) }.padding(horizontal = 12.dp, vertical = 10.dp))
-                }
-            }
-            val linkSugg = remember(rows, registry, linkRejected, acctConfirmed) {
-                if (!acctConfirmed) emptyList() else Analytics.linkSuggestions(rows, registry, linkRejected)
-            }
-            if (pendingAccts.isEmpty()) linkSugg.firstOrNull()?.let { ls ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
-                    .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Link " + ls.key + "?", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(ls.reason + " · part of " + ls.target + "?", color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text("Not the same", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { rejectLink(ls.key, ls.target) }.padding(horizontal = 10.dp, vertical = 10.dp))
-                    Text("Link", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { linkAcct(ls.key, ls.target) }.padding(horizontal = 12.dp, vertical = 10.dp))
+                    Text("Review", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                 }
             }
             if (!smsOk) {
@@ -1265,14 +1198,6 @@ fun ZeluApp() {
                     Text("Review", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                 }
             }
-            declineFor?.let { c ->
-                DeclineConfirmDialog(c, rows, onKeep = {
-                    saveAccountDecisions(mapOf(c.key to ("accepted" to c.type)), false); declineFor = null
-                }, onRemove = {
-                    saveAccountDecisions(mapOf(c.key to ("declined" to c.type)), false); declineFor = null
-                })
-            }
-
             // filter bar: arrows + summary pill + collapsible dropdowns
             val rangeLabel = when (period) {
                 "week" -> "Last 7 days"; "month" -> Dates.monthLabel(month)
@@ -1671,11 +1596,8 @@ fun ZeluApp() {
                             MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
                         }
                         "accounts" -> {
-                            MenuRow("Review accounts", "Mark accounts as yours, a duplicate, or not mine", Icons.Rounded.AccountBalance) { shut(); stage = "accounts" }
+                            MenuRow("Your accounts", "Join duplicates, set what each one is, remove what is not yours", Icons.Rounded.AccountBalance) { shut(); stage = "accounts" }
                             val removed = registry.count { it.value.first == "declined" } + Storage.hiddenAccounts(context).size
-                            val linkSugN = Analytics.linkSuggestions(rows, registry, linkRejected).size
-                            MenuRow("Link accounts", if (linkSugN > 0) "$linkSugN suggested · debit cards and duplicate labels" else "Put a debit card or duplicate label under one account",
-                                Icons.Rounded.Link) { shut(); linkOpen = true }
                             MenuRow("Bring back removed accounts", if (removed > 0) "$removed removed or hidden" else "Nothing removed", Icons.Rounded.Restore, ZColor.Muted) {
                                 if (removed > 0) {
                                     shut()
@@ -2026,8 +1948,8 @@ fun ZeluApp() {
                 "Pick a category, or Transfer, Lent, Borrowed, Ignore.", "Zelu remembers it for the same payee.")),
             Fix("bank", Icons.Rounded.AccountBalance, "A bank is not read", listOf("Open Menu, then Messages.", "Tap Unrecognised senders.",
                 "Say whether the sender is a bank, a wallet or other.", "Its old and new messages are read from then on.")),
-            Fix("acct", Icons.Rounded.CreditCard, "An account is wrong", listOf("Open Menu, then Accounts.", "Tap Change type on the account.",
-                "Choose Savings, Card, Loan or Other.", "Link it to an account you have, or keep it separate.")),
+            Fix("acct", Icons.Rounded.CreditCard, "An account is wrong", listOf("Open Menu, then Your accounts.", "Tap the account.",
+                "Choose what it is, and tick any that are the same account.", "Tap Save. Untick later to separate them.")),
             Fix("data", Icons.Rounded.CloudUpload, "Back up or erase", listOf("Open Menu, then Backup and security.", "Back up saves one file to Downloads/Zelu, locked with a password you choose. Keep that password: Zelu cannot recover it.",
                 "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
         )
@@ -2504,8 +2426,6 @@ fun ZeluApp() {
 
     if (rescanRangeOpen) RescanRangeDialog(onRun = { a, b -> rescanRangeOpen = false; rescanRange(a, b) }, onDismiss = { rescanRangeOpen = false })
 
-    if (linkOpen) LinkAccountsDialog(rows, registry, Analytics.linkSuggestions(rows, registry, linkRejected),
-        onLink = { k, t -> linkAcct(k, t) }, onUnlink = { k -> unlinkAcct(k) }, onReject = { k, t -> rejectLink(k, t) }, onDismiss = { linkOpen = false })
 
     if (themeOpen) Dialog(onDismissRequest = { themeOpen = false }) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)

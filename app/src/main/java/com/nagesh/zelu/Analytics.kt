@@ -186,50 +186,6 @@ object Analytics {
         return net
     }
 
-    class LinkSuggestion(val key: String, val target: String, val reason: String)
-
-    private val DEBIT_WORD = Regex("""debit\s*card|\bdc\b""", RegexOption.IGNORE_CASE)
-
-    // A debit card or second label that probably belongs to one of your accounts. Only suggested when the messages
-    // themselves point to it: another account's messages mention this number, or this one is worded as a debit card.
-    fun linkSuggestions(rows: List<Row>, registry: Map<String, Pair<String, String>>, rejected: Set<String>): List<LinkSuggestion> {
-        fun plain(a: String) = a.isNotBlank() && !a.contains(" CC") && !a.contains(" Loan ")
-        fun bank(a: String) = if (a.contains(' ')) a.substringBefore(' ') else ""
-        fun tail(a: String) = a.substringAfterLast(' ').takeIf { t -> t.length >= 3 && t.all { it.isDigit() } } ?: ""
-        val groups = rows.filter { plain(it.account) }.groupBy { it.account }
-        val out = ArrayList<LinkSuggestion>()
-        for ((small, sr) in groups) {
-            if (registry[small]?.first == "duplicate") continue
-            val b = bank(small); if (b.isEmpty()) continue
-            val peers = groups.filter { (k, v) -> k != small && bank(k) == b && v.size >= sr.size }
-            if (peers.isEmpty()) continue
-            val t = tail(small)
-            val main = peers.maxByOrNull { it.value.size }!!.key
-            val mention = if (t.isNotEmpty()) peers.entries.firstOrNull { e -> e.value.any { it.raw.contains(t) } }?.key else null
-            val reason = when {
-                mention != null -> "Messages of $mention mention $t"
-                sr.count { DEBIT_WORD.containsMatchIn(it.raw) } * 2 >= sr.size -> "Its messages call it a debit card"
-                else -> null
-            } ?: continue
-            val target = mention ?: main
-            if ("$small|$target" in rejected) continue
-            out.add(LinkSuggestion(small, target, reason))
-        }
-        return out.sortedByDescending { groups[it.key]?.size ?: 0 }.take(5)
-    }
-
-    // An account, card or loan Zelu found in your messages, with the evidence for it.
-    data class AcctCandidate(
-        val key: String, val type: String, // type: savings, card, loan, other
-        val txns: Int, val amount: Double, val balance: Double?, val limit: Double?, val sample: String,
-        val dupOf: String? = null, // another entry this one probably is (same bank, same number)
-    ) {
-        // Several payments, or a balance / limit, make it clearly one of yours; the rest are "not sure".
-        val sure: Boolean get() = type == "loan" || txns >= 2 || balance != null || limit != null
-    }
-
-    private val LOAN_NAME = Regex(""".*\bLoan \d{3,4}$""")
-
     // Reference numbers named in a message: "UPI:756424637751", "UPI Ref no 123…", "Ref. no. 6085…", "reference number", "RRN", "UTR", "Txn id".
     private val REF_IN_TEXT = Regex("""\b(?:upi(?:\s*ref(?:erence)?)?|ref(?:erence)?|rrn|utr|txn\s*id|transaction\s*id|imps)\s*[:#.\-]*\s*(?:no\.?|number|id|#)?\s*[:#.\-]*\s*([A-Za-z]{0,4}\d{6,})""", RegexOption.IGNORE_CASE)
     private fun refsOf(r: Row): Set<String> {
@@ -309,43 +265,6 @@ object Analytics {
         val out = HashMap<String, String>()
         for (a in step.keys) { val r = root(a); if (r != a) out[a] = r }
         return out
-    }
-
-    fun accountCandidates(rows: List<Row>, balances: Map<String, Pair<Double, Long>>, limits: Map<String, Pair<Double, Long>>): List<AcctCandidate> {
-        fun guess(k: String) = when {
-            k.contains("FASTag") -> "other"
-            k.contains(" CC") || k.startsWith("CC ") -> "card"
-            else -> "savings"
-        }
-        val out = ArrayList<AcctCandidate>()
-        val byAcct = rows.filter { it.account.isNotBlank() }.groupBy { it.account }
-        val keys = (byAcct.keys + balances.keys + limits.keys.map { it.substringBefore("#total") }).distinct()
-        for (k in keys) {
-            val rs = byAcct[k].orEmpty()
-            out.add(AcctCandidate(k, guess(k), rs.size, rs.filter { it.direction == "debit" }.sumOf { it.amount },
-                balances[k]?.first, limits[k]?.first ?: limits["$k#total"]?.first, rs.maxByOrNull { it.date }?.raw ?: ""))
-        }
-        rows.filter { it.category == "EMI" && LOAN_NAME.matches(it.counterparty ?: "") }.groupBy { it.counterparty!! }.forEach { (n, rs) ->
-            out.add(AcctCandidate(n, "loan", rs.size, rs.sumOf { it.amount }, null, null, rs.maxByOrNull { it.date }?.raw ?: ""))
-        }
-        // The same bank and the same number under two names ("UNION Loan 0126" and "UNION 0126") is one thing.
-        fun bank(k: String) = k.substringBefore(' ').uppercase()
-        fun num(k: String) = k.trim().split(" ").last().takeIf { t -> t.length >= 2 && t.all { it.isDigit() } }
-        // The same account when the whole number matches or at least three trailing digits do.
-        fun same(x: String?, y: String?) = x != null && y != null && (x == y || (minOf(x.length, y.length) >= 3 && x.takeLast(3) == y.takeLast(3)))
-        // A bare number with no bank name ("4040") is not an account Zelu can place, so it is not offered.
-        out.removeAll { it.key.none { ch -> ch.isLetter() } }
-        val marked = out.map { c ->
-            val n = num(c.key)
-            val twin = if (n == null) null else out.firstOrNull { d ->
-                d.key != c.key && bank(d.key) == bank(c.key) && same(num(d.key), n) &&
-                    (if (c.type == "loan" || d.type == "loan") d.type == "loan" && c.type != "loan"
-                    else d.txns > c.txns || (d.txns == c.txns && d.key < c.key))
-            }
-            if (twin != null) c.copy(dupOf = twin.key) else c
-        }
-        val order = listOf("savings", "card", "loan", "other")
-        return marked.sortedWith(compareBy<AcctCandidate> { order.indexOf(it.type) }.thenByDescending { it.txns })
     }
 
     fun byPayee(list: List<Row>): List<Payee> {
