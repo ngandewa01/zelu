@@ -2091,11 +2091,28 @@ fun ZeluApp() {
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 Text(PrivacyText.SUMMARY, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                PrivacyText.sections.forEach { (h, b) ->
-                    Spacer(Modifier.height(14.dp))
-                    Text(h, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(b, color = ZColor.InkSoft, fontSize = 13.sp)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrivacyText.facts.forEach { (t, d) ->
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.IncomeSoft).padding(10.dp)) {
+                            Text("✓", color = ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(t, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(d, color = ZColor.InkSoft, fontSize = 11.sp)
+                        }
+                    }
+                }
+                PrivacyText.sections.forEach { sec ->
+                    Spacer(Modifier.height(12.dp))
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Paper).padding(14.dp)) {
+                        Text(sec.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        sec.points.forEach { pt ->
+                            Row(Modifier.padding(top = 6.dp)) {
+                                Text("•", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(8.dp))
+                                Text(pt, color = ZColor.InkSoft, fontSize = 13.sp)
+                            }
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
