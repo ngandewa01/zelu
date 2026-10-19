@@ -4,6 +4,12 @@ on:
   push:
   workflow_dispatch:
 
+# A newer push to the same branch cancels the build still running for an older one,
+# so the latest APK arrives sooner instead of waiting behind outdated builds.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     permissions:
