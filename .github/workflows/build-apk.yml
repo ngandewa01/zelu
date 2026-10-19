@@ -52,6 +52,8 @@ jobs:
         shell: bash
         run: |
           grep -E "^e: |error:|What went wrong" -A1 build.log | head -40 | sed 's/^/::error::/' | tr -d '\r' || true
+          # A lint error that stops the release build is named in the lint report.
+          cat app/build/reports/lint-results-*.txt 2>/dev/null | grep -E "Error:|Fatal:" -B1 -A3 | head -30 | sed 's/^/::error::/' | tr -d '\r' || true
           # A parser test that fails names the message it read wrongly.
           grep -h -E "AssertionError|Should be" app/build/test-results/testReleaseUnitTest/*.xml 2>/dev/null | head -10 | sed 's/^ *//; s/^/::error::/' | tr -d '\r' || true
 
