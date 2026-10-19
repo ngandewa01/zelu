@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 60
+    const val PARSER_VERSION = 61
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -153,7 +153,7 @@ object Storage {
         val joined = if (dups.isEmpty()) retyped else joinAccounts(retyped, dups)
         val declined = reg.filter { it.value.first == "declined" }.keys
         val processed = pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(joined, overrides.keys))), loadRefundLinks(context))
-        loanStatsCache = AccountBook.loanStats(processed)
+        loanStatsCache = AccountBook.loanStats(processed) + loansFromNotices(context, processed)
         return (if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }).newestFirst()
     }
 
@@ -605,6 +605,15 @@ object Storage {
         for (r in newOnes) if (!map.containsKey(r.id)) { map[r.id] = r; added++ }
         writeReminderMap(context, map)
         added
+    }
+
+    // A loan that only has payment notices (a "pay your dues" link) and no EMI debit yet is still a loan of yours.
+    private fun loansFromNotices(context: Context, rows: List<Row>): Map<String, AccountBook.Stat> {
+        val have = rows.mapNotNull { it.counterparty }.toSet()
+        return readReminderMap(context).values
+            .filter { r -> r.counterparty != null && r.counterparty !in have && Regex(""".*\bLoan \d{3,4}$""").matches(r.counterparty) }
+            .groupBy { it.counterparty!! }
+            .mapValues { e -> val l = e.value.maxByOrNull { it.dueDate }!!; AccountBook.Stat(0, l.dueDate, l.amount, l.raw) }
     }
 
     fun loadReminders(context: Context): List<Reminder> = synchronized(lock) {

@@ -56,7 +56,7 @@ object Parser {
     )
     // A dues / reminder notice (bill due, amount payable) — not a completed payment.
     private val DUES_NOTICE = Regex(
-        """\b(is|are) due\b|\bdue (on|by|date)\b|payment (is )?due|amount due|amt due|\bpayable\b|please pay|kindly pay|do pay|\bpay (now|by|before|your)\b|\brepay\b|last date to pay""",
+        """\b(is|are) due\b|\bdue (on|by|date)\b|payment (is )?due|amount due|amt due|\bpayable\b|please pay|kindly pay|do pay|\bpay (now|by|before|your)\b|\brepay\b|last date to pay|use this link\b.{0,120}\bto pay\b""",
         RegexOption.IGNORE_CASE,
     )
     // Money that has ACTUALLY left the account (past tense / completed).
@@ -73,7 +73,7 @@ object Parser {
     )
     // An amount to ignore when picking the bill amount (a balance, limit or min-due figure).
     private val REM_SKIP_AMT = Regex(
-        """(min(?:imum)?(\s*(amt|amount|due))?|avl|avbl|available|balance|\bbal\b|limit|o/s|outstanding)[^.]{0,10}$""",
+        """(min(?:imum)?(\s*(amt|amount|due))?|disburse(?:d|ment)?|avl|avbl|available|balance|\bbal\b|limit|o/s|outstanding)[^.]{0,10}$""",
         RegexOption.IGNORE_CASE,
     )
     private val MIN_AMT = Regex(
@@ -249,7 +249,7 @@ object Parser {
     // "Your Loan A/c *0126 Credited for Rs:72894.00 ... by BRANCH": the bank took the EMI from your own
     // account and the loan account received it. That is an EMI paid (money out), never money in.
     private val LOAN_CREDIT = Regex("""loan\s*a/?c.{0,40}\b(credited|credit)\b""", RegexOption.IGNORE_CASE)
-    private val LOAN_AC = Regex("""loan\s*a(?:/c|cc(?:ount)?)(?:\s*no\.?)?\s*[xX*#]*\s*\d*?(\d{3,4})\b""", RegexOption.IGNORE_CASE)
+    private val LOAN_AC = Regex("""loan\s*a(?:/c|c{1,2}(?:ount)?)(?:\s*(?:no|number|num)\.?)?\s*:?\s*(?:\d{0,4}[xX*#]+)?\s*\d*?(\d{3,4})\b""", RegexOption.IGNORE_CASE)
 
     // Canonical merchant names, so "ZOMATO LTD" / "Zomato Media Pvt Ltd" group as one payee.
     private val MERCHANT_MAP: List<Pair<Regex, String>> = listOf(
@@ -465,10 +465,11 @@ object Parser {
 
         val amounts = AMOUNT.findAll(text).toList()
         if (amounts.isEmpty()) return null
+        val loanNo = LOAN_AC.find(text)?.groupValues?.get(1)
         // The bill amount: the first figure that isn't a balance / limit / min-due.
         val billAmt = amounts.firstOrNull { m ->
             !REM_SKIP_AMT.containsMatchIn(text.substring(0, m.range.first))
-        } ?: amounts.first()
+        } ?: (if (loanNo != null) return null else amounts.first())
         val amount = billAmt.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
         val minAmount = MIN_AMT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
         val dueDate = parseDueDate(text) ?: parseDate(text, receivedMs)
@@ -477,13 +478,12 @@ object Parser {
         var cp = canonicalMerchant(text)
             ?: ACH_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
             ?: CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
-        if (recurring) {
-            LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln ->
-                val bk = bankInText(text)
-                cp = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
-            }
+        // A message about a loan names the loan, never a savings account of yours.
+        if (loanNo != null) {
+            val bk = accountOf(text, source, "debit").substringBefore(' ').takeIf { it.isNotBlank() && !it.all { c -> c.isDigit() } } ?: bankInText(text)
+            cp = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $loanNo"
         }
-        val account = accountOf(text, source, "debit")
+        val account = if (loanNo != null) accountOf(text, source, "debit").substringBefore(' ') else accountOf(text, source, "debit")
         val ref = REF.find(text)?.groupValues?.get(1)
         val id = if (ref != null) "rem-$ref" else "rem-" + hash("$dueDate|$amount|$text")
         return Reminder(id, dueDate, amount, minAmount, cp, account, recurring, text, source)

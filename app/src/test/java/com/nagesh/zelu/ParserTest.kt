@@ -242,4 +242,17 @@ class ParserTest {
         assertTrue(Parser.isFinancialSender("JD-HDFCBK-S"))
         assertFalse(Parser.isFinancialSender("MYFRIEND"))
     }
+
+    @Test
+    fun loanNoticesNameTheLoanNotASavingsAccount() {
+        val due = "DUES Payment: Use this link https://hdfcbk.io/HDFCBK/s/aaaa1111 to pay Rs.4300 for HDFC Bank Loan A/c 70****123."
+        assertEquals(null, Parser.parseSms(due, 1760000000000L, "HDFCBK"))
+        val r = Parser.parseReminder(due, 1760000000000L, "HDFCBK")!!
+        assertEquals("HDFC Loan 123", r.counterparty)
+        assertEquals(4300.0, r.amount, 0.001)
+        assertEquals("HDFC", r.account)
+        assertTrue(Parser.isLoanAccountText("HDFC Bank Loan Ac no.xxx789 - PEMI Interest on disbursement of Rs 1000000 will be debited along with the next EMI."))
+        // The disbursed amount is not a bill.
+        assertEquals(null, Parser.parseReminder("HDFC Bank Loan Ac no.xxx789 - PEMI Interest on disbursement of Rs 1000000 will be debited along with the next EMI.", 1760000000000L, "HDFCBK"))
+    }
 }
