@@ -370,6 +370,7 @@ private fun acctLine(type: String, count: Int) = when (type) {
     val (known, unknown) = remember(book) { AccountBook.ordered(book) }
     val removed = remember(book) { book.filter { it.declined } }
     androidx.activity.compose.BackHandler(!firstRun) { if (open != null) open = null else onDone() }
+    androidx.activity.compose.BackHandler(open != null) { open = null }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
@@ -428,11 +429,11 @@ private fun acctLine(type: String, count: Int) = when (type) {
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onUndo() }.padding(horizontal = 14.dp, vertical = 12.dp))
             }
         }
-    }
-    book.firstOrNull { it.key == open }?.let { a ->
-        AccountSheet(a, book, onClose = { open = null },
-            onSave = { plan, msg -> open = null; onSave(plan, msg) },
-            onDecline = { declineFor = a }, onRestore = { open = null; onRestore(a.key) })
+        book.firstOrNull { it.key == open }?.let { a ->
+            AccountSheet(a, book, onClose = { open = null },
+                onSave = { plan, msg -> open = null; onSave(plan, msg) },
+                onDecline = { declineFor = a }, onRestore = { open = null; onRestore(a.key) })
+        }
     }
     declineFor?.let { a ->
         DeclineConfirmDialog(a.key, rows, onKeep = { declineFor = null }, onRemove = { onDecline(a.key, a.type); declineFor = null; open = null })
@@ -454,8 +455,8 @@ private fun acctLine(type: String, count: Int) = when (type) {
     val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true } } }
     var type by remember(a) { mutableStateOf(a.type) }
     var showMsg by remember(a) { mutableStateOf(false) }
-    Dialog(onDismissRequest = onClose, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { onClose() },
+    androidx.compose.runtime.key(a.key) {
+        Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { onClose() },
             contentAlignment = Alignment.BottomCenter) {
             Column(Modifier.fillMaxWidth().heightIn(max = 640.dp).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(ZColor.Paper)
                 .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {}
