@@ -223,7 +223,7 @@ private fun pickDate(context: Context, current: String, onPick: (String) -> Unit
     ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
 }
 
-private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "fd" -> "Fixed deposit"; "rd" -> "Recurring deposit"; "other" -> "Wallet"; else -> "Savings account" }
+private fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "debit" -> "Debit card"; "fd" -> "Fixed deposit"; "rd" -> "Recurring deposit"; "other" -> "Wallet"; else -> "Savings account" }
 
 private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.account == key || (it.counterparty ?: "") == key }
 
@@ -390,6 +390,7 @@ private fun acctLine(type: String, count: Int) = when (type) {
                                 Text(AccountBook.displayName(a.key), color = if (faded) ZColor.Muted else ZColor.Ink, fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 MutedText(acctLine(a.type, a.count), 12)
+                                AccountBook.cardLink(book, a)?.let { Text("Looks like the card of ${it.key}. Tap to link.", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             }
                             val bal = if (a.type == "card") a.limit else a.balance
                             if (bal != null && !faded) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -452,7 +453,8 @@ private fun acctLine(type: String, count: Int) = when (type) {
         val partKeys = parts.map { it.key }.toSet()
         parts + AccountBook.similar(book, a).filter { it.key !in partKeys }.map { Opt(it.key, it.type, it.own, false, AccountBook.numberMatch(a.key, it.key)) }
     }
-    val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true } } }
+    val suggested = remember(a, book) { AccountBook.cardLink(book, a) }
+    val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true }; suggested?.let { m[it.key] = true } } }
     var type by remember(a) { mutableStateOf(a.type) }
     var showMsg by remember(a) { mutableStateOf(false) }
     androidx.compose.runtime.key(a.key) {
@@ -478,11 +480,15 @@ private fun acctLine(type: String, count: Int) = when (type) {
                         if (showMsg) Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card).padding(10.dp))
                     }
+                    if (suggested != null && !a.declined) {
+                        Spacer(Modifier.height(10.dp))
+                        MutedText("This looks like the debit card of ${suggested.key}. It is ticked below. Save to link it, or untick it to keep it separate.", 13)
+                    }
                     if (a.declined) {
                         Spacer(Modifier.height(14.dp))
                         MutedText("You said this is not your account, so its payments are not counted.", 13)
                     } else {
-                        if (a.type != "loan") {
+                        if (a.type != "loan" && a.type != "debit") {
                             Spacer(Modifier.height(10.dp))
                             ChipScroll {
                                 listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->

@@ -37,7 +37,7 @@ object AccountBook {
     /** The bank in a label, or null when the label is only a number. */
     fun bankOf(key: String): String? {
         val parts = key.trim().split(" ").filter { it.isNotEmpty() }
-        val words = parts.filterIndexed { i, p -> !(i == parts.size - 1 && DIGITS.matches(p)) && !p.equals("CC", true) && p != "Loan" && p != "FD" && p != "RD" }
+        val words = parts.filterIndexed { i, p -> !(i == parts.size - 1 && DIGITS.matches(p)) && !p.equals("CC", true) && p != "Loan" && p != "FD" && p != "RD" && p != "DC" }
         return words.joinToString(" ").takeIf { w -> w.any { it.isLetter() } }
     }
 
@@ -46,6 +46,7 @@ object AccountBook {
 
     fun guessType(key: String): String = when {
         key.contains(" Loan ") -> "loan"
+        key.contains(" DC ") -> "debit"
         key.contains(" FD ") -> "fd"
         key.contains(" RD ") -> "rd"
         key.contains("FASTag", true) -> "other"
@@ -55,7 +56,7 @@ object AccountBook {
 
     /** The label an account takes once you say what it is: a savings account never carries "CC", a card always does. */
     fun relabel(key: String, type: String): String {
-        if (key.contains("Loan")) return key
+        if (key.contains("Loan") || key.contains(" DC ")) return key
         val marker = when (type) { "card" -> "CC"; "loan" -> "Loan"; "fd" -> "FD"; "rd" -> "RD"; else -> null }
         if (type == "other") return key
         val base = key.replace(" CC", "").replace(" FD", "").replace(" RD", "")
@@ -125,7 +126,9 @@ object AccountBook {
     fun similar(book: List<Acct>, open: Acct): List<Acct> {
         val ob = open.bank
         val cands = book.filter { it.key != open.key && !it.declined }
-        val list = if (open.type == "loan") {
+        val list = if (open.type == "debit") {
+            cands.filter { it.type == "savings" && (ob == null || it.bank == null || it.bank == ob) }
+        } else if (open.type == "loan") {
             cands.filter { it.type != "loan" && it.type != "card" && numberMatch(open.key, it.key) && (it.bank == null || it.bank == ob) }
         } else {
             cands.filter { c ->
@@ -135,6 +138,13 @@ object AccountBook {
         }
         fun rank(c: Acct) = when { numberMatch(open.key, c.key) -> 0; ob != null && c.bank == ob -> 1; else -> 2 }
         return list.sortedWith(compareBy<Acct> { rank(it) }.thenByDescending { it.count })
+    }
+
+    /** The savings account a debit card most likely belongs to: the only savings account at its bank, else none. */
+    fun cardLink(book: List<Acct>, card: Acct): Acct? {
+        if (card.type != "debit" || card.declined) return null
+        val b = card.bank ?: return null
+        return book.filter { it.type == "savings" && !it.declined && it.bank == b }.singleOrNull()
     }
 
     /** Which name an account keeps when several are joined: a loan, then one with a bank name, then savings, then most payments. */
@@ -189,7 +199,7 @@ object AccountBook {
         val known = vis.filter { it.bank != null }
         val unknown = vis.filter { it.bank == null }.sortedByDescending { it.count }
         val bankPays = known.groupBy { it.bank!! }.mapValues { e -> e.value.sumOf { it.count } }
-        val typeOrder = listOf("savings", "card", "loan", "fd", "rd", "other")
+        val typeOrder = listOf("savings", "debit", "card", "loan", "fd", "rd", "other")
         fun ti(t: String) = typeOrder.indexOf(t).let { if (it < 0) typeOrder.size else it }
         return known.sortedWith(
             compareByDescending<Acct> { bankPays[it.bank] ?: 0 }.thenBy { it.bank }.thenBy { ti(it.type) }.thenByDescending { it.count },

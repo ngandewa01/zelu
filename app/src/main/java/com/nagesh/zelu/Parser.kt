@@ -602,13 +602,16 @@ object Parser {
         val debitCard = DEBIT_CARD.containsMatchIn(text)
         // When a debit card shows only its card number (no a/c), attribute it to the bank
         // account itself (which then folds into the main savings) rather than the card number.
-        if (debitCard && !AC_KEYWORD.containsMatchIn(text)) last4 = ""
+        // The card number is kept so the card can be linked to its account on the Your accounts screen.
+        var cardNo = ""
+        if (debitCard && !AC_KEYWORD.containsMatchIn(text)) { cardNo = last4; last4 = "" }
         // A credit card is named as one or shows a spending limit. "Your card" or "block card" alone is not enough: an ATM
         // withdrawal or a message that reports an available balance belongs to a bank account.
         val explicitCard = EXPLICIT_CARD.containsMatchIn(text) || LIMIT_WORD.containsMatchIn(text)
         val weakOnly = !explicitCard && (BAL_AFTER.containsMatchIn(text) || ATM_WORD.containsMatchIn(text))
         val isCard = IS_CARD.containsMatchIn(text) && !debitCard && !weakOnly
         return when {
+            bank.isNotEmpty() && last4.isEmpty() && cardNo.length in 3..4 && !isCard -> "$bank DC $cardNo"
             bank.isNotEmpty() && last4.isNotEmpty() -> "$bank ${if (isCard) "CC " else ""}$last4"
             // A card with no readable number still stays a card, so it won't merge into savings.
             bank.isNotEmpty() -> bank + if (isCard) " CC" else ""

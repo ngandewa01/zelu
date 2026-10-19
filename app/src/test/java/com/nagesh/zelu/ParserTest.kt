@@ -255,4 +255,12 @@ class ParserTest {
         // The disbursed amount is not a bill.
         assertEquals(null, Parser.parseReminder("HDFC Bank Loan Ac no.xxx789 - PEMI Interest on disbursement of Rs 1000000 will be debited along with the next EMI.", 1760000000000L, "HDFCBK"))
     }
+
+    @Test
+    fun debitCardMessageKeepsTheCardNumber() {
+        val m = "Rs.100.00 spent on HDFC Bank Card x4321 at SHOP on 2025-04-21:17:24:21 Avl bal: 5000.00.Not You? Call 18002586161 / SMS BLOCK DC 4321 to 7308080808"
+        assertEquals("HDFC DC 4321", Parser.parseSms(m, 1745236000000L, "HDFCBK")!!.account)
+        val cc = "Rs.100.00 spent on HDFC Bank Credit Card ending 4321 at SHOP on 21-04-25. Avl limit: 50000"
+        assertEquals("HDFC CC 4321", Parser.parseSms(cc, 1745236000000L, "HDFCBK")!!.account)
+    }
 }

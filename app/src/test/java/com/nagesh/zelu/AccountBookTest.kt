@@ -138,4 +138,23 @@ class AccountBookTest {
         assertEquals("HDFC FD 0025", p.main)
         assertEquals("accepted" to "fd", p.registry["HDFC FD 0025"])
     }
+
+    @Test
+    fun debitCardLinksToTheOnlySavingsAccountAtItsBank() {
+        val ls = mapOf("HDFC DC 7777" to st(5), "HDFC 5997" to st(40), "SBI DC 1111" to st(2), "SBI 2222" to st(3), "SBI 3333" to st(4))
+        val b = AccountBook.build(ls, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
+        val hd = b.first { it.key == "HDFC DC 7777" }
+        assertEquals("debit", hd.type)
+        assertEquals("HDFC", hd.bank)
+        assertEquals("HDFC 5997", AccountBook.cardLink(b, hd)?.key)
+        // Two savings accounts at the bank: nothing is guessed.
+        assertEquals(null, AccountBook.cardLink(b, b.first { it.key == "SBI DC 1111" }))
+        // Confirming links it; the savings account keeps its name and the card counts under it.
+        val p = AccountBook.plan(b, emptyMap(), "HDFC DC 7777", setOf("HDFC 5997"), "debit")
+        assertEquals("HDFC 5997", p.main)
+        assertEquals("duplicate" to "HDFC 5997", p.registry["HDFC DC 7777"])
+        // A savings account is offered its bank's debit cards, a debit card only savings accounts.
+        assertTrue(AccountBook.similar(b, b.first { it.key == "HDFC 5997" }).any { it.key == "HDFC DC 7777" })
+        assertFalse(AccountBook.similar(b, hd).any { it.type == "debit" })
+    }
 }
