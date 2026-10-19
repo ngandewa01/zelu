@@ -157,4 +157,13 @@ class AccountBookTest {
         assertTrue(AccountBook.similar(b, b.first { it.key == "HDFC 5997" }).any { it.key == "HDFC DC 7777" })
         assertFalse(AccountBook.similar(b, hd).any { it.type == "debit" })
     }
+
+    @Test
+    fun cardNetworkIsReadFromTheMessage() {
+        assertEquals("Visa", AccountBook.networkIn("Spent on HDFC Bank VISA Credit Card ending 1111"))
+        assertEquals("Mastercard", AccountBook.networkIn("Your Master Card ending 2222 was used"))
+        assertEquals("RuPay", AccountBook.networkIn("RuPay credit card xx3333"))
+        assertEquals("Amex", AccountBook.networkIn("American Express Card"))
+        assertEquals(null, AccountBook.networkIn("Rs 100 spent at Visakhapatnam store"))
+    }
 }

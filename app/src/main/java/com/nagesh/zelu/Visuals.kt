@@ -180,6 +180,40 @@ val CAT_ICON: Map<String, String> = mapOf(
     "Rent" to "🏠",            // house
 )
 
+// Logos of UPI and payment apps and the shops that run them, matched on the payee name as a whole word or phrase.
+private val PAY_LOGOS: List<Pair<Regex, Int>> = listOf(
+    "amazon ?pay" to R.drawable.pay_amazonpay, "bhim" to R.drawable.pay_bhim, "cred" to R.drawable.pay_cred, "dhani" to R.drawable.pay_dhani,
+    "digi ?khata" to R.drawable.pay_digikhata, "fam ?pay" to R.drawable.pay_fampay, "flipkart" to R.drawable.pay_flipkart,
+    "google ?pay|gpay|g pay" to R.drawable.pay_gpay, "groww" to R.drawable.pay_groww, "jupiter" to R.drawable.pay_jupiter,
+    "kiwi" to R.drawable.pay_kiwi, "make ?my ?trip" to R.drawable.pay_makemytrip, "mobi ?kwik" to R.drawable.pay_mobikwik,
+    "navi" to R.drawable.pay_navi, "paytm" to R.drawable.pay_paytm, "phone ?pe" to R.drawable.pay_phonepe, "pop ?upi" to R.drawable.pay_popupi,
+    "samsung ?pay" to R.drawable.pay_samsungpay, "shriram ?one" to R.drawable.pay_shriramone, "slice" to R.drawable.pay_slice,
+    "super\\.? ?money" to R.drawable.pay_supermoney, "tata ?neu" to R.drawable.pay_tataneu, "time ?pay" to R.drawable.pay_timepay,
+    "whatsapp" to R.drawable.pay_whatsapp, "bajaj ?fin" to R.drawable.pay_bajaj, "aditya birla capital" to R.drawable.pay_abcapital,
+    "niyo" to R.drawable.pay_niyo, "omni ?card" to R.drawable.pay_omnicard,
+).map { (k, v) -> Regex("""\b(?:$k)\b""", RegexOption.IGNORE_CASE) to v }
+
+fun payLogoFor(name: String): Int? = if (name.isBlank()) null else PAY_LOGOS.firstOrNull { it.first.containsMatchIn(name) }?.second
+
+// The network of each credit card (label -> Visa, Mastercard, RuPay, Amex, Diners, Maestro): read from its messages, or picked by you.
+object CardNet {
+    var map by mutableStateOf<Map<String, String>>(emptyMap())
+    val names = listOf("Visa", "Mastercard", "RuPay", "Amex", "Diners", "Maestro")
+    fun logo(net: String?): Int? = when (net) {
+        "Visa" -> R.drawable.net_visa; "Mastercard" -> R.drawable.net_mastercard; "RuPay" -> R.drawable.net_rupay
+        "Amex" -> R.drawable.net_amex; "Diners" -> R.drawable.net_diners; "Maestro" -> R.drawable.net_maestro
+        else -> null
+    }
+}
+
+@Composable
+fun NetBadge(account: String, size: Dp = 16.dp, modifier: Modifier = Modifier) {
+    val logo = CardNet.logo(CardNet.map[account]) ?: return
+    Box(modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(Color.White), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.8f))
+    }
+}
+
 fun brandFor(name: String): Brand? {
     val n = name.lowercase()
     return BRANDS.firstOrNull { n.contains(it.key) }
@@ -214,6 +248,8 @@ private val BANKS_UI = listOf(
     Triple(listOf("KVB", "VYSYA"), "kvbl", 0xFF7B2D8E), Triple(listOf("STANDARD CHARTERED", "SCB"), "scbl", 0xFF0473EA),
     Triple(listOf("AU "), "aubl", 0xFFE8731A), Triple(listOf("PAYTM"), "pytm", 0xFF0A8FD6),
     Triple(listOf("UCO"), "ucba", 0xFF1F5FA8), Triple(listOf("IOB"), "ioba", 0xFF1B3F8B), Triple(listOf("BANDHAN"), "bdbl", 0xFFC62828),
+    Triple(listOf("HSBC"), "hsbc", 0xFFDB0011), Triple(listOf("CITI"), "citi", 0xFF056DAE), Triple(listOf("DBS"), "dbs", 0xFFE31837),
+    Triple(listOf("IPPB"), "ippb", 0xFFE2231A), Triple(listOf("NSDL"), "nsdlpb", 0xFF1A5BA6), Triple(listOf("AMEX"), "amex", 0xFF006FCF),
 )
 
 private fun bankEntry(account: String) = account.uppercase().let { a ->
@@ -255,12 +291,20 @@ private fun logoFor(slug: String?): Int? = when (slug) {
     "dlxb" -> R.drawable.bank_dlxb; "ciub" -> R.drawable.bank_ciub; "tmbl" -> R.drawable.bank_tmbl
     "ntbl" -> R.drawable.bank_ntbl; "dcbl" -> R.drawable.bank_dcbl; "esmf" -> R.drawable.bank_esmf
     "ujvn" -> R.drawable.bank_ujvn; "fino" -> R.drawable.bank_fino; "airp" -> R.drawable.bank_airp; "mgb" -> R.drawable.bank_mgb
+    "hsbc" -> R.drawable.bank_hsbc; "citi" -> R.drawable.bank_citi; "dbs" -> R.drawable.bank_dbs
+    "ippb" -> R.drawable.bank_ippb; "nsdlpb" -> R.drawable.bank_nsdlpb; "amex" -> R.drawable.net_amex
     "jiop" -> R.drawable.bank_jiop
     else -> null
 }
 
 @Composable
 fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String = "") {
+    payLogoFor(name)?.let { logo ->
+        Box(Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.74f))
+        }
+        return
+    }
     val b = brandFor(name)
     // Transfers and person-to-person lending get the banking-style swap icon.
     val icon = when {

@@ -350,6 +350,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
         if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
             contentDescription = null, modifier = Modifier.size((size * 0.68f).dp))
         else BankMark(key)
+        NetBadge(key, (size * 0.42f).dp, Modifier.align(Alignment.BottomEnd))
     }
 }
 
@@ -456,6 +457,8 @@ private fun acctLine(type: String, count: Int) = when (type) {
     val suggested = remember(a, book) { AccountBook.cardLink(book, a) }
     val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true }; suggested?.let { m[it.key] = true } } }
     var type by remember(a) { mutableStateOf(a.type) }
+    var net by remember(a) { mutableStateOf(CardNet.map[a.key]) }
+    val netScope = androidx.compose.runtime.rememberCoroutineScope()
     var showMsg by remember(a) { mutableStateOf(false) }
     androidx.compose.runtime.key(a.key) {
         Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { onClose() },
@@ -493,6 +496,25 @@ private fun acctLine(type: String, count: Int) = when (type) {
                             ChipScroll {
                                 listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->
                                     PickChip(lab, type == ty) { type = ty }
+                                }
+                            }
+                        }
+                        if (a.type == "card" && type == "card") {
+                            Spacer(Modifier.height(12.dp))
+                            MutedText("Card network", 12)
+                            Spacer(Modifier.height(6.dp))
+                            ChipScroll {
+                                CardNet.names.forEach { n ->
+                                    PickChip(n, net == n, lead = {
+                                        CardNet.logo(n)?.let { androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(it), contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                    }) {
+                                        net = if (net == n) null else n
+                                        val pick = net
+                                        netScope.launch {
+                                            withContext(Dispatchers.IO) { Storage.setCardNetwork(context, a.key, pick) }
+                                            CardNet.map = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -837,6 +859,7 @@ fun ZeluApp() {
                 )
             }
             LimitAsk.manual = l.manual
+            CardNet.map = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
             cardPrefs = l.cardPrefs
             CustomCats.map = l.customCats
             registry = l.registry
@@ -4433,6 +4456,8 @@ private object LimitAsk {
                         androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFE8C766), Color(0xFFB99434)))))
                     Spacer(Modifier.width(14.dp))
                     Text("••••  ••••  ••••  $last4", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                    Spacer(Modifier.weight(1f))
+                    NetBadge(account, 30.dp)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Column {

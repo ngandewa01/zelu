@@ -151,6 +151,7 @@ object Storage {
         // Every label before anything you joined is applied, for the Your accounts screen.
         labelStatsCache = AccountBook.stats(retyped)
         val joined = if (dups.isEmpty()) retyped else joinAccounts(retyped, dups)
+        cardNetAuto = AccountBook.networks(joined)
         val declined = reg.filter { it.value.first == "declined" }.keys
         val processed = pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(joined, overrides.keys))), loadRefundLinks(context))
         loanStatsCache = AccountBook.loanStats(processed) + loansFromNotices(context, processed)
@@ -186,6 +187,15 @@ object Storage {
     fun relabel(key: String, type: String): String = AccountBook.relabel(key, type)
 
     // ---- accounts you confirmed (or turned down) ----  key -> (status, type)
+    // The network (Visa, Mastercard, RuPay...) of each credit card: read from its messages, and what you picked wins.
+    @Volatile private var cardNetAuto: Map<String, String> = emptyMap()
+    fun cardNetworks(context: Context): Map<String, String> = synchronized(lock) { cardNetAuto + readKv(context, "card_networks.json").mapValues { it.value.first } }
+    fun setCardNetwork(context: Context, account: String, network: String?) = synchronized(lock) {
+        val kv = readKv(context, "card_networks.json").toMutableMap()
+        if (network == null) kv.remove(account) else kv[account] = network to ""
+        writeKv(context, "card_networks.json", kv)
+    }
+
     fun accountRegistry(context: Context): Map<String, Pair<String, String>> = synchronized(lock) { readKv(context, ACCOUNTS_FILE) }
 
     fun declinedKeys(context: Context): Set<String> =

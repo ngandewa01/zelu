@@ -147,6 +147,20 @@ object AccountBook {
         return book.filter { it.type == "savings" && !it.declined && it.bank == b }.singleOrNull()
     }
 
+    private val NETWORK = Regex("""\b(visa|master ?card|rupay|american express|amex|diners|maestro)\b""", RegexOption.IGNORE_CASE)
+
+    /** The card network a message names, or null. */
+    fun networkIn(raw: String): String? = when (NETWORK.find(raw)?.value?.lowercase()?.replace(" ", "")) {
+        "visa" -> "Visa"; "mastercard" -> "Mastercard"; "rupay" -> "RuPay"
+        "americanexpress", "amex" -> "Amex"; "diners" -> "Diners"; "maestro" -> "Maestro"
+        else -> null
+    }
+
+    /** Credit card label -> network, from the newest message of that card that names one. */
+    fun networks(rows: Collection<Row>): Map<String, String> =
+        rows.filter { it.account.contains(" CC") }.sortedByDescending { it.date }.groupBy { it.account }
+            .mapNotNull { (k, v) -> v.firstNotNullOfOrNull { networkIn(it.raw) }?.let { k to it } }.toMap()
+
     /** Which name an account keeps when several are joined: a loan, then one with a bank name, then savings, then most payments. */
     fun chooseMain(group: List<Acct>): Acct = group.sortedWith(
         compareByDescending<Acct> { if (it.type == "loan") 1 else 0 }
