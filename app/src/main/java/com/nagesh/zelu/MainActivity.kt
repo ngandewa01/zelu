@@ -309,7 +309,7 @@ private fun rowsOfAccount(rows: List<Row>, key: String) = rows.filter { it.accou
 }
 
 @Composable private fun DeclineConfirmDialog(key: String, rows: List<Row>, onKeep: () -> Unit, onRemove: () -> Unit) {
-    val mine = remember(rows, key) { rowsOfAccount(rows, key).sortedByDescending { it.date } }
+    val mine = remember(rows, key) { rowsOfAccount(rows, key).newestFirst() }
     Dialog(onDismissRequest = onKeep) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
             Text("Remove " + AccountBook.displayName(key) + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -2319,7 +2319,7 @@ fun ZeluApp() {
                                 withContext(Dispatchers.IO) {
                                     val own = Storage.splitList(Storage.loadSettings(context).ownAccounts)
                                     val c = Classifier.classify(Txn(id, day, amount, dir, name, null, sms.body, sms.address, acct), own)
-                                    Storage.addManualTxn(context, Row(id, day, amount, dir, name, null, sms.body, sms.address, acct, c.kind, c.category), Ingest.smsKey(sms))
+                                    Storage.addManualTxn(context, Row(id, day, amount, dir, name, null, sms.body, sms.address, acct, c.kind, c.category, sms.date), Ingest.smsKey(sms))
                                     if (learnIt) Taught.learn(context, sms.body, sms.address, name, dir)
                                 }
                                 addFor = null
@@ -2544,7 +2544,7 @@ fun ZeluApp() {
             MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                rows.sortedByDescending { it.date }.forEach { TxnRow(it, false, onRowClick) }
+                rows.newestFirst().forEach { TxnRow(it, false, onRowClick) }
             }
             Spacer(Modifier.height(14.dp))
             Box(
@@ -2971,7 +2971,7 @@ private fun yrMo(m: Int): String {
                 Eyebrow("Transfers")
                 Spacer(Modifier.height(4.dp))
                 Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
-                    lentRows.sortedByDescending { it.date }.forEach { TxnRow(it, false, onRowClick) }
+                    lentRows.newestFirst().forEach { TxnRow(it, false, onRowClick) }
                 }
                 MutedText("Tap a transfer to see its message.", 11)
             }
@@ -3205,7 +3205,7 @@ private fun prettyDay(ymd: String): String {
     val budget = pref?.second ?: 0.0
     val (from, to) = cycleRange(day, offset)
     val rows = allRows.filter { it.account == account && it.date >= from && it.date <= to }
-        .sortedByDescending { it.date }
+        .newestFirst()
     val spendRows = rows.filter { it.kind == "expense" }
     val spent = spendRows.sumOf { it.amount }
     val parts = account.trim().split(" ")
@@ -4074,7 +4074,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
 
     // Recent — horizontal strip
     Panel {
-        val recent = list.filter { it.kind != "invest" }.sortedByDescending { it.date }
+        val recent = list.filter { it.kind != "invest" }.newestFirst()
         Row(Modifier.fillMaxWidth().clickable { onDrill("All transactions", recent) },
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow("Recent")
@@ -4268,7 +4268,7 @@ private fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fi
                     Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp))
                         .background(if (closed) ice.copy(alpha = 0.13f) else ZColor.Paper)
                         .border(1.dp, if (closed) ice.copy(alpha = 0.55f) else ZColor.Line, RoundedCornerShape(16.dp))
-                        .clickable { onDrill(name, rs.sortedByDescending { it.date }) }.padding(14.dp)) {
+                        .clickable { onDrill(name, rs.newestFirst()) }.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                                 if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
@@ -5929,7 +5929,7 @@ private fun niceCeil(x: Double): Double {
                     Spacer(Modifier.height(12.dp))
                     Box(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(ZColor.Ink)
-                            .clickable { onReview(b.title, b.rows.sortedByDescending { it.date }) }.padding(vertical = 12.dp),
+                            .clickable { onReview(b.title, b.rows.newestFirst()) }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) { Text("Review " + b.label, color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }

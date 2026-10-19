@@ -18,6 +18,7 @@ data class Txn(
     val raw: String,
     val source: String,
     val account: String, // e.g. "HDFC 5997", "HDFC CC 1291", or "" if unknown
+    val ms: Long = 0,    // when the message arrived; orders payments within a day
 )
 
 // A bill / payment reminder parsed from a "due" or "will be debited" SMS. These are NOT
@@ -65,7 +66,12 @@ data class Row(
     val account: String,
     val kind: String,
     val category: String,
+    val ms: Long = 0,    // when the message arrived; orders payments within a day
 )
+
+/** Newest first: by date, then by the time the message arrived. */
+val NEWEST_FIRST: Comparator<Row> = compareByDescending<Row> { it.date }.thenByDescending { it.ms }
+fun List<Row>.newestFirst(): List<Row> = sortedWith(NEWEST_FIRST)
 
 // Refunds that look like they belong to an earlier spend, waiting for a Yes/No. (refund, spend)
 object Refunds {

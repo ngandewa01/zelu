@@ -379,7 +379,7 @@ object Parser {
         val id = if (ref != null) "ref-$ref"
         else "sms-" + hash("$date|$amount|$direction|$text")
 
-        return Txn(id, date, amount, direction, counterparty, ref, text, source, account)
+        return Txn(id, date, amount, direction, counterparty, ref, text, source, account, receivedMs ?: 0L)
     }
 
     // For the "add by hand" screen: the first rupee amount in a message, and the account it names.

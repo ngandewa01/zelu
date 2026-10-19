@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 58
+    const val PARSER_VERSION = 59
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -120,7 +120,7 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
             row
-        }.sortedByDescending { it.date }
+        }.newestFirst()
         // A payment you split becomes several rows that add up to it, one per category.
         val expanded = if (splits.isEmpty()) rows else rows.flatMap { r ->
             val parts = splits[r.id]
@@ -154,7 +154,7 @@ object Storage {
         val declined = reg.filter { it.value.first == "declined" }.keys
         val processed = pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(joined, overrides.keys))), loadRefundLinks(context))
         loanStatsCache = AccountBook.loanStats(processed)
-        return if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }
+        return (if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }).newestFirst()
     }
 
     // Labels you joined into another account count under it. A label joined to a loan is that loan's EMI messages, and
@@ -1182,6 +1182,7 @@ object Storage {
         put("ref", r.ref ?: JSONObject.NULL)
         put("raw", r.raw); put("source", r.source); put("account", r.account)
         put("kind", r.kind); put("category", r.category)
+        if (r.ms > 0) put("ms", r.ms)
     }
 
     private fun rowFromJson(o: JSONObject): Row = Row(
@@ -1196,5 +1197,6 @@ object Storage {
         account = o.optString("account", ""),
         kind = o.getString("kind"),
         category = o.getString("category"),
+        ms = o.optLong("ms", 0L),
     )
 }

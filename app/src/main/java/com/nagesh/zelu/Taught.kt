@@ -87,7 +87,7 @@ object Taught {
             val amount = Parser.firstAmount(msg.body) ?: continue
             val id = "man-" + Ingest.smsKey(msg).hashCode().toUInt().toString(16)
             return Txn(id, Dates.fmtMs(msg.date), amount, t.direction, payee?.takeIf { it.isNotBlank() }, null, text, msg.address,
-                Parser.accountFor(msg.body, msg.address, t.direction))
+                Parser.accountFor(msg.body, msg.address, t.direction), msg.date)
         }
         return null
     }

@@ -90,6 +90,7 @@ object Ingest {
                     account = txn.account,
                     kind = c.kind,
                     category = c.category,
+                    ms = txn.ms,
                 ),
             )
         }
