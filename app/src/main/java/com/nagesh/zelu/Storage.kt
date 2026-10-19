@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 59
+    const val PARSER_VERSION = 60
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -418,7 +418,11 @@ object Storage {
     // ---- senders you said are your bank ----
     private const val SENDER_FILE = "trusted_senders.json"
     fun trustedSenders(context: Context): Set<String> = synchronized(lock) { readKv(context, SENDER_FILE).keys }
-    fun loadTrust(context: Context) = synchronized(lock) { applyTrust(readKv(context, SENDER_FILE)) }
+    fun loadTrust(context: Context) = synchronized(lock) {
+        applyTrust(readKv(context, SENDER_FILE))
+        Parser.taughtBanks = readKv(context, SENDER_BANK_FILE).mapValues { it.value.first }
+    }
+    private const val SENDER_BANK_FILE = "sender_banks.json"   // sender id -> the bank you told Zelu it belongs to
     private fun applyTrust(kv: Map<String, Pair<String, String>>) {
         Parser.trusted = kv.keys.toSet()
         Parser.walletSenders = kv.filter { it.value.first == "wallet" }.keys.toSet()
@@ -755,6 +759,23 @@ object Storage {
         plan.apartAdd.forEach { apart[it] = "1" to "" }
         plan.apartRemove.forEach { apart.remove(it) }
         writeKv(context, APART_FILE, apart)
+        learnSenderBanks(context, plan.registry)
+    }
+
+    // A number with no bank name that you join to an account of a bank: its sender belongs to that bank, so the next
+    // messages from it are read under that bank without asking.
+    private fun learnSenderBanks(context: Context, reg: Map<String, Pair<String, String>>) {
+        val joins = reg.filter { it.value.first == "duplicate" && AccountBook.bankOf(it.key) == null && AccountBook.bankOf(it.value.second) != null }
+        if (joins.isEmpty()) return
+        val rows = readMap(context).values
+        val learned = readKv(context, SENDER_BANK_FILE).toMutableMap()
+        for ((label, v) in joins) {
+            val bank = AccountBook.bankOf(v.second)!!.uppercase()
+            val cores = rows.filter { it.account == label && it.source.isNotBlank() }.map { Parser.senderCore(it.source) }.filter { it.length >= 3 }.toSet()
+            for (c in cores) learned[c] = bank to ""
+        }
+        writeKv(context, SENDER_BANK_FILE, learned)
+        Parser.taughtBanks = learned.mapValues { it.value.first }
     }
 
     /** Continue on the screen: accounts shown and not removed are yours. */

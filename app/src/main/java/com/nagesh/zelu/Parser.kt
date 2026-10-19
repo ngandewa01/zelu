@@ -104,10 +104,30 @@ object Parser {
     // A UPI address such as "paytm.s20uk16@pty" belongs to the other person, so a bank name inside one is not your bank.
     private val VIRTUAL_ADDR = Regex("""(?i)\b(?:virtual address|vpa)\s+([\w.\-]+)@[\w.\-]+""")
     private val VPA_TOKEN = Regex("""\S+@\S+""")
+    // The text may name the bank only in full ("HDFC Bank", "Telangana Grameena Bank"). A short name on its own
+    // ("MGB", "SBI") can be a shop, a payee or a signature, so it never decides the bank: the sender does.
     private fun bankInText(text: String): String {
         val m = BANK.find(VPA_TOKEN.replace(text, " "))?.value ?: return ""
-        return IndianBanks.labelFor(m) ?: m.uppercase().replace(" ", "")
+        val label = IndianBanks.labelFor(m)
+        val at = text.indexOf(m, ignoreCase = true)
+        val tail = if (at < 0) "" else text.substring(at + m.length).trimStart()
+        val full = label != null || m.trim().endsWith("BANK", ignoreCase = true) || tail.startsWith("bank", ignoreCase = true)
+        if (!full) return ""
+        return label ?: m.uppercase().replace(" ", "").removeSuffix("BANK").ifEmpty { m.uppercase() }
     }
+
+    /** The bank part of a sender id: "AX-MGBBNK-S" -> "MGBBNK". */
+    fun senderCore(source: String): String {
+        val p = source.uppercase().trim().split('-').filter { it.isNotEmpty() }
+        return when {
+            p.size >= 3 -> p[1]
+            p.size == 2 -> if (p[1].length <= 1) p[0] else p[1]
+            else -> p.firstOrNull() ?: ""
+        }
+    }
+
+    /** Sender id -> bank label, learned from you when you tell Zelu which bank an account belongs to. */
+    @Volatile var taughtBanks: Map<String, String> = emptyMap()
 
     // Bank codes inside an SMS sender id (e.g. "AD-HDFCBK", "JX-UNIONB", "CBSSBI"), matched
     // as a substring because the code runs into surrounding letters. Specific codes first.
@@ -557,6 +577,7 @@ object Parser {
         // The sender id names the bank first; only when it doesn't, the message text does.
         val src = source.uppercase()
         var bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+        if (bank.isEmpty()) bank = taughtBanks[senderCore(source)] ?: ""
         if (bank.isEmpty()) bank = bankInText(rawText)
         if (bank == "YESBANK") bank = "YES"
         // Investments aren't bank accounts you spend from — keep them out of the account filter.

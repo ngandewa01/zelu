@@ -3612,7 +3612,8 @@ private fun prettyDay(ymd: String): String {
             Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category,
                 color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            MutedText("${t.date} · ${subtitleFor(t)}", 11)
+            val at = TxnTime.label(t)
+            MutedText("${t.date}${if (at.isNotEmpty()) " · $at" else ""} · ${subtitleFor(t)}", 11)
         }
         Spacer(Modifier.width(10.dp))
         AmountText(t, highlight)

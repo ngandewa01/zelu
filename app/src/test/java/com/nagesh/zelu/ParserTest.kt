@@ -167,6 +167,36 @@ class ParserTest {
     }
 
     @Test
+    fun bankFromTheTextNeedsTheFullName() {
+        // A short name on its own is not enough from an unknown sender ...
+        ok("VM-XYZABC-S", "Rs.300.00 debited from A/c XX7788 on 11-10-26 to SBI LIFE UPI Ref 123456789013", "debit", 300.0, "7788", null, "2026-10-11", null)
+        // ... the full name is.
+        ok("VM-XYZABC-S", "Rs.300.00 debited from A/c XX7788 on 11-10-26. HDFC Bank UPI Ref 123456789013", "debit", 300.0, "HDFC 7788", null, "2026-10-11", null)
+        ok("VM-XYZABC-S", "A/c XX4455 debited Rs.200 on 11-10-26 UPI Ref 123456789012. Telangana Grameena Bank", "debit", 200.0, "TGB 4455", null, "2026-10-11", null)
+    }
+
+    @Test
+    fun aSenderYouTaughtNamesTheBank() {
+        assertEquals("MGBBNK", Parser.senderCore("AX-MGBBNK-S"))
+        assertEquals("MGBBNK", Parser.senderCore("MGBBNK"))
+        assertEquals("MGBBNK", Parser.senderCore("VM-MGBBNK"))
+        Parser.taughtBanks = mapOf("ZZBANK" to "MGB")
+        try {
+            ok("VM-ZZBANK-S", "Your a/c no. XXXX883076 is debited Rs.50.00 on 20-08-26 (UPI Ref no 481050341654)", "debit", 50.0, "MGB 883076", null, "2026-08-20", null)
+        } finally { Parser.taughtBanks = emptyMap() }
+    }
+
+    @Test
+    fun paymentTimeComesFromTheMessageElseArrival() {
+        assertEquals(18 * 3600 + 27 * 60 + 54, TxnTime.fromText("credited on 07/07/2026 at 18:27:54. Bal Rs 5")!!)
+        assertEquals(18 * 3600 + 5 * 60, TxnTime.fromText("debited on 02-05-26 6:05 PM")!!)
+        assertEquals(0, TxnTime.fromText("debited at 12:00 AM")!!)
+        assertEquals(null, TxnTime.fromText("debited Rs.50 Ref 481050341654 on 20-08-26"))
+        // 2026-10-19 12:30 UTC is 18:00 in India
+        assertEquals(18 * 3600, TxnTime.fromArrival(1_792_413_000_000L).let { it })
+    }
+
+    @Test
     fun maharashtraGraminBankMessages() {
         val src = "AX-MGBBNK-S"
         ok(src, "Your A/c no XXXXX83076 is credited by RS. 931.97 through By Transfer on 07/07/2026 at 18:27:54.Current BAL: Rs. 965.08 CR. -MGB04245", "credit", 931.97, "MGB 83076", null, "2026-07-07", null)
