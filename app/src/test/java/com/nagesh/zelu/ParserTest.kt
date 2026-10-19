@@ -149,6 +149,13 @@ class ParserTest {
     @Test
     fun onlyBankSendersAreTrusted() {
         assertTrue(Parser.isFinancialSender("AX-HDFCBK-S"))
+        // Depositories and exchanges are not bank senders.
+        assertFalse(Parser.isFinancialSender("VM-CDSL-S"))
+        assertFalse(Parser.isFinancialSender("AD-CDSLDP"))
+        assertFalse(Parser.isFinancialSender("JD-NSDL-T"))
+        assertFalse(Parser.isFinancialSender("NSEIND"))
+        assertFalse(Parser.isFinancialSender("VK-BSELTD-S"))
+        assertTrue(Parser.isFinancialSender("VM-NSDLPB-S"))
         assertTrue(Parser.isFinancialSender("JD-HDFCBK-S"))
         assertFalse(Parser.isFinancialSender("MYFRIEND"))
     }

@@ -129,9 +129,14 @@ object Parser {
     @Volatile var walletSenders: Set<String> = emptySet()
     @Volatile var otherSenders: Set<String> = emptySet()
 
+    // Depositories and stock exchanges (CDSL, NSDL, NSE, BSE) text about share holdings and tiny demat entries, not
+    // money in a bank account. Their messages are left out. (NSDL Payments Bank, "NSDLPB", is a real bank and stays in.)
+    private val DEMAT_SENDER = Regex("""^(CDSL|NSDL|NSE|BSE)[A-Z0-9]*$""")
+
     fun isFinancialSender(address: String): Boolean {
         val a = address.uppercase()
         if (a in trusted) return true
+        if (a.split('-').any { it != "NSDLPB" && DEMAT_SENDER.matches(it) }) return false
         if (a.none { it.isLetter() }) return false          // plain phone number -> personal
         if (SENDER_CODES.any { a.contains(it.first) }) return true
         if (BANK.containsMatchIn(a)) return true
