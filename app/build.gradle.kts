@@ -16,6 +16,11 @@ android {
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = run
         versionName = "0.3.$run"
+        // Where the optional sponsor card is read from (a public JSON file you control). Empty means no card is ever shown.
+        // Set zelu.sponsorUrl in gradle.properties, or ZELU_SPONSOR_URL in the build environment.
+        val sponsorUrl = System.getenv("ZELU_SPONSOR_URL")?.takeIf { it.isNotBlank() }
+            ?: (project.findProperty("zelu.sponsorUrl") as String?).orEmpty()
+        buildConfigField("String", "SPONSOR_URL", "\"$sponsorUrl\"")
     }
 
     signingConfigs {
@@ -50,6 +55,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {

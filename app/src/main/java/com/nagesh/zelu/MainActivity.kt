@@ -709,7 +709,7 @@ private fun plural(n: Int, one: String, many: String) = if (n == 1) "$n $one" el
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Why Zelu asks for SMS", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Text("Your bank already texts you every payment. Zelu reads those texts to find the amount, who was paid and which account, so you never type anything.", color = ZColor.InkSoft, fontSize = 13.sp)
-                        Text("It skips OTPs and personal chats. Zelu has no internet permission, so your messages cannot leave this phone.", color = ZColor.InkSoft, fontSize = 13.sp)
+                        Text("It skips OTPs and personal chats. Your messages are never sent anywhere. Zelu goes online only to fetch a small sponsor card, and sends nothing about you.", color = ZColor.InkSoft, fontSize = 13.sp)
                     }
                     Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
@@ -1152,6 +1152,12 @@ fun ZeluApp() {
     }
 
     val pageScroll = rememberScrollState()
+    var sponsor by remember { mutableStateOf<Sponsor.Card?>(null) }
+    LaunchedEffect(Unit) {                              // show the saved card at once, then refresh it in the background
+        sponsor = withContext(Dispatchers.IO) { Sponsor.current(context) }
+        withContext(Dispatchers.IO) { Sponsor.refresh(context) }
+        sponsor = withContext(Dispatchers.IO) { Sponsor.current(context) }
+    }
     val pageAlpha = remember { Animatable(1f) }
     LaunchedEffect(view) {                              // each tab opens at its top and fades in
         pageScroll.scrollTo(0)
@@ -1468,6 +1474,31 @@ fun ZeluApp() {
                         withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
                         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
             }
+            }
+            // One optional, clearly labelled sponsor card, only on Home. Nothing about the user is sent to fetch it.
+            if (view == "ledger") sponsor?.let { c ->
+                Spacer(Modifier.height(16.dp))
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(18.dp)).padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("SPONSORED", color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("Hide", color = ZColor.Muted, fontSize = 12.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
+                                Sponsor.hide(context, c.id); sponsor = null
+                            }.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(c.title, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (c.body.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(c.body, color = ZColor.InkSoft, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Accent)
+                        .clickable { Sponsor.open(context, c) }.padding(horizontal = 18.dp, vertical = 9.dp)) {
+                        Text(c.cta, color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
+                }
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
@@ -1977,7 +2008,7 @@ fun ZeluApp() {
                 "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
         )
         val topics = listOf(
-            "Private" to "Everything stays on this phone. Zelu reads bank messages here and has no internet access.",
+            "Private" to "Everything stays on this phone. Zelu goes online only to fetch a small sponsor card, and sends nothing about you.",
             "Rescan" to "New messages are read as they arrive. Menu, Messages, Rescan reads again right now.",
             "Missed SMS" to "Money messages Zelu could not read. Menu, Messages, Missed SMS lets you add one by hand.",
             "Messages stop" to "Android may switch off permissions for an app you open rarely. In Settings, Apps, Zelu, Permissions, turn off 'Remove permissions if app isn't used'.",
