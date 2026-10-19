@@ -74,6 +74,8 @@ android {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     implementation("com.google.android.gms:play-services-ads:23.4.0")
+    // The ads library brings an old Fragment; the activity-result code in MainActivity needs 1.3.0 or newer.
+    implementation("androidx.fragment:fragment:1.8.3")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
