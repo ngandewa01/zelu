@@ -15,9 +15,10 @@ object Parser {
     private val AMOUNT_BARE = Regex("""\b(?:debited|credited)\s+(?:by|with|for|of)\s+([\d,]+(?:\.\d{1,2})?)(?=\s+on\b)""", RegexOption.IGNORE_CASE)
     // Bank statement style narration: "UPI/P2A/607222223333/LANDLORD" or "UPI/607111100002/SPOTIFY".
     private val UPI_SLASH = Regex("""\bUPI/(?:P2[AMP]/)?\d{6,}/([A-Za-z][A-Za-z0-9 .&'\-]{1,30}?)(?=[\s.,;/]|$)""", RegexOption.IGNORE_CASE)
-    private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|purchase|thank you for using|used for (?:a )?transaction|transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account))\b""", RegexOption.IGNORE_CASE)
-    private val CREDIT = Regex("""\b(credited|credit(?!\s+(?:card|limit|lmt|bal))|thank you for (?:paying|your payment)|received|deposited|refunded?)\b""", RegexOption.IGNORE_CASE)
-    val REFUND = Regex("""\brefund""", RegexOption.IGNORE_CASE)
+    private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|used for (?:a )?transaction|transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account))\b""", RegexOption.IGNORE_CASE)
+    private val CREDIT = Regex("""\b(credited|credit(?!\s+(?:card|limit|lmt|bal))|thank you for (?:paying|your payment)|received|deposited|refunded?|reversed|reversal)\b""", RegexOption.IGNORE_CASE)
+    // A refund, or a failed payment's money coming back ("Rs 300 reversed to your a/c").
+    val REFUND = Regex("""\b(refund|reversed|reversal)""", RegexOption.IGNORE_CASE)
 
     // "Payment of Rs X for your <service> connection ... received" is an OUTGOING bill
     // payment (the biller received your money) even though it contains the word "received".
@@ -28,11 +29,20 @@ object Parser {
     private val BILLER_FOR = Regex("""\bfor your\b|\btowards your\b""", RegexOption.IGNORE_CASE)
     private val INBOUND = Regex("""\bcredited (?:to|in) your\b|\breceived in your\b|\bin your a/?c\b|\bto your a/?c\b""", RegexOption.IGNORE_CASE)
 
+    // "Payment of Rs 1,850 for BESCOM electricity bill received via BillPay": the biller received it.
+    private val PAYMENT_FOR_RECV = Regex("""\bpayment of\s*(?:rs\.?|inr|₹)\s*:?\s*[\d,]+(?:\.\d+)?\s+(?:for|towards)\b.{0,100}\breceived\b""", RegexOption.IGNORE_CASE)
+    // Money landing on YOUR credit card ("received payment of Rs X towards your SBI Credit Card") settles the
+    // card bill. It must stay money in, so the classifier files it as a card-bill transfer and not as a spend.
+    private val TO_YOUR_CARD = Regex("""\b(?:towards|to|on|in)\s+your\b[^.]{0,30}\bcredit\s*card\b""", RegexOption.IGNORE_CASE)
+
     // A payment you MADE (biller confirms receipt), not income.
     private fun isOutgoingPayment(text: String): Boolean =
-        RECV_PAYMENT.containsMatchIn(text) ||
-            YOUR_PAYMENT_RECV.containsMatchIn(text) ||
-            (HAS_RECEIVED.containsMatchIn(text) && BILLER_FOR.containsMatchIn(text) && !INBOUND.containsMatchIn(text))
+        !TO_YOUR_CARD.containsMatchIn(text) && (
+            RECV_PAYMENT.containsMatchIn(text) ||
+                YOUR_PAYMENT_RECV.containsMatchIn(text) ||
+                PAYMENT_FOR_RECV.containsMatchIn(text) ||
+                (HAS_RECEIVED.containsMatchIn(text) && BILLER_FOR.containsMatchIn(text) && !INBOUND.containsMatchIn(text))
+            )
 
     // An NPS contribution ("credited to NAGESH TIER1") is money going OUT into an investment,
     // not income — flip it to a debit.
@@ -179,7 +189,8 @@ object Parser {
 
     // Banks' own short-link domains. ICICI ends every card alert with an icici.co/... link,
     // which SHORT_LINK would otherwise flag; links on these exact hosts are ignored.
-    private val TRUSTED_LINK = Regex("""https?://(?:www\.)?(?:icici\.co|icicibank\.com)/\S*""", RegexOption.IGNORE_CASE)
+    // Also the big banks' and card issuers' own domains, and any *.bank.in address (RBI reserves .bank.in for banks).
+    private val TRUSTED_LINK = Regex("""https?://(?:www\.)?(?:icici\.co|icicibank\.com|sbicard\.com|sbi\.co\.in|onlinesbi\.sbi|hdfcbank\.com|axisbank\.com|kotak\.com|yesbank\.in|idfcfirstbank\.com|indusind\.com|aubank\.in|federalbank\.co\.in|pnbindia\.in|bankofbaroda\.in|unionbankofindia\.co\.in|canarabank\.com|americanexpress\.com|[a-z0-9-]+\.bank\.in)/\S*""", RegexOption.IGNORE_CASE)
     // Any other bank's own link is fine too when its name is part of the sender ID (hdfcbk.io from
     // HDFCBK, axisbk.com from AXISBK). Those are removed before the shortener check.
     private val ANY_LINK = Regex("""(?:https?://)?(?:www\.)?([a-z0-9-]+)\.[a-z]{2,4}/\S*""", RegexOption.IGNORE_CASE)
@@ -256,6 +267,7 @@ object Parser {
         Regex("""jio\s*fiber|jiofiber|jiohome""", RegexOption.IGNORE_CASE) to "JioFiber",
         Regex("""\bjio\b""", RegexOption.IGNORE_CASE) to "Jio",
         Regex("""zomato""", RegexOption.IGNORE_CASE) to "Zomato",
+        Regex("""instamart""", RegexOption.IGNORE_CASE) to "Swiggy Instamart",
         Regex("""swiggy|bundl""", RegexOption.IGNORE_CASE) to "Swiggy",
         Regex("""blinkit""", RegexOption.IGNORE_CASE) to "Blinkit",
         Regex("""zepto""", RegexOption.IGNORE_CASE) to "Zepto",
@@ -301,9 +313,14 @@ object Parser {
     // insurer's text has no account in it, so it must not become an account or a second payment.
     private val INSURER_ACK = Regex("""(received your (premium )?payment|premium.{0,40}received|thank you for choosing.{0,60}insurance).{0,160}(policy|premium|insurance)|against policy (no\b|number)""", RegexOption.IGNORE_CASE)
 
+    // An auto-pay mandate being set up ("E-mandate registered successfully for Rs 15,000 ... First debit on 05-11")
+    // moves no money; the debits come later as their own messages.
+    private val MANDATE_SETUP = Regex("""\b(?:e-?mandate|mandate|auto-?pay|standing instruction)\b[^.]{0,60}\b(?:registered|created|set ?up|activated)\b|\bfirst debit (?:on|date|will)\b""", RegexOption.IGNORE_CASE)
+
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
         val text = WS.replace(body, " ").trim()
         if (INSURER_ACK.containsMatchIn(text)) return null
+        if (MANDATE_SETUP.containsMatchIn(text)) return null
         // Only count money that has actually left the account. A future auto-debit
         // ("will be debited") or a pure dues/reminder notice (no completed payment in it)
         // never counts. A completed debit that merely MENTIONS a future due date still counts.
@@ -627,8 +644,11 @@ object Parser {
 
     private val UPI_REF_ONLY = Regex("""(?i)^(?:upi|imps|neft)[-/ ]?[\w-]*\d{6,}$""")
     private val NOT_A_PAYEE = setOf("upi", "imps", "neft", "rtgs", "you", "your", "us", "me", "self", "user")
+    // "towards NACH-DR-BAJAJ FINANCE LTD" -> "BAJAJ FINANCE LTD": how it was paid, not who.
+    private val CP_LEAD = Regex("""^(?:(?:towards|for)\s+)?(?:(?:NACH|ACH)[- ]?(?:DR|D)?[- /]+)?""", RegexOption.IGNORE_CASE)
+
     private fun cleanCp(raw: String?): String? {
-        val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "")
+        val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "").replace(CP_LEAD, "").trim()
         if (s.length < 2) return null
         if (s.startsWith("through ", ignoreCase = true)) return null     // "through By Transfer", "through BULK POSTING": how, not who
         if (s.lowercase() in NOT_A_PAYEE || UPI_REF_ONLY.matches(s)) return null
