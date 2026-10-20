@@ -16,19 +16,6 @@ android {
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = run
         versionName = "0.3.$run"
-        // Where the optional sponsor card is read from (a public JSON file you control). Empty means no card is ever shown.
-        // Set zelu.sponsorUrl in gradle.properties, or ZELU_SPONSOR_URL in the build environment.
-        val sponsorUrl = System.getenv("ZELU_SPONSOR_URL")?.takeIf { it.isNotBlank() }
-            ?: (project.findProperty("zelu.sponsorUrl") as String?).orEmpty()
-        buildConfigField("String", "SPONSOR_URL", "\"$sponsorUrl\"")
-        // AdMob. These defaults are Google's own TEST ids (safe to run, never earn). Put the real ids in gradle.properties
-        // (zelu.admobAppId, zelu.admobBannerUnit) or in ZELU_ADMOB_APP_ID / ZELU_ADMOB_BANNER_UNIT before publishing.
-        val admobApp = System.getenv("ZELU_ADMOB_APP_ID")?.takeIf { it.isNotBlank() }
-            ?: (project.findProperty("zelu.admobAppId") as String?).orEmpty()
-        val admobBanner = System.getenv("ZELU_ADMOB_BANNER_UNIT")?.takeIf { it.isNotBlank() }
-            ?: (project.findProperty("zelu.admobBannerUnit") as String?).orEmpty()
-        manifestPlaceholders["admobAppId"] = admobApp
-        buildConfigField("String", "ADMOB_BANNER_UNIT", "\"$admobBanner\"")
     }
 
     signingConfigs {
@@ -79,8 +66,7 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
-    implementation("com.google.android.gms:play-services-ads:23.4.0")
-    // The ads library brings an old Fragment; the activity-result code in MainActivity needs 1.3.0 or newer.
+    // The activity-result code in MainActivity needs Fragment 1.3.0 or newer.
     implementation("androidx.fragment:fragment:1.8.3")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")

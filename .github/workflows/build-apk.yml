@@ -63,6 +63,17 @@ jobs:
           # A parser test that fails names the message it read wrongly.
           grep -h -E "AssertionError|Should be" app/build/test-results/testReleaseUnitTest/*.xml 2>/dev/null | head -10 | sed 's/^ *//; s/^/::error::/' | tr -d '\r' || true
 
+      # Zelu promises it has no internet access. Fail the build if any library brings the permission back.
+      - name: Check the app asks for no internet access
+        shell: bash
+        run: |
+          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | tee perms.txt
+          if grep -q "android.permission.INTERNET" perms.txt; then
+            echo "::error::The release APK asks for INTERNET; the privacy policy says it does not."
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

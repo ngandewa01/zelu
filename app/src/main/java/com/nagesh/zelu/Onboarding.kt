@@ -228,7 +228,7 @@ import kotlin.math.atan2
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Why Zelu asks for SMS", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Text("Your bank already texts you every payment. Zelu reads those texts to find the amount, who was paid and which account, so you never type anything.", color = ZColor.InkSoft, fontSize = 13.sp)
-                        Text("It skips OTPs and personal chats. Your messages are never sent anywhere. Zelu shows ads through Google AdMob and gives it none of your data.", color = ZColor.InkSoft, fontSize = 13.sp)
+                        Text("It skips OTPs and personal chats. Your messages are never sent anywhere: Zelu has no ads and no internet access.", color = ZColor.InkSoft, fontSize = 13.sp)
                     }
                     Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
