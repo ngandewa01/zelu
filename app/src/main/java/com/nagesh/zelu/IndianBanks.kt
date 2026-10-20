@@ -28,6 +28,8 @@ object IndianBanks {
         b("TMB", 0xFF00695C, listOf("TAMILNAD MERCANTILE BANK", "TMB BANK"), listOf("TMBANK", "TMBBNK")),
         b("NAINITAL", 0xFF4527A0, listOf("NAINITAL BANK"), listOf("NTBANK", "NAINIB"), "NTB"),
         b("DCB", 0xFF00838F, listOf(), listOf("DCBBNK", "DCBANK")),
+        b("KBL", 0xFF0D47A1, listOf("KARNATAKA BANK"), listOf("KBLBNK", "KTKBNK")),
+        b("SIB", 0xFFB71C1C, listOf("SOUTH INDIAN BANK"), listOf("SIBSMS", "SIBANK", "SIBBNK")),
         // Small-finance and payments banks
         b("JANA", 0xFF2E7D32, listOf("JANA SMALL FINANCE BANK", "JANA BANK"), listOf("JANASF", "JANABK")),
         b("SURYODAY", 0xFFEF6C00, listOf("SURYODAY SMALL FINANCE BANK", "SURYODAY"), listOf("SURYOD"), "SSFB"),
@@ -36,6 +38,9 @@ object IndianBanks {
         b("CAPITAL", 0xFF1565C0, listOf("CAPITAL SMALL FINANCE BANK"), listOf("CAPSFB"), "CSFB"),
         b("FINCARE", 0xFFAD1457, listOf("FINCARE SMALL FINANCE BANK"), listOf("FINCAR")),
         b("NESFB", 0xFF00796B, listOf("NORTH EAST SMALL FINANCE BANK", "SLICE SMALL FINANCE BANK"), listOf("NESFBL")),
+        b("EQUITAS", 0xFF00838F, listOf("EQUITAS SMALL FINANCE BANK", "EQUITAS BANK"), listOf("EQUTAS", "EQUITS", "EQUSFB")),
+        b("UJJIVAN", 0xFF5D4037, listOf("UJJIVAN SMALL FINANCE BANK", "UJJIVAN SFB"), listOf("UJJIVN", "UJJSFB")),
+        b("IPPB", 0xFFD32F2F, listOf("INDIA POST PAYMENTS BANK"), listOf("IPBMSG", "IPPBMS", "IPPBNK")),
         b("FINO", 0xFF1565C0, listOf("FINO PAYMENTS BANK"), listOf("FINOPB")),
         b("AIRTEL", 0xFFE40000, listOf("AIRTEL PAYMENTS BANK"), listOf("AIRBNK", "APBLBK"), "APB"),
         b("JIO", 0xFF0F3CC9, listOf("JIO PAYMENTS BANK"), listOf("JIOPBK")),
