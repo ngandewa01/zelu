@@ -211,6 +211,8 @@ fun ZeluApp() {
     var menuPage by remember { mutableStateOf("") }
     var helpOpen by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
+    var crashAsk by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { crashAsk = withContext(Dispatchers.IO) { CrashLog.isNew(context) } }
     var emailOpen by remember { mutableStateOf(false) }
     var privacyOpen by remember { mutableStateOf(false) }
     var fullConfirm by remember { mutableStateOf(false) }
@@ -1535,6 +1537,28 @@ fun ZeluApp() {
             Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                 .clickable { privacyOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
                 Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+
+    // After a crash, offer once to send the details. The email opens as a draft; nothing goes out unless the user sends it.
+    if (crashAsk) {
+        fun seen() { crashAsk = false; scope.launch(Dispatchers.IO) { CrashLog.markSeen(context) } }
+        Dialog(onDismissRequest = { seen() }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+                Text("Zelu closed unexpectedly", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                MutedText("Sorry about that. Sending the error details helps fix it. They hold only technical text, no payments or messages, and you see the email before sending.", 13)
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.align(Alignment.End)) {
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).clickable { seen() }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text("Not now", color = ZColor.Muted, fontWeight = FontWeight.SemiBold)
+                    }
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                        .clickable { seen(); reportOpen = true }.padding(horizontal = 18.dp, vertical = 10.dp)) {
+                        Text("Send report", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
     }

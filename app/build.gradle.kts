@@ -34,7 +34,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Shrinking drops the unused parts of the libraries (most of the icon set). Zelu's own code is kept
+            // whole (see proguard-rules.pro), so nothing in it can be renamed or removed.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
         }
     }

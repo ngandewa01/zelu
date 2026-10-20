@@ -4,8 +4,8 @@ import android.app.Application
 import android.content.Context
 import java.io.File
 
-// Keeps the details of the last crash on the phone (nothing is sent anywhere), so "Report a problem" can attach them
-// when you choose to.
+// Keeps the details of the last crash on the phone (nothing is sent anywhere). On the next launch Zelu offers to
+// send them by email, and "Report a problem" can attach them; the user sees the email and sends it themselves.
 class ZeluApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -19,6 +19,7 @@ class ZeluApplication : Application() {
 
 object CrashLog {
     private fun file(c: Context) = File(c.filesDir, "last_crash.log")
+    private fun newFlag(c: Context) = File(c.filesDir, "last_crash.new")
 
     fun save(c: Context, e: Throwable) {
         val sb = StringBuilder()
@@ -31,8 +32,13 @@ object CrashLog {
             cur = cur.cause; depth++
         }
         file(c).writeAtomic(sb.toString())
+        newFlag(c).writeText("1")
     }
 
+    /** True once after a crash, so the next launch can offer to send a report. */
+    fun isNew(c: Context): Boolean = newFlag(c).exists()
+    fun markSeen(c: Context) { newFlag(c).delete() }
+
     fun last(c: Context): String? = file(c).takeIf { it.exists() }?.readText()
-    fun clear(c: Context) { file(c).delete() }
+    fun clear(c: Context) { file(c).delete(); markSeen(c) }
 }

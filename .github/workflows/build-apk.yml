@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle testReleaseUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
+          gradle testReleaseUnitTest assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log
 
       # When the build breaks, show the compiler errors as annotations (readable without downloading logs).
       - name: Show compiler errors
@@ -80,13 +80,24 @@ jobs:
           name: zelu-release-apk
           path: app/build/outputs/apk/release/app-release.apk
 
+      # The Play Store takes an app bundle (.aab), not an APK. The mapping file turns a shrunk library's
+      # names in a crash back into readable ones (Play Console, App bundle explorer, Downloads).
+      - name: Upload app bundle for the Play Store
+        uses: actions/upload-artifact@v4
+        with:
+          name: zelu-release-aab
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/mapping.txt
+
       # Every main build becomes the latest release, so this link always serves the newest APK:
       # https://github.com/ngandewa01/zelu/releases/latest/download/zelu.apk
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         run: |
           cp app/build/outputs/apk/release/app-release.apk zelu.apk
-          gh release create "build-${{ github.run_number }}" zelu.apk \
+          cp app/build/outputs/bundle/release/app-release.aab zelu.aab
+          gh release create "build-${{ github.run_number }}" zelu.apk zelu.aab \
             --target "${{ github.sha }}" \
             --title "Zelu build ${{ github.run_number }}" \
             --notes "$(git log -1 --format=%s)" \
