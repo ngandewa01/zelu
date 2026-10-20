@@ -28,6 +28,9 @@ class SmsModelTest {
             // A balance-only message is not money received, even with an amount and "Available" in it.
             "Available Bal in HDFC Bank A/c XX7310 as on yesterday:02-NOV-26 is INR 4,512.30. Cheques are subject to clearing.For updated A/C Bal dial 18002703333." to "ignore",
             "Rs.500.00 credited to HDFC Bank A/c XX5997 on 13-10-26 from VPA anil@okicici. Avl bal INR 81,265.94" to "credit",
+            // "NEFT ... has been credited to NAME" confirms money you sent; money arriving on your card is received.
+            "HDFC Bank : NEFT money transfer Txn No HDFCH01999154711 for Rs INR 7,000.00 has been credited to VIJAY DESAI on 07-11-2026 at 10:05:12" to "spend",
+            "HDFC Bank Cardmember, Online Payment of Rs.9800 vide Ref# 5ZZQWERTY was credited to your card ending 9065 On 11/NOV/2026_value Date 11/NOV/2026" to "credit",
         )
         for ((text, want) in cases) assertEquals(text, want, m.best(text).first)
     }
