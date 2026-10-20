@@ -82,7 +82,7 @@ object CatIcons {
         "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.Payments,
         "Wallet" to Icons.Rounded.AccountBalanceWallet, "Home services" to Icons.Rounded.Handyman,
         "Donation" to Icons.Rounded.VolunteerActivism, "Transfer" to Icons.Rounded.SwapHoriz,
-        "Card bill" to Icons.Rounded.CreditCard, "Income" to Icons.Rounded.ArrowDownward,
+        "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.AccountBalance, "Income" to Icons.Rounded.ArrowDownward,
         "Refund" to Icons.Rounded.Undo, "Milk & Dairy" to Icons.Rounded.LocalDrink,
         "Internet" to Icons.Rounded.Wifi, "Mobile" to Icons.Rounded.PhoneAndroid,
         "Laundry" to Icons.Rounded.LocalLaundryService, "Maid" to Icons.Rounded.CleaningServices,

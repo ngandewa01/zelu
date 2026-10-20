@@ -134,6 +134,7 @@ private fun buildCatColors(): Map<String, Color> = mapOf(
     "Gym" to Color(0xFFB5744A),
     "Personal care" to Color(0xFFCF8FB0),
     "ATM / Cash" to Color(0xFF788074),
+    "Bank charges" to Color(0xFFB0705E),
     "Unknown" to Color(0xFFC1C8C2),
     "Income" to ZColor.Income,
     "Refund" to ZColor.Income,
@@ -163,6 +164,7 @@ val CAT_ICON: Map<String, String> = mapOf(
     "Gym" to "🏋️",       // weightlifter
     "Personal care" to "💇",   // haircut
     "ATM / Cash" to "🏧",      // ATM
+    "Bank charges" to "💸",    // money flying away
     "Transfer" to "↔️",        // left-right arrow
     "Card bill" to "💳",       // credit card
     "Education" to "🎓",

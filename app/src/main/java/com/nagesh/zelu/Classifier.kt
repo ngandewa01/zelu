@@ -26,6 +26,7 @@ object Classifier {
         "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
         "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
+        "Bank charges" to emptyList(), // detected specially (fees and charges the bank or card takes); listed so it can be picked
         "Home services" to listOf("pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi", "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater", "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
         "Subscriptions" to listOf("apple.com/bill", "apple services", "google cloud", "amazon web", "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity", "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
@@ -146,6 +147,11 @@ object Classifier {
         }
     }
 
+    private val BANK_CHARGE = Regex(
+        """\b(?:annual|joining|renewal|membership|late(?: payment)?|sms(?: alert)?|alert|atm(?: transaction)?|maintenance|non[- ]maintenance|minimum(?: average)? balance|min(?:imum)? bal|amb|mab|overlimit|over[- ]limit|cash advance|penal|penalty|cheque return|chq return|ecs return|nach return|card replacement|service)\b[a-z ]{0,25}?\b(?:fees?|charges?)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val CHARGE_MAYBE = Regex("""\b(?:fees?|charges?)\s+(?:may|will|shall|would)\b|\b(?:fees?|charges?)\s+(?:if\s+)?applicable|\bno\s+(?:extra\s+|additional\s+)?(?:fees?|charges?)\b""", RegexOption.IGNORE_CASE)
     private val BILL_PAY = Regex("""\bbill ?pay\b""")
 
     fun classify(t: Txn, ownAccounts: List<String>): Result {
@@ -155,6 +161,11 @@ object Classifier {
         if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
             return Result("transfer", "Card bill")
         }
+
+        // A fee the bank or card took (annual fee, late payment, minimum balance, SMS, ATM charges) is its own spend;
+        // "charges may apply" on an ordinary payment is not.
+        if (t.direction == "debit" && BANK_CHARGE.containsMatchIn(t.raw) && !CHARGE_MAYBE.containsMatchIn(t.raw))
+            return Result("expense", "Bank charges")
 
         // Money moving between your own accounts is not income or spending.
         if (cp.isNotEmpty() && ownAccounts.any { it.isNotEmpty() && cp.contains(it.lowercase()) }) {
