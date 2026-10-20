@@ -234,8 +234,13 @@ object Parser {
         return isBillerSender(a) || a.contains("AIRTEL")
     }
 
+    /** A short code (IOB, BOB, UCO...) counts only at the start of the sender's name, so "JioBln" is not "IOB". */
+    private fun codeHit(src: String, code: String): Boolean =
+        if (code.length >= 4) src.contains(code)
+        else { val core = senderCore(src); core.startsWith(code) || src.split('-').any { it == code } }
+
     private fun bankLike(a: String): Boolean =
-        SENDER_CODES.any { a.contains(it.first) } || BANK.containsMatchIn(a) || FIN_TOKEN.containsMatchIn(a)
+        SENDER_CODES.any { codeHit(a, it.first) } || BANK.containsMatchIn(a) || FIN_TOKEN.containsMatchIn(a)
 
     /** A biller's own sender (BESCOM, LIC...): its bill reminders are read, but its payment notes are not payments. */
     fun isBillerOnly(address: String): Boolean {
@@ -706,7 +711,7 @@ object Parser {
         if (bank == "YESBANK") bank = "YES"
         if (bank.isEmpty()) {
             val src = source.uppercase()
-            bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+            bank = SENDER_CODES.firstOrNull { codeHit(src, it.first) }?.second ?: ""
         }
         if (bank.isEmpty()) return null
         return Triple("$bank CC $last4", amt, avail == null)
@@ -721,7 +726,7 @@ object Parser {
 
     fun parseBalance(body: String, receivedMs: Long?, source: String): Triple<String, Double, Long>? {
         val text = body.replace("\n", " ").trim()
-        if (isLoanAccountText(text)) return null
+        if (isLoanAccountText(text) || TELECOM_ALERT.containsMatchIn(text)) return null
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null
         val amt = BAL_AMT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: return null
         val acct = accountOf(text, source, "")
@@ -729,12 +734,15 @@ object Parser {
         return Triple(acct, amt, receivedMs ?: 0L)
     }
 
+    // Mobile / broadband usage alerts (voice, data, plan, recharge balance) are not a bank balance.
+    private val TELECOM_ALERT = Regex("""\b(voice call|data (?:used|balance|left|pack)|daily data|sms pack|plan (?:validity|expires?)|validity|talktime|main balance|recharge (?:now|pack))\b""", RegexOption.IGNORE_CASE)
+
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
     private fun accountOf(rawText: String, source: String, direction: String): String {
         val text = REF_NOISE.replace(PHONE_NOISE.replace(rawText, " "), " ")
         // The sender id names the bank first; only when it doesn't, the message text does.
         val src = source.uppercase()
-        var bank = SENDER_CODES.firstOrNull { src.contains(it.first) }?.second ?: ""
+        var bank = SENDER_CODES.firstOrNull { codeHit(src, it.first) }?.second ?: ""
         if (bank.isEmpty()) bank = taughtBanks[senderCore(source)] ?: ""
         if (bank.isEmpty()) bank = bankInText(rawText)
         if (bank == "YESBANK") bank = "YES"
