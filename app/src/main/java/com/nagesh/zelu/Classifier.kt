@@ -9,7 +9,7 @@ object Classifier {
         "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
+        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "tea stall", "tea shop", "grab*", "grabfood", "taj hotels", "hotel ", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
         "Groceries" to listOf("nature's basket", "natures basket", "spencer", "star bazaar", "easyday", "ratnadeep", "vijetha", "licious", "freshtohome", "fresh to home", "milkmantra", "ninjacart", "nandini", "vishal mega", "fruits", "vegetables", "bakers basket", "blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail", "country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
         "Fuel" to listOf("bharat petroleum", "hindustan petroleum", "nayara", "reliance bp", "jio-bp", "jio bp", "petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
         "Transport" to listOf("ola cabs", "olacabs", "blu smart", "bluesmart", "yulu", "delhi metro", "dmrc", "hmrl", "tsrtc", "ksrtc", "msrtc", "apsrtc", "abhibus", "parking", "cab", "uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri", "toll", "toll plaza", "fastag", "fasttag", "netc"),
@@ -22,15 +22,15 @@ object Classifier {
             "brand factory", "home centre", "home center", "nilkamal", "godrej interio", "hopscotch",
             "poorvika", "sangeetha mobiles", "bajaj electronics", "girias", "pai international", "lot mobiles",
             "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora", "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail", "shoppe", "shoe mart"),
-        "Investment" to listOf("zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
+        "Investment" to listOf("icici prudential m", "bse limited", "nse clearing", "indian clearing", "zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
         "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
         "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Bank charges" to emptyList(), // detected specially (fees and charges the bank or card takes); listed so it can be picked
-        "Home services" to listOf("pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
+        "Home services" to listOf("mygate", "nobrokerhood", "society maintenance", " chs", "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi", "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater", "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
-        "Subscriptions" to listOf("apple.com/bill", "apple services", "google cloud", "amazon web", "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity", "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
-        "Bills" to listOf("billdesk", "infobil", "bharat bill", "bbps", "electricity board", "msedcl", "tneb", "tsspdcl", "apspdcl", "bwssb", "hmwssb", "indane", "hp gas", "bharatgas", "bharat gas", "mahanagar gas", "adani gas", "piped gas", "tata play", "tataplay", "dish tv", "sun direct", "d2h", "municipal", "property tax", "lic of india", "insurance premium", "life insurance", "hdfc life", "sbi life", "max life", "star health", "care health", "acko", "digit insurance", "policybazaar", "electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi", "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
+        "Subscriptions" to listOf("apple.com/bill", "apple services", "apple media", "google cloud", "amazon web", "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity", "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
+        "Bills" to listOf("billdesk", "infobil", "bharat bill", "bbps", "tatapower", "starhealth", "insurance", "sms alert", "alert chg", "annual fee", "membership fee", "annual maint", "maint chgs", "finance charge", "interest charge", "interest on cash", "late payment", "cross currency markup", "cheque return", "non-maintenance", "electricity board", "msedcl", "tneb", "tsspdcl", "apspdcl", "bwssb", "hmwssb", "indane", "hp gas", "bharatgas", "bharat gas", "mahanagar gas", "adani gas", "piped gas", "tata play", "tataplay", "dish tv", "sun direct", "d2h", "municipal", "property tax", "lic of india", "insurance premium", "life insurance", "hdfc life", "sbi life", "max life", "star health", "care health", "acko", "digit insurance", "policybazaar", "electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi", "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
         "Travel" to listOf("easemytrip", "yatra", "agoda", "booking.com", "spicejet", "akasa", "air asia", "airasia", "treebo", "fabhotels", "zostel", "thomas cook", "lodge", "guest house", "irctc", "makemytrip", "goibibo", "cleartrip", "indigo", "vistara", "air india", "oyo", "airbnb", "ixigo"),
         "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
         "EMI" to listOf("emi", "loan", "loans", "installment", "instalment", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
@@ -66,7 +66,9 @@ object Classifier {
     private val BNPL = Regex("""\b(olamoney|ola money|lazypay|simpl|paylater|pay later|postpaid account)\b""", RegexOption.IGNORE_CASE)
 
     // A plain multi-word personal name (no business word) — a person, not a merchant.
-    private val PERSON_NAME = Regex("""^[A-Za-z]{2,}(?: [A-Za-z]{2,}){1,3}$""")
+    private val PERSON_NAME = Regex("""^[\p{L}\p{M}]{2,}\.?(?: [\p{L}\p{M}]+\.?){1,3}$""")
+    // Money that was earned, not sent by a friend: salary, pension, interest...
+    private val EARNED = Regex("""\b(?:salary|sal|pension|interest|dividend|stipend|bonus|incentive|commission|payroll|reimburse\w*|wages?|honorarium|govt|government)\b""", RegexOption.IGNORE_CASE)
     private val BUSINESS_WORD = Regex("""\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|supermarket|foods?|electricals?|electronics|hardware|textiles?|medicals?|motors?|infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""", RegexOption.IGNORE_CASE)
 
     // Money landing ON a credit card = a bill settlement, not income.
@@ -78,7 +80,7 @@ object Classifier {
     // Contributions to retirement / market investments: tracked separately, so they count
     // as neither spending nor income (PF is deducted pre-salary; NPS you transfer in).
     private val INVEST = Regex(
-        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal|fixed deposit|recurring deposit)\b""",
+        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal|fixed deposit|recurring deposit|bse limited|nse clearing|indian clearing corp|icici prudential m(?:f|utual)?|prudential mutual|mf utilities)\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -152,13 +154,28 @@ object Classifier {
         RegexOption.IGNORE_CASE,
     )
     private val CHARGE_MAYBE = Regex("""\b(?:fees?|charges?)\s+(?:may|will|shall|would)\b|\b(?:fees?|charges?)\s+(?:if\s+)?applicable|\bno\s+(?:extra\s+|additional\s+)?(?:fees?|charges?)\b""", RegexOption.IGNORE_CASE)
+    private val BANK_FEE = Regex("""\btowards\s+[^.]{0,40}\b(?:charges?|chgs|fees?|[ics]?gst)\b|^[^.]{0,30}\b(?:charges?|fees?|interest|markup)\b[^.]{0,60}\b(?:levied|charged|posted)\s+(?:on|to)\b""", RegexOption.IGNORE_CASE)
+    private val EMBEDDED = listOf("school" to "Education", "college" to "Education", "academy" to "Education", "hospital" to "Health",
+        "pharmacy" to "Health", "medical" to "Health", "clinic" to "Health", "restaurant" to "Food", "supermarket" to "Groceries")
+    // Merchants whose money coming back to you is a refund, not income.
+    private val REFUND_CATEGORIES = setOf("Food", "Groceries", "Shopping", "Travel", "Transport", "Entertainment")
+    private val SELF_TRANSFER = Regex("""\bto (?:your )?own (?:a/?c|acct|account)\b|\((?:self)\)|\bself (?:transfer|a/?c)\b""", RegexOption.IGNORE_CASE)
+    private val ACCOUNT_CHECK = Regex("""\b(?:a/?c|account) verification\b|\bpenny drop\b|\bverify your (?:bank )?(?:a/?c|account)\b""", RegexOption.IGNORE_CASE)
+    private val REFUND_WORD = Regex("""\brefund(?:ed)?\b""", RegexOption.IGNORE_CASE)
+    private val WALLET_LOAD = Regex("""\badd(?:ed)? money\b|\bwallet (?:top-?up|load|recharge)\b|\b(?:top-?up|load(?:ed)?) (?:your |to )?wallet\b""", RegexOption.IGNORE_CASE)
+    // "chargeback credit", "UPI/REV/": money given back for a disputed or reversed payment.
+    private val CARD_REFUND = Regex("""\bchargeback\b|\bupi/rev/|\bdispute (?:ref|resolved|credit)\b""", RegexOption.IGNORE_CASE)
+    private val CASHBACK = Regex("""\bcash ?back\b|\breward (?:points? )?(?:credit|redemption)\b""", RegexOption.IGNORE_CASE)
+    // "BBPS Bill Payment - SBI Card", "CC BILL PAY/HDFC BANK CREDIT CARD": a card bill paid through Bharat BillPay.
+    private val CARD_BILL_BBPS = Regex("""\b(?:bbps|bill ?pay(?:ment)?)\b[^.]{0,40}\b(?:card|cc)\b|\bcc bill pay\b""", RegexOption.IGNORE_CASE)
+
     private val BILL_PAY = Regex("""\bbill ?pay\b""")
 
     fun classify(t: Txn, ownAccounts: List<String>): Result {
         val cp = (t.counterparty ?: "").lowercase()
 
         // Paying a credit-card bill (directly or via CRED) is a transfer, not a new spend.
-        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
+        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CARD_BILL_BBPS.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
             return Result("transfer", "Card bill")
         }
 
@@ -172,14 +189,22 @@ object Classifier {
             return Result("transfer", "Transfer")
         }
 
+        // Sent to your own account ("to your own a/c X8890 (SELF)") is a transfer between your accounts.
+        if (SELF_TRANSFER.containsMatchIn(t.raw) || cp == "self") return Result("transfer", "Transfer")
+        // A tiny broker or bank deposit to check your account is not an investment.
+        val verify = t.direction == "credit" && ACCOUNT_CHECK.containsMatchIn(t.raw)
         // Retirement / market contributions are tracked on their own, not spend or income.
-        if (INVEST.containsMatchIn(t.raw) || INVEST.containsMatchIn(cp)) {
+        if (!verify && (INVEST.containsMatchIn(t.raw) || INVEST.containsMatchIn(cp))) {
             return Result("invest", "Investment")
         }
 
         // Wallets: loading a wallet from your bank IS the spend (the money has left your
         // account), so a wallet load counts as an expense. Spending FROM the wallet, or
         // cashback landing in it, is NOT counted again — that would double-count.
+        // A refund from a wallet company ("refund from AMAZON PAY INDIA") is a refund to you, not a wallet movement.
+        if (t.direction == "credit" && REFUND_WORD.containsMatchIn(t.raw)) return Result("refund", "Refund")
+        // Loading a wallet ("PAYTM ADD MONEY", "Wallet top-up") is money moved to the wallet.
+        if (t.direction == "debit" && WALLET_LOAD.containsMatchIn(t.raw)) return Result("expense", "Wallet")
         if (WALLET.containsMatchIn(t.raw)) {
             if (t.direction == "credit" || WALLET_SPEND.containsMatchIn(t.raw))
                 return Result("ignore", "Wallet")
@@ -187,7 +212,9 @@ object Classifier {
         }
 
         if (t.direction == "credit") {
-            if (Parser.REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
+            if (Parser.REFUND.containsMatchIn(t.raw) || CARD_REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
+            // Cashback and reward credits are money in, even when they land on a card.
+            if (CASHBACK.containsMatchIn(t.raw)) return Result("income", "Income")
             // A loan paid out to you is borrowed money, not income.
             if (Parser.LOAN_DISBURSAL.containsMatchIn(t.raw)) return Result("transfer", "Loan")
             // A payment landing on your credit card is settling a bill, not income.
@@ -195,6 +222,13 @@ object Classifier {
             // been received on your ... Credit Card XX8003 through BBPS") is the same thing.
             if (CARD_RECV.containsMatchIn(t.raw) || onCard(t.account))
                 return Result("transfer", "Card bill")
+            // A shop or app sending money back ("UPI/CR/.../SWIGGY") is a refund.
+            if (cp.isNotEmpty() && CATEGORIES.any { (cat, words) -> cat in REFUND_CATEGORIES && words.any { has(cp, it) } })
+                return Result("refund", "Refund")
+            // Money from a person ("from RAMESH IYER via IMPS") is a transfer between people, not income.
+            val from = t.counterparty?.trim()
+            if (from != null && PERSON_NAME.matches(from) && !BUSINESS_WORD.containsMatchIn(from) && !EARNED.containsMatchIn(t.raw) && !EARNED.containsMatchIn(from))
+                return Result("transfer", "Transfer")
             return Result("income", "Income")
         }
 
@@ -203,6 +237,9 @@ object Classifier {
         val raw = EMI_OFFER.replace(t.raw, " ")
         val spaced = ((t.counterparty ?: "") + " " + raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
         val hay = ("$cp $raw $spaced").lowercase()
+        val joined = hay.replace("*", " ")
+        // A bank fee or its tax ("towards Debit Card Annual Maint Chgs", "towards IGST on DC Annual Fee") is a bill.
+        if (BANK_FEE.containsMatchIn(raw)) return Result("expense", "Bank charges")
         // "Amazon Bill Pay", "BillPay"... is a bill payment through the platform, whatever the platform sells.
         if (BILL_PAY.containsMatchIn(cp)) return Result("expense", "Bills")
         // 1) Exact brand dictionary (most specific). Swiggy Instamart is groceries, though "swiggy" alone is food.
@@ -213,6 +250,10 @@ object Classifier {
         // 2) Name-pattern heuristics (generalize to unknown local merchants).
         for ((re, category) in NAME_HINTS) {
             if (re.containsMatchIn(hay)) return Result("expense", category)
+        }
+        // "RAZ*DELHIPUBLICSCHOOL": a telling word inside one long run-together name.
+        for ((word, category) in EMBEDDED) {
+            if (joined.split(' ').any { it.length > word.length + 3 && it.contains(word) }) return Result("expense", category)
         }
         // 3) Money sent to a named person (not a business) is a transfer, not a spend. A card swipe
         //    is always a purchase at a merchant, so it never takes this path.
