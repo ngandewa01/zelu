@@ -82,3 +82,16 @@ jobs:
             --latest
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # The lab build never becomes the latest release; it is a pre-release named lab-N, installed beside the normal app.
+      - name: Publish lab pre-release
+        if: github.ref == 'refs/heads/lab-classifier'
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk zelu-lab.apk
+          gh release create "lab-${{ github.run_number }}" zelu-lab.apk \
+            --target "${{ github.sha }}" \
+            --title "Zelu Lab build ${{ github.run_number }}" \
+            --notes "Lab build: learning model beside the rules. Installs next to Zelu." \
+            --prerelease --latest=false
+        env:
+          GH_TOKEN: ${{ github.token }}

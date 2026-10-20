@@ -1123,6 +1123,10 @@ fun ZeluApp() {
             onRestore = { k -> restoreAcct(k) }, onDone = { confirmAccounts() }, rows = rows)
         return
     }
+    if (stage == "modelcheck") {
+        ModelCheckScreen(onBack = { stage = "app" })
+        return
+    }
     if (stage != "app") {
         val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
         val cardsN = accts.count { it.contains(" CC") }
@@ -1626,6 +1630,7 @@ fun ZeluApp() {
                             MenuRow("Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income) { shut(); view = "invest"; daySel = 0 }
                         }
                         "accounts" -> {
+                            MenuRow("Model check (lab)", "Test a learning model against Zelu's rules on your messages", Icons.Rounded.Restore, ZColor.Accent) { shut(); stage = "modelcheck" }
                             MenuRow("Your accounts", "Join duplicates, set what each one is, remove what is not yours", Icons.Rounded.AccountBalance) { shut(); stage = "accounts" }
                             val removed = registry.count { it.value.first == "declined" } + Storage.hiddenAccounts(context).size
                             MenuRow("Bring back removed accounts", if (removed > 0) "$removed removed or hidden" else "Nothing removed", Icons.Rounded.Restore, ZColor.Muted) {
@@ -6016,5 +6021,78 @@ private fun niceCeil(x: Double): Double {
                 }
             }
         }
+    }
+}
+
+// Lab only: shows where the rules and the learning model disagree, and a random sample, and counts which one you find right.
+@Composable private fun ModelCheckScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var result by remember { mutableStateOf<ModelCheck.Result?>(null) }
+    var mode by remember { mutableStateOf("differ") }
+    var tally by remember { mutableStateOf<Pair<ModelCheck.Tally, ModelCheck.Tally>?>(null) }
+    val gone = remember { mutableStateListOf<String>() }
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { result = ModelCheck.scan(context); tally = ModelCheck.tally(context) } }
+    androidx.activity.compose.BackHandler { onBack() }
+    val fmt = remember { java.text.SimpleDateFormat("d MMM, h:mm a", java.util.Locale.US).apply { timeZone = Dates.IST } }
+    fun pct(a: Int, n: Int) = if (n == 0) "-" else "${a * 100 / n}%"
+    Column(Modifier.fillMaxSize().background(ZColor.Paper).windowInsetsPadding(WindowInsets.navigationBars)
+        .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
+        Text("Model check", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        MutedText("Lab build. Zelu's rules and a small learning model both read your bank messages. Tell Zelu what each message really is. It counts which of the two is right more often. Nothing here changes your payments.", 13)
+        Spacer(Modifier.height(10.dp))
+        val r = result
+        if (r == null) {
+            MutedText("Reading your messages...", 14)
+        } else {
+            val (smp, dif) = tally ?: (ModelCheck.Tally(0, 0, 0) to ModelCheck.Tally(0, 0, 0))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card).padding(14.dp)) {
+                Text("Read ${r.scanned} bank messages. Rules and model agree on ${pct(r.agree, r.scanned)}.", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text("Honest score (random sample, ${smp.n} answered)", color = ZColor.Muted, fontSize = 12.sp)
+                Text(if (smp.n == 0) "Answer some from the random sample to get it."
+                    else "Rules right ${pct(smp.rulesRight, smp.n)}  ·  Model right ${pct(smp.modelRight, smp.n)}",
+                    color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                Text("Where they differ (${dif.n} answered)", color = ZColor.Muted, fontSize = 12.sp)
+                Text(if (dif.n == 0) "-" else "Rules right ${pct(dif.rulesRight, dif.n)}  ·  Model right ${pct(dif.modelRight, dif.n)}",
+                    color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PickChip("Where they differ (${r.differ.count { it.key !in gone }})", mode == "differ") { mode = "differ" }
+                PickChip("Random sample", mode == "sample") { mode = "sample" }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                val list = (if (mode == "differ") r.differ else r.sample).filter { it.key !in gone }.take(20)
+                if (list.isEmpty()) { Spacer(Modifier.height(14.dp)); MutedText("Nothing left here.", 13) }
+                list.forEach { it ->
+                    Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).padding(14.dp)) {
+                        Text(it.sender + " · " + fmt.format(java.util.Date(it.date)), color = ZColor.Muted, fontSize = 11.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(it.body, color = ZColor.Ink, fontSize = 13.sp, maxLines = 7, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Rules: ${ModelCheck.NAMES[it.rules]}  ·  Model: ${ModelCheck.NAMES[it.model]} (${(it.conf * 100).toInt()}%)", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        MutedText("What is it really?", 12)
+                        ChipScroll {
+                            SmsModel.CLASSES.forEach { c ->
+                                PickChip(ModelCheck.NAMES[c] ?: c, false) {
+                                    val m = mode
+                                    gone.add(it.key)
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) { ModelCheck.answer(context, it, c, m); tally = ModelCheck.tally(context) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Cta("Done", onBack)
     }
 }

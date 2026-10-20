@@ -10,12 +10,14 @@ android {
 
     defaultConfig {
         applicationId = "com.nagesh.zelu"
+        // Lab branch only: installs next to the normal Zelu instead of over it.
+        applicationIdSuffix = ".lab"
         minSdk = 24
         targetSdk = 35
         // CI passes its run number, so every build has a higher version and installs over the last one.
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = run
-        versionName = "0.3.$run"
+        versionName = "0.3.$run-lab"
         // Where the optional sponsor card is read from (a public JSON file you control). Empty means no card is ever shown.
         // Set zelu.sponsorUrl in gradle.properties, or ZELU_SPONSOR_URL in the build environment.
         val sponsorUrl = System.getenv("ZELU_SPONSOR_URL")?.takeIf { it.isNotBlank() }
