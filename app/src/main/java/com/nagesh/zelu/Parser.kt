@@ -60,7 +60,7 @@ object Parser {
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|will be auto[- ]?debited|will be (credited|refunded|reversed)|initiated (for )?(a )?refund|refund (has been |is )?initiated|auto[- ]?debited on|request(ed)? (money|rs|inr)|collect request|has requested|t\s?&\s?cs?|terms (and|&) conditions|get\s+(rs\.?|inr|₹)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|(?:charges?|fees?|penalty) will be (?:levied|charged|imposed)|will be auto[- ]?debited|will be (credited|refunded|reversed)|initiated (for )?(a )?refund|refund (has been |is )?initiated|auto[- ]?debited on|request(ed)? (money|rs|inr)|collect request|has requested|t\s?&\s?cs?|terms (and|&) conditions|get\s+(rs\.?|inr|₹)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
 
     // A debit that has NOT happened yet: a scheduled / future auto-debit, e.g.
     // "your EMI will be auto-debited on 5th". Money hasn't left the account.
@@ -329,6 +329,9 @@ object Parser {
     // "Convert your recent purchase of Rs 7,900 into easy EMIs": an offer about a spend already recorded. (A real spend
     // alert that ends with "To convert this txn to EMI give a missed call" still names the payment as spent/debited.)
     private val EMI_CONVERT_OFFER = Regex("""\bconvert\b[^.]{0,80}?\b(?:into|to)\s+(?:easy\s+|no[- ]cost\s+)?emis?\b""", RegexOption.IGNORE_CASE)
+    // "Late payment charges of INR 1,200.00 + GST have been levied on your Axis Bank Credit Card": a fee already
+    // charged, written without "debited". Booked as money out even though it also says "please pay your dues".
+    private val FEE_LEVIED = Regex("""\b(?:fee|fees|charges?|penalty|surcharge)\b(?:[^.]|\.\d){0,60}?\b(?:has|have)\s+been\s+(?:levied|charged|imposed|applied|billed|debited)\b""", RegexOption.IGNORE_CASE)
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)
     // "(SURESH PATIL)" after the other party's account: their name.
     private val PAREN_NAME = Regex("""(?:a/?c|acct|account)\s*(?:no\.?)?\s*[xX*#]*\d+\s*\(([A-Za-z][A-Za-z .]{2,40})\)""", RegexOption.IGNORE_CASE)
@@ -359,8 +362,9 @@ object Parser {
         val loanCredit = LOAN_CREDIT.containsMatchIn(text) && !future && !duesOnly &&
             !text.contains("disburs", ignoreCase = true)
         val isEmiDebit = (EMI_DEBIT.containsMatchIn(text) || loanCredit) && !future && !duesOnly
-        if (text.isEmpty() || (SKIP.containsMatchIn(text) && !isEmiDebit)) return null
-        if (future || duesOnly) return null
+        val fee = if (future) null else FEE_LEVIED.find(text)
+        if (text.isEmpty() || (SKIP.containsMatchIn(text) && !isEmiDebit && fee == null)) return null
+        if (future || (duesOnly && fee == null)) return null
 
         // Direction, from the earliest transaction keyword present.
         val d = listOfNotNull(DEBIT.find(text), DR_ABBR.find(text)).minByOrNull { it.range.first }
@@ -368,6 +372,9 @@ object Parser {
         var direction: String
         val keywordIndex: Int
         when {
+            fee != null && c == null -> {
+                direction = "debit"; keywordIndex = fee.range.first
+            }
             d != null && (c == null || d.range.first < c.range.first) -> {
                 direction = "debit"; keywordIndex = d.range.first
             }
