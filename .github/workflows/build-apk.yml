@@ -33,24 +33,33 @@ jobs:
         with:
           gradle-version: 8.9
 
-      # If the signing key is stored as repository secrets, use it; otherwise the committed key is used.
+      # The upload key lives only in the repository secrets. Without them the build stops: no APK or bundle
+      # is ever signed with anything else.
       - name: Use signing key from secrets
         shell: bash
         env:
           KEY_B64: ${{ secrets.ZELU_KEYSTORE_B64 }}
           KEY_PASS: ${{ secrets.ZELU_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ZELU_KEY_ALIAS }}
         run: |
+          # Which secrets this build can see (set or missing, and length only; never the values).
+          for n in KEY_B64 KEY_PASS KEY_ALIAS; do v="${!n}"; if [ -n "$v" ]; then echo "$n: set (${#v} chars)"; else echo "$n: missing"; fi; done
           if [ -n "$KEY_B64" ] && [ -n "$KEY_PASS" ]; then
             echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/zelu-release.jks"
             echo "ZELU_KEYSTORE_PATH=$RUNNER_TEMP/zelu-release.jks" >> "$GITHUB_ENV"
             echo "ZELU_KEYSTORE_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+            if [ -n "$KEY_ALIAS" ]; then echo "ZELU_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"; fi
+            echo "Signing with the key from repository secrets."
+          else
+            echo "::error::The signing secrets ZELU_KEYSTORE_B64 and ZELU_KEYSTORE_PASSWORD are missing (Settings, Secrets and variables, Actions)."
+            exit 1
           fi
 
       - name: Build release APK
         shell: bash
         run: |
           set -o pipefail
-          gradle testReleaseUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
+          gradle testReleaseUnitTest assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log
 
       # When the build breaks, show the compiler errors as annotations (readable without downloading logs).
       - name: Show compiler errors
@@ -62,6 +71,13 @@ jobs:
           cat app/build/reports/lint-results-*.txt 2>/dev/null | grep -E "Error:|Fatal:" -B1 -A3 | head -30 | sed 's/^/::error::/' | tr -d '\r' || true
           # A parser test that fails names the message it read wrongly.
           grep -h -E "AssertionError|Should be" app/build/test-results/testReleaseUnitTest/*.xml 2>/dev/null | head -10 | sed 's/^ *//; s/^/::error::/' | tr -d '\r' || true
+
+      # Shows which key signed this build, to compare with the fingerprint of the key you made.
+      - name: Show signing certificate
+        shell: bash
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -E "SHA-256|DN"
 
       # Zelu promises it has no internet access. Fail the build if any library brings the permission back.
       - name: Check the app asks for no internet access
@@ -80,13 +96,24 @@ jobs:
           name: zelu-release-apk
           path: app/build/outputs/apk/release/app-release.apk
 
+      # The Play Store takes an app bundle (.aab), not an APK. The mapping file turns a shrunk library's
+      # names in a crash back into readable ones (Play Console, App bundle explorer, Downloads).
+      - name: Upload app bundle for the Play Store
+        uses: actions/upload-artifact@v4
+        with:
+          name: zelu-release-aab
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/mapping.txt
+
       # Every main build becomes the latest release, so this link always serves the newest APK:
       # https://github.com/ngandewa01/zelu/releases/latest/download/zelu.apk
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         run: |
           cp app/build/outputs/apk/release/app-release.apk zelu.apk
-          gh release create "build-${{ github.run_number }}" zelu.apk \
+          cp app/build/outputs/bundle/release/app-release.aab zelu.aab
+          gh release create "build-${{ github.run_number }}" zelu.apk zelu.aab \
             --target "${{ github.sha }}" \
             --title "Zelu build ${{ github.run_number }}" \
             --notes "$(git log -1 --format=%s)" \

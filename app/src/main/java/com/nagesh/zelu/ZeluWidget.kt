@@ -20,6 +20,7 @@ class ZeluWidget : AppWidgetProvider() {
 
     companion object {
         fun refresh(context: Context) {
+            if (context is DemoContext) return  // the widget shows your own data, never the sample
             try {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(ComponentName(context, ZeluWidget::class.java))
