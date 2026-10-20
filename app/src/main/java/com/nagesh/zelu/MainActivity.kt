@@ -3649,6 +3649,15 @@ private fun prettyDay(ymd: String): String {
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             val at = TxnTime.label(t)
             MutedText("${t.date}${if (at.isNotEmpty()) " · $at" else ""} · ${subtitleFor(t)}", 11)
+            // A foreign-currency card spend: show what was actually charged, and that the rupee amount is an estimate.
+            val fx = remember(t.raw) { Parser.foreign(t.raw) }
+            if (fx != null) {
+                Spacer(Modifier.height(3.dp))
+                Text("🌐 " + Fx.label(fx) + if (fx.estimated) " · approx. rupees" else "",
+                    color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(ZColor.OrangeSoft)
+                        .padding(horizontal = 6.dp, vertical = 2.dp))
+            }
         }
         Spacer(Modifier.width(10.dp))
         AmountText(t, highlight)
