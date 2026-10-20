@@ -24,7 +24,7 @@ object Classifier {
             "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora", "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail", "shoppe", "shoe mart"),
         "Investment" to listOf("zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
         "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
-        "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash"),
+        "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Home services" to listOf("pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi", "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater", "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
@@ -66,7 +66,7 @@ object Classifier {
 
     // A plain multi-word personal name (no business word) — a person, not a merchant.
     private val PERSON_NAME = Regex("""^[A-Za-z]{2,}(?: [A-Za-z]{2,}){1,3}$""")
-    private val BUSINESS_WORD = Regex("""\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|supermarket|foods?|motors?|infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""", RegexOption.IGNORE_CASE)
+    private val BUSINESS_WORD = Regex("""\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|supermarket|foods?|electricals?|electronics|hardware|textiles?|medicals?|motors?|infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""", RegexOption.IGNORE_CASE)
 
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
@@ -77,7 +77,7 @@ object Classifier {
     // Contributions to retirement / market investments: tracked separately, so they count
     // as neither spending nor income (PF is deducted pre-salary; NPS you transfer in).
     private val INVEST = Regex(
-        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal)\b""",
+        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal|fixed deposit|recurring deposit)\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -92,7 +92,7 @@ object Classifier {
         Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
-        Regex("""\b(electronics|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|kanchi|kanjeevaram|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
+        Regex("""\b(electronics|electricals?|hardware|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|kanchi|kanjeevaram|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
     )
 
     // Card alerts end with an offer ("To convert this txn to EMI give a missed call... Know more about
@@ -177,6 +177,8 @@ object Classifier {
 
         if (t.direction == "credit") {
             if (Parser.REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
+            // A loan paid out to you is borrowed money, not income.
+            if (Parser.LOAN_DISBURSAL.containsMatchIn(t.raw)) return Result("transfer", "Loan")
             // A payment landing on your credit card is settling a bill, not income.
             // Anything landing on an account we know is a credit card (e.g. "Payment of Rs X has
             // been received on your ... Credit Card XX8003 through BBPS") is the same thing.
