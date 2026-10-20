@@ -63,7 +63,7 @@ provide this feature to all users.
 ### Demo video (required)
 
 Upload to YouTube as **Unlisted** and paste the link. 1–2 minutes, screen recording on a real phone. Hide account
-numbers and balances if you record with real messages (or use the demo data mode, if added).
+numbers and balances if you record with real messages, or record the app part with sample data (see Graphics).
 
 | Time | Show | Say / on-screen text |
 |---|---|---|
@@ -191,7 +191,8 @@ Screenshots (in this order), each with a short caption bar at the top:
 6. Privacy screen: "No internet. No ads. Stays on your phone."
 
 **Never use your real data in screenshots or the video**: names, account digits, balances and payees would be
-public. Use a demo data mode (to be added) or blur everything.
+public. Turn on sample data first: **Menu → Help → Advanced → Show sample data**. Zelu then shows two months of
+made-up payments; your own data is untouched. Switch back with **Menu → Help → Sample data is on**.
 
 ---
 
