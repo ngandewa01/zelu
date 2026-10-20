@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 66
+    const val PARSER_VERSION = 67
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -288,6 +288,8 @@ object Storage {
         return rows.map { if (it.id in move) it.copy(kind = "transfer", category = "Transfer") else it }
     }
 
+    private fun within3(a: String, b: String): Boolean = (-3..3).any { a == Dates.shiftDays(b, it) }
+
     // Same day, or one day apart (a credit can post the next day).
     private fun nearDay(a: String, b: String): Boolean =
         a == b || a == Dates.shiftDays(b, 1) || a == Dates.shiftDays(b, -1)
@@ -406,9 +408,17 @@ object Storage {
             if (cur == null || (cur.account.isBlank() && r.account.isNotBlank())) emiBest[k] = r
         }
         val emiKeep = emiBest.values.map { it.id }.toHashSet()
+        // A biller's own "payment received" note (no account) is the same payment as your bank's debit of that
+        // amount within three days. Keep the bank's row, which has the account.
+        val bankDebits = rows.filter { it.direction == "debit" && it.account.isNotBlank() }
+        val billerEcho = rows.filter { r ->
+            r.direction == "debit" && r.account.isBlank() && Parser.isBillerSender(r.source.uppercase()) &&
+                bankDebits.any { b -> kotlin.math.abs(b.amount - r.amount) < 0.5 && within3(b.date, r.date) }
+        }.map { it.id }.toHashSet()
         return rows.filter { r ->
             val cp = r.counterparty
             when {
+                r.id in billerEcho -> false
                 r.category == "EMI" -> r.id in emiKeep
                 cp != null && Parser.CANON_NAMES.contains(cp) ->
                     seenBrand.add("${r.date}|${r.amount}|$cp|${r.direction}")
