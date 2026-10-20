@@ -533,9 +533,9 @@ object Storage {
     }
 
     // Where "Report a problem" emails go; change it from Menu > Help.
-    const val DEFAULT_REPORT_EMAIL = "koolicecream@gmail.com"
+    const val DEFAULT_REPORT_EMAIL = "koolicream@gmail.com"
     // Addresses used by earlier versions; a phone that saved one gets the current address instead.
-    private val OLD_REPORT_EMAILS = setOf("ngandewar01@gmail.com")
+    private val OLD_REPORT_EMAILS = setOf("ngandewar01@gmail.com", "koolicecream@gmail.com")
     fun reportEmail(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("report_email", null)
             ?.takeIf { it.isNotBlank() && it.trim().lowercase() !in OLD_REPORT_EMAILS } ?: DEFAULT_REPORT_EMAIL
