@@ -3,7 +3,7 @@
 Everything to paste into the Play Console, in the order the Console asks for it. Text in code blocks is ready to
 paste. Check each field's character limit in the Console; the counts here were right when written.
 
-Privacy policy URL (used in several places): **https://ngandewa01.github.io/zelu-privacy/**
+Privacy policy URL (used in several places): **https://koolicream-alt.github.io/zelu-privacy/**
 
 ---
 
@@ -109,7 +109,7 @@ from another app, but the conservative answer above avoids a mismatch finding in
 
 | Form | Answer |
 |---|---|
-| Privacy policy | https://ngandewa01.github.io/zelu-privacy/ |
+| Privacy policy | https://koolicream-alt.github.io/zelu-privacy/ |
 | Ads | **No, my app does not contain ads** |
 | App access | **All functionality is available without special access** (no login). Add a note: "Needs SMS permission; the app reads bank SMS on the device. No account or login." |
 | Content rating | Fill the questionnaire: category **Utility, productivity, communication or other**; answer No to violence, sexual content, language, controlled substances, gambling; **No** to user interaction / sharing location / digital purchases. Expected rating: **Everyone / 3+** |
