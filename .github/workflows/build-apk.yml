@@ -41,6 +41,8 @@ jobs:
           KEY_PASS: ${{ secrets.ZELU_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ZELU_KEY_ALIAS }}
         run: |
+          # Which secrets this build can see (set or missing, and length only; never the values).
+          for n in KEY_B64 KEY_PASS KEY_ALIAS; do v="${!n}"; if [ -n "$v" ]; then echo "$n: set (${#v} chars)"; else echo "$n: missing"; fi; done
           if [ -n "$KEY_B64" ] && [ -n "$KEY_PASS" ]; then
             echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/zelu-release.jks"
             echo "ZELU_KEYSTORE_PATH=$RUNNER_TEMP/zelu-release.jks" >> "$GITHUB_ENV"
