@@ -133,6 +133,12 @@ class SmsHardFormatsTest {
             Exp("debit", 354.0, "*6612", kind = "expense", cat = "Bank charges")),
         c("atm-charges", "JD-ICICIT-S", "Dear Customer, ATM transaction charges of Rs 23.60 (incl GST) debited to your ICICI Bank Acct XX219 on 05-Oct-26 for exceeding free transactions.",
             Exp("debit", 23.6, "*219", date = "2026-10-05", kind = "expense", cat = "Bank charges")),
+        // Cash from a machine is named "ATM withdrawal", not after the machine's code.
+        c("atm-name", "VK-KOTAKB-T", "Rs 5000.00 withdrawn from Kotak Bank a/c XX3381 using Debit Card XX7710 at ATM S1BW000123 THANE on 18-10-2026. Avl bal Rs 23,418.77. Not you? Call 18602662666 - Kotak Bank",
+            Exp("debit", 5000.0, "*3381", "ATM withdrawal", "2026-10-18", kind = "expense", cat = "ATM / Cash")),
+        // A card swipe at Amazon Pay is shopping, not a wallet top-up.
+        c("card-amazon-pay", "JD-ICICIT-S", "INR 2,349.00 spent using ICICI Bank Card XX1291 on 17-Oct-26 on AMAZON PAY IN. Avl Limit: INR 1,84,560.40. If not you, call 1800 2662/SMS BLOCK 1291 to 9215676766.",
+            Exp("debit", 2349.0, "*1291", date = "2026-10-17", kind = "expense", cat = "Shopping")),
         c("fee-will-be-levied", "AD-AXISBK-S", "Late payment charges will be levied if the minimum due of INR 920 on your Axis Bank Credit Card XX2290 is not paid by 05-11-26.", null),
         c("fee-waived", "VK-KOTAKB-S", "Good news! The annual fee of Rs.999 on your Kotak Credit Card XX5521 has been waived as you crossed the spend target.", null),
         c("atm-charges-may-apply", "BZ-YESBNK-S", "INR 2,000.00 withdrawn at ATM S1AW0123 from your YES BANK A/c XX7712 on 18-OCT-2026. ATM charges may apply beyond free limit. Avl Bal INR 34,880.21",

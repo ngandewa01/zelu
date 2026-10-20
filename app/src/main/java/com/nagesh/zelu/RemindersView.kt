@@ -146,13 +146,16 @@ import kotlin.math.atan2
             val cp = r.counterparty?.lowercase()?.trim()
             if (cp.isNullOrEmpty()) return@forEach
             val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
+            // A card bill is paid onto the card itself ("Payment received on your ICICI Credit Card XX1291"),
+            // often a couple of weeks before the due date.
+            val cardWindow = (-25..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
             val debit = rows.firstOrNull { row ->
                 row.id !in used &&
                     (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
-                    kotlin.math.abs(row.amount - r.amount) < 1.0 &&
-                    window.contains(row.date) && run {
+                    kotlin.math.abs(row.amount - r.amount) < 1.0 && run {
                         val rc = row.counterparty?.lowercase()?.trim()
-                        !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))
+                        (window.contains(row.date) && !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))) ||
+                            (cardWindow.contains(row.date) && r.account.isNotBlank() && row.account == r.account && row.category == "Card bill")
                     }
             }
             if (debit != null) { used.add(debit.id); matched.add(r.id) }

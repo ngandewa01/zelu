@@ -87,6 +87,7 @@ object Demo {
                 14 -> { val t = at(10, 0); add("JD-ICICIT-S", "Dear Customer, your ICICI Bank Credit Card XX1291 statement is generated. Total Amt Due Rs 18,430.00, Min Amt Due Rs 920.00. Due Date ${fmt("dd-MMM-yy", t + 18L * 86_400_000L)}.", t) }
                 16 -> { val t = at(20, 30); add("BP-AXISBK-S", "INR 349.00 refund credited to your Axis Bank Credit Card XX8823 on ${fmt("dd-MM-yy", t)} from SWIGGY.", t) }
                 22 -> { val t = at(12, 15); add("BP-AXISBK-S", "Payment of INR 6,000.00 received on your Axis Bank Credit Card no. XX8823 on ${fmt("dd-MM-yy", t)}. Thank you.", t) }
+                26 -> { val t = at(18, 40); add("JD-ICICIT-S", "Payment of INR 18,430.00 received on your ICICI Bank Credit Card no. XX1291 on ${fmt("dd-MM-yy", t)}. Thank you.", t) }
             }
         }
         return out.sortedByDescending { it.date }

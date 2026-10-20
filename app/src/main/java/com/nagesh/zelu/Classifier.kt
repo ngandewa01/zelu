@@ -57,6 +57,7 @@ object Classifier {
     )
     // Money going OUT of the wallet (a spend from balance) or cashback landing in it —
     // not counted, to avoid double-counting after the bank load was already booked.
+    private val AMAZON_PAY = Regex("""\bamazon\s?pay\b""", RegexOption.IGNORE_CASE)
     private val WALLET_SPEND = Regex(
         """\b(from|via|using|thru|through)\b[a-z' ]{0,14}wallet\b|wallet[a-z' ]{0,14}\b(spent|paid|debited|purchase)|cashback""",
         RegexOption.IGNORE_CASE,
@@ -205,6 +206,8 @@ object Classifier {
         if (t.direction == "credit" && REFUND_WORD.containsMatchIn(t.raw)) return Result("refund", "Refund")
         // Loading a wallet ("PAYTM ADD MONEY", "Wallet top-up") is money moved to the wallet.
         if (t.direction == "debit" && WALLET_LOAD.containsMatchIn(t.raw)) return Result("expense", "Wallet")
+        // A card swipe at Amazon Pay is shopping on Amazon, not money loaded into a wallet.
+        if (t.direction == "debit" && onCard(t.account) && AMAZON_PAY.containsMatchIn(t.raw)) return Result("expense", "Shopping")
         if (WALLET.containsMatchIn(t.raw)) {
             if (t.direction == "credit" || WALLET_SPEND.containsMatchIn(t.raw))
                 return Result("ignore", "Wallet")

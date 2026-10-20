@@ -390,6 +390,8 @@ object Parser {
     // "Late payment charges of INR 1,200.00 + GST have been levied on your Axis Bank Credit Card": a fee already
     // charged, written without "debited". Booked as money out even though it also says "please pay your dues".
     private val FEE_LEVIED = Regex("""\b(?:fee|fees|charges?|penalty|surcharge)\b(?:[^.]|\.\d){0,60}?\b(?:has|have)\s+been\s+(?:levied|charged|imposed|applied|billed|debited)\b""", RegexOption.IGNORE_CASE)
+    // Cash taken out at an ATM, micro ATM or AEPS point.
+    private val CASH_OUT = Regex("""\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction))""", RegexOption.IGNORE_CASE)
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)
     // "(SURESH PATIL)" after the other party's account: their name.
     private val NAME_BEFORE_AC = Regex("""\bto\s+(?:the\s+)?(?:beneficiary\s+)?([A-Z][A-Z.]+(?: [A-Z][A-Z.]+){0,3})\s+(?i:a/?c|acct|account)\b""")
@@ -537,6 +539,11 @@ object Parser {
                 counterparty = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $ln"
             }
         }
+
+        // Cash from a machine is named for what it is, not the machine's code ("ATM S1BW000123 THANE").
+        if (direction == "debit" && fee == null && CASH_OUT.containsMatchIn(text))
+            counterparty = if (Regex("""\bATM\b""", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
+                !Regex("""\b(micro\s*atm|aeps)\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) "ATM withdrawal" else "Cash withdrawal"
 
         // A loan-account credit names the loan (*0126), not your account: use the bank alone, which folds
         // into that bank's main savings account.
