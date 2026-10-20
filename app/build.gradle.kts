@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.nagesh.zelu"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.nagesh.zelu"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         // CI passes its run number, so every build has a higher version and installs over the last one.
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = run
