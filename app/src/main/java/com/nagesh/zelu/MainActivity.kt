@@ -594,22 +594,6 @@ fun ZeluApp() {
     }
 
     val pageScroll = rememberScrollState()
-    var sponsor by remember { mutableStateOf<Sponsor.Card?>(null) }
-    var adsOn by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        adsOn = withContext(Dispatchers.IO) {
-            // Google's test ad units show at once so you can check the layout; real ones wait out the first week.
-            val testUnit = BuildConfig.ADMOB_BANNER_UNIT.startsWith("ca-app-pub-3940256099942544")
-            val on = BuildConfig.ADMOB_BANNER_UNIT.isNotBlank() && (testUnit || Sponsor.pastQuietPeriod(context))
-            if (on) com.google.android.gms.ads.MobileAds.initialize(context) {}
-            on
-        }
-    }
-    LaunchedEffect(Unit) {                              // show the saved card at once, then refresh it in the background
-        sponsor = withContext(Dispatchers.IO) { Sponsor.current(context) }
-        withContext(Dispatchers.IO) { Sponsor.refresh(context) }
-        sponsor = withContext(Dispatchers.IO) { Sponsor.current(context) }
-    }
     val pageAlpha = remember { Animatable(1f) }
     LaunchedEffect(view) {                              // each tab opens at its top and fades in
         pageScroll.scrollTo(0)
@@ -894,36 +878,6 @@ fun ZeluApp() {
                         withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
                         reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
             }
-            }
-            // Home carries one ad at the bottom: a sponsor card if one is set, otherwise an AdMob banner.
-            if (view == "ledger" && sponsor == null && adsOn) {
-                Spacer(Modifier.height(16.dp))
-                AdBanner(BuildConfig.ADMOB_BANNER_UNIT)
-            }
-            // One optional, clearly labelled sponsor card, only on Home. Nothing about the user is sent to fetch it.
-            if (view == "ledger") sponsor?.let { c ->
-                Spacer(Modifier.height(16.dp))
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
-                    .border(1.dp, ZColor.Line, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("SPONSORED", color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text("Hide", color = ZColor.Muted, fontSize = 12.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
-                                Sponsor.hide(context, c.id); sponsor = null
-                            }.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(c.title, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    if (c.body.isNotBlank()) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(c.body, color = ZColor.InkSoft, fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Accent)
-                        .clickable { Sponsor.open(context, c) }.padding(horizontal = 18.dp, vertical = 9.dp)) {
-                        Text(c.cta, color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    }
-                }
             }
         }
         BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
@@ -1439,7 +1393,7 @@ fun ZeluApp() {
                 "Restore loads it on a new phone.", "Erase everything clears Zelu from this phone.")),
         )
         val topics = listOf(
-            "Private" to "Your messages and payments stay on this phone. Zelu shows ads through Google AdMob and gives it none of your data.",
+            "Private" to "Your messages and payments stay on this phone. Zelu has no ads and no internet access, so nothing can be sent anywhere.",
             "Rescan" to "New messages are read as they arrive. Menu, Messages, Rescan reads again right now.",
             "Missed SMS" to "Money messages Zelu could not read. Menu, Messages, Missed SMS lets you add one by hand.",
             "Messages stop" to "Android may switch off permissions for an app you open rarely. In Settings, Apps, Zelu, Permissions, turn off 'Remove permissions if app isn't used'.",

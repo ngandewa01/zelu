@@ -2,15 +2,15 @@ package com.nagesh.zelu
 
 // The privacy policy shown in Menu, then Help. Short points, not paragraphs. Keep it in step with the published policy page.
 object PrivacyText {
-    const val UPDATED = "19 October 2026"
-    const val SUMMARY = "Your messages and payments stay on your phone. Zelu shows ads through Google AdMob, and gives it none of your data."
+    const val UPDATED = "20 October 2026"
+    const val SUMMARY = "Your messages and payments stay on your phone. Zelu has no ads and no internet access, so it cannot send them anywhere."
 
     class Section(val title: String, val points: List<String>)
 
     /** The three things people most want to know, shown as tiles at the top. */
     val facts: List<Pair<String, String>> = listOf(
         "On your phone" to "Your data stays here",
-        "Ads by Google" to "Never your messages",
+        "No internet" to "No ads, no tracking",
         "No login" to "No account, no server",
     )
 
@@ -24,19 +24,16 @@ object PrivacyText {
         Section("Where your data is kept", listOf(
             "Payments, categories, budgets and settings sit in the app's private storage on your phone.",
             "No account, no login, no server.",
-            "Zelu has no analytics or tracking tools of its own. Your messages and payments are shared with no one.",
+            "Your messages and payments are shared with no one.",
         )),
         Section("What leaves your phone, only when you choose", listOf(
             "Backup: saved to Downloads/Zelu, locked with a password you set. Zelu cannot recover a forgotten password.",
             "CSV export: a plain file in Downloads/Zelu. Delete it in your Files app when done.",
             "Report a problem: opens an email draft. You see everything in it and send it yourself. Long numbers and UPI names are hidden first.",
         )),
-        Section("Ads", listOf(
-            "Home shows one banner ad, from Google AdMob, starting a few days after you install Zelu.",
-            "To show and measure ads, AdMob may use your phone's advertising ID and IP address, under Google's privacy policy.",
-            "Zelu never gives AdMob your messages, payments, balances or accounts.",
-            "You can reset or delete your advertising ID in Android Settings, then Privacy, then Ads.",
-            "Tapping an ad opens the advertiser's site. That site has its own privacy policy.",
+        Section("No ads, no internet", listOf(
+            "Zelu shows no ads and contains no ad, analytics or tracking code.",
+            "Zelu does not ask for internet access, so it has no way to send anything off your phone by itself.",
         )),
         Section("Notifications", listOf(
             "Payment alerts, daily and weekly summaries, bill reminders.",
