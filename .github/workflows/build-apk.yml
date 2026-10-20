@@ -33,7 +33,8 @@ jobs:
         with:
           gradle-version: 8.9
 
-      # If the signing key is stored as repository secrets, use it; otherwise the committed key is used.
+      # The upload key lives only in the repository secrets. Without them the build stops: no APK or bundle
+      # is ever signed with anything else.
       - name: Use signing key from secrets
         shell: bash
         env:
@@ -50,7 +51,8 @@ jobs:
             if [ -n "$KEY_ALIAS" ]; then echo "ZELU_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"; fi
             echo "Signing with the key from repository secrets."
           else
-            echo "::warning::Signing with the key committed in app/ (not secret). Set the ZELU_KEYSTORE_* secrets before the Play Store."
+            echo "::error::The signing secrets ZELU_KEYSTORE_B64 and ZELU_KEYSTORE_PASSWORD are missing (Settings, Secrets and variables, Actions)."
+            exit 1
           fi
 
       - name: Build release APK

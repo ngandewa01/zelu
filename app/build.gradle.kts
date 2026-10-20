@@ -18,17 +18,16 @@ android {
         versionName = "0.3.$run"
     }
 
+    // Release builds are signed with the upload key kept in the repository secrets (ZELU_KEYSTORE_B64,
+    // ZELU_KEYSTORE_PASSWORD, ZELU_KEY_ALIAS); CI writes it to ZELU_KEYSTORE_PATH. No key is kept in the repo.
+    // A local build without them signs with the debug key, which can't update an installed release.
+    val releaseKey = System.getenv("ZELU_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
     signingConfigs {
-        create("release") {
-            // The signing key must stay the same for every build, so the app updates in place and keeps its data.
-            // CI supplies it from secrets (ZELU_KEYSTORE_PATH, ZELU_KEYSTORE_PASSWORD, ZELU_KEY_ALIAS); without them
-            // the key committed beside this file is used, so a local build still works.
-            val envPath = System.getenv("ZELU_KEYSTORE_PATH")
-            val envPass = System.getenv("ZELU_KEYSTORE_PASSWORD")
-            storeFile = file(if (!envPath.isNullOrBlank()) envPath else "zelu-release.jks")
-            storePassword = if (!envPass.isNullOrBlank()) envPass else "zelupass"
-            keyAlias = System.getenv("ZELU_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "zelu"
-            keyPassword = if (!envPass.isNullOrBlank()) envPass else "zelupass"
+        if (releaseKey != null) create("release") {
+            storeFile = file(releaseKey)
+            storePassword = System.getenv("ZELU_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("ZELU_KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "zelu-upload"
+            keyPassword = System.getenv("ZELU_KEYSTORE_PASSWORD")
         }
     }
 
@@ -39,7 +38,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
