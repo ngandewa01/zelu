@@ -124,7 +124,7 @@ from another app, but the conservative answer above avoids a mismatch finding in
 
 ## 5. Store listing
 
-**Category:** Finance. **Tags:** Budget, Expense tracker, Personal finance. **Contact email:** ngandewar01@gmail.com.
+**Category:** Finance. **Tags:** Budget, Expense tracker, Personal finance. **Contact email:** koolicecream@gmail.com.
 
 ### App name (30)
 
