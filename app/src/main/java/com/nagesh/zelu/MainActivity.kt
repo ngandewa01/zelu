@@ -6086,7 +6086,7 @@ private fun niceCeil(x: Double): Double {
                         Spacer(Modifier.height(8.dp))
                         MutedText("What is it really?", 12)
                         ChipScroll {
-                            SmsModel.CLASSES.forEach { c ->
+                            ModelCheck.CHOICES.forEach { c ->
                                 PickChip(ModelCheck.NAMES[c] ?: c, false) {
                                     val m = mode
                                     gone.add(it.key)
