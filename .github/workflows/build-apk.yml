@@ -93,5 +93,11 @@ jobs:
             --title "Zelu Lab build ${{ github.run_number }}" \
             --notes "Lab build: learning model beside the rules. Installs next to Zelu." \
             --prerelease --latest=false
+          # A fixed link that always serves the newest lab APK:
+          # https://github.com/ngandewa01/zelu/releases/download/lab-latest/zelu-lab.apk
+          gh release view lab-latest >/dev/null 2>&1 || gh release create lab-latest \
+            --target "${{ github.sha }}" --title "Zelu Lab (newest)" \
+            --notes "Always the newest Zelu Lab build. Installs next to Zelu." --prerelease --latest=false
+          gh release upload lab-latest zelu-lab.apk --clobber
         env:
           GH_TOKEN: ${{ github.token }}
