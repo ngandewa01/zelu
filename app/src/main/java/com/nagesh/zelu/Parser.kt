@@ -391,7 +391,7 @@ object Parser {
     // charged, written without "debited". Booked as money out even though it also says "please pay your dues".
     private val FEE_LEVIED = Regex("""\b(?:fee|fees|charges?|penalty|surcharge)\b(?:[^.]|\.\d){0,60}?\b(?:has|have)\s+been\s+(?:levied|charged|imposed|applied|billed|debited)\b""", RegexOption.IGNORE_CASE)
     // Cash taken out at an ATM, micro ATM or AEPS point.
-    private val CASH_OUT = Regex("""\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,40}\b(?:atm|micro\s*atm)\b|\b(?:atm|micro\s*atm)\b[^.]{0,40}\b(?:withdrawn|withdrawal|debit transaction))""", RegexOption.IGNORE_CASE)
+    private val CASH_OUT = Regex("""\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction))""", RegexOption.IGNORE_CASE)
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)
     // "(SURESH PATIL)" after the other party's account: their name.
     private val NAME_BEFORE_AC = Regex("""\bto\s+(?:the\s+)?(?:beneficiary\s+)?([A-Z][A-Z.]+(?: [A-Z][A-Z.]+){0,3})\s+(?i:a/?c|acct|account)\b""")
