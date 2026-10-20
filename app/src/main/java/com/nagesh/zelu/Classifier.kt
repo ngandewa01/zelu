@@ -250,6 +250,20 @@ object Classifier {
         for ((category, words) in CATEGORIES) {
             if (words.any { has(hay, it) }) return Result("expense", category)
         }
+        // Shops and apps listed by the group that owns them.
+        for ((category, words) in Brands.EXTRA) {
+            if (words.any { has(hay, it) }) return Result("expense", category)
+        }
+        if (Brands.isBareMaxShop(t.counterparty ?: "", t.raw)) return Result("expense", "Shopping")
+        // A payee written with a space or dash ("MC DONALDS", "Red Bus") still finds the word list's "mcdonald", "redbus".
+        val payeeRun = cp.filter { it.isLetterOrDigit() }
+        if (payeeRun.length >= 6) {
+            val all = CATEGORIES.entries.asSequence() + Brands.EXTRA.entries.asSequence()
+            for (e in all) for (w in e.value) {
+                val run = w.filter { it.isLetterOrDigit() }
+                if (run.length >= 6 && payeeRun.contains(run)) return Result("expense", e.key)
+            }
+        }
         // 2) Name-pattern heuristics (generalize to unknown local merchants).
         for ((re, category) in NAME_HINTS) {
             if (re.containsMatchIn(hay)) return Result("expense", category)
