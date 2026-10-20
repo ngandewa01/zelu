@@ -18,6 +18,7 @@ object DailySummary {
     private const val ID = 9200
 
     fun schedule(context: Context) {
+        if (context is DemoContext) return  // sample data never changes the real reminders
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!NotifyPrefs.dailyOn(context)) { am.cancel(pending(context)); return }

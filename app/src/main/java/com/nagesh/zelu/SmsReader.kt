@@ -8,6 +8,7 @@ object SmsReader {
     // Reads the most recent messages from the SMS inbox.
     // Every message received between two moments (milliseconds), newest first.
     fun readInboxBetween(context: Context, fromMs: Long, toMs: Long): List<RawSms> {
+        if (context is DemoContext) return Demo.messages().filter { it.date in fromMs..toMs }
         val out = ArrayList<RawSms>()
         val cols = arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE)
         context.contentResolver.query(
@@ -23,6 +24,8 @@ object SmsReader {
     }
 
     fun readInbox(context: Context, limit: Int = 2000): List<RawSms> {
+        // Sample data mode reads made-up bank messages, never the real inbox.
+        if (context is DemoContext) return Demo.messages().take(limit)
         val out = ArrayList<RawSms>()
         val cols = arrayOf(
             Telephony.Sms.ADDRESS,

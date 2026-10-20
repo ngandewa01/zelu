@@ -17,6 +17,7 @@ object DueReminders {
     private const val CHANNEL = "zelu_dues"
 
     fun schedule(context: Context) {
+        if (context is DemoContext) return  // sample data never changes the real reminders
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val at = Calendar.getInstance(Dates.IST).apply {

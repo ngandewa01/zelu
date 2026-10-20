@@ -173,6 +173,7 @@ class MainActivity : ComponentActivity() {
         ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
         Privacy.load(this)
         IncomeCats.load(this)
+        Demo.load(this)
         setContent {
             val scheme = if (ZTheme.dark)
                 androidx.compose.material3.darkColorScheme(primary = ZColor.Accent, onPrimary = ZColor.AccentInk,
@@ -188,7 +189,15 @@ class MainActivity : ComponentActivity() {
                 c.isAppearanceLightStatusBars = !ZTheme.dark
                 c.isAppearanceLightNavigationBars = !ZTheme.dark
             }
-            MaterialTheme(colorScheme = scheme) { if (locked) LockScreen { askUnlock() } else ZeluApp() }
+            // Sample data runs the whole app on its own storage; switching it rebuilds the app from scratch.
+            val demoOn = Demo.on
+            val appContext = androidx.compose.runtime.remember(demoOn) { if (demoOn) DemoContext(this) else this }
+            MaterialTheme(colorScheme = scheme) {
+                if (locked) LockScreen { askUnlock() }
+                else androidx.compose.runtime.CompositionLocalProvider(LocalContext provides appContext) {
+                    androidx.compose.runtime.key(demoOn) { ZeluApp() }
+                }
+            }
         }
     }
 }
@@ -291,7 +300,7 @@ fun ZeluApp() {
     var detailRow by remember { mutableStateOf<Row?>(null) }
     var drill by remember { mutableStateOf<Pair<String, List<Row>>?>(null) }
 
-    fun hasPerm() = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
+    fun hasPerm() = context is DemoContext || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
 
     fun reload() {
@@ -1109,6 +1118,10 @@ fun ZeluApp() {
                         "erase" -> {}
                         else -> {
                             var helpAdv by remember { mutableStateOf(false) }
+                            if (Demo.on) MenuRow("Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Visibility, ZColor.Warn) {
+                                shut(); Demo.set(context, false)
+                                Toast.makeText(context, "Back to your own payments", Toast.LENGTH_SHORT).show()
+                            }
                             MenuRow("How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb) { shut(); helpOpen = true }
                             MenuRow("Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Warning, ZColor.Warn) { shut(); reportOpen = true }
                             MenuRow("Privacy policy", "What Zelu reads and keeps", Icons.Rounded.Lock, ZColor.Income) { shut(); privacyOpen = true }
@@ -1117,6 +1130,10 @@ fun ZeluApp() {
                                 trailing = { Text(if (helpAdv) "▲" else "▼", color = ZColor.Muted, fontSize = 12.sp) }) { helpAdv = !helpAdv }
                             if (helpAdv) {
                             MenuRow("Report address", Storage.reportEmail(context), Icons.Rounded.Palette, ZColor.Muted) { shut(); emailOpen = true }
+                            if (!Demo.on) MenuRow("Show sample data", "Made-up payments for screenshots and demos. Yours stay safe", Icons.Rounded.Visibility, ZColor.Muted) {
+                                shut(); Demo.set(context, true)
+                                Toast.makeText(context, "Showing sample data. Menu, Help to go back", Toast.LENGTH_LONG).show()
+                            }
                             MenuRow("Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
                                 Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Accent) {
                                 shut()
