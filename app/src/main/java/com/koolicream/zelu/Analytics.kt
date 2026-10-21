@@ -344,7 +344,7 @@ object Analytics {
     // "Heads up" items for a month: categories well above your own usual, and one-off big spends.
     // Returns (title, detail) pairs, at most three.
     fun unusual(all: List<Row>, month: String): List<Pair<String, String>> {
-        fun inr(x: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", x)
+        fun inr(x: Double) = money(x)
         val skip = setOf("EMI", "Rent", "Investment", "Transfer", "Card bill", "Refund", "Income")
         val out = ArrayList<Triple<Double, String, String>>()
         val prev = (1..3).map { Dates.shiftMonth(month, -it) }

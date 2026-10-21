@@ -125,7 +125,20 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.atan2
 
-fun money(n: Double): String = "₹" + String.format(Locale.US, "%,.0f", n)
+// Indian digit grouping: 1,76,217 and 12,34,56,789.
+fun groupIndian(n: Long): String {
+    val s = kotlin.math.abs(n).toString()
+    val g = if (s.length <= 3) s else s.dropLast(3).reversed().chunked(2).joinToString(",").reversed() + "," + s.takeLast(3)
+    return if (n < 0) "-$g" else g
+}
+
+fun money(n: Double): String = "₹" + groupIndian(Math.round(n))
+
+/** With paise: "₹1,76,217.50". */
+fun moneyPaise(n: Double): String {
+    val p = Math.round(kotlin.math.abs(n) * 100)
+    return (if (n < 0) "-₹" else "₹") + groupIndian(p / 100) + "." + String.format(Locale.US, "%02d", p % 100)
+}
 
 internal val RANGE_OPTS = listOf(
     "week" to "This week", "month" to "By month", "3m" to "Last 3 months",
@@ -178,7 +191,7 @@ internal fun inr(v: Double): String {
     val t = when {
         a >= 1e7 -> String.format(Locale.US, "%.2f Cr", a / 1e7)
         a >= 1e5 -> String.format(Locale.US, "%.2f L", a / 1e5)
-        else -> String.format(Locale.US, "%,.0f", a)
+        else -> groupIndian(Math.round(a))
     }
     return (if (v < 0) "−₹" else "₹") + t
 }

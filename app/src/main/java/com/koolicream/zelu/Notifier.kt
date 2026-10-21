@@ -150,7 +150,7 @@ object Notifier {
             builder.setSmallIcon(R.drawable.ic_stat_zelu)
                 .setColor(accentInt(context))
                 .setSubText(shown)
-                .setContentTitle("₹" + String.format(java.util.Locale.US, "%,.2f", balance))
+                .setContentTitle(moneyPaise(balance))
                 .setContentText("Current balance")
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(true)
@@ -179,7 +179,7 @@ object Notifier {
             val pi = PendingIntent.getActivity(context, 1, launch, flags)
             val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 Notification.Builder(context, "zelu_txn_hi") else @Suppress("DEPRECATION") Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH)
-            val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
+            val amt = money(r.amount)
             val credit = r.direction == "credit"
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: ""
             val unknown = r.category == "Unknown" && r.direction == "debit"
