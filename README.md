@@ -8,7 +8,7 @@ Native Android app written in Kotlin with Jetpack Compose.
 
 ## What's here
 
-- `app/src/main/java/com/nagesh/zelu/`
+- `app/src/main/java/com/koolicream/zelu/`
   - `Parser.kt` — turns bank/UPI SMS into transactions (amount, debit/credit, date, counterparty, reference).
   - `Classifier.kt` — income / expense / transfer / refund, with keyword categories.
   - `Ingest.kt` — filters by your bank senders, parses, classifies and stores.
