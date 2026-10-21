@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Zelu</string>
-    <string name="widget_desc">This month's spending, today, and the next bill due</string>
+    <string name="widget_desc">Spending this month, today, and the next bill due</string>
 </resources>
