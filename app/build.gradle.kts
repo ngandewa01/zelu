@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.nagesh.zelu"
+    namespace = "com.koolicream.zelu"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.nagesh.zelu"
+        applicationId = "com.koolicream.zelu"
         minSdk = 24
         targetSdk = 36
         // CI passes its run number, so every build has a higher version and installs over the last one.
