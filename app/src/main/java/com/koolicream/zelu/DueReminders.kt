@@ -67,11 +67,11 @@ object DueReminders {
             val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 Notification.Builder(context, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
-            val amt = "₹" + String.format(java.util.Locale.US, "%,.0f", r.amount)
+            val amt = money(r.amount)
             val whenTxt = when (d) { 0 -> "due today"; 1 -> "due tomorrow"; else -> "due in $d days" }
             b.setSmallIcon(R.drawable.ic_stat_zelu)
                 .setContentTitle("$who $amt $whenTxt")
-                .setContentText(if (r.minAmount != null) "Minimum due ₹" + String.format(java.util.Locale.US, "%,.0f", r.minAmount) else "Tap to open Dues")
+                .setContentText(if (r.minAmount != null) "Minimum due " + money(r.minAmount) else "Tap to open Dues")
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .addAction(Notification.Action.Builder(null, "Mark paid", pay).build())

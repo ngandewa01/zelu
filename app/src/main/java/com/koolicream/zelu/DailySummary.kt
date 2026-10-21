@@ -54,7 +54,7 @@ object DailySummary {
         val monthSpent = Analytics.categoryTotals(rows, month, "All").values.sum()
         sp.edit().putString("last", today).apply()
 
-        fun inr(v: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", v)
+        fun inr(v: Double) = money(v)
         val monthLine = inr(monthSpent) + " in " + Dates.monthLong(month)
         val top = todayCats.entries.filter { it.value > 0 }.sortedByDescending { it.value }.take(2)
             .joinToString(" · ") { it.key + " " + inr(it.value) }

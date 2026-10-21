@@ -58,7 +58,7 @@ object WeeklySummary {
         val before = weekTotals(rows, Dates.shiftDays(today, -7)).values.sum()
         sp.edit().putString("last", today).apply()
 
-        fun inr(v: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", v)
+        fun inr(v: Double) = money(v)
         val trend = if (before > 0) {
             val d = Math.round((spent - before) / before * 100).toInt()
             if (d > 0) "$d% more than the week before" else if (d < 0) "${-d}% less than the week before" else "Same as the week before"

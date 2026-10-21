@@ -139,29 +139,7 @@ import kotlin.math.atan2
     val curMonth = Dates.todayMonth()
     // Auto-settle: a real debit to the SAME merchant for the SAME amount within ±5 days of
     // the due date. Each debit is used at most once, so one payment can't tick two reminders.
-    val autoSet = remember(reminders, rows) {
-        val used = HashSet<String>()
-        val matched = HashSet<String>()
-        reminders.sortedBy { it.dueDate }.forEach { r ->
-            val cp = r.counterparty?.lowercase()?.trim()
-            if (cp.isNullOrEmpty()) return@forEach
-            val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
-            // A card bill is paid onto the card itself ("Payment received on your ICICI Credit Card XX1291"),
-            // often a couple of weeks before the due date.
-            val cardWindow = (-25..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
-            val debit = rows.firstOrNull { row ->
-                row.id !in used &&
-                    (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
-                    kotlin.math.abs(row.amount - r.amount) < 1.0 && run {
-                        val rc = row.counterparty?.lowercase()?.trim()
-                        (window.contains(row.date) && !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))) ||
-                            (cardWindow.contains(row.date) && r.account.isNotBlank() && row.account == r.account && row.category == "Card bill")
-                    }
-            }
-            if (debit != null) { used.add(debit.id); matched.add(r.id) }
-        }
-        matched
-    }
+    val autoSet = remember(reminders, rows) { autoSettledReminders(reminders, rows) }
     // An explicit paid/unpaid tap always wins; otherwise a previous-month due or a debit-matched
     // one is assumed paid.
     fun settled(r: Reminder) = state[r.id] ?: (r.dueDate.take(7) < curMonth || r.id in autoSet)
@@ -456,4 +434,30 @@ import kotlin.math.atan2
             contentAlignment = Alignment.Center,
         ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
     }
+}
+
+// Bills that look paid from the payments themselves: a debit to the same payee for the same amount within ±5 days of
+// the due date, or a card bill payment landing on that card up to 25 days before. Each payment is used at most once.
+internal fun autoSettledReminders(reminders: List<Reminder>, rows: List<Row>): Set<String> {
+    val used = HashSet<String>()
+    val matched = HashSet<String>()
+    reminders.sortedBy { it.dueDate }.forEach { r ->
+        val cp = r.counterparty?.lowercase()?.trim()
+        if (cp.isNullOrEmpty()) return@forEach
+        val window = (-5..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
+        // A card bill is paid onto the card itself ("Payment received on your ICICI Credit Card XX1291"),
+        // often a couple of weeks before the due date.
+        val cardWindow = (-25..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
+        val debit = rows.firstOrNull { row ->
+            row.id !in used &&
+                (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
+                kotlin.math.abs(row.amount - r.amount) < 1.0 && run {
+                    val rc = row.counterparty?.lowercase()?.trim()
+                    (window.contains(row.date) && !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))) ||
+                        (cardWindow.contains(row.date) && r.account.isNotBlank() && row.account == r.account && row.category == "Card bill")
+                }
+        }
+        if (debit != null) { used.add(debit.id); matched.add(r.id) }
+    }
+    return matched
 }

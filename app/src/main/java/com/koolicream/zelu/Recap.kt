@@ -24,7 +24,7 @@ object Recap {
         if (spent <= 0) return
         sp.edit().putString("last", month).apply()
 
-        fun inr(v: Double) = "₹" + String.format(java.util.Locale.US, "%,.0f", v)
+        fun inr(v: Double) = money(v)
         val before = Analytics.categoryTotals(rows, Dates.shiftMonth(prev, -1), "All").values.sum()
         val top = totals.entries.filter { it.value > 0 }.sortedByDescending { it.value }.take(2)
             .joinToString(" · ") { it.key + " " + inr(it.value) }
