@@ -79,7 +79,7 @@ object Demo {
             // Monthly: salary, rent, bills, subscriptions, cash, card bill and its statement.
             when (dom) {
                 1 -> { val t = at(10, 5); add("AX-HDFCBK-S", "Update! INR 92,500.00 deposited in HDFC Bank A/c XX5997 on ${fmt("dd-MMM-yy", t).uppercase()} for NEFT Cr-CITI0000002-ACME TECHNOLOGIES PVT LTD-SALARY-CITIN26274512398.Avl bal INR 1,48,210.40", t) }
-                3 -> { val t = at(9, 30); add("VM-SBIUPI-T", "Dear UPI user A/C X4821 debited by 22000.0 on date ${fmt("ddMMMyy", t)} trf to SURESH PATIL Refno ${ref()}. If not u? call 1800111109. -SBI", t) }
+                3 -> { val t = at(9, 30); add("VM-SBIUPI-T", "Dear UPI user A/C X4821 debited by 22000.0 on date ${fmt("ddMMMyy", t)} trf to SURESH PATIL Refno ${ref()}. Remarks: House rent. If not u? call 1800111109. -SBI", t) }
                 5 -> { val t = at(11, 12); add("AX-HDFCBK-S", "Sent Rs.${amt(1380.0 + rnd.nextInt(300))}\nFrom HDFC Bank A/C *5997\nTo BESCOM\nOn ${fmt("dd/MM/yy", t)}\nRef ${ref()}\nNot You?\nCall 18002586161/SMS BLOCK UPI to 7308080808", t) }
                 7 -> { val t = at(19, 2); add("JD-ICICIT-S", "ICICI Bank Acct XX345 debited for Rs 299.00 on ${fmt("dd-MMM-yy", t)}; Airtel Prepaid credited. UPI:${ref()}. Call 18002662 for dispute. SMS BLOCK 345 to 9215676766.", t) }
                 10 -> { val t = at(23, 1); add("BP-AXISBK-S", "Transaction of INR 649.00 on Axis Bank Credit Card no. XX8823 at NETFLIX.COM on ${fmt("dd-MM-yy HH:mm:ss", t)} IST via standing instruction (e-mandate) is successful.\nAvl Lmt INR 92,351.00", t) }
