@@ -11,8 +11,8 @@ package com.koolicream.zelu
  */
 object AccountBook {
 
-    /** How many payments a label has, and its newest one. */
-    data class Stat(val count: Int, val lastDate: String, val lastAmount: Double, val lastRaw: String)
+    /** How many payments a label has, and its newest one. [looks]: "fd" or "rd" when its messages are mostly about a deposit. */
+    data class Stat(val count: Int, val lastDate: String, val lastAmount: Double, val lastRaw: String, val looks: String? = null)
 
     data class Part(val key: String, val stat: Stat, val auto: Boolean)
 
@@ -66,9 +66,23 @@ object AccountBook {
         return if (base.contains(' ')) base.substringBefore(' ') + " $marker " + base.substringAfter(' ') else "$base $marker"
     }
 
+    private val FD_WORDS = Regex("""\b(?:fd|fixed deposit|term deposit|tdr|stdr)\b""", RegexOption.IGNORE_CASE)
+    private val RD_WORDS = Regex("""\b(?:rd|recurring deposit)\b""", RegexOption.IGNORE_CASE)
+
+    // People do not remember which number is their FD or RD. A label whose messages are mostly about a deposit is one;
+    // a savings account that once opened an FD has many other messages and stays savings.
+    private fun looksOf(raws: List<String>): String? {
+        val half = raws.size / 2.0
+        return when {
+            raws.count { RD_WORDS.containsMatchIn(it) } > half -> "rd"
+            raws.count { FD_WORDS.containsMatchIn(it) } > half -> "fd"
+            else -> null
+        }
+    }
+
     private fun statOf(rs: List<Row>): Stat {
         val last = rs.maxByOrNull { it.date }!!
-        return Stat(rs.size, last.date, last.amount, last.raw)
+        return Stat(rs.size, last.date, last.amount, last.raw, looksOf(rs.map { it.raw }))
     }
 
     /** Payments per account label. */
@@ -106,7 +120,9 @@ object AccountBook {
         }
         return all.keys.filter { root(it) == it }.map { k ->
             val reg = registry[k]
-            val type = reg?.takeIf { it.first == "accepted" || it.first == "declined" }?.second?.takeIf { it.isNotBlank() } ?: guessType(k)
+            val stat = all.getValue(k)
+            val type = reg?.takeIf { it.first == "accepted" || it.first == "declined" }?.second?.takeIf { it.isNotBlank() }
+                ?: guessType(k).let { g -> if (g == "savings") stat.looks ?: g else g }
             Acct(k, type, all.getValue(k), partsOf[k].orEmpty().sortedByDescending { it.stat.count },
                 balances[k]?.first, limits[k]?.first ?: limits["$k#total"]?.first, reg?.first == "declined")
         }
@@ -131,9 +147,11 @@ object AccountBook {
         } else if (open.type == "loan") {
             cands.filter { it.type != "loan" && it.type != "card" && numberMatch(open.key, it.key) && (it.bank == null || it.bank == ob) }
         } else {
+            // An FD or RD is never the same account as a savings account at that bank, unless the number says so.
+            fun deposit(t: String) = t == "fd" || t == "rd"
             cands.filter { c ->
                 c.type != "loan" && (c.type == "card") == (open.type == "card") &&
-                    (numberMatch(open.key, c.key) || ob == null || c.bank == null || c.bank == ob)
+                    (numberMatch(open.key, c.key) || (deposit(c.type) == deposit(open.type) && (ob == null || c.bank == null || c.bank == ob)))
             }
         }
         fun rank(c: Acct) = when { numberMatch(open.key, c.key) -> 0; ob != null && c.bank == ob -> 1; else -> 2 }
