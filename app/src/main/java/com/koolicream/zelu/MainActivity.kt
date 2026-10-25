@@ -1939,8 +1939,10 @@ fun ZeluApp() {
         }
     }
 
-    drill?.let { (title, rows) ->
-        DrillDialog(title, rows, onRowClick = { detailRow = it }, onDismiss = { drill = null })
+    drill?.let { (title, snap) ->
+        // The list is taken when it opens; show each payment as it is now, so a change made from it shows at once.
+        val byId = rows.associateBy { it.id }
+        DrillDialog(title, snap.map { byId[it.id] ?: it }, onRowClick = { detailRow = it }, onDismiss = { drill = null })
     }
 
     if (savingsOpen) SavingsDialog(rows, onDismiss = { savingsOpen = false })
@@ -1976,15 +1978,14 @@ fun ZeluApp() {
         )
     }
 
-    detailRow?.let { r ->
+    detailRow?.let { opened ->
+        // Stays open after a change and shows the payment as saved.
+        val r = rows.firstOrNull { it.id == opened.id } ?: opened
         TxnDetailDialog(
             r,
-            onReclassify = { kind, cat ->
-                decide(r.id, kind, cat, r.counterparty, kind != "income" && kind != "ignore")
-                detailRow = null
-            },
+            onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != "income" && kind != "ignore") },
             onNewCat = { cb -> newCatCallback = cb },
-            onRetitle = { title -> retitle(r.id, title); detailRow = null },
+            onRetitle = { title -> retitle(r.id, title) },
             onSplit = if (r.kind == "expense" || r.id.contains('#')) ({
                 detailRow = null
                 if (r.id.contains('#')) {
