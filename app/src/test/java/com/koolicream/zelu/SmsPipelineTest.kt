@@ -34,7 +34,7 @@ class SmsPipelineTest {
         Case("nach-bajaj-emi", "VK-AXISBK-S", "Your A/c XX7788 has been debited with INR 15,432.00 towards NACH-DR-BAJAJ FINANCE LTD on 05-10-2026", "debit 15432 expense/EMI"),
         Case("sip-zerodha", "AX-HDFCBK-S", "Rs.5,000.00 debited from A/c XX5997 on 05-10-26 towards ACH D- ZERODHA BROKING mutual fund SIP", "debit 5000 invest/*"),
         Case("cred-card-bill", "AX-HDFCBK-S", "Rs.25,000.00 debited from HDFC Bank A/c XX5997 to VPA cred.club@axisbank on 10-10-26 UPI Ref 628812345678", "debit 25000 transfer/Card bill"),
-        Case("rent-to-person", "AX-HDFCBK-S", "Sent Rs.18,000.00 From HDFC Bank A/C *5997 To RAJESH KUMAR On 01/10/26 Ref 628723456789 Not You? Call 18002586161", "debit 18000 transfer/*"),
+        Case("rent-to-person", "AX-HDFCBK-S", "Sent Rs.18,000.00 From HDFC Bank A/C *5997 To RAJESH KUMAR On 01/10/26 Ref 628723456789 Not You? Call 18002586161", "debit 18000 expense/Unknown"),
         Case("bbps-electricity", "AX-HDFCBK-S", "Payment of Rs.1,850.00 for BESCOM electricity bill received via HDFC Bank BillPay on 15-10-2026. Ref 628634567890", "debit 1850 expense/Bills"),
         Case("hdfc-cc-fuel", "AX-HDFCBK-S", "Rs.2,000.00 spent on HDFC Bank Card x1291 at HPCL FUEL STATION BLR on 16-10-2026. Avl Lmt: Rs.1,38,000.00", "debit 2000 expense/Fuel"),
         Case("insurance-premium", "AX-HDFCBK-S", "Rs 22,500.00 debited from a/c XX5997 towards HDFC LIFE premium policy 12345 on 12-10-26", "debit 22500 expense/*"),

@@ -27,7 +27,7 @@ object Classifier {
         "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Bank charges" to emptyList(), // detected specially (fees and charges the bank or card takes); listed so it can be picked
-        "Home services" to listOf("mygate", "nobrokerhood", "society maintenance", " chs", "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
+        "Home services" to listOf("mygate", "101society", "apnacomplex", "nobrokerhood", "society maintenance", " chs", "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
         "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi", "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater", "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
         "Subscriptions" to listOf("apple.com/bill", "apple services", "apple media", "google cloud", "amazon web", "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity", "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
         "Bills" to listOf("billdesk", "infobil", "bharat bill", "bbps", "tatapower", "starhealth", "insurance", "sms alert", "alert chg", "annual fee", "membership fee", "annual maint", "maint chgs", "finance charge", "interest charge", "interest on cash", "late payment", "cross currency markup", "cheque return", "non-maintenance", "electricity board", "msedcl", "tneb", "tsspdcl", "apspdcl", "bwssb", "hmwssb", "indane", "hp gas", "bharatgas", "bharat gas", "mahanagar gas", "adani gas", "piped gas", "tata play", "tataplay", "dish tv", "sun direct", "d2h", "municipal", "property tax", "lic of india", "insurance premium", "life insurance", "hdfc life", "sbi life", "max life", "star health", "care health", "acko", "digit insurance", "policybazaar", "electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi", "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
@@ -134,7 +134,7 @@ object Classifier {
             "transfer" -> when (category) {
                 "Card bill" -> "A credit-card bill payment — it settles spends already counted, so it isn't counted again."
                 "Wallet" -> "Money moved to/from a wallet — counted once when it leaves your bank."
-                else -> "Looks like a transfer — between your own accounts, or money sent to a person."
+                else -> "A transfer — between your own accounts, or money a person sent you."
             }
             "lent" -> "You tagged this as money lent out."
             "borrowed" -> "You tagged this as money you borrowed."
@@ -272,13 +272,8 @@ object Classifier {
         for ((word, category) in EMBEDDED) {
             if (joined.split(' ').any { it.length > word.length + 3 && it.contains(word) }) return Result("expense", category)
         }
-        // 3) Money sent to a named person (not a business) is a transfer, not a spend. A card swipe
-        //    is always a purchase at a merchant, so it never takes this path.
-        val who = t.counterparty?.trim()
-        if (who != null && !onCard(t.account) && PERSON_NAME.matches(who) && !BUSINESS_WORD.containsMatchIn(who)) {
-            return Result("transfer", "Transfer")
-        }
-        // 4) Genuinely unguessable -> ask once (then remembered per payee).
+        // 3) Unguessable, including money sent to a person (rent, a maid, a shop's owner) -> counted as spend and asked
+        //    once (then remembered per payee). Only your own accounts and card bills are transfers.
         return Result("expense", "Unknown")
     }
 }

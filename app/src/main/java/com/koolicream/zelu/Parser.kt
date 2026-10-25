@@ -60,8 +60,9 @@ object Parser {
     }
     private val AMOUNT_BARE = Regex("""\b(?:debited|credited)\s+(?:by|with|for|of)\s+([\d,]+(?:\.\d{1,2})?)(?=\s+on\b)""", RegexOption.IGNORE_CASE)
     // Bank statement style narration: "UPI/P2A/607222223333/LANDLORD" or "UPI/607111100002/SPOTIFY".
-    // Also "IMPS/629445678901/RAVI ELECTRICALS" and "UPI-629523456789-MSEDCL"; the name may be several words.
-    private val UPI_SLASH = Regex("""\b(?:UPI|IMPS|NEFT|RTGS)[/-](?:P2[AMP][/-])?\d{6,}[/-]([A-Za-z][A-Za-z0-9 .&']{1,30}?)(?=\s*(?:[.,;/(]|$)|\s+(?:on|avl|avbl|bal|ref|via|not|is|was|for|from|sms|call|info|txn|upi|total)\b|\s+-)""", RegexOption.IGNORE_CASE)
+    // Also "IMPS/629445678901/RAVI ELECTRICALS" and "UPI-629523456789-MSEDCL"; the name may be several words, and may
+    // start with digits ("UPI/P2M/628163353261/101society"). Axis follows the name with "WhatsApp BAL to <number>".
+    private val UPI_SLASH = Regex("""\b(?:UPI|IMPS|NEFT|RTGS)[/-](?:P2[AMP][/-])?\d{6,}[/-](?=\d{0,5}[A-Za-z])([A-Za-z0-9][A-Za-z0-9 .&']{1,30}?)(?=\s*(?:[.,;/(]|$)|\s+(?:on|avl|avbl|bal|ref|via|not|is|was|for|from|sms|call|info|txn|upi|total|whatsapp)\b|\s+-)""", RegexOption.IGNORE_CASE)
     private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|used for (?:a )?transaction|(?:is|was|been) used for|(?:levied|charged|posted)\s+(?:on|to)|(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:on|at)|(?:imps|neft|rtgs)\b.{0,120}?\bfrom\s+(?:your\s+)?(?:a/?c|acct|account)\b.{0,90}?\bis successful|transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account)|transferred\s+(?:via|by|through|using)\s+(?:imps|neft|rtgs|upi)\s+from|(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:done|made))\b""", RegexOption.IGNORE_CASE)
     private val CREDIT = Regex("""\b(credited|credit(?!\s+(?:card|limit|lmt|bal))|thank you for (?:paying|your payment)|received|deposited|refunded?|reversed|reversal)\b""", RegexOption.IGNORE_CASE)
     // Government and regional banks abbreviate: "A/c XX9988 Dr INR 1,100.00", "is Cr with Rs.7,500.00", "Cr by Rs.3,000".
@@ -386,6 +387,8 @@ object Parser {
     // moves no money; the debits come later as their own messages.
     private val MANDATE_SETUP = Regex("""\b(?:e-?mandate|mandate|auto-?pay|standing instruction)\b[^.]{0,60}\b(?:registered|created|set ?up|activated)\b|\bfirst debit (?:on|date|will)\b""", RegexOption.IGNORE_CASE)
 
+    // "Credits in ICICI Bank OD XX173 did not cover interest debited ... Credit min Rs 72554.34": a warning asking for money, not a payment.
+    private val CREDIT_ASK = Regex("""\bdid not cover\b|\bout of order\b|\bcredit\s+(?:a\s+)?min(?:imum)?\b""", RegexOption.IGNORE_CASE)
     // A debit that did not go through ("NACH debit of Rs 15,432 could not be processed due to insufficient balance").
     private val DEBIT_FAILED = Regex("""\b(could not be processed|bounced|dishono(?:u)?red|returned unpaid|insufficient (?:balance|funds))\b""", RegexOption.IGNORE_CASE)
     // "Convert your recent purchase of Rs 7,900 into easy EMIs": an offer about a spend already recorded. (A real spend
@@ -428,7 +431,7 @@ object Parser {
         // A fee, interest or tax put on the account is a payment that has happened, even when the message also says to pay.
         val feeDone = FEE_DONE.containsMatchIn(check) && !FUTURE_DEBIT.containsMatchIn(check)
         if (MANDATE_SETUP.containsMatchIn(text)) return null
-        if (DEBIT_FAILED.containsMatchIn(text)) return null
+        if (DEBIT_FAILED.containsMatchIn(text) || CREDIT_ASK.containsMatchIn(text)) return null
         if (EMI_CONVERT_OFFER.containsMatchIn(text) && !STRONG_DONE.containsMatchIn(text)) return null
         // Only count money that has actually left the account. A future auto-debit
         // ("will be debited") or a pure dues/reminder notice (no completed payment in it)

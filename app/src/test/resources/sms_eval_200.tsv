@@ -1,6 +1,6 @@
 # id	sender	outcome	direction	amount	fx	categories	body   (for SmsEval200Test; newlines in a body are written as \n)
 upi-01	AX-HDFCBK-S	txn	debit	349.0		Food	Sent Rs.349.00\nFrom HDFC Bank A/C *5997\nTo SWIGGY\nOn 18/10/26\nRef 629145872310\nNot You?\nCall 18002586161/SMS BLOCK UPI to 7308080808
-upi-02	VM-SBIUPI-T	txn	debit	250.0		Transfer	Dear UPI user A/C X4821 debited by 250.0 on date 17Oct26 trf to RAMESH KUMAR Refno 629087451236. If not u? call 1800111109. -SBI
+upi-02	VM-SBIUPI-T	txn	debit	250.0		Unknown	Dear UPI user A/C X4821 debited by 250.0 on date 17Oct26 trf to RAMESH KUMAR Refno 629087451236. If not u? call 1800111109. -SBI
 upi-03	JD-ICICIT	txn	debit	1249.0		Food	ICICI Bank Acct XX345 debited for Rs 1,249.00 on 16-Oct-26; ZOMATO credited. UPI:629012345678. Call 18002662 for dispute. SMS BLOCK 345 to 9215676766.
 upi-04	BP-AXISBK-S	txn	debit	612.0		Groceries|Shopping	Debit INR 612.00\nAxis Bank A/c XX7712\n18-10-26 09:14:22\nUPI/P2M/629187654321/BLINKIT\nNot you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank
 upi-05	VK-KOTAKB-T	txn	debit	180.0		Transport	Sent Rs.180.00 from Kotak Bank a/c X8830 to uber.rides@axisbank on 18-10-26.UPI Ref 629198765432. Not you, https://kotak.com/KBANKT/Fraud
@@ -15,10 +15,10 @@ upi-13	VM-FEDBNK-S	txn	debit	3000.0		Transfer|Unknown	Rs 3,000.00 debited from y
 upi-14	TM-BOIIND	txn	debit	540.0		Health	Rs.540.00 debited A/cXX7783 and credited to SHREE BALAJI MEDICAL via UPI Ref No 629098765432 on 17Oct26. Call 18001031906, if not done by you. -BOI
 upi-15	VM-INDBNK-S	txn	debit	230.0		Groceries|Shopping|Unknown	A/c *4410 debited Rs. 230.00 on 18-10-26 to Sri Murugan Stores UPI Ref no 629087654321. If not you, report to Indian Bank Customer Care 180042500000 or SMS BLOCK to 9444394443
 upi-16	AD-CENTBK-S	txn	debit	1500.0		Transfer|Unknown	Your a/c no. XXXXXXXX2093 is debited for Rs.1500.00 on 16-10-2026 and credited to a/c no. XXXXXXXX7745 (UPI Ref no 629076543210)-Central Bank of India
-upi-17	AX-HDFCBK-S	txn	debit	2000.0		Transfer	Amt Sent Rs.2,000.00\nFrom HDFC Bank A/C *5997\nTo PRIYA SHARMA\nOn 18-10\nRef 629265874123\nNot You? Call 18002586161/SMS BLOCK UPI to 7308080808
+upi-17	AX-HDFCBK-S	txn	debit	2000.0		Unknown	Amt Sent Rs.2,000.00\nFrom HDFC Bank A/C *5997\nTo PRIYA SHARMA\nOn 18-10\nRef 629265874123\nNot You? Call 18002586161/SMS BLOCK UPI to 7308080808
 upi-18	VM-SBIUPI-T	txn	debit	500.0		Transfer|Wallet	Dear SBI UPI User, ur A/cX4821 debited by Rs500 on 18Oct26 transfer to AddMoney Paytm Wallet Ref No 629254789632. If not done by u, fwd this SMS to 7400165218/Call 1800111109 or 09449112211 to block UPI -SBI
 upi-19	JD-ICICIT	ignore					ICICI Bank: You have received a UPI collect request of Rs 4,999.00 from shopdeals@ybl. Money will be debited from your account XX345 only if you approve. Do not approve if you don't know the sender. -ICICI Bank
-upi-20	BP-AXISBK-S	txn	debit	1120.0		Transfer	INR 1,120.00 debited\nA/c no. XX7712\n17-10-26, 20:15:44\nUPI/P2A/629243218765/ANIL KUMAR SINGH\nNot you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank
+upi-20	BP-AXISBK-S	txn	debit	1120.0		Unknown	INR 1,120.00 debited\nA/c no. XX7712\n17-10-26, 20:15:44\nUPI/P2A/629243218765/ANIL KUMAR SINGH\nNot you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank
 upi-21	VK-KOTAKB-T	ignore					Your UPI payment of Rs.650.00 from Kotak Bank a/c X8830 to OLA on 18-10-26 has FAILED. If amount was debited, it will be reversed in 3 working days. UPI Ref 629276543219. -Kotak Bank
 upi-22	AX-HDFCBK-S	txn	debit	2499.0		Shopping	UPDATE: INR 2,499.00 debited from HDFC Bank XX5997 on 18-OCT-26. Info: UPI-AMAZON-amazonupi@apl-629298745612. Avl bal:INR 10,234.50
 upi-23	BP-BOBTXN-S	txn	debit	45.0		Food|Groceries|Shopping|Unknown	Rs.45.00 transferred from A/c ...2290 to:q873412095@ybl. Total Bal:Rs.12405.30CR. Avlbl Amt:Rs.12405.30(18-10-2026 19:03:17) - Bank of Baroda
@@ -175,13 +175,13 @@ regional-23	AX-SIBSMS-S	txn	credit	45000.0		Income	Dear Customer, Your A/c XXXXX
 regional-24	VM-KVBANK-S	txn	debit	10000.0		Investment|Transfer	Your KVB A/c XXXX6631 debited Rs.10,000.00 on 18-10-2026 by MB-IMPS towards ZERODHA BROKING LTD. Ref 629177788899. Avl.Bal:Rs.21,123.00 -Karur Vysya Bank
 regional-25	TM-CUBANK-S	txn	debit	25000.0		Card bill|Transfer	Rs.25,000.00 Dr A/c 5xxxxx2210 dt 2026-10-18:20:15:44 BBPS/CC BILL PAY/HDFC BANK CREDIT CARD XX9876. Bal Rs.8,765.43 -City Union Bank
 traps-01	AD-CANBNK-S	txn	debit	1250.0		Food	Your a/c XX1234 has Avl Bal INR 45,210.55 after debit of INR 1,250.00 on 18-10-2026 towards UPI/ZOMATO LTD/628915473021. Not you? Call 1800 1030 -Canara Bank
-traps-02	VM-SBIINB-S	txn	debit	10000.0		Transfer	Dear Customer, IMPS Ref No 628812345678 of Rs 10,000.00 from A/c X3381 to RAJESH KUMAR A/c XX4450 on 17Oct26 is successful. Charges Rs.5.90 (incl GST) will be debited separately. -SBI
+traps-02	VM-SBIINB-S	txn	debit	10000.0		Unknown	Dear Customer, IMPS Ref No 628812345678 of Rs 10,000.00 from A/c X3381 to RAJESH KUMAR A/c XX4450 on 17Oct26 is successful. Charges Rs.5.90 (incl GST) will be debited separately. -SBI
 traps-03	JD-ICICIT	txn	debit	2499.0		Shopping	INR 2,499.00 spent using ICICI Bank Card XX9005 on 18-Oct-26 on Amazon. Avl Limit: INR 1,12,340.00. You will earn 5% cashback of INR 124.95 on your statement. If not you, call 1800 2662 / SMS BLOCK 9005 to 9215676766
 traps-04	VK-KOTAKB-T	txn	debit	25000.0		Transfer	Sent Rs.25000.00 from Kotak Bank AC X4521 to your own a/c X8890 (SELF) on 18-10-26. UPI Ref 628934120987. Not you, https://kotak.com/KBANKT/Fraud
 traps-05	AX-HDFCBK-S	txn	debit	18000.0		Transfer|Unknown	IMPS INR 18,000.00\nSent from HDFC Bank A/c XX5997\nOn 16-10-26\nTo A/c xxxxxxxx7731 (ZUBIN MERCHANT)\nRef 628910001234\nNot You?\nCall 18002586161/SMS BLOCK OB to 7308080808
 traps-06	BP-AXISBK-S	txn	debit	1850.0		Health	INR 1,850.00 debited\nA/c no. XX2290\n18-10-26, 11:42:10\nUPI/P2M/628977712345/DR LAL PATHLABS LTD\nNot you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank
 traps-07	JD-ICICIT	txn	credit	799.0		Refund	Dear Customer, the amount of INR 799.00 debited from your ICICI Bank Credit Card XX3344 on 12-Oct-26 for AJIO has been refunded and credited back to your card on 18-Oct-26. -ICICI Bank
-traps-08	TM-BOIIND	txn	debit	5000.0		Transfer	NEFT of Rs.5,000.00 from your A/c XX6631 has been credited to beneficiary ANJALI SINGH A/c XXXX7781 (UTR BKIDN26291004512) on 18.10.26. -Bank of India
+traps-08	TM-BOIIND	txn	debit	5000.0		Unknown	NEFT of Rs.5,000.00 from your A/c XX6631 has been credited to beneficiary ANJALI SINGH A/c XXXX7781 (UTR BKIDN26291004512) on 18.10.26. -Bank of India
 traps-09	JM-UNIONB-S	txn	debit	2340.0		Bills	A/c *6612 Debited for Rs:2340.00 on 18-10-2026 15:20:11 and credited to BESCOM via UPI Ref 628987654321. Avl Bal Rs:18,775.40. Not you? call 18002082244 -Union Bank of India
 traps-10	BX-PNBSMS-S	txn	debit	1200.0		Travel	Rs.1,200.00 earlier reversed to your A/c XX9087 on 15-10-26 for IRCTC txn has been debited again on 18-10-26 as the original transaction was successful. Avl Bal Rs.6,410.22 -PNB
 traps-11	AX-HDFCBK-T	txn	credit	450.0		Refund	Partial refund of Rs.450.00 against your Myntra order (original amt Rs.1,899.00) credited to HDFC Bank Credit Card XX0421 on 18/10/2026. Avl limit Rs 84,210.00
