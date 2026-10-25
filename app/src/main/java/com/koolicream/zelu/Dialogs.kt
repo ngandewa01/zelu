@@ -579,6 +579,8 @@ import kotlin.math.atan2
             Eyebrow("Why this label")
             Spacer(Modifier.height(4.dp))
             MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
+            var saved by remember { mutableStateOf<String?>(null) }
+            saved?.let { Spacer(Modifier.height(8.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
             Spacer(Modifier.height(12.dp))
             var retitling by remember { mutableStateOf(false) }
             var newTitle by remember { mutableStateOf(t.counterparty ?: "") }
@@ -598,7 +600,9 @@ import kotlin.math.atan2
                 }
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { if (newTitle.isNotBlank()) onRetitle(newTitle) }.padding(horizontal = 20.dp, vertical = 9.dp)) {
+                    .clickable {
+                        if (newTitle.isNotBlank()) { onRetitle(newTitle.trim()); retitling = false; saved = "Title saved: ${newTitle.trim()}" }
+                    }.padding(horizontal = 20.dp, vertical = 9.dp)) {
                     Text("Save title", color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
@@ -619,29 +623,35 @@ import kotlin.math.atan2
                 ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
             if (editing) {
+                // Picking a category saves it, closes the picker and says so; the payment above shows the new label.
+                fun pick(kind: String, c: String) {
+                    onReclassify(kind, c); editing = false
+                    saved = "Moved to ${if (c in CustomCats.names) customLabel(c) else c}" +
+                        (if (kind != "income" && kind != "ignore" && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
+                }
                 Spacer(Modifier.height(10.dp))
                 MutedText("Remembered for ${t.counterparty ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { onReclassify(if (c == "Investment") "invest" else "expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
                     CustomCats.names.forEach { c ->
-                        Chip(customLabel(c), false) { onReclassify("expense", c) }
+                        Chip(customLabel(c), t.category == c) { pick("expense", c) }
                     }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> onReclassify("expense", c) } }
+                    Chip("＋ New", false, filled = true) { onNewCat { c -> pick("expense", c) } }
                 }
                 if (t.direction == "credit") {
                     Spacer(Modifier.height(6.dp))
                     MutedText("Money-in category:", 12)
                     Spacer(Modifier.height(6.dp))
-                    ChipScroll { IncomeCats.all.forEach { c -> Chip(c, t.category == c) { onReclassify("income", c) } } }
+                    ChipScroll { IncomeCats.all.forEach { c -> Chip(c, t.category == c) { pick("income", c) } } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Chip("Money in", false) { onReclassify("income", "Income") }
-                    Chip("Transfer", false) { onReclassify("transfer", "Transfer") }
-                    Chip("Lent", false) { onReclassify("lent", "Lent") }
-                    Chip("Borrowed", false) { onReclassify("borrowed", "Borrowed") }
-                    Chip("Ignore", false) { onReclassify("ignore", "Ignore") }
+                    Chip("Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
+                    Chip("Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
+                    Chip("Lent", t.kind == "lent") { pick("lent", "Lent") }
+                    Chip("Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }
+                    Chip("Ignore", t.kind == "ignore") { pick("ignore", "Ignore") }
                     if (onSplit != null) Chip(if (t.id.contains('#')) "Remove split" else "Split…", false) { onSplit() }
                 }
             }
