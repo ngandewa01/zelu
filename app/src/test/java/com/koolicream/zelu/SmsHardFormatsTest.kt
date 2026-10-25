@@ -156,7 +156,7 @@ class SmsHardFormatsTest {
         // Tester reports: a payee name that starts with a digit, Axis's "WhatsApp BAL to <number>" footer, and an
         // overdraft warning asking for a minimum credit (no money moved).
         c("axis-upi-digit-payee", "VK-AXISBK-S", "INR 21445.00 debited\nA/c no. XX9116\n08-10-26, 20:42:21\nUPI/P2M/628163353261/101society\nNot you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank",
-            Exp("debit", 21445.0, "*9116", "101society", "2026-10-08")),
+            Exp("debit", 21445.0, "*9116", "101society", "2026-10-08", kind = "expense", cat = "Home services")),
         c("axis-imps-whatsapp-footer", "VK-AXISBK-S", "Debit INR 50000.00\nAxis Bank A/c XX9116\n23-10-26 12:51:30\nIMPS/P2A/629612194143/ZERO\nWhatsApp BAL to 917036165000\nNot You? SMS BLOCKALL CustID to 919951860002",
             Exp("debit", 50000.0, "*9116", "zero", "2026-10-23")),
         c("icici-od-min-credit", "AX-ICICIT-S", "Credits in ICICI Bank OD XX173 did not cover interest debited in last 90 days & may be tagged as Out of Order. Credit min Rs 72554.34 at https://icici.co/ICICIT/HREcMA", null),
