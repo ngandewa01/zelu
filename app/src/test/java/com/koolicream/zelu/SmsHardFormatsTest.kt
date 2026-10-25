@@ -113,7 +113,7 @@ class SmsHardFormatsTest {
         c("account-ending", "VM-SBIINB-S", "Dear Customer, Rs. 1,000 has been debited from your account ending 1234 on 18-10-26 towards UPI to swiggy. -SBI",
             Exp("debit", 1000.0, "SBI 1234", "swiggy", "2026-10-18", kind = "expense", cat = "Food")),
         c("own-vs-beneficiary", "AX-HDFCBK-S", "A/c XX5997 debited Rs.2,000.00 on 18-10-26 for IMPS to A/c XX1234 (MAHESH JOSHI). Ref 629623456780",
-            Exp("debit", 2000.0, "HDFC 5997", "mahesh", "2026-10-18", "629623456780", "transfer")),
+            Exp("debit", 2000.0, "HDFC 5997", "mahesh", "2026-10-18", "629623456780", "expense", "Unknown")),
         c("bank-to-cc-bill", "AX-HDFCBK-S", "Rs.10,000.00 debited from A/c XX5997 towards your ICICI Bank Credit Card XX9012 bill payment on 18-10-26",
             Exp("debit", 10000.0, "HDFC 5997", date = "2026-10-18", kind = "transfer", cat = "Card bill")),
         c("card-reversal", "AX-HDFCBK-S", "Rs.1,299.00 reversed to your HDFC Bank Card x1291 on 18-10-26 for NETFLIX",
@@ -145,7 +145,7 @@ class SmsHardFormatsTest {
             Exp("debit", 2000.0, "*7712", date = "2026-10-18", kind = "expense", cat = "ATM / Cash")),
         c("emi-conversion-offer", "AD-ICICIT-S", "Convert your recent purchase of Rs 7,900 on ICICI Bank Card XX8003 into easy EMIs at 13% p.a. Give a missed call to 9924667667", null),
         c("imps-to-person-masked", "AX-HDFCBK-S", "IMPS Rs.3,000.00 debited from A/c XX5997 to A/c XX4567 (SURESH PATIL) on 19-10-26. IMPS Ref No 629311112222",
-            Exp("debit", 3000.0, "HDFC 5997", "suresh", "2026-10-19", "629311112222", "transfer")),
+            Exp("debit", 3000.0, "HDFC 5997", "suresh", "2026-10-19", "629311112222", "expense", "Unknown")),
         c("fd-booking", "AX-HDFCBK-S", "Rs.50,000.00 debited from A/c XX5997 on 19-10-26 towards Fixed Deposit No XX9988 booked via NetBanking.",
             Exp("debit", 50000.0, "HDFC 5997", date = "2026-10-19", kind = "invest")),
         // ===== Must be ignored =====

@@ -134,7 +134,7 @@ object Classifier {
             "transfer" -> when (category) {
                 "Card bill" -> "A credit-card bill payment — it settles spends already counted, so it isn't counted again."
                 "Wallet" -> "Money moved to/from a wallet — counted once when it leaves your bank."
-                else -> "Looks like a transfer — between your own accounts, or money sent to a person."
+                else -> "A transfer — between your own accounts, or money a person sent you."
             }
             "lent" -> "You tagged this as money lent out."
             "borrowed" -> "You tagged this as money you borrowed."
@@ -272,13 +272,8 @@ object Classifier {
         for ((word, category) in EMBEDDED) {
             if (joined.split(' ').any { it.length > word.length + 3 && it.contains(word) }) return Result("expense", category)
         }
-        // 3) Money sent to a named person (not a business) is a transfer, not a spend. A card swipe
-        //    is always a purchase at a merchant, so it never takes this path.
-        val who = t.counterparty?.trim()
-        if (who != null && !onCard(t.account) && PERSON_NAME.matches(who) && !BUSINESS_WORD.containsMatchIn(who)) {
-            return Result("transfer", "Transfer")
-        }
-        // 4) Genuinely unguessable -> ask once (then remembered per payee).
+        // 3) Unguessable, including money sent to a person (rent, a maid, a shop's owner) -> counted as spend and asked
+        //    once (then remembered per payee). Only your own accounts and card bills are transfers.
         return Result("expense", "Unknown")
     }
 }
