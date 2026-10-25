@@ -258,10 +258,33 @@ import kotlin.math.atan2
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
             Text("Your accounts", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText(if (firstRun) "Zelu found these in your messages. Tap one if something looks wrong."
+            MutedText(if (firstRun) "Zelu found these in your bank messages. A quick check, about 30 seconds:"
                 else "Tap an account to see what is joined into it, or to change it.", 13)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                if (firstRun) {
+                    // New users did not know what to look for here: say it in three plain steps.
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf(
+                            "Not yours?" to "A family member's or an old account: tap it, then Not my account.",
+                            "Same account twice?" to "Banks write one account in different ways (XX9116, A/c 9116, its debit card). Tap one and tick the other to join them.",
+                            "Looks fine?" to "Just tap Continue. You can change this any time in Menu, Accounts.",
+                        ).forEachIndexed { i, (head, body) ->
+                            Row {
+                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.Accent), contentAlignment = Alignment.Center) {
+                                    Text("${i + 1}", color = ZColor.AccentInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    MutedText(body, 12)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
                 @Composable fun card(a: AccountBook.Acct, faded: Boolean = false) {
                     Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
                         .clickable { open = a.key }.padding(14.dp)) {
@@ -288,7 +311,7 @@ import kotlin.math.atan2
                 if (unknown.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
                     Eyebrow("Bank not known")
-                    MutedText("Tap one to join it to your account.", 12)
+                    MutedText("Zelu could not tell which bank these are. If one is the same as an account above, tap it and tick that account. Otherwise leave it.", 12)
                     unknown.forEach { card(it) }
                 }
                 if (removed.isNotEmpty()) {
@@ -301,7 +324,7 @@ import kotlin.math.atan2
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Cta(if (firstRun) "Continue" else "Done", onDone)
+            Cta(if (firstRun) "Looks right, continue" else "Done", onDone)
         }
         undoMsg?.let { m ->
             Row(Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 84.dp).fillMaxWidth()
@@ -373,7 +396,9 @@ import kotlin.math.atan2
                         MutedText("You said this is not your account, so its payments are not counted.", 13)
                     } else {
                         if (a.type != "loan" && a.type != "debit") {
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(12.dp))
+                            MutedText("What is it?", 12)
+                            Spacer(Modifier.height(6.dp))
                             ChipScroll {
                                 listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->
                                     PickChip(lab, type == ty) { type = ty }
@@ -400,10 +425,10 @@ import kotlin.math.atan2
                             }
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text("Tick any that are the same account as this one", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        if (options.isEmpty()) {
-                            Spacer(Modifier.height(8.dp)); MutedText("No similar accounts.", 13)
-                        }
+                        Text("Is it the same account as any of these?", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(2.dp))
+                        MutedText(if (options.isEmpty()) "Zelu found no other account like this one. Nothing to join."
+                            else "Tick one if it is this account written another way, or its debit card. Leave them unticked if not.", 12)
                         options.forEach { o ->
                             val on = ticked[o.key] == true
                             Row(Modifier.fillMaxWidth().clickable { ticked[o.key] = !on }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
