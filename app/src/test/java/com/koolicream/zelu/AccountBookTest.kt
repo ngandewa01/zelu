@@ -57,6 +57,17 @@ class AccountBookTest {
     }
 
     @Test
+    fun depositsAreKnownFromTheirMessagesAndNotOfferedForSavings() {
+        val fdMsg = AccountBook.Stat(3, "2026-10-01", 50000.0, "Your FD XX4321 of Rs 50,000 has matured", looks = "fd")
+        val b = AccountBook.build(labels + ("HDFC 4321" to fdMsg), auto, loans, emptyMap(), emptyMap(), emptyMap())
+        assertEquals("fd", b.first { it.key == "HDFC 4321" }.type)
+        assertFalse(AccountBook.similar(b, b.first { it.key == "HDFC 5997" }).any { it.key == "HDFC 4321" })
+        // A type you set yourself wins.
+        val mine = AccountBook.build(labels + ("HDFC 4321" to fdMsg), auto, loans, mapOf("HDFC 4321" to ("accepted" to "savings")), emptyMap(), emptyMap())
+        assertEquals("savings", mine.first { it.key == "HDFC 4321" }.type)
+    }
+
+    @Test
     fun joiningKeepsTheNameWithABank() {
         val b = book()
         val p = AccountBook.plan(b, emptyMap(), "76", setOf("MGB 883076"), "savings")

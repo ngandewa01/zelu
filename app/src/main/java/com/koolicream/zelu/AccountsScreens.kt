@@ -294,7 +294,7 @@ import kotlin.math.atan2
                             Column(Modifier.weight(1f)) {
                                 Text(AccountBook.displayName(a.key), color = if (faded) ZColor.Muted else ZColor.Ink, fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                MutedText(acctLine(a.type, a.count), 12)
+                                MutedText(acctLine(a.type, a.count) + (if (a.own.lastDate.isNotBlank()) " · last " + money(a.own.lastAmount) + " on " + prettyDate(a.own.lastDate) else ""), 12)
                                 AccountBook.cardLink(book, a)?.let { Text("Looks like the card of ${it.key}. Tap to link.", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             }
                             val bal = if (a.type == "card") a.limit else a.balance
@@ -354,7 +354,7 @@ import kotlin.math.atan2
     val context = LocalContext.current
     class Opt(val key: String, val type: String, val stat: AccountBook.Stat, val auto: Boolean, val numberMatch: Boolean)
     val options = remember(a, book) {
-        val parts = a.parts.map { Opt(it.key, AccountBook.guessType(it.key), it.stat, it.auto, AccountBook.numberMatch(a.key, it.key)) }
+        val parts = a.parts.map { Opt(it.key, AccountBook.guessType(it.key).let { g -> if (g == "savings") it.stat.looks ?: g else g }, it.stat, it.auto, AccountBook.numberMatch(a.key, it.key)) }
         val partKeys = parts.map { it.key }.toSet()
         parts + AccountBook.similar(book, a).filter { it.key !in partKeys }.map { Opt(it.key, it.type, it.own, false, AccountBook.numberMatch(a.key, it.key)) }
     }
@@ -436,9 +436,12 @@ import kotlin.math.atan2
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(AccountBook.displayName(o.key), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    val extra = (if (o.auto) "Joined by Zelu · " else if (o.numberMatch) "Number matches · " else "") +
+                                    val extra = (if (o.auto) "Joined by Zelu · " else if (o.numberMatch) "Number matches · " else "") + acctTypeLabel(o.type) + " · " +
                                         plural(o.stat.count, "payment", "payments") + (if (o.stat.lastDate.isNotBlank()) " · last " + money(o.stat.lastAmount) + " on " + prettyDate(o.stat.lastDate) else "")
                                     Text(extra, color = if (o.auto || o.numberMatch) ZColor.Income else ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    // Its newest message, so it can be recognised without knowing the number.
+                                    if (o.stat.lastRaw.isNotBlank()) Text("“" + o.stat.lastRaw.take(90) + "”", color = ZColor.InkSoft, fontSize = 11.sp,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                                 Box(Modifier.size(24.dp).clip(RoundedCornerShape(7.dp)).background(if (on) ZColor.Accent else Color.Transparent)
                                     .border(2.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
