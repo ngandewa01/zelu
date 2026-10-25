@@ -295,6 +295,8 @@ import kotlin.math.atan2
                                 Text(AccountBook.displayName(a.key), color = if (faded) ZColor.Muted else ZColor.Ink, fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 MutedText(acctLine(a.type, a.count) + (if (a.own.lastDate.isNotBlank()) " · last " + money(a.own.lastAmount) + " on " + prettyDate(a.own.lastDate) else ""), 12)
+                                if (a.own.lastRaw.isNotBlank()) Text("“" + a.own.lastRaw.take(90) + "”", color = ZColor.InkSoft, fontSize = 11.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 AccountBook.cardLink(book, a)?.let { Text("Looks like the card of ${it.key}. Tap to link.", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             }
                             val bal = if (a.type == "card") a.limit else a.balance
@@ -381,11 +383,14 @@ import kotlin.math.atan2
                         val bal = if (a.type == "card") a.limit else a.balance
                         if (bal != null && !a.declined) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
+                    // The newest message is shown straight away: people know an account by what its bank writes, not its number.
                     if (a.own.lastRaw.isNotBlank()) {
-                        Text(if (showMsg) "Hide the message" else "See a message", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showMsg = !showMsg }.padding(vertical = 8.dp))
-                        if (showMsg) Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 8, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card).padding(10.dp))
+                        Spacer(Modifier.height(12.dp))
+                        MutedText("Latest message from this account", 12)
+                        Spacer(Modifier.height(4.dp))
+                        Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = if (showMsg) 20 else 4, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card)
+                                .clickable { showMsg = !showMsg }.padding(10.dp))
                     }
                     if (suggested != null && !a.declined) {
                         Spacer(Modifier.height(10.dp))
