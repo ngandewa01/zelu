@@ -810,8 +810,14 @@ fun ZeluApp() {
                     { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
                     repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets)
                 "spend" -> {
-                    val prevByCat = if (period == "month")
-                        Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
+                    // Last month, compared fairly: only up to today's date while this month is running, and without EMI
+                    // when this month's view leaves it out. (Comparing part of this month with all of last month showed
+                    // "▼10%" right above a same-days "▲112%".)
+                    val prevByCat = if (period == "month") {
+                        val cutDay = if (month == Dates.todayMonth()) Dates.dayOfMonth() else 99
+                        Analytics.categoryTotals(rows.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= cutDay }, Dates.shiftMonth(month, -1), account)
+                            .let { m -> if (excludeEmi && cat != "EMI") m - "EMI" else m }
+                    } else emptyMap()
                     val isMonth = f.period == "month"
                     val flexShown = shown
                     val emiSpent = Analytics.summarize(Analytics.filter(rows, f).filter { it.category == "EMI" }).spent.coerceAtLeast(0.0)
@@ -850,7 +856,7 @@ fun ZeluApp() {
                                     if (excludeEmi && cat != "EMI") l.filter { it.category != "EMI" } else l }
                                 val prevSame = Analytics.summarize(prevList.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
                                 val curSame = Analytics.summarize(flexShown.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
-                                SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame, fixedNote)
+                                SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame, fixedNote, Dates.monthLong(prevM))
                             }
                         }) { title, rows -> drill = title to rows }
                     if (spendTab == 2 && dayStr == null) {

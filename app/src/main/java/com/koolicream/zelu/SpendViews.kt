@@ -274,38 +274,52 @@ import kotlin.math.atan2
     }
 }
 
-@Composable internal fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double, note: String? = null) {
+// This month so far, in plain sentences: where you stand against your budget, and against the same days last month.
+@Composable internal fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double,
+    note: String? = null, prevName: String = "last month") {
     Panel {
-        Eyebrow("Right now")
+        Eyebrow("This month so far")
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val left = (budget - spent).coerceAtLeast(0.0)
-            val over = budget > 0 && spent > budget
-            if (budget <= 0) Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-                MutedText("Spent so far", 11)
-                Text(money(spent), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(2.dp))
-                Text("No budget set · $daysLeft days to go", color = ZColor.InkSoft, fontSize = 11.sp)
-            } else Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
-                MutedText("Daily allowance", 11)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(if (daysLeft > 0) left / daysLeft else 0.0), color = if (over) ZColor.Warn else ZColor.Income,
-                        fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Text(" a day", color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 3.dp))
+        val over = budget > 0 && spent > budget
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(if (budget <= 0) ZColor.Paper else if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
+            when {
+                budget <= 0 -> {
+                    Text("No monthly budget set", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    MutedText("Set one in Budgets to see how much you can spend each day.", 12)
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(if (over) "Budget used up · " + money(spent - budget) + " over" else money(left) + " left · $daysLeft days to go",
-                    color = ZColor.InkSoft, fontSize = 11.sp)
+                over -> {
+                    Text(money(spent - budget) + " over your budget", color = ZColor.Warn, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    MutedText("Budget " + money(budget) + " · spent " + money(spent), 12)
+                    Spacer(Modifier.height(8.dp)); Meter(1f, ZColor.Warn)
+                }
+                else -> {
+                    val left = budget - spent
+                    Text(money(left) + " left in your budget", color = ZColor.Income, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    MutedText("About " + money(if (daysLeft > 0) left / daysLeft else left) + " a day for the last " +
+                        plural(daysLeft, "day", "days") + " · budget " + money(budget), 12)
+                    Spacer(Modifier.height(8.dp)); Meter((spent / budget).toFloat().coerceIn(0f, 1f), ZColor.Income)
+                }
             }
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-                MutedText("By the ${dayNum}${ordinal(dayNum)}", 11)
-                Text(money(curSame), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(2.dp))
-                if (prevSame > 0) {
-                    val ch = ((curSame - prevSame) / prevSame * 100).toInt()
-                    Text((if (ch > 0) "▲ $ch%" else if (ch < 0) "▼ ${kotlin.math.abs(ch)}%" else "same") + " vs " + shortAmt(prevSame) + " last month",
-                        color = if (ch > 0) ZColor.Warn else if (ch < 0) ZColor.Income else ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                } else MutedText("no data for last month", 11)
+        }
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
+            val upTo = "${dayNum}${ordinal(dayNum)}"
+            if (prevSame > 0) {
+                val diff = curSame - prevSame
+                val ch = Math.round(kotlin.math.abs(diff) / prevSame * 100)
+                Text(
+                    when {
+                        kotlin.math.abs(diff) < 1 -> "Same as $prevName so far"
+                        diff > 0 -> money(diff) + " more than $prevName so far"
+                        else -> money(-diff) + " less than $prevName so far"
+                    },
+                    color = if (diff > 0) ZColor.Warn else if (diff < 0) ZColor.Income else ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                )
+                MutedText("1st to $upTo: " + money(curSame) + " now, " + money(prevSame) + " in $prevName" +
+                    (if (ch > 0) " (" + (if (diff > 0) "▲ " else "▼ ") + ch + "%)" else ""), 12)
+            } else {
+                Text("No spending in $prevName to compare", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         if (note != null) { Spacer(Modifier.height(10.dp)); MutedText(note, 11) }
