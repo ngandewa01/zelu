@@ -189,22 +189,31 @@ import kotlin.math.atan2
             Fact("Later", money(laterList.sumOf { it.amount }))
         }
         Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (i in 0..6) {
+        // The next 30 days; swipe sideways for later ones. Today has an outline; a day with a bill is orange and opens it.
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (i in 0..29) {
                 val d = Dates.shiftDays(today, i)
                 val due = pending.filter { it.dueDate == d }
                 val letter = "SMTWTFS"[Dates.parse(d).get(java.util.Calendar.DAY_OF_WEEK) - 1].toString()
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                val dayN = d.substring(8, 10).toInt()
+                val shape = RoundedCornerShape(10.dp)
+                Column(Modifier.width(44.dp).clip(shape)
                     .background(if (due.isNotEmpty()) ZColor.Warn.copy(alpha = 0.14f) else ZColor.Paper)
+                    .then(if (i == 0) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
+                    .then(if (due.isNotEmpty()) Modifier.clickable { detail = due.first() } else Modifier)
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(letter, color = ZColor.Muted, fontSize = 10.sp)
-                    Text(d.substring(8, 10).toInt().toString(), color = ZColor.Ink, fontSize = 15.sp,
+                    Text(if (i == 0) "Today" else if (dayN == 1) MONTH_ABBR[d.substring(5, 7).toInt() - 1] else letter,
+                        color = if (i == 0) ZColor.Ink else ZColor.Muted, fontSize = 10.sp,
+                        fontWeight = if (i == 0 || dayN == 1) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                    Text(dayN.toString(), color = ZColor.Ink, fontSize = 15.sp,
                         fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
                     Text(if (due.isNotEmpty()) shortAmt(due.sumOf { it.amount }) else "·",
                         color = if (due.isNotEmpty()) ZColor.Warn else ZColor.Line, fontSize = 10.sp, maxLines = 1)
                 }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        MutedText("Swipe for the next 30 days. Tap an orange day to open its bill.", 11)
         }
         if (spentSoFar > 0) {
             if (pending.isNotEmpty()) Spacer(Modifier.height(14.dp))
