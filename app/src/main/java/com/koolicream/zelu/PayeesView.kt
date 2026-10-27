@@ -19,8 +19,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -182,54 +180,49 @@ import kotlin.math.atan2
         Chip("New" + (if (freshN > 0) " ($freshN)" else ""), ptab == "new", true) { ptab = "new" }
     }
     if (ptab == "overview") {
-        var pick by remember { mutableStateOf(0) }
-        data class Tile(val name: String, val amt: Double, val cats: List<String>, val count: Int, val rest: Boolean)
-        val topList = payees.take(9)
-        val restAmt = (total - topList.sumOf { it.amount }).coerceAtLeast(0.0)
-        val tiles = (topList.map { Tile(it.name, it.amount, it.cats, it.count, false) } +
-            (if (restAmt > 0.5 && payees.size > 9) listOf(Tile((payees.size - 9).toString() + " smaller payees", restAmt, emptyList(), 0, true)) else emptyList()))
-            .sortedByDescending { it.amt }
-        val cells = treemap(tiles.map { it.amt })
-        val cur = tiles.getOrNull(pick) ?: tiles.first()
+        // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
+        // hid most amounts, cut names off, and gave the biggest box to "everyone else".)
+        val top = payees.take(8)
+        val restN = payees.size - top.size
+        val restAmt = (total - top.sumOf { it.amount }).coerceAtLeast(0.0)
+        val biggest = top.maxOf { it.amount }.coerceAtLeast(1.0)
+        fun share(a: Double) = if (total > 0) { val p = a / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else ""
         Panel {
-            BoxWithConstraints(Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(14.dp))) {
-                val bw = maxWidth; val bh = maxHeight
-                cells.forEach { c ->
-                    val t = tiles[c.idx]
-                    val cw = bw * (c.w / 100f); val ch = bh * (c.h / 100f)
-                    val col = if (t.rest) ZColor.Muted.copy(alpha = 0.55f) else catColor(t.cats.firstOrNull() ?: "Unknown")
-                    val shape = RoundedCornerShape(10.dp)
-                    Box(Modifier.offset(bw * (c.x / 100f), bh * (c.y / 100f)).size(cw, ch).padding(1.5.dp).clip(shape).background(col)
-                        .then(if (pick == c.idx) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
-                        .clickable { pick = c.idx }.padding(7.dp)) {
-                        if (cw > 64.dp && ch > 30.dp) Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                            Text(if (cw > 110.dp) t.name else t.name.substringBefore(' '), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (ch > 54.dp && cw > 84.dp) Text(money(t.amt), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Eyebrow("Top payees")
+            top.forEachIndexed { i, p ->
+                val cat = p.cats.firstOrNull() ?: "Unknown"
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name }.padding(vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(p.name, cat, 34.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${i + 1}. " + p.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Text(money(p.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(ZColor.Line)) {
+                            Box(Modifier.fillMaxWidth((p.amount / biggest).toFloat().coerceIn(0.02f, 1f)).fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp)).background(catColor(cat)))
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        MutedText(plural(p.count, "payment", "payments") + " · " + p.cats.joinToString(", ") { customLabel(it) } + " · " + share(p.amount) + " of spend", 11)
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(cur.name, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText(if (cur.rest) "Everyone else" else cur.count.toString() + (if (cur.count == 1) " payment · " else " payments · ") + cur.cats.joinToString(", "), 12)
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(money(cur.amt), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    MutedText((if (total > 0) { val p = cur.amt / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else "") + " of spend", 11)
+            if (restN > 0 && restAmt > 0.5) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { ptab = "all" }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Everyone else", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        MutedText(plural(restN, "payee", "payees") + " · " + share(restAmt) + " of spend · tap to see all", 11)
+                    }
+                    Text(money(restAmt), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            ChipScroll {
-                if (cur.rest) Chip("See all payees", false) { ptab = "all" }
-                else {
-                    Chip("See payments", false) { onDrill(cur.name, spend.filter { nameOf(it) == cur.name }) }
-                    Chip("Rename or change category", false) { open = cur.name }
-                }
-            }
+            MutedText("Tap a payee to see its payments, rename it or change its category.", 11)
         }
         val freq = payees.sortedByDescending { it.count }.take(4)
         if (freq.isNotEmpty() && freq.first().count > 1) {
