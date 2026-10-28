@@ -1,10 +1,15 @@
 # Uploading to Google Play from GitHub
 
-Once this is set up, GitHub uploads a build of `main` to the **Closed testing (Alpha)** track only when you ask:
-**Actions → Build release APK → Run workflow**, branch `main`, tick **Upload this build to Google Play**. Pushes and
-merges never upload. Play sends the upload for review by itself; with **managed publishing** on, an approved release
-waits in **Play Console → Publishing overview** until you press **Publish**. Release notes come from
-`distribution/whatsnew/whatsnew-en-US` (500 characters at most).
+Once this is set up, GitHub uploads a build only when you ask: **Actions → Build release APK → Run workflow**, pick the
+branch, tick **Upload this build to Google Play** and choose where:
+
+- **internal**: Internal testing, only the testers on that list (just you). Any branch, no review: on your phone through
+  the Play Store within minutes. For trying a change before it is merged.
+- **alpha**: Closed testing, for your testers. From `main` only. Play sends it for review; with **managed publishing**
+  on, an approved release waits in **Play Console → Publishing overview** until you press **Publish**.
+
+Pushes and merges never upload. Release notes come from `distribution/whatsnew/whatsnew-en-US` (500 characters at
+most).
 
 One-time setup, about 15 minutes. The key file you make in step 4 works like a password: keep it private and delete
 the downloaded copy after step 6.
