@@ -21,11 +21,19 @@ object Parser {
         return Math.round(v * (if (unit.startsWith("cr")) 1e7 else 1e5) * 100) / 100.0
     }
     // "Rs.499.00 + GST Rs.89.82 has been charged", "INR 2,104.18 and GST of INR 378.75": the fee and its tax are one payment.
-    private val FEE_GST = Regex("""(?:Rs\.?|INR\.?|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:\+|and|plus)\s*(?:[ics]gst|gst)\s*(?:of\s*)?(?:Rs\.?|INR\.?|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE)
+    private val FEE_GST = Regex(
+        """(?:Rs\.?|INR\.?|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:\+|and|plus)\s*(?:[ics]gst|""" +
+            """gst)\s*(?:of\s*)?(?:Rs\.?|INR\.?|₹)\s*:?\s*([\d,]+(?:\.\d{1,2})?)""",
+        RegexOption.IGNORE_CASE,
+    )
     // A bank fee, interest or tax that has been put on the account or card ("Late Payment Charges ... levied on").
     private val FEE_DONE = Regex("""\b(?:fees?|charges?|chgs|interest|markup|penalty|gst)\b.{0,90}?\b(?:levied|charged|posted)\s+(?:on|to)\b""", RegexOption.IGNORE_CASE)
     // "Never share OTP/PIN": a safety line at the end of a real alert, not an OTP message.
-    private val SAFETY_LINE = Regex("""\b(?:never|do not|don'?t|pls do not|please do not)\s+share\s+(?:your\s+)?(?:otp|pin|cvv|password)(?:\s*[/,]\s*(?:otp|pin|cvv|password|card details))*""", RegexOption.IGNORE_CASE)
+    private val SAFETY_LINE = Regex(
+        """\b(?:never|do not|don'?t|pls do not|please do not)\s+share\s+(?:your\s+)?(?:otp|""" +
+            """pin|cvv|password)(?:\s*[/,]\s*(?:otp|pin|cvv|password|card details))*""",
+        RegexOption.IGNORE_CASE,
+    )
     // "Charges Rs.5.90 will be debited separately": a note about a fee to come, inside a completed transfer.
     private val GLUED = Regex("""(\d)(debited|credited)\b""", RegexOption.IGNORE_CASE)
     private val ORIGINAL_AMT = Regex("""\b(?:original|orig\.?|actual|total order)\s*(?:amt|amount|value)?\s*:?\s*$""", RegexOption.IGNORE_CASE)
@@ -62,8 +70,19 @@ object Parser {
     // Bank statement style narration: "UPI/P2A/607222223333/LANDLORD" or "UPI/607111100002/SPOTIFY".
     // Also "IMPS/629445678901/RAVI ELECTRICALS" and "UPI-629523456789-MSEDCL"; the name may be several words, and may
     // start with digits ("UPI/P2M/628163353261/101society"). Axis follows the name with "WhatsApp BAL to <number>".
-    private val UPI_SLASH = Regex("""\b(?:UPI|IMPS|NEFT|RTGS)[/-](?:P2[AMP][/-])?\d{6,}[/-](?=\d{0,5}[A-Za-z])([A-Za-z0-9][A-Za-z0-9 .&']{1,30}?)(?=\s*(?:[.,;/(]|$)|\s+(?:on|avl|avbl|bal|ref|via|not|is|was|for|from|sms|call|info|txn|upi|total|whatsapp)\b|\s+-)""", RegexOption.IGNORE_CASE)
-    private val DEBIT = Regex("""\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|used for (?:a )?transaction|(?:is|was|been) used for|(?:levied|charged|posted)\s+(?:on|to)|(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:on|at)|(?:imps|neft|rtgs)\b.{0,120}?\bfrom\s+(?:your\s+)?(?:a/?c|acct|account)\b.{0,90}?\bis successful|transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account)|transferred\s+(?:via|by|through|using)\s+(?:imps|neft|rtgs|upi)\s+from|(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:done|made))\b""", RegexOption.IGNORE_CASE)
+    private val UPI_SLASH = Regex(
+        """\b(?:UPI|IMPS|NEFT|RTGS)[/-](?:P2[AMP][/-])?\d{6,}[/-](?=\d{0,5}[A-Za-z])([A-Za-z0-9][A-Za-z0-9 .&']{1,30}?)(?=\s*(?:[.,;/(]|$)|""" +
+            """\s+(?:on|avl|avbl|bal|ref|via|not|is|was|for|from|sms|call|info|txn|upi|total|whatsapp)\b|\s+-)""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val DEBIT = Regex(
+        """\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|""" +
+            """used for (?:a )?transaction|(?:is|was|been) used for|(?:levied|charged|posted)\s+(?:on|to)|""" +
+            """(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:on|at)|(?:imps|neft|rtgs)\b.{0,120}?\bfrom\s+(?:your\s+)?(?:a/?c|acct|account)\b.{0,90}?\bis successful|""" +
+            """transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account)|transferred\s+(?:via|by|through|using)\s+(?:imps|neft|rtgs|upi)\s+from|""" +
+            """(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:done|made))\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val CREDIT = Regex("""\b(credited|credit(?!\s+(?:card|limit|lmt|bal))|thank you for (?:paying|your payment)|received|deposited|refunded?|reversed|reversal)\b""", RegexOption.IGNORE_CASE)
     // Government and regional banks abbreviate: "A/c XX9988 Dr INR 1,100.00", "is Cr with Rs.7,500.00", "Cr by Rs.3,000".
     private val DR_ABBR = Regex("""\bdr\.?\s*(?:with|by|for|of)?\s*(?=(?:rs\.?|inr\.?|₹))""", RegexOption.IGNORE_CASE)
@@ -103,13 +122,34 @@ object Parser {
 
     // "RTGS money transfer ... has been credited to <PERSON>" is the bank telling YOU a transfer you made reached them: money out.
     // "credited to your a/c" or to a masked account is the opposite, and stays money in.
-    private val BENEFICIARY_CREDIT = Regex("""\b(?:neft|rtgs|imps)\b[^.]{0,40}\btransfer\b.{0,120}\bhas been credited to\s+(?!your\b|a/?c\b|account\b|[xX*#]|(?:hdfc|icici|sbi|axis|kotak|union|yes|idfc|pnb|bob|canara)\b)[A-Za-z]""", RegexOption.IGNORE_CASE)
+    private val BENEFICIARY_CREDIT = Regex(
+        """\b(?:neft|rtgs|imps)\b[^.]{0,40}\btransfer\b.{0,120}\bhas been credited to\s+(?!your\b|""" +
+            """a/?c\b|account\b|[xX*#]|(?:hdfc|icici|sbi|axis|kotak|union|yes|idfc|pnb|bob|canara)\b)[A-Za-z]""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // FASTag / toll transactions come from the FASTag wallet, not the bank account.
     private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
-    private val SKIP = Regex("""\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|will be deducted|(?:charges?|fees?|penalty) will be (?:levied|charged|imposed)|will be auto[- ]?debited|will be (credited|refunded|reversed)|initiated (for )?(a )?refund|refund (has been |is )?initiated|auto[- ]?debited on|request(ed)? (money|rs|inr)|collect request|has requested|t\s?&\s?cs?|terms (and|&) conditions|get\s+(rs\.?|inr|₹)|due on|due date|payment is due|is due|kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|payable in \d|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""", RegexOption.IGNORE_CASE)
+    private val SKIP = Regex(
+        """\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|will be debited|""" +
+            """will be deducted|(?:charges?|fees?|penalty) will be (?:levied|charged|imposed)|will be auto[- ]?debited|""" +
+            """will be (credited|refunded|reversed)|initiated (for )?(a )?refund|refund (has been |is )?initiated|""" +
+            """auto[- ]?debited on|request(ed)? (money|rs|inr)|collect request|has requested|t\s?&\s?cs?|""" +
+            """terms (and|&) conditions|get\s+(rs\.?|inr|₹)|due on|due date|payment is due|is due|""" +
+            """kindly pay|please pay|pay by|pay now|pay your|overdue|statement (is )?generated|""" +
+            """bill generated|scheduled|recharge due|has expired|expiring|payment reminder|reminder|""" +
+            """changed from (inr|rs)|limit[^.]{0,25}(changed|revised|enhanced|increased|upgraded|updated)|""" +
+            """(enhanced|increased|revised|upgraded)[^.]{0,15}limit|up ?to rs|cashback up to|is waiting for|""" +
+            """save \d{1,2}%|get credit|apply now|pre-?qualified|eligible for|pay instantly|smart emi|""" +
+            """payable in \d|hdfcbk\.io|shrtsms|bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|""" +
+            """wa\.me|shorturl|lottery|lucky winner|have won|claim your prize|withdraw process|""" +
+            """account (blocked|suspended)|kyc (expired|update|suspend)|vvip|consult your astro|""" +
+            """astro now|bodhi|you'?re blessed|get rs [\d,]+[ -]?code|txn declined|transaction (declined|failed|unsuccessful)|""" +
+            """\bdeclined\b|payment (failed|declined)|could not be processed|was unsuccessful|usage disabled)\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // A debit that has NOT happened yet: a scheduled / future auto-debit, e.g.
     // "your EMI will be auto-debited on 5th". Money hasn't left the account.
@@ -119,7 +159,9 @@ object Parser {
     )
     // A dues / reminder notice (bill due, amount payable) — not a completed payment.
     private val DUES_NOTICE = Regex(
-        """\b(is|are) due\b|\bdue (on|by|date)\b|payment (is )?due|amount due|amt due|\bpayable\b|please pay|kindly pay|do pay|\bpay (now|by|before|your)\b|\brepay\b|last date to pay|use this link\b.{0,120}\bto pay\b|\boverdue\b|\b(?:is|are|has been) scheduled\b""",
+        """\b(is|are) due\b|\bdue (on|by|date)\b|payment (is )?due|amount due|amt due|\bpayable\b|""" +
+            """please pay|kindly pay|do pay|\bpay (now|by|before|your)\b|\brepay\b|last date to pay|""" +
+            """use this link\b.{0,120}\bto pay\b|\boverdue\b|\b(?:is|are|has been) scheduled\b""",
         RegexOption.IGNORE_CASE,
     )
     // Money that has ACTUALLY left the account (past tense / completed).
@@ -131,7 +173,10 @@ object Parser {
     // ---- Reminder / dues parsing (the Dues page) ----
     // Promo / OTP / phishing text that must never become a bill reminder.
     private val NOT_REMINDER = Regex(
-        """\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|cashback|apply now|pre-?qualified|eligible for|lottery|lucky|have won|claim|kyc|vvip|astro|bodhi|declined|failed|unsuccessful|up ?to rs|save \d{1,2}%|limit[^.]{0,25}(changed|revised|enhanced|increased)|collect request|has requested|requested rs|converted into)\b""",
+        """\b(otp|one[- ]time password|do not share|offer|pre-?approved|loan offer|cashback|""" +
+            """apply now|pre-?qualified|eligible for|lottery|lucky|have won|claim|kyc|vvip|astro|""" +
+            """bodhi|declined|failed|unsuccessful|up ?to rs|save \d{1,2}%|limit[^.]{0,25}(changed|revised|enhanced|increased)|""" +
+            """collect request|has requested|requested rs|converted into)\b""",
         RegexOption.IGNORE_CASE,
     )
     // An amount to ignore when picking the bill amount (a balance, limit or min-due figure).
@@ -156,7 +201,12 @@ object Parser {
 
     // Investment contributions (EPF/NPS/funds) — tracked separately, kept out of the account
     // filter so they don't create phantom bank accounts.
-    private val INVESTMENT = Regex("""\b(epf|epfo|provident fund|passbook|uan|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal)\b""", RegexOption.IGNORE_CASE)
+    private val INVESTMENT = Regex(
+        """\b(epf|epfo|provident fund|passbook|uan|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|""" +
+            """groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|icici direct|hdfc securities|""" +
+            """paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal)\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Amounts described as a balance / limit / due are NOT the transaction amount.
     private val BALANCE_LABEL = Regex("""(bal(ance)?|avbl|avl|available|limit|o/s|outstanding|due|mandate|min(imum)? (amt|amount|due))[^.]{0,12}$""", RegexOption.IGNORE_CASE)
@@ -213,7 +263,11 @@ object Parser {
     // carries a bank code (HDFCBK, ICICIB, SBIINB…) or a financial token. Personal
     // phone numbers and promo/scam senders (astrology apps, lotteries, fake KYC) do not.
     // Matched as substrings because sender headers are smooshed (e.g. "VM-HDFCBK").
-    private val FIN_TOKEN = Regex("""(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA|EPF|EPFO|UAN|NSDL|NPS|PFRDA|PRAN|CAMS|KFIN|CDSL|MFUT|DEPOS|INVEST|SEBI)""", RegexOption.IGNORE_CASE)
+    private val FIN_TOKEN = Regex(
+        """(BANK|BNK|BK|UPI|PAYTM|CARD|FINSERV|FINANC|NBFC|CRED|FINO|INB|MUDRA|EPF|EPFO|UAN|""" +
+            """NSDL|NPS|PFRDA|PRAN|CAMS|KFIN|CDSL|MFUT|DEPOS|INVEST|SEBI)""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Senders you told Zelu are your bank (Menu > Messages > Unrecognised senders). Loaded by Storage.loadTrust.
     @Volatile var trusted: Set<String> = emptySet()
@@ -251,14 +305,24 @@ object Parser {
 
     // Step 2: banks never send URL shorteners or throwaway short links. A message
     // that carries one is spoofed / phishing even if the sender header looks bank-like.
-    private val SHORTENER = Regex("""\b(bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|t\.co|goo\.gl|tiny\.cc|bit\.do|rebrand\.ly|shorturl|shrtsms|hdfcbk\.io|clck\.ru|short\.gy)\b""", RegexOption.IGNORE_CASE)
+    private val SHORTENER = Regex(
+        """\b(bit\.ly|tinyurl|rb\.gy|cutt\.ly|ow\.ly|is\.gd|t\.me|wa\.me|t\.co|goo\.gl|tiny\.cc|""" +
+            """bit\.do|rebrand\.ly|shorturl|shrtsms|hdfcbk\.io|clck\.ru|short\.gy)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     // A generic short link: scheme + a very short host + a short path code (bit.ly/aB3x).
     private val SHORT_LINK = Regex("""https?://[a-z0-9-]{1,8}\.[a-z]{2,4}/[A-Za-z0-9]{3,}""", RegexOption.IGNORE_CASE)
 
     // Banks' own short-link domains. ICICI ends every card alert with an icici.co/... link,
     // which SHORT_LINK would otherwise flag; links on these exact hosts are ignored.
     // Also the big banks' and card issuers' own domains, and any *.bank.in address (RBI reserves .bank.in for banks).
-    private val TRUSTED_LINK = Regex("""https?://(?:www\.)?(?:icici\.co|icicibank\.com|sbicard\.com|sbi\.co\.in|onlinesbi\.sbi|hdfcbank\.com|axisbank\.com|kotak\.com|yesbank\.in|airtel\.in|idfcfirstbank\.com|indusind\.com|aubank\.in|federalbank\.co\.in|pnbindia\.in|bankofbaroda\.in|unionbankofindia\.co\.in|canarabank\.com|americanexpress\.com|[a-z0-9-]+\.bank\.in)/\S*""", RegexOption.IGNORE_CASE)
+    private val TRUSTED_LINK = Regex(
+        """https?://(?:www\.)?(?:icici\.co|icicibank\.com|sbicard\.com|sbi\.co\.in|onlinesbi\.sbi|""" +
+            """hdfcbank\.com|axisbank\.com|kotak\.com|yesbank\.in|airtel\.in|idfcfirstbank\.com|""" +
+            """indusind\.com|aubank\.in|federalbank\.co\.in|pnbindia\.in|bankofbaroda\.in|unionbankofindia\.co\.in|""" +
+            """canarabank\.com|americanexpress\.com|[a-z0-9-]+\.bank\.in)/\S*""",
+        RegexOption.IGNORE_CASE,
+    )
     // Any other bank's own link is fine too when its name is part of the sender ID (hdfcbk.io from
     // HDFCBK, axisbk.com from AXISBK). Those are removed before the shortener check.
     private val ANY_LINK = Regex("""(?:https?://)?(?:www\.)?([a-z0-9-]+)\.[a-z]{2,4}/\S*""", RegexOption.IGNORE_CASE)
@@ -308,7 +372,15 @@ object Parser {
     private val MERCHANT_AFTER = Regex("""(?:Rs\.?|INR|₹)\s*:?\s*[\d,]+(?:\.\d{1,2})?\s+(?:to\s+|at\s+)?([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s+(?:on|upi|ref|via|avbl|available|bal)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
 
     // Promotional / instructional phrases that must never be treated as a payee.
-    private val CP_JUNK = Regex("""^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|report|block|dispute|verify|helpline|sms|transfer|transferred|a year|a month|year|month|months|annual|debit|debited|vide|clearing|has|have|we|hi|dear|avoid|mob bk|mob|ref|charges)\b""", RegexOption.IGNORE_CASE)
+    private val CP_JUNK = Regex(
+        """^(register|continue|enjoy|enjoying|setup|set|click|share|download|restart|your|is|""" +
+            """was|will|now|pay|visit|call|the|update|info|dear|team|please|to|thank|get|go|use|""" +
+            """tap|view|check|received|debited|credited|payment|paid|spent|sent|txn|transaction|""" +
+            """amount|rs|inr|bal|balance|avl|available|successful|successfully|a/c|acct|account|""" +
+            """report|block|dispute|verify|helpline|sms|transfer|transferred|a year|a month|year|""" +
+            """month|months|annual|debit|debited|vide|clearing|has|have|we|hi|dear|avoid|mob bk|mob|ref|charges)\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Union Bank style: "... by Mob Bk ref no 1896..., Fvg: RAHUL S Avl Bal ..." names the payee after Fvg.
     private val FVG_PAYEE = Regex("""\b(?:fvg|favou?ring)\s*:?\s*([A-Za-z][A-Za-z .]{1,30}?)(?=\s+(?:avl|bal|not|ref|on)\b|[.,;]|$)""", RegexOption.IGNORE_CASE)
@@ -327,7 +399,11 @@ object Parser {
 
     // A loan EMI debit notice (NACH / ACH / e-mandate / installment). Captured as a real
     // monthly expense even though it reads like a reminder; de-duplicated to once a month.
-    private val EMI_DEBIT = Regex("""\b(nach|ach|e-?mandate|installment|instalment|loan a/?c|loan ac|emi)\b.{0,70}\b(debit|debited|deduct|deducted)\b|\b(debit|debited|deduct|deducted)\b.{0,50}\b(nach|ach|emi|loan|installment|instalment)\b""", RegexOption.IGNORE_CASE)
+    private val EMI_DEBIT = Regex(
+        """\b(nach|ach|e-?mandate|installment|instalment|loan a/?c|loan ac|emi)\b.{0,70}\b(debit|debited|deduct|deducted)\b|""" +
+            """\b(debit|debited|deduct|deducted)\b.{0,50}\b(nach|ach|emi|loan|installment|instalment)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     // "Your Loan A/c *0126 Credited for Rs:72894.00 ... by BRANCH": the bank took the EMI from your own
     // account and the loan account received it. That is an EMI paid (money out), never money in.
     private val LOAN_CREDIT = Regex("""loan\s*a/?c.{0,40}\b(credited|credit)\b""", RegexOption.IGNORE_CASE)
@@ -379,13 +455,24 @@ object Parser {
 
     private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
+    /** Added to a reference-based ID when the money came in ("ref-629112345678-cr"). */
+    const val CREDIT_ID_SUFFIX = "-cr"
+
     // An insurer saying it received your premium. Your bank's own debit message already records the payment, and the
     // insurer's text has no account in it, so it must not become an account or a second payment.
-    private val INSURER_ACK = Regex("""(received your (premium )?payment|premium.{0,40}received|thank you for choosing.{0,60}insurance).{0,160}(policy|premium|insurance)|against policy (no\b|number)""", RegexOption.IGNORE_CASE)
+    private val INSURER_ACK = Regex(
+        """(received your (premium )?payment|premium.{0,40}received|thank you for choosing.{0,60}insurance).{0,160}(policy|premium|insurance)|""" +
+            """against policy (no\b|number)""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // An auto-pay mandate being set up ("E-mandate registered successfully for Rs 15,000 ... First debit on 05-11")
     // moves no money; the debits come later as their own messages.
-    private val MANDATE_SETUP = Regex("""\b(?:e-?mandate|mandate|auto-?pay|standing instruction)\b[^.]{0,60}\b(?:registered|created|set ?up|activated)\b|\bfirst debit (?:on|date|will)\b""", RegexOption.IGNORE_CASE)
+    private val MANDATE_SETUP = Regex(
+        """\b(?:e-?mandate|mandate|auto-?pay|standing instruction)\b[^.]{0,60}\b(?:registered|created|set ?up|activated)\b|""" +
+            """\bfirst debit (?:on|date|will)\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // "Credits in ICICI Bank OD XX173 did not cover interest debited ... Credit min Rs 72554.34": a warning asking for money, not a payment.
     private val CREDIT_ASK = Regex("""\bdid not cover\b|\bout of order\b|\bcredit\s+(?:a\s+)?min(?:imum)?\b""", RegexOption.IGNORE_CASE)
@@ -396,9 +483,17 @@ object Parser {
     private val EMI_CONVERT_OFFER = Regex("""\bconvert\b[^.]{0,80}?\b(?:into|to)\s+(?:easy\s+|no[- ]cost\s+)?emis?\b""", RegexOption.IGNORE_CASE)
     // "Late payment charges of INR 1,200.00 + GST have been levied on your Axis Bank Credit Card": a fee already
     // charged, written without "debited". Booked as money out even though it also says "please pay your dues".
-    private val FEE_LEVIED = Regex("""\b(?:fee|fees|charges?|penalty|surcharge)\b(?:[^.]|\.\d){0,60}?\b(?:has|have)\s+been\s+(?:levied|charged|imposed|applied|billed|debited)\b""", RegexOption.IGNORE_CASE)
+    private val FEE_LEVIED = Regex(
+        """\b(?:fee|fees|charges?|penalty|surcharge)\b(?:[^.]|\.\d){0,60}?\b(?:has|have)\s+been\s+(?:levied|""" +
+            """charged|imposed|applied|billed|debited)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     // Cash taken out at an ATM, micro ATM or AEPS point.
-    private val CASH_OUT = Regex("""\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction))""", RegexOption.IGNORE_CASE)
+    private val CASH_OUT = Regex(
+        """\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|""" +
+            """\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction))""",
+        RegexOption.IGNORE_CASE,
+    )
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)
     // "(SURESH PATIL)" after the other party's account: their name.
     private val NAME_BEFORE_AC = Regex("""\bto\s+(?:the\s+)?(?:beneficiary\s+)?([A-Z][A-Z.]+(?: [A-Z][A-Z.]+){0,3})\s+(?i:a/?c|acct|account)\b""")
@@ -416,9 +511,11 @@ object Parser {
         return if (inr) fx.copy(estimated = false) else fx
     }
 
+    /** The message as a payment stores it: on one line, and "Rs.2000.00debited" spaced (some banks leave out the space). */
+    fun normalize(body: String): String = WS.replace(body, " ").trim().replace(GLUED, "$1 $2")
+
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
-        // "Rs.2000.00debited": some banks leave out the space after the amount.
-        val text = WS.replace(body, " ").trim().replace(GLUED, "$1 $2")
+        val text = normalize(body)
         if (INSURER_ACK.containsMatchIn(text)) return null
         // Your bank's debit already records a bill payment; the biller's "payment received" would count it twice.
         // A biller's own sender (ACT, BESCOM...) is read only when it confirms a payment you made. The ledger drops that
@@ -559,7 +656,9 @@ object Parser {
         else if (loanCredit) accountOf(text, source, direction).substringBefore(' ')
         else accountOf(text, source, direction)
 
-        val id = if (ref != null) "ref-$ref"
+        // A refund or reversal often quotes the reference of the payment it undoes, and a transfer between your own accounts
+        // carries one reference on both banks' messages: the money coming in gets its own ID, so neither replaces the other.
+        val id = if (ref != null) "ref-$ref" + (if (direction == "credit") CREDIT_ID_SUFFIX else "")
         else "sms-" + hash("$date|$amount|$direction|$text")
 
         return Txn(id, date, amount, direction, counterparty, ref, text, source, account, receivedMs ?: 0L)
@@ -737,7 +836,11 @@ object Parser {
     }
 
     // Mobile / broadband usage alerts (voice, data, plan, recharge balance) are not a bank balance.
-    private val TELECOM_ALERT = Regex("""\b(voice call|data (?:used|balance|left|pack)|daily data|sms pack|plan (?:validity|expires?)|validity|talktime|main balance|recharge (?:now|pack))\b""", RegexOption.IGNORE_CASE)
+    private val TELECOM_ALERT = Regex(
+        """\b(voice call|data (?:used|balance|left|pack)|daily data|sms pack|plan (?:validity|expires?)|""" +
+            """validity|talktime|main balance|recharge (?:now|pack))\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
     private fun accountOf(rawText: String, source: String, direction: String): String {
@@ -789,8 +892,15 @@ object Parser {
         }
     }
 
-    private fun canonicalMerchant(text: String): String? =
-        MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(text) }?.second
+    private fun canonicalMerchant(text: String): String? {
+        val t = withoutPaymentsBank(text)
+        return MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(t) }?.second
+    }
+
+    // "Airtel Payments Bank", "Jio Payments Bank": the bank a payment left from. Airtel and Jio are also billers, so the
+    // bank's name must not make the payee "Airtel" or the category Bills.
+    private val PAYMENTS_BANK = Regex("""\b(?:airtel|jio|paytm|fino|nsdl|india\s+post)\s+payments?\s+bank\b""", RegexOption.IGNORE_CASE)
+    fun withoutPaymentsBank(text: String): String = PAYMENTS_BANK.replace(text, " ")
 
     private val SALUTATION = Regex("""^(m/?s|mr|mrs|ms|dr|shri|smt|sri)\.?\s+""", RegexOption.IGNORE_CASE)
 

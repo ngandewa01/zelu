@@ -3,7 +3,7 @@ package com.koolicream.zelu
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// End-to-end check of 44 realistic SMS through the same steps as Ingest: sender check, link check, parse, classify.
+// End-to-end check of 47 realistic SMS through the same steps as Ingest: sender check, link check, parse, classify.
 // Every message must come out with the right direction, amount, kind and category (or be ignored). The build fails
 // otherwise, and the failure lists each message that was read wrongly.
 class SmsPipelineTest {
@@ -40,6 +40,9 @@ class SmsPipelineTest {
         Case("insurance-premium", "AX-HDFCBK-S", "Rs 22,500.00 debited from a/c XX5997 towards HDFC LIFE premium policy 12345 on 12-10-26", "debit 22500 expense/*"),
         Case("fastag-toll", "VM-ICICIT-S", "Rs.135.00 has been deducted from your ICICI Bank FASTag for toll at NELAMANGALA TOLL PLAZA on 18-10-26. Avl bal Rs.450.00", "debit 135 expense/Transport"),
         Case("lowercase-rs", "AX-HDFCBK-S", "rs.99 debited from a/c xx5997 on 18-10-26 for upi/629111122223/rapido", "debit 99 expense/Transport"),
+        Case("airtel-bank-person", "AD-AIRBNK-S", "Rs.300.00 debited from your Airtel Payments Bank a/c for UPI txn to RAMESH KUMAR Ref no 629678901299", "debit 300 expense/Unknown"),
+        Case("jio-bank-person", "JM-JIOPBK-S", "Rs.250.00 debited from your Jio Payments Bank a/c XX1122 to SURESH PATIL via UPI Ref 629678901288", "debit 250 expense/Unknown"),
+        Case("airtel-bank-recharge", "AD-AIRBNK-S", "Rs.599.00 debited from your Airtel Payments Bank a/c for UPI txn to AIRTEL PREPAID Ref no 629678901300", "debit 599 expense/Bills"),
         Case("pnb-pos-medical", "VM-PNBSMS-S", "Your A/c XX0987 is debited for Rs.640.00 on 18-10-2026 at APOLLO PHARMACY POS. Bal Rs.8,100.00 -PNB", "debit 640 expense/Health"),
         // --- credits ---
         Case("salary-neft", "AX-HDFCBK-S", "Rs.1,25,000.00 credited to HDFC Bank A/c XX5997 on 01-10-26 by NEFT from ACME TECHNOLOGIES PVT LTD SALARY OCT", "credit 125000 income/*"),

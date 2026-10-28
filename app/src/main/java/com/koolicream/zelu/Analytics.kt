@@ -202,9 +202,23 @@ object Analytics {
     private fun timeIn(raw: String): String? = TIME_IN_TEXT.find(raw)?.value
     private fun payeeKey(n: String?): String = (n ?: "").lowercase().filter { it.isLetterOrDigit() }
 
+    // How the money moved. One payment goes one way, so a UPI payment and an NEFT transfer of the same amount on the same
+    // day are two payments, however alike the rest looks.
+    private val CHANNELS = listOf(
+        "upi" to Regex("""\bupi\b|\bvpa\b|@[a-z]{2,}\b""", RegexOption.IGNORE_CASE),
+        "neft" to Regex("""\bneft\b""", RegexOption.IGNORE_CASE),
+        "imps" to Regex("""\bimps\b""", RegexOption.IGNORE_CASE),
+        "rtgs" to Regex("""\brtgs\b""", RegexOption.IGNORE_CASE),
+        "mandate" to Regex("""\b(?:nach|ach|ecs|e-?mandate|auto-?pay)\b""", RegexOption.IGNORE_CASE),
+        "atm" to Regex("""\batm\b|\bcash\s*(?:wdl|withdrawal)\b""", RegexOption.IGNORE_CASE),
+        "cheque" to Regex("""\b(?:cheque|chq)\b""", RegexOption.IGNORE_CASE),
+    )
+    private fun channelsOf(raw: String): Set<String> = CHANNELS.filter { it.second.containsMatchIn(raw) }.map { it.first }.toSet()
+
     // Two payments that could be one payment reported twice. The same amount, account and day is only the start:
     // the same reference number says it is one payment, different reference numbers say two real payments, and with no
-    // reference at all they must come from the same sender to be worth asking about.
+    // reference at all they must come from the same sender to be worth asking about. A different balance, time, payee
+    // or way of paying (UPI, NEFT, IMPS...) says they are two.
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
         val groups = rows.filter { (it.kind == "expense" || it.kind == "income") && it.category != "EMI" && it.account.isNotBlank() }
@@ -227,6 +241,8 @@ object Analytics {
                 if (t1 != null && t2 != null && t1 != t2) continue
                 val p1 = payeeKey(first.counterparty); val p2 = payeeKey(b.counterparty)
                 if (p1.isNotEmpty() && p2.isNotEmpty() && !p1.contains(p2) && !p2.contains(p1)) continue
+                val c1 = channelsOf(first.raw); val c2 = channelsOf(b.raw)
+                if (c1.isNotEmpty() && c2.isNotEmpty() && c1.none { it in c2 }) continue
                 if ((first.id + "|" + b.id) in dismissed) continue
                 out.add(first to b)
             }

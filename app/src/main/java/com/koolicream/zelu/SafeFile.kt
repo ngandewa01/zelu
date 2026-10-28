@@ -21,3 +21,18 @@ fun File.writeAtomic(text: String) {
         if (!tmp.renameTo(this)) { tmp.copyTo(this, overwrite = true); tmp.delete() }
     }
 }
+
+// Saves that keep the previous version as "<name>.bak", and reads that fall back to it. A file that can't be read
+// (a failing card, a crash in an older version) is kept aside as "<name>.corrupt" and the previous version is read
+// instead, so the next save can't replace everything in it with an almost empty list.
+fun File.writeKeepingBackup(text: String) {
+    if (exists() && length() > 2) try { copyTo(File(parentFile, "$name.bak"), overwrite = true) } catch (_: Exception) {}
+    writeAtomic(text)
+}
+
+fun <T> File.readWithBackup(parse: (String) -> T): T = try { parse(readText()) } catch (e: Exception) {
+    try { if (exists()) copyTo(File(parentFile, "$name.corrupt"), overwrite = true) } catch (_: Exception) {}
+    val bak = File(parentFile, "$name.bak")
+    if (!bak.exists()) throw e
+    parse(bak.readText())
+}

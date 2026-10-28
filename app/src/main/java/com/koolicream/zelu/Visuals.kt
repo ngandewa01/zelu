@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-// ---- Zelu themes: pick a palette (8 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -37,28 +37,36 @@ val PALETTES: List<Pal> = listOf(
     Pal("Sand",
         PalSet(0xFFF9F8F6, 0xFFEFE9E3, 0xFF2B2622, 0xFF7A6F66, 0xFFD9CFC7, 0xFFA8845A, 0xFFFFFFFF, 0xFF6F8A6E, 0xFFA65D57),
         PalSet(0xFF1E1B18, 0xFF28241F, 0xFFEDE6DE, 0xFF9A8F85, 0xFF3A342E, 0xFFC9B59C, 0xFF2B2622, 0xFF8DAA8C, 0xFFD2807A)),
-    Pal("Harbour Blue",
-        PalSet(0xFFD9E0E6, 0xFFE9EEF2, 0xFF1F2A36, 0xFF6C7B8A, 0xFFC5D0DA, 0xFF457396, 0xFFFFFFFF, 0xFF5A9183, 0xFFB8686C),
-        PalSet(0xFF171C22, 0xFF202830, 0xFFE1E7ED, 0xFF8A97A4, 0xFF2D3742, 0xFF7BA6C6, 0xFF171C22, 0xFF7CB3A5, 0xFFD58A8D)),
-    Pal("Olive & Tan",
-        PalSet(0xFFEDE6C6, 0xFFFEFAE0, 0xFF283618, 0xFF6F7550, 0xFFDCD5B0, 0xFFBC6C25, 0xFFFFFFFF, 0xFF606C38, 0xFFB04A3A),
-        PalSet(0xFF1C2612, 0xFF283618, 0xFFFEFAE0, 0xFFA9A98A, 0xFF3A4A26, 0xFFDDA15E, 0xFF1C2612, 0xFF9AAE62, 0xFFD8765F)),
-    Pal("Persian Teal",
-        PalSet(0xFFEBE5D2, 0xFFF6F1E4, 0xFF264653, 0xFF62777F, 0xFFD6CFB8, 0xFFC85A3E, 0xFFFFFFFF, 0xFF238A7D, 0xFFC0392B),
-        PalSet(0xFF16282F, 0xFF1E343D, 0xFFF3EEDD, 0xFF8FA6A8, 0xFF2D4651, 0xFFF4A261, 0xFF16282F, 0xFF4DBFAF, 0xFFE76F51)),
-    Pal("Sage & Slate",
-        PalSet(0xFFD5DCD0, 0xFFE6EBE2, 0xFF2F3E46, 0xFF667A74, 0xFFC0CBBD, 0xFF52796F, 0xFFFFFFFF, 0xFF3F7F52, 0xFFB5604F),
-        PalSet(0xFF1C2529, 0xFF26333A, 0xFFE6EBE2, 0xFF93A8A2, 0xFF354F52, 0xFF84A98C, 0xFF1C2529, 0xFF8FC49C, 0xFFD4806E)),
-    Pal("Wine & Linen",
-        PalSet(0xFFEBE1DB, 0xFFF7F1EC, 0xFF2B1519, 0xFF7C6A68, 0xFFDCCDC6, 0xFF7A1F32, 0xFFFFFFFF, 0xFF4F7A5E, 0xFFC2562E),
-        PalSet(0xFF1E1114, 0xFF2A1A1E, 0xFFF3E8E2, 0xFFA8908F, 0xFF40282D, 0xFFD9667E, 0xFF1E1114, 0xFF7FB594, 0xFFE8905A)),
-    Pal("Midnight & Gold",
-        PalSet(0xFFE6E8EE, 0xFFF3F4F8, 0xFF0F1B2D, 0xFF6A7385, 0xFFD0D4DE, 0xFFA57A1E, 0xFFFFFFFF, 0xFF3F8A78, 0xFFB5483E),
-        PalSet(0xFF0B1220, 0xFF121C30, 0xFFECEEF4, 0xFF8D97AB, 0xFF1F2C45, 0xFFE0B04F, 0xFF0B1220, 0xFF5FBFA0, 0xFFE07A6A)),
-    Pal("Black & Mint",
-        PalSet(0xFFE9ECEA, 0xFFF6F8F7, 0xFF111413, 0xFF6C7572, 0xFFD2D8D5, 0xFF0A7F70, 0xFFFFFFFF, 0xFF4C8F5A, 0xFFC2493D),
-        PalSet(0xFF000000, 0xFF111312, 0xFFEDF2EF, 0xFF8A9490, 0xFF242927, 0xFF4FE0B5, 0xFF000000, 0xFF7EC49A, 0xFFF0776A)),
+    Pal("Sage",
+        PalSet(0xFFF4F6F1, 0xFFFFFFFF, 0xFF1F2A24, 0xFF6B776F, 0xFFDDE3DA, 0xFF4F7A5C, 0xFFFFFFFF, 0xFF3E8E5E, 0xFFC0564B),
+        PalSet(0xFF121815, 0xFF1B231E, 0xFFE7EEE8, 0xFF8FA096, 0xFF2B3730, 0xFF8FC1A0, 0xFF121815, 0xFF7CC596, 0xFFE07B6E)),
+    Pal("Ocean",
+        PalSet(0xFFF5F7FA, 0xFFFFFFFF, 0xFF16202E, 0xFF667085, 0xFFE2E7EF, 0xFF2F6FEB, 0xFFFFFFFF, 0xFF12A06E, 0xFFD9534F),
+        PalSet(0xFF0D1219, 0xFF161D28, 0xFFE8EDF5, 0xFF8A96A8, 0xFF253043, 0xFF6FA0FF, 0xFF0D1219, 0xFF4FD1A1, 0xFFF07F7A)),
+    Pal("Lavender",
+        PalSet(0xFFF7F5FB, 0xFFFFFFFF, 0xFF241F33, 0xFF716A85, 0xFFE4DFF0, 0xFF7C5CD6, 0xFFFFFFFF, 0xFF2F9E7A, 0xFFCF5A6A),
+        PalSet(0xFF14111C, 0xFF1E1A29, 0xFFECE8F5, 0xFF9B93AE, 0xFF2E2840, 0xFFB39DFF, 0xFF14111C, 0xFF6FD3AE, 0xFFF08A9A)),
+    // Coral buttons, so "due" red is kept deeper than the accent.
+    Pal("Peach",
+        PalSet(0xFFFFF8F4, 0xFFFFFFFF, 0xFF2E1F1A, 0xFF86706A, 0xFFF1E1D9, 0xFFE0704F, 0xFFFFFFFF, 0xFF3E9472, 0xFFB3261E),
+        PalSet(0xFF19120F, 0xFF241A16, 0xFFF5E9E3, 0xFFA99189, 0xFF3A2A24, 0xFFFF9B7A, 0xFF19120F, 0xFF78CFA5, 0xFFF25F5C)),
+    Pal("Mono",
+        PalSet(0xFFFAFAFA, 0xFFFFFFFF, 0xFF111111, 0xFF6E6E6E, 0xFFE5E5E5, 0xFF111111, 0xFFFFFFFF, 0xFF1E9E5A, 0xFFD64545),
+        PalSet(0xFF000000, 0xFF121212, 0xFFF2F2F2, 0xFF8E8E8E, 0xFF262626, 0xFFF2F2F2, 0xFF000000, 0xFF4ADE80, 0xFFF87171)),
 )
+
+// The chosen palette is saved by name ("colours"). Older versions saved a position in a longer list ("palette");
+// those palettes are gone, so each maps to the closest one here.
+private val OLD_PALETTES = listOf("Sand", "Ocean", "Sage", "Ocean", "Sage", "Peach", "Ocean", "Mono")
+
+fun paletteIndex(sp: android.content.SharedPreferences): Int {
+    val name = sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand"
+    return PALETTES.indexOfFirst { it.name == name }.coerceAtLeast(0)
+}
+
+fun savePalette(sp: android.content.SharedPreferences, index: Int) {
+    sp.edit().putString("colours", PALETTES[index].name).apply()
+}
 
 private fun mix(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.lerp(a, b, t)
 

@@ -1,16 +1,5 @@
 package com.koolicream.zelu
 
-import android.Manifest
-import android.app.DatePickerDialog
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,55 +8,24 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.CreditCard
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.PieChart
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Receipt
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ColumnScope
@@ -77,53 +35,35 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Calendar
-import java.util.Locale
 import kotlin.math.atan2
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 
 @Composable internal fun LogoMark(sizeDp: Float) {
     Box(
@@ -201,10 +141,30 @@ import kotlin.math.atan2
     }
 }
 
-@Composable internal fun TopIcon(onClick: () -> Unit, dot: Boolean = false, content: @Composable () -> Unit) {
+// For TalkBack: a tap target that shows only a symbol or an icon is read by this label, as a button.
+internal fun Modifier.buttonLabel(label: String): Modifier =
+    semantics { contentDescription = label; role = androidx.compose.ui.semantics.Role.Button }
+
+// What TalkBack says for something that shows its meaning only by a symbol or a colour.
+internal fun Modifier.spoken(label: String): Modifier = semantics { contentDescription = label }
+
+// A symbol drawn for the eye ("‹", "✓") that TalkBack would otherwise read out.
+internal val Unspoken: Modifier = Modifier.clearAndSetSemantics {}
+
+// A row that ticks on and off, read by TalkBack as a checkbox with its state.
+internal fun Modifier.checkRow(on: Boolean, flip: () -> Unit): Modifier =
+    toggleable(value = on, role = androidx.compose.ui.semantics.Role.Checkbox) { flip() }
+
+// One option in a list where one is picked, read as selected or not.
+internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
+    selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton) { pick() }
+
+// label names the button for TalkBack; dotLabel says what the dot means when it shows.
+@Composable internal fun TopIcon(label: String, onClick: () -> Unit, dot: Boolean = false, dotLabel: String = "", content: @Composable () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }
+            .buttonLabel(if (dot && dotLabel.isNotEmpty()) "$label, $dotLabel" else label),
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -301,12 +261,12 @@ import kotlin.math.atan2
     }
 }
 
-@Composable internal fun NavButton(symbol: String, onClick: () -> Unit) {
+@Composable internal fun NavButton(symbol: String, label: String = if (symbol == "‹") "Previous" else "Next", onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }.buttonLabel(label),
         contentAlignment = Alignment.Center,
-    ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp) }
+    ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp, modifier = Unspoken) }
 }
 
 @Composable internal fun DateChip(value: String, onClick: () -> Unit) {

@@ -24,24 +24,18 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val raw = RawSms(address, body.toString(), date)
-        // Keep the process alive until we have stored the message and posted the alert.
-        val pending = goAsync()
-        Thread {
-          try {
-            if (Parser.isFinancialSender(address)) Storage.noteBankSms(context.applicationContext, date)
-            val res = Ingest.ingest(context.applicationContext, listOf(raw))
-            val declined = Storage.declinedKeys(context.applicationContext)
+        // Stored and announced off the main thread; the app stays alive until that is done.
+        val app = context.applicationContext
+        inBackground {
+            if (Parser.isFinancialSender(address)) Storage.noteBankSms(app, date)
+            val res = Ingest.ingest(app, listOf(raw))
+            val declined = Storage.declinedKeys(app)
             if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" && it.account !in declined && (it.counterparty ?: "") !in declined }?.let {
-                Notifier.notifyTxn(context.applicationContext, it)
+                Notifier.notifyTxn(app, it)
             }
             // A balance-only alert ("Available Bal in HDFC Bank A/c XX5997 ... INR 79,377.50").
-            res.balanceHits.forEach { (acct, bal) -> if (acct !in declined) Notifier.notifyBalance(context.applicationContext, acct, bal) }
-            ZeluWidget.refresh(context.applicationContext)
-          } catch (_: Exception) {
-            // Never crash on an incoming SMS.
-          } finally {
-            pending.finish()
-          }
-        }.start()
+            res.balanceHits.forEach { (acct, bal) -> if (acct !in declined) Notifier.notifyBalance(app, acct, bal) }
+            ZeluWidget.refresh(app)
+        }
     }
 }

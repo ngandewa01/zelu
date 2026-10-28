@@ -263,4 +263,27 @@ class ParserTest {
         val cc = "Rs.100.00 spent on HDFC Bank Credit Card ending 4321 at SHOP on 21-04-25. Avl limit: 50000"
         assertEquals("HDFC CC 4321", Parser.parseSms(cc, 1745236000000L, "HDFCBK")!!.account)
     }
+
+    @Test
+    fun aReversalKeepsItsOwnIdBesideThePaymentItUndoes() {
+        // Both messages quote the same UPI reference; neither may replace the other.
+        val paid = Parser.parseSms("Sent Rs.500.00 From HDFC Bank A/C *5997 To AMAZON On 12/10/26 Ref 628745678901 Not You? Call 18002586161", received, "AX-HDFCBK-S")!!
+        val back = Parser.parseSms("Rs.500.00 credited to HDFC Bank A/c XX5997 on 12-10-26 as reversal of failed UPI txn. UPI Ref No 628745678901", received, "AX-HDFCBK-S")!!
+        assertEquals("ref-628745678901", paid.id)
+        assertEquals("ref-628745678901-cr", back.id)
+        assertEquals(paid.ref, back.ref)
+        // A transfer between your own two banks: the HDFC debit and the SBI credit.
+        val out = Parser.parseSms("Sent Rs.10,000.00 From HDFC Bank A/C *5997 To RAHUL SHARMA On 12/10/26 Ref 628745670000 Not You? Call 18002586161", received, "AX-HDFCBK-S")!!
+        val inn = Parser.parseSms("Dear UPI user A/C X1234 credited by Rs 10000 on date 12Oct26 trf from RAHUL SHARMA Refno 628745670000 -SBI", received, "VM-SBIUPI-S")!!
+        assertTrue(out.id != inn.id)
+    }
+
+    @Test
+    fun aPaymentsBankIsNotThePayee() {
+        // Airtel and Jio are billers too; their payments banks' names must not make every payment a phone bill.
+        ok("AD-AIRBNK-S", "Rs.300.00 debited from your Airtel Payments Bank a/c for UPI txn to RAMESH KUMAR Ref no 629678901299", "debit", 300.0, null, "RAMESH KUMAR", null, null)
+        ok("JM-JIOPBK-S", "Rs.250.00 debited from your Jio Payments Bank a/c XX1122 to SURESH PATIL via UPI Ref 629678901288", "debit", 250.0, null, "SURESH PATIL", null, null)
+        // Paying Airtel itself from the Airtel Payments Bank is still Airtel.
+        ok("AD-AIRBNK-S", "Rs.599.00 debited from your Airtel Payments Bank a/c for UPI txn to AIRTEL PREPAID Ref no 629678901300", "debit", 599.0, null, "Airtel", null, null)
+    }
 }

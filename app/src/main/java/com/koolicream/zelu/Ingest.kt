@@ -7,21 +7,58 @@ object Ingest {
     data class Result(val found: Int, val added: Int, val rows: List<Row> = emptyList(),
                       val balanceHits: Map<String, Double> = emptyMap())
 
-    // Parses and classifies raw SMS, then stores the new transactions.
-    @Synchronized
-    fun ingest(context: Context, raw: List<RawSms>): Result {
-        Storage.loadTrust(context)
-        val settings = Storage.loadSettings(context)
-        val own = Storage.splitList(settings.ownAccounts)
-
+    // What a batch of messages holds, before anything is stored.
+    private class Parsed {
         val rows = ArrayList<Row>()
         val reminders = ArrayList<Reminder>()
         val mandates = ArrayList<Mandate>()
-        val taught = Taught.load(context)
         val balances = HashMap<String, Pair<Double, Long>>()
         val txnBalances = HashMap<String, Pair<Double, Long>>()
         val limits = HashMap<String, Pair<Double, Long>>()
         val balanceHits = LinkedHashMap<String, Double>()
+    }
+
+    // Parses and classifies raw SMS, then stores the new transactions.
+    @Synchronized
+    fun ingest(context: Context, raw: List<RawSms>): Result = store(context, read(context, raw), replace = false)
+
+    /**
+     * Reads the inbox afresh and replaces what was stored (a new parser version, or "Read everything again"). Payments,
+     * AutoPays and bills whose message has left the inbox are read again from their stored copy (see [Rebuild]), and the
+     * stored list is replaced in one save, so nothing is lost if the phone stops halfway.
+     */
+    @Synchronized
+    fun rebuild(context: Context, inbox: List<RawSms>): Result {
+        val stored = Storage.storedRows(context)
+        val plan = Rebuild.plan(inbox, stored, Storage.loadMandates(context), Storage.storedReminders(context))
+        Storage.migrateCreditIds(context, stored)
+        val p = read(context, inbox + plan.messages)
+        p.rows.addAll(plan.keep)
+        return store(context, p, replace = true)
+    }
+
+    private fun store(context: Context, p: Parsed, replace: Boolean): Result {
+        val added = Storage.saveRows(context, p.rows, replace)
+        Storage.saveReminders(context, p.reminders, replace)
+        Storage.saveMandates(context, p.mandates, replace)
+        Storage.saveBalances(context, p.balances, p.txnBalances, replace)
+        Storage.saveLimits(context, p.limits)
+        return Result(p.rows.size, added, p.rows, p.balanceHits)
+    }
+
+    private fun read(context: Context, raw: List<RawSms>): Parsed {
+        Storage.loadTrust(context)
+        val settings = Storage.loadSettings(context)
+        val own = Storage.splitList(settings.ownAccounts)
+        val p = Parsed()
+        val rows = p.rows
+        val reminders = p.reminders
+        val mandates = p.mandates
+        val taught = Taught.load(context)
+        val balances = p.balances
+        val txnBalances = p.txnBalances
+        val limits = p.limits
+        val balanceHits = p.balanceHits
         for (msg in raw) {
             // 1) Trust the sender first: accept only bank/financial sender IDs
             //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
@@ -94,14 +131,7 @@ object Ingest {
                 ),
             )
         }
-
-        val added = Storage.saveRows(context, rows)
-        Storage.saveReminders(context, reminders)
-        Storage.saveMandates(context, mandates)
-        Storage.saveBalances(context, balances, "b")
-        Storage.saveBalances(context, txnBalances, "t")
-        Storage.saveLimits(context, limits)
-        return Result(rows.size, added, rows, balanceHits)
+        return p
     }
 
     private val MONEYISH = Regex("""(?i)(rs\.?|inr|₹)\s*[\d,]+""")

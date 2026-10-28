@@ -66,6 +66,8 @@ object Backup {
             if (prefs != null) for (name in PREF_FILES) {
                 val o = prefs.optJSONObject(name) ?: continue
                 val e = context.getSharedPreferences(name, Context.MODE_PRIVATE).edit()
+                // A backup from before palettes were saved by name: its old "palette" number should win.
+                if (o.has("palette") && !o.has("colours")) e.remove("colours")
                 for (k in o.keys()) {
                     val item = o.getJSONObject(k)
                     when (item.optString("t")) {
@@ -112,6 +114,9 @@ object Backup {
         if (Storage.loadRows(context).isEmpty()) return
         val body = exportEncrypted(context) ?: return
         val ok = Exporter.exportText(context, "zelu-backup-" + Dates.today() + ".json", "application/json", body)
-        if (ok) context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
+        if (ok) {
+            context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
+            Exporter.pruneBackups(context)
+        }
     }
 }

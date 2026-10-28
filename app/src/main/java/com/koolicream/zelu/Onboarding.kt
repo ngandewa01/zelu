@@ -1,77 +1,25 @@
 package com.koolicream.zelu
 
-import android.Manifest
-import android.app.DatePickerDialog
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.CreditCard
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.People
-import androidx.compose.material.icons.rounded.PieChart
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Receipt
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -79,51 +27,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Calendar
-import java.util.Locale
-import kotlin.math.atan2
 
 @Composable internal fun LockScreen(onUnlock: () -> Unit) {
     Box(Modifier.fillMaxSize().background(ZColor.Paper), contentAlignment = Alignment.Center) {
@@ -142,13 +63,14 @@ import kotlin.math.atan2
 @Composable internal fun OnboardFlow(
     stage: String, denied: Boolean, stats: Triple<Int, Int, Int>,
     onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
-    smsGiven: Boolean = false, notifGiven: Boolean = false,
+    smsGiven: Boolean = false, notifGiven: Boolean = false, accountsNext: Boolean = false,
 ) {
     val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
         if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }, contentAlignment = Alignment.Center) {
-                if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp)
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }
+                .then(if (step > 0) Modifier.buttonLabel("Back") else Unspoken), contentAlignment = Alignment.Center) {
+                if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp, modifier = Unspoken)
             }
             Spacer(Modifier.width(10.dp))
             (0..2).forEach { i ->
@@ -190,19 +112,8 @@ import kotlin.math.atan2
                 "privacy" -> {
                     Text("Nothing leaves your phone.", color = ZColor.Ink, fontSize = 24.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        listOf(
-                            Triple("Reads", ZColor.Income, listOf("Bank & card alerts", "UPI payment messages", "Bill due reminders")),
-                            Triple("Never reads", ZColor.Warn, listOf("OTPs", "Personal chats", "Anything from contacts")),
-                        ).forEach { (title, color, items) ->
-                            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-                                .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(title, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                items.forEach { Text((if (title == "Reads") "✓ " else "✕ ") + it, color = ZColor.InkSoft, fontSize = 13.sp) }
-                            }
-                        }
-                    }
+                    PromiseCard("Zelu reads", true, listOf("Bank and card alerts", "UPI payment messages", "Bill and EMI reminders"))
+                    PromiseCard("Zelu skips", false, listOf("OTPs and passwords", "Personal chats", "Messages from people"))
                     Text("No account. No login. No upload.", color = ZColor.Muted, fontSize = 14.sp)
                     Cta("Continue", onNext)
                 }
@@ -217,8 +128,8 @@ import kotlin.math.atan2
                             val given = if (t == "SMS") smsGiven else notifGiven
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income), contentAlignment = Alignment.Center) {
-                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income).spoken("Allowed"), contentAlignment = Alignment.Center) {
+                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
                                 }
                             }
                             MutedText(d, 13)
@@ -235,9 +146,23 @@ import kotlin.math.atan2
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
                 "scan" -> {
+                    // "Reading your messages" worried people. Say what is looked for, what is skipped, and where it stays,
+                    // one line at a time while the alerts are read.
+                    var lines by remember { mutableStateOf(0) }
+                    LaunchedEffect(Unit) { repeat(3) { delay(500); lines++ } }
                     LogoMark(66f)
-                    Text("Reading your messages…", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    CircularProgressIndicator(color = ZColor.Accent)
+                    Text("Finding your payments", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center)
+                    MutedText("Usually a few seconds.", 14)
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf("Only bank, card and UPI alerts", "OTPs and personal chats skipped", "Stays on this phone").forEachIndexed { i, t ->
+                            val a by animateFloatAsState(if (lines > i) 1f else 0f, tween(400), label = "line$i")
+                            Box(Modifier.graphicsLayer { alpha = a }) { PromiseRow(t, true) }
+                        }
+                    }
+                    CircularProgressIndicator(color = ZColor.Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                 }
                 "done" -> {
                     var go by remember { mutableStateOf(false) }
@@ -246,12 +171,17 @@ import kotlin.math.atan2
                     val b by animateIntAsState(if (go) stats.second else 0, tween(1400), label = "b")
                     val c by animateIntAsState(if (go) stats.third else 0, tween(1400), label = "c")
                     Text("All set.", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
-                    Text("payments found", color = ZColor.Muted, fontSize = 15.sp)
-                    Text("$b bank account${if (b == 1) "" else "s"} · $c card${if (c == 1) "" else "s"}",
-                        color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Cta("Open Zelu", onNext)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
+                        Text(if (stats.first == 1) "payment found" else "payments found", color = ZColor.Muted, fontSize = 15.sp)
+                    }
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatTile(b, if (b == 1) "bank account" else "bank accounts", Modifier.weight(1f))
+                        StatTile(c, if (c == 1) "card" else "cards", Modifier.weight(1f))
+                    }
+                    if (accountsNext) MutedText("Next, tick which of these are yours.", 14)
+                    Cta(if (accountsNext) "Check my accounts" else "Open Zelu", onNext)
+                    Text("Read on this phone. Nothing was uploaded.", color = ZColor.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
                 }
                 else -> { // splash
                     LogoMark(86f)
@@ -264,5 +194,37 @@ import kotlin.math.atan2
                 }
             }
         }
+    }
+}
+
+// One line of what Zelu does with your messages: a round tick (or cross), then the words.
+@Composable private fun PromiseRow(text: String, yes: Boolean) {
+    val tint = if (yes) ZColor.Income else ZColor.Warn
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(22.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Icon(if (yes) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = tint, modifier = Modifier.size(14.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(text, color = ZColor.InkSoft, fontSize = 14.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+// What Zelu reads, or skips. Both cards are full width with three lines each, so they match.
+@Composable private fun PromiseCard(title: String, yes: Boolean, items: List<String>) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(title, color = if (yes) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        items.forEach { PromiseRow(it, yes) }
+    }
+}
+
+// A count with its name under it, for the "All set" screen; two side by side are the same size.
+@Composable private fun StatTile(n: Int, label: String, modifier: Modifier) {
+    Column(modifier.fillMaxHeight().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(vertical = 14.dp, horizontal = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(n.toString(), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = ZColor.Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
 }

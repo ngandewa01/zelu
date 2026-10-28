@@ -88,7 +88,5 @@ object WeeklySummary {
 }
 
 class WeeklyReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        try { WeeklySummary.notifyWeek(context) } catch (_: Exception) {}
-    }
+    override fun onReceive(context: Context, intent: Intent) = inBackground { WeeklySummary.notifyWeek(context) }
 }

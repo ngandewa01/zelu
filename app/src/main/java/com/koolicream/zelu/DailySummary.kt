@@ -80,7 +80,5 @@ object DailySummary {
 }
 
 class DailyReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        try { DailySummary.notifyToday(context) } catch (_: Exception) {}
-    }
+    override fun onReceive(context: Context, intent: Intent) = inBackground { DailySummary.notifyToday(context) }
 }

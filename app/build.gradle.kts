@@ -51,8 +51,8 @@ android {
         jvmTarget = "17"
     }
 
-    // The release-only "lint vital" pass took ~5.5 of the ~8.5 CI minutes (it re-scans the large
-    // MainActivity.kt). Compile errors and the parser unit tests still fail the build.
+    // The release-only "lint vital" pass took ~5.5 of the ~8.5 CI minutes (it re-scans every Compose
+    // screen). Compile errors and the unit tests still fail the build.
     lint {
         checkReleaseBuilds = false
     }
