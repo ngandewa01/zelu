@@ -33,7 +33,6 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var trendsOpen by mutableStateOf(false)
     var fixed by mutableStateOf<Map<String, Double>>(emptyMap())
     var menuOpen by mutableStateOf(false)
-    var menuPage by mutableStateOf("")
     var helpOpen by mutableStateOf(false)
     var reportOpen by mutableStateOf(false)
     var crashAsk by mutableStateOf(false)
