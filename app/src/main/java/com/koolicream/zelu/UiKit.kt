@@ -558,7 +558,12 @@ internal fun treemap(values: List<Double>): List<TmCell> {
             androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
         }
         Spacer(Modifier.width(if (compact) 6.dp else 7.dp))
-        FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
+        val fit = LocalTabFit.current
+        if (fit != null) Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = fit.size.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
+            modifier = Modifier.weight(1f, fill = false).drawWithContent { if (fit.settled) drawContent() },
+            onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true })
+        else FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
             Modifier.weight(1f, fill = false))
         if (count > 0) {
             Spacer(Modifier.width(6.dp))
@@ -593,8 +598,15 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 
 // A row of tabs that always stays one line: the tabs share the width equally (each passes Modifier.weight(1f)).
 @Composable internal fun TabRowWrap(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    // All tabs in the row use one text size: if any name needs to shrink to fit, they all shrink together.
+    val fit = remember { TabFit() }
+    androidx.compose.runtime.CompositionLocalProvider(LocalTabFit provides fit) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    }
 }
+
+internal class TabFit { var size by mutableStateOf(13f); var settled by mutableStateOf(false) }
+internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> { null }
 
 // A round answer button: a bright icon in a circle with its word underneath (used for the Needs-you answers,
 // so all five fit in one row).
@@ -620,7 +632,3 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         modifier = modifier.drawWithContent { if (ready) drawContent() },
         onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true })
 }
-
-// How much of a tab row a tab takes: longer names (and a count badge) get more room, so no name is squeezed while
-// a short one has space to spare.
-internal fun tabW(label: String, badge: Boolean = false): Float = label.length + 5f + (if (badge) 3f else 0f)
