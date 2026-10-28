@@ -291,11 +291,11 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(Modifier.size(38.dp).clip(CircleShape)
+                Box(Modifier.size(32.dp).clip(CircleShape)
                     .background(if (on) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.16f) else ZColor.Tile)
                     .border(if (on) 1.5.dp else 1.dp, if (on) tint else ZColor.Line, CircleShape),
                     contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Icon(t.icon, null, tint = tint, modifier = Modifier.size(21.dp))
+                    androidx.compose.material3.Icon(t.icon, null, tint = tint, modifier = Modifier.size(19.dp))
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(t.label, color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
