@@ -29,6 +29,20 @@ class BrandsTest {
         assertEquals("Health", cat("Netmeds"))
     }
 
+    @Test fun gymsAndFitness() {
+        assertEquals("Health", cat("HIGHLIFE CROSSFIT", "Sent Rs.16000.00 From HDFC Bank A/C *5997 To HIGHLIFE CROSSFIT On 01/10/26 Ref 1"))
+        assertEquals("Health", cat("Cult.fit"))
+        assertEquals("Health", cat("POWER HOUSE GYM"))
+        assertEquals("Health", cat("Snap Fitness"))
+        assertEquals("Health", cat("Talwalkars"))
+        assertEquals("Health", cat("F45 Training"))
+        assertEquals("Health", cat("Playo"))
+        assertEquals("Health", cat("Ace Badminton Academy"))
+        // Not gyms: EatFit is food, a gymkhana club isn't caught by "gym".
+        assertEquals("Food", cat("EatFit"))
+        assertEquals("Unknown", cat("Deccan Gymkhana"))
+    }
+
     @Test fun maxIsTheShopUnlessItIsHealthOrInsurance() {
         assertEquals("Shopping", cat("Max"))
         assertEquals("Shopping", cat("MAX FASHION"))
