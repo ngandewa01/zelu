@@ -79,9 +79,9 @@ import java.util.Calendar
 
     Spacer(Modifier.height(12.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Schedule, "Upcoming", 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(1f)) { duesTab = 0 }
-        IconTab(Icons.Rounded.TaskAlt, "Paid", 0xFF22B455, 0xFF3DD171, duesTab == 1, modifier = Modifier.weight(1f)) { duesTab = 1 }
-        if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, "Autopay", 0xFFC026D3, 0xFFE879F9, duesTab == 2, modifier = Modifier.weight(1f)) { duesTab = 2 }
+        IconTab(Icons.Rounded.Schedule, "Upcoming", 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(tabW("Upcoming", true))) { duesTab = 0 }
+        IconTab(Icons.Rounded.TaskAlt, "Paid", 0xFF22B455, 0xFF3DD171, duesTab == 1, modifier = Modifier.weight(tabW("Paid"))) { duesTab = 1 }
+        if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, "Autopay", 0xFFC026D3, 0xFFE879F9, duesTab == 2, modifier = Modifier.weight(tabW("Autopay"))) { duesTab = 2 }
     }
 
     // Summary: what is overdue, what lands this week, and where the month is heading.

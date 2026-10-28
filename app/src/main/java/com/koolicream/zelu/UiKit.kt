@@ -620,3 +620,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         modifier = modifier.drawWithContent { if (ready) drawContent() },
         onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true })
 }
+
+// How much of a tab row a tab takes: longer names (and a count badge) get more room, so no name is squeezed while
+// a short one has space to spare.
+internal fun tabW(label: String, badge: Boolean = false): Float = label.length + 5f + (if (badge) 3f else 0f)

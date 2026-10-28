@@ -520,9 +520,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
             // The tabs share the row equally, so they stay on one line next to the eye button.
             else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
-                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
-                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(tabW("Accounts"))) { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(tabW("Cards"))) { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(tabW("Loans"))) { moneyTab = "loans" }
             }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
