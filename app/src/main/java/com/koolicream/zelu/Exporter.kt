@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.content.ContentUris
 
 // Writes a CSV of transactions to the public Downloads/Zelu folder. Uses MediaStore so
 // no storage permission is needed on Android 10+ (minSdk-24 devices below that return false).
@@ -27,6 +28,25 @@ object Exporter {
 
     fun exportText(context: Context, filename: String, mime: String, content: String): Boolean =
         writeToDownloads(context, filename, mime, content)
+
+    // Backups would pile up in Downloads/Zelu week after week; only the newest few are kept. Android lets an app remove
+    // only files it saved itself, so backups from before a reinstall stay until you delete them.
+    fun pruneBackups(context: Context, keep: Int = 4) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        try {
+            val uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val sel = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
+            val args = arrayOf(Environment.DIRECTORY_DOWNLOADS + "/Zelu%", "zelu-backup-%")
+            val ids = ArrayList<Long>()
+            context.contentResolver.query(uri, arrayOf(MediaStore.Downloads._ID), sel, args, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { c ->
+                val col = c.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                while (c.moveToNext()) ids.add(c.getLong(col))
+            }
+            for (id in ids.drop(keep)) {
+                try { context.contentResolver.delete(ContentUris.withAppendedId(uri, id), null, null) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+    }
 
     private fun writeToDownloads(context: Context, filename: String, mime: String, content: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false

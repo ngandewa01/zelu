@@ -8,21 +8,43 @@ Native Android app written in Kotlin with Jetpack Compose.
 
 ## What's here
 
-- `app/src/main/java/com/koolicream/zelu/`
-  - `Parser.kt` — turns bank/UPI SMS into transactions (amount, debit/credit, date, counterparty, reference).
-  - `Classifier.kt` — income / expense / transfer / refund, with keyword categories.
-  - `Ingest.kt` — filters by your bank senders, parses, classifies and stores.
-  - `Storage.kt` — settings in SharedPreferences, transactions as JSON in app-private storage.
-  - `Summary.kt` — monthly totals and expenses by category.
+`app/src/main/java/com/koolicream/zelu/`
+
+- Reading messages
   - `SmsReader.kt` — reads the SMS inbox.
   - `SmsReceiver.kt` — captures new SMS as they arrive, even when the app is closed.
-  - `MainActivity.kt` — the Compose UI.
+  - `Parser.kt` — turns bank/UPI SMS into transactions (amount, debit/credit, date, payee, account, reference),
+    bill reminders, AutoPay mandates and balances.
+  - `Classifier.kt`, `Brands.kt` — income / expense / transfer / refund, and the category.
+  - `Ingest.kt` — sender and link checks, parse, classify, store; `rebuild` re-reads everything after a parser change.
+  - `Rebuild.kt` — keeps payments whose SMS has left the inbox when everything is read again.
+  - `Taught.kt` — message shapes you taught from the Missed SMS list.
+- Working out what to show
+  - `Reconcile.kt` — joins one account written several ways, counts repeated notices once, pairs refunds with their
+    spends and finds transfers between your own accounts.
+  - `AccountBook.kt` — the Your accounts screen: which labels are one account, cards, loans.
+  - `Analytics.kt` — totals by month, category, day; dates.
+- Storage
+  - `Storage.kt` — settings in SharedPreferences, transactions and your decisions as JSON in app-private storage.
+  - `SafeFile.kt` — atomic saves that keep the previous version, and reads that fall back to it.
+  - `Backup.kt`, `BackupCrypto.kt` — password-locked backup files in Downloads/Zelu.
+- Screens
+  - `MainActivity.kt` — the activity, app lock, and `ZeluApp`: start-up, onboarding, and the home pages.
+  - `AppState.kt` — what the main screen keeps (data read from storage, open pages and dialogs, filters) and the
+    actions that change it; where you are survives Android closing the app in the background.
+  - `MenuDialog.kt`, `MoneyDialogs.kt`, `MessageDialogs.kt`, `SettingsDialogs.kt`, `Dialogs.kt` — dialogs.
+  - `LedgerView.kt`, `SpendViews.kt`, `TrendsScreen.kt`, `PayeesView.kt`, `RemindersView.kt`, `CardScreens.kt`,
+    `AccountsScreens.kt`, `Onboarding.kt` — pages; `UiKit.kt`, `Visuals.kt` — shared pieces.
+- Background: `DueReminders.kt`, `DailySummary.kt`, `WeeklySummary.kt`, `Notifier.kt`, `ZeluWidget.kt`.
 
 ## Build
 
-GitHub Actions builds a release APK on every push (`.github/workflows/build-apk.yml`).
-The APK is signed with the debug key so it can be sideloaded.
+GitHub Actions builds, runs the unit tests and checks the APK asks for no internet access on every push
+(`.github/workflows/build-apk.yml`). Release builds are signed with the upload key kept in the repository secrets;
+builds from `main` are published as a GitHub release and uploaded to Play's closed testing track (see
+`docs/play-upload.md`).
 
 ## Permissions
 
-`READ_SMS` and `RECEIVE_SMS`, used only on-device to read transaction alerts.
+`READ_SMS` and `RECEIVE_SMS`, used only on-device to read transaction alerts. `POST_NOTIFICATIONS` for payment and
+bill alerts, `RECEIVE_BOOT_COMPLETED` to put the daily checks back after a restart. No internet permission.

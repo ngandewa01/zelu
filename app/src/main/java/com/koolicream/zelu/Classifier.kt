@@ -9,33 +9,106 @@ object Classifier {
         "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos", "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks", "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma", "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut", "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd", "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman", "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory", "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "tea stall", "tea shop", "grab*", "grabfood", "taj hotels", "hotel ", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
-        "Groceries" to listOf("nature's basket", "natures basket", "spencer", "star bazaar", "easyday", "ratnadeep", "vijetha", "licious", "freshtohome", "fresh to home", "milkmantra", "ninjacart", "nandini", "vishal mega", "fruits", "vegetables", "bakers basket", "blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart", "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers", "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart", "innovative retail", "country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily", "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
-        "Fuel" to listOf("bharat petroleum", "hindustan petroleum", "nayara", "reliance bp", "jio-bp", "jio bp", "petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
-        "Transport" to listOf("ola cabs", "olacabs", "blu smart", "bluesmart", "yulu", "delhi metro", "dmrc", "hmrl", "tsrtc", "ksrtc", "msrtc", "apsrtc", "abhibus", "parking", "cab", "uber", "ola", "rapido", "metro", "bmtc", "redbus", "namma yatri", "toll", "toll plaza", "fastag", "fasttag", "netc"),
-        "Shopping" to listOf("amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "tatacliq", "croma", "reliance digital", "shoppers stop", "lifestyle", "decathlon", "ikea", "westside", "pantaloons", "firstcry", "pepperfry", "urban ladder", "lenskart", "titan", "tanishq", "caratlane", "bata", "vijay sales", "max fashion", "reliance trends", "trends", "oneplus", "one plus", "mi store", "samsung", "shopping mall", "yousta", "urbanofashion", "urbano fashion", "urbano", "zudio", "trendz", "centro",
-            "van heusen", "vanheusen", "louis philippe", "allen solly", "peter england", "blackberrys", "raymond", "park avenue", "color plus", "colorplus",
-            "jockey", "jack & jones", "jack and jones", "vero moda", "pepe jeans", "flying machine", "us polo", "uspa", "united colors of benetton", "benetton",
-            "tommy hilfiger", "calvin klein", "h&m", "zara", "uniqlo", "forever 21", "fabindia", "fab india", "w for woman", "wforwoman", "biba", "aurelia",
-            "global desi", "soch", "manyavar", "mohey", "levis", "levi's", "wrangler", "spykar", "mufti", "snitch", "bewakoof", "the souled store",
-            "metro shoes", "mochi", "red tape", "redtape", "woodland", "skechers", "nike", "adidas", "puma", "reebok", "crocs", "hush puppies", "clarks", "sparx", "relaxo", "liberty shoes",
+        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos",
+            "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks",
+            "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma",
+            "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut",
+            "pizzahut", "devyani", "sapphire foods", "popeyes", "taco bell", "barista", "cafe coffee day", "ccd",
+            "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman",
+            "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory",
+            "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "tea stall", "tea shop",
+            "grab*", "grabfood", "taj hotels", "hotel ", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
+        "Groceries" to listOf("nature's basket", "natures basket", "spencer", "star bazaar", "easyday", "ratnadeep",
+            "vijetha", "licious", "freshtohome", "fresh to home", "milkmantra", "ninjacart", "nandini", "vishal mega",
+            "fruits", "vegetables", "bakers basket", "blinkit", "zepto", "bigbasket", "big basket", "dmart", "d mart",
+            "avenue supermart", "q mart", "qmart", "pure o natural", "bbnow", "first club", "instamart", "grofers",
+            "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart",
+            "innovative retail", "country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily",
+            "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
+        "Fuel" to listOf("bharat petroleum", "hindustan petroleum", "nayara", "reliance bp", "jio-bp", "jio bp",
+            "petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
+        "Transport" to listOf("ola cabs", "olacabs", "blu smart", "bluesmart", "yulu", "delhi metro", "dmrc", "hmrl",
+            "tsrtc", "ksrtc", "msrtc", "apsrtc", "abhibus", "parking", "cab", "uber", "ola", "rapido", "metro", "bmtc",
+            "redbus", "namma yatri", "toll", "toll plaza", "fastag", "fasttag", "netc"),
+        "Shopping" to listOf("amazon", "flipkart", "myntra", "meesho", "ajio", "nykaa", "tatacliq", "croma",
+            "reliance digital", "shoppers stop", "lifestyle", "decathlon", "ikea", "westside", "pantaloons", "firstcry",
+            "pepperfry", "urban ladder", "lenskart", "titan", "tanishq", "caratlane", "bata", "vijay sales",
+            "max fashion", "reliance trends", "trends", "oneplus", "one plus", "mi store", "samsung", "shopping mall",
+            "yousta", "urbanofashion", "urbano fashion", "urbano", "zudio", "trendz", "centro",
+            "van heusen", "vanheusen", "louis philippe", "allen solly", "peter england", "blackberrys", "raymond",
+                "park avenue", "color plus", "colorplus",
+            "jockey", "jack & jones", "jack and jones", "vero moda", "pepe jeans", "flying machine", "us polo", "uspa",
+                "united colors of benetton", "benetton",
+            "tommy hilfiger", "calvin klein", "h&m", "zara", "uniqlo", "forever 21", "fabindia", "fab india",
+                "w for woman", "wforwoman", "biba", "aurelia",
+            "global desi", "soch", "manyavar", "mohey", "levis", "levi's", "wrangler", "spykar", "mufti", "snitch",
+                "bewakoof", "the souled store",
+            "metro shoes", "mochi", "red tape", "redtape", "woodland", "skechers", "nike", "adidas", "puma", "reebok",
+                "crocs", "hush puppies", "clarks", "sparx", "relaxo", "liberty shoes",
             "brand factory", "home centre", "home center", "nilkamal", "godrej interio", "hopscotch",
             "poorvika", "sangeetha mobiles", "bajaj electronics", "girias", "pai international", "lot mobiles",
-            "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora", "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail", "shoppe", "shoe mart"),
-        "Investment" to listOf("icici prudential m", "bse limited", "nse clearing", "indian clearing", "zerodha", "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone", "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ", "nippon india", "sovereign gold"),
-        "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib", "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy", "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
-        "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl", "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
+            "kalyan jewellers", "malabar gold", "joyalukkas", "pc jeweller", "senco", "fastrack", "sephora",
+                "tira beauty", "health & glow", "health and glow", "snapdeal", "reliance brands", "reliance retail",
+                "shoppe", "shoe mart"),
+        "Investment" to listOf("icici prudential m", "bse limited", "nse clearing", "indian clearing", "zerodha",
+            "groww", "upstox", "kuvera", "smallcase", "indmoney", "paytm money", "angel one", "angelone",
+            "icici direct", "hdfc securities", "demat", "mutual fund", "elss", "tier1", "tier 1", "tier2", " ppf ",
+            "nippon india", "sovereign gold"),
+        "Personal care" to listOf("salon", "spa ", "barber", "haircut", "parlour", "parlor", "jawed habib",
+            "lakme salon", "looks salon", "enrich", "bodycraft", "naturals salon", "toni & guy", "toni and guy",
+            "tony and guy", "tony n guy", "toniguy", "tony guy", "bblunt", "green trends"),
+        "ATM / Cash" to listOf(" atm", "atm ", "cash wdl", "cash withdrawal", "cash withdrawn", "self wdl",
+            "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Bank charges" to emptyList(), // detected specially (fees and charges the bank or card takes); listed so it can be picked
-        "Home services" to listOf("mygate", "101society", "apnacomplex", "nobrokerhood", "society maintenance", " chs", "apartmentadda", "apartment adda", "adda.io", "societyrun", "isocietymanager", "societykit", "society kit", "societynotebook", "society notebook", "paperbit", "societykingdom", "ggate", "housing society", "housing soc", "hsg soc", "chsl", "society maint", "owners association", "owners assn", "apartment association", "apartments association", "residents welfare", "residents association", "rwa", "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro", "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker", "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
-        "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi", "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater", "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play", "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar", "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
-        "Subscriptions" to listOf("apple.com/bill", "apple services", "apple media", "google cloud", "amazon web", "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity", "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365", "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma", "grammarly", "linkedin"),
-        "Bills" to listOf("billdesk", "infobil", "bharat bill", "bbps", "tatapower", "starhealth", "insurance", "sms alert", "alert chg", "annual fee", "membership fee", "annual maint", "maint chgs", "finance charge", "interest charge", "interest on cash", "late payment", "cross currency markup", "cheque return", "non-maintenance", "electricity board", "msedcl", "tneb", "tsspdcl", "apspdcl", "bwssb", "hmwssb", "indane", "hp gas", "bharatgas", "bharat gas", "mahanagar gas", "adani gas", "piped gas", "tata play", "tataplay", "dish tv", "sun direct", "d2h", "municipal", "property tax", "lic of india", "insurance premium", "life insurance", "hdfc life", "sbi life", "max life", "star health", "care health", "acko", "digit insurance", "policybazaar", "electricity", "gas agency", "dth", "tata power", "bescom", "mseb", "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber", "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi", "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
-        "Travel" to listOf("easemytrip", "yatra", "agoda", "booking.com", "spicejet", "akasa", "air asia", "airasia", "treebo", "fabhotels", "zostel", "thomas cook", "lodge", "guest house", "irctc", "makemytrip", "goibibo", "cleartrip", "indigo", "vistara", "air india", "oyo", "airbnb", "ixigo"),
-        "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon", "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
-        "EMI" to listOf("emi", "loan", "loans", "installment", "instalment", "bajaj finance", "finserv", "nbfc", "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
-        "Health" to listOf("medico", "medicos", "dental", "dentist", "eye care", "optical", "ortho", "physio", "pathlab", "path lab", "thyrocare", "lal path", "metropolis", "redcliffe", "orange health", "tata1mg", "truemeds", "pharmacies", "ayush", "ayurved", "pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "clinic", "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana", "cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first", "healthifyme", "gym ", "fitso"),
-        "Education" to listOf("uforward", "takeuforward", "scaler", "physics wallah", "physicswallah", "simplilearn", "great learning", "greatlearning", "leetcode", "masai", "coding ninjas", "codingninjas", "interviewbit", "geeksforgeeks", "toppr", "testbook", "adda247", "allen career", "aakash", "fiitjee", "resonance", "stationery", "book store", "bookstore", "library", "school fee", "tuition", "college fee", "university", "byju", "unacademy", "udemy", "coursera", "vedantu", "upgrad", "exam fee", "coaching"),
+        "Home services" to listOf("mygate", "101society", "apnacomplex", "nobrokerhood", "society maintenance", " chs",
+            "apartmentadda", "apartment adda", "adda.io", "societyrun", "isocietymanager", "societykit", "society kit",
+            "societynotebook", "society notebook", "paperbit", "societykingdom", "ggate", "housing society",
+            "housing soc", "hsg soc", "chsl", "society maint", "owners association", "owners assn",
+            "apartment association", "apartments association", "residents welfare", "residents association", "rwa",
+            "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro",
+            "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker",
+            "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid",
+            "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
+        "Entertainment" to listOf("disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi",
+            "insider.in", "steam", "playstation", "xbox", "nintendo", "epic games", "cinema", "theatre", "theater",
+            "multiplex", "netflix", "spotify", "bookmyshow", "hotstar", "prime video", "jiocinema", "google play",
+            "youtube", "sony liv", "zee5", "pvr", "inox", "cinepolis", "audible", "gaana", "wynk", "jiohotstar",
+            "hungama", "eros now", "voot", "mx player", "alt balaji", "altbalaji"),
+        "Subscriptions" to listOf("apple.com/bill", "apple services", "apple media", "google cloud", "amazon web",
+            "aws", "digitalocean", "namecheap", "godaddy", "zoho", "slack", "zoom", "midjourney", "perplexity",
+            "cursor", "jetbrains", "replit", "vercel", "heroku", "adobe", "microsoft", "office 365", "microsoft 365",
+            "google one", "icloud", "dropbox", "canva", "openai", "chatgpt", "anthropic", "github", "notion", "figma",
+            "grammarly", "linkedin"),
+        "Bills" to listOf("billdesk", "infobil", "bharat bill", "bbps", "tatapower", "starhealth", "insurance",
+            "sms alert", "alert chg", "annual fee", "membership fee", "annual maint", "maint chgs", "finance charge",
+            "interest charge", "interest on cash", "late payment", "cross currency markup", "cheque return",
+            "non-maintenance", "electricity board", "msedcl", "tneb", "tsspdcl", "apspdcl", "bwssb", "hmwssb", "indane",
+            "hp gas", "bharatgas", "bharat gas", "mahanagar gas", "adani gas", "piped gas", "tata play", "tataplay",
+            "dish tv", "sun direct", "d2h", "municipal", "property tax", "lic of india", "insurance premium",
+            "life insurance", "hdfc life", "sbi life", "max life", "star health", "care health", "acko",
+            "digit insurance", "policybazaar", "electricity", "gas agency", "dth", "tata power", "bescom", "mseb",
+            "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber",
+            "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi",
+            "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
+        "Travel" to listOf("easemytrip", "yatra", "agoda", "booking.com", "spicejet", "akasa", "air asia", "airasia",
+            "treebo", "fabhotels", "zostel", "thomas cook", "lodge", "guest house", "irctc", "makemytrip", "goibibo",
+            "cleartrip", "indigo", "vistara", "air india", "oyo", "airbnb", "ixigo"),
+        "Donation" to listOf("donation", "donate", "charity", "giveindia", "give india", "ketto", "milaap", "iskcon",
+            "tirumala", "ttd", "relief fund", "seva", "temple", "ngo"),
+        "EMI" to listOf("emi", "loan", "loans", "installment", "instalment", "bajaj finance", "finserv", "nbfc",
+            "ach d", "ach/", "ach-", "nach", "e-mandate", "emandate", "ecs"),
+        "Health" to listOf("medico", "medicos", "dental", "dentist", "eye care", "optical", "ortho", "physio",
+            "pathlab", "path lab", "thyrocare", "lal path", "metropolis", "redcliffe", "orange health", "tata1mg",
+            "truemeds", "pharmacies", "ayush", "ayurved", "pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "clinic",
+            "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana",
+            "cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first",
+            "healthifyme", "gym ", "fitso"),
+        "Education" to listOf("uforward", "takeuforward", "scaler", "physics wallah", "physicswallah", "simplilearn",
+            "great learning", "greatlearning", "leetcode", "masai", "coding ninjas", "codingninjas", "interviewbit",
+            "geeksforgeeks", "toppr", "testbook", "adda247", "allen career", "aakash", "fiitjee", "resonance",
+            "stationery", "book store", "bookstore", "library", "school fee", "tuition", "college fee", "university",
+            "byju", "unacademy", "udemy", "coursera", "vedantu", "upgrad", "exam fee", "coaching"),
         "Rent" to listOf("rent"),
     )
 
@@ -70,7 +143,13 @@ object Classifier {
     private val PERSON_NAME = Regex("""^[\p{L}\p{M}]{2,}\.?(?: [\p{L}\p{M}]+\.?){1,3}$""")
     // Money that was earned, not sent by a friend: salary, pension, interest...
     private val EARNED = Regex("""\b(?:salary|sal|pension|interest|dividend|stipend|bonus|incentive|commission|payroll|reimburse\w*|wages?|honorarium|govt|government)\b""", RegexOption.IGNORE_CASE)
-    private val BUSINESS_WORD = Regex("""\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|supermarket|foods?|electricals?|electronics|hardware|textiles?|medicals?|motors?|infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""", RegexOption.IGNORE_CASE)
+    private val BUSINESS_WORD = Regex(
+        """\b(ltd|limited|pvt|private|llp|inc|corp|corporation|company|systems?|software|technolog\w*|""" +
+            """industries|enterprises?|retail|services?|solutions?|stores?|traders?|agenc\w*|mart|""" +
+            """supermarket|foods?|electricals?|electronics|hardware|textiles?|medicals?|motors?|""" +
+            """infotech|labs?|hospital|clinic|pharma|bank|finance|insurance|capital|ventures?)\b""",
+        RegexOption.IGNORE_CASE,
+    )
 
     // Money landing ON a credit card = a bill settlement, not income.
     private val CARD_RECV = Regex(
@@ -81,7 +160,11 @@ object Classifier {
     // Contributions to retirement / market investments: tracked separately, so they count
     // as neither spending nor income (PF is deducted pre-salary; NPS you transfer in).
     private val INVEST = Regex(
-        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|etmoney|5paisa|motilal|fixed deposit|recurring deposit|bse limited|nse clearing|indian clearing corp|icici prudential m(?:f|utual)?|prudential mutual|mf utilities)\b""",
+        """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|""" +
+            """mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|""" +
+            """icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|""" +
+            """etmoney|5paisa|motilal|fixed deposit|recurring deposit|bse limited|nse clearing|""" +
+            """indian clearing corp|icici prudential m(?:f|utual)?|prudential mutual|mf utilities)\b""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -151,10 +234,17 @@ object Classifier {
     }
 
     private val BANK_CHARGE = Regex(
-        """\b(?:annual|joining|renewal|membership|late(?: payment)?|sms(?: alert)?|alert|atm(?: transaction)?|maintenance|non[- ]maintenance|minimum(?: average)? balance|min(?:imum)? bal|amb|mab|overlimit|over[- ]limit|cash advance|penal|penalty|cheque return|chq return|ecs return|nach return|card replacement|service)\b[a-z ]{0,25}?\b(?:fees?|charges?)\b""",
+        """\b(?:annual|joining|renewal|membership|late(?: payment)?|sms(?: alert)?|alert|atm(?: transaction)?|""" +
+            """maintenance|non[- ]maintenance|minimum(?: average)? balance|min(?:imum)? bal|amb|""" +
+            """mab|overlimit|over[- ]limit|cash advance|penal|penalty|cheque return|chq return|""" +
+            """ecs return|nach return|card replacement|service)\b[a-z ]{0,25}?\b(?:fees?|charges?)\b""",
         RegexOption.IGNORE_CASE,
     )
-    private val CHARGE_MAYBE = Regex("""\b(?:fees?|charges?)\s+(?:may|will|shall|would)\b|\b(?:fees?|charges?)\s+(?:if\s+)?applicable|\bno\s+(?:extra\s+|additional\s+)?(?:fees?|charges?)\b""", RegexOption.IGNORE_CASE)
+    private val CHARGE_MAYBE = Regex(
+        """\b(?:fees?|charges?)\s+(?:may|will|shall|would)\b|\b(?:fees?|charges?)\s+(?:if\s+)?applicable|""" +
+            """\bno\s+(?:extra\s+|additional\s+)?(?:fees?|charges?)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val BANK_FEE = Regex("""\btowards\s+[^.]{0,40}\b(?:charges?|chgs|fees?|[ics]?gst)\b|^[^.]{0,30}\b(?:charges?|fees?|interest|markup)\b[^.]{0,60}\b(?:levied|charged|posted)\s+(?:on|to)\b""", RegexOption.IGNORE_CASE)
     private val EMBEDDED = listOf("school" to "Education", "college" to "Education", "academy" to "Education", "hospital" to "Health",
         "pharmacy" to "Health", "medical" to "Health", "clinic" to "Health", "restaurant" to "Food", "supermarket" to "Groceries")

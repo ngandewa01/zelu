@@ -112,6 +112,9 @@ object Backup {
         if (Storage.loadRows(context).isEmpty()) return
         val body = exportEncrypted(context) ?: return
         val ok = Exporter.exportText(context, "zelu-backup-" + Dates.today() + ".json", "application/json", body)
-        if (ok) context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
+        if (ok) {
+            context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
+            Exporter.pruneBackups(context)
+        }
     }
 }
