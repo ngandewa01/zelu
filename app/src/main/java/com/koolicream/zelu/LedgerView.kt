@@ -194,49 +194,54 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }.sumOf { it.amount }
         val daysLeft = if (liveMonth) Dates.daysInMonth(f.month) - Dates.dayOfMonth() + 1 else 0
         val free = budget - s.spent - billsLeft
-        // EMI often dwarfs everyday spending; one tap leaves it out of every number on this card.
+        // EMI often dwarfs everyday spending; one small pill leaves it out of every number on this card.
+        @Composable fun emiPill() {
+            if (emiAmt <= 0 && !excludeEmi) return
+            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (excludeEmi) ZColor.OrangeSoft else ZColor.Paper)
+                .clickable { onToggleEmi() }.padding(horizontal = 9.dp, vertical = 4.dp)) {
+                Text(if (excludeEmi) "EMI off ✓" else "Exclude EMI", color = if (excludeEmi) ZColor.Accent else ZColor.Muted,
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+        }
         @Composable fun emiSwitch() {
             if (emiAmt <= 0 && !excludeEmi) return
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                if (!excludeEmi) MutedText("Includes " + money(emiAmt) + " of EMI", 12) else Spacer(Modifier.width(1.dp))
-                Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
-            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { emiPill() }
         }
         if (liveMonth && budget > 0) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Safe to spend" + if (excludeEmi) " · after EMI" else "")
+                Eyebrow("Safe to spend")
                 InfoDot("Your monthly budget, minus what you've spent and bills still due this month, shared over the days left." +
                     if (excludeEmi) " EMI is left out." else "", "Safe to spend")
                 Spacer(Modifier.weight(1f))
-                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             if (free > 0) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
                     Text(" a day", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
-                MutedText(if (daysLeft == 1) "for today" else "for $daysLeft days", 13)
             } else {
-                Text(money(-free) + " over budget", color = ZColor.Warn, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Text(money(-free) + " over", color = ZColor.Warn, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             }
-            // The month in one bar: spent, still due, free.
-            Spacer(Modifier.height(12.dp))
+            // The month in one thin bar: spent, still due, free.
+            Spacer(Modifier.height(10.dp))
             val parts = listOf(s.spent to (if (free > 0) ZColor.Accent else ZColor.Warn), billsLeft to ZColor.AmberInk,
                 free.coerceAtLeast(0.0) to ZColor.Income.copy(alpha = 0.35f))
-            Row(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(ZColor.Paper)) {
+            Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Paper)) {
                 parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
             }
+            // One quiet line for the numbers behind it, with the EMI pill at its end.
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Spent", money(s.spent))
-                Fact("Bills due", money(billsLeft))
-                Fact("Free", money(free.coerceAtLeast(0.0)), if (free > 0) ZColor.Income else ZColor.Muted)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val due = if (billsLeft > 0.5) " · " + money(billsLeft) + " due" else ""
+                val tail = if (free > 0) " · " + (if (daysLeft == 1) "today left" else "$daysLeft days left") else ""
+                Text(money(s.spent) + " spent" + due + tail, color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                emiPill()
             }
-            emiSwitch()
         } else {
             // Past months, other periods, or no budget yet: what was spent, against the month before.
             Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
@@ -275,24 +280,17 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
 
-        // Where the month is heading, and the money that came in.
-        // Label on top and the amount under it, so a long amount never squeezes the words into a column.
-        @Composable fun infoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, label: String,
-                                value: String?, valueColor: androidx.compose.ui.graphics.Color, action: String?, onClick: (() -> Unit)?) {
+        // A quiet line: icon, words, and an optional link. No box, so the card stays light.
+        @Composable fun noteRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String,
+                                action: String?, onClick: (() -> Unit)?) {
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
-                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(horizontal = 12.dp, vertical = 10.dp),
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(label, color = ZColor.InkSoft, fontSize = 13.sp)
-                    if (value != null) Text(value, color = valueColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-                if (action != null) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(action, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
+                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(text, color = ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                if (action != null) Text(action, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
         // Month-end estimate from the same numbers as above: spent, bills still due, and a normal day's spending
@@ -302,27 +300,28 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             s.spent + billsLeft + Analytics.typicalDaily(base, today) * (daysLeft - 1).coerceAtLeast(0)
         }
         val overPace = liveMonth && budget > 0 && forecast > budget
-        if (forecast > 0) {
+        val alreadyOver = liveMonth && budget > 0 && free <= 0
+        // Once the budget is gone the forecast says nothing new, so it shows only while there is still room.
+        if (forecast > 0 && !alreadyOver) {
             val end = Dates.daysInMonth(f.month).toString() + " " + Dates.monthLabel(f.month).take(3)
             val verdict = when {
                 budget <= 0 -> ""
                 forecast > budget -> " · " + money(forecast - budget) + " over"
-                else -> " · under"
+                else -> " · on track"
             }
-            // A heads-up, not an alarm: amber when heading over, green when on track.
-            infoRow(Icons.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
-                "At this pace, by $end", "≈ " + money(forecast) + verdict, if (overPace) ZColor.AmberInk else ZColor.Income, null, onOpenDues)
+            noteRow(Icons.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
+                "≈ " + money(forecast) + " by $end" + verdict, null, onOpenDues)
         }
         // Running hot: name the category that grew most against the same days last month; the why is on Spend.
-        if (liveMonth && (overPace || free <= 0)) {
+        if (overPace || alreadyOver) {
             val cut = Dates.dayOfMonth()
             val prev = Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -1)))
                 .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
                 .mapValues { (_, rs) -> rs.sumOf { it.amount } }
             list.filter { it.kind == "expense" }.groupBy { it.category }.mapValues { (_, rs) -> rs.sumOf { it.amount } }
                 .map { (c, v) -> c to v - (prev[c] ?: 0.0) }.filter { it.second >= 1000 }.maxByOrNull { it.second }
-                ?.let { (c, up) -> infoRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c: " + money(up) + " more than this time last month",
-                    null, ZColor.Accent, "Why ›", onOpenSpend) }
+                ?.let { (c, up) -> noteRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c +" + money(up) + " vs last month",
+                    "Why ›", onOpenSpend) }
         }
         if (glanceAlerts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
