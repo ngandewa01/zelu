@@ -524,3 +524,37 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 }
 
 // ---------- Trends ----------
+
+// A screen tab: a bright icon on a round tile (same look as the category icons), then the name and an optional
+// count. The chosen tab is a solid pill; its icon keeps its colour.
+@Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                 selected: Boolean, count: Int = 0, onClick: () -> Unit) {
+    val tint = Color(if (ZTheme.dark) dark else light)
+    val bg = if (selected) ZColor.Ink else ZColor.Card
+    val fg = if (selected) ZColor.Paper else ZColor.Muted
+    val tile = when {
+        !selected -> ZColor.Tile
+        ZTheme.dark -> Color.White
+        else -> mixColor(ZColor.Ink, ZColor.Paper, 0.12f)
+    }
+    Row(
+        Modifier.clip(RoundedCornerShape(22.dp)).background(bg)
+            .then(if (selected) Modifier else Modifier.border(1.dp, ZColor.Line, RoundedCornerShape(22.dp)))
+            .clickable { onClick() }.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(tile), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(7.dp))
+        Text(label, color = fg, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+        if (count > 0) {
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.clip(RoundedCornerShape(9.dp)).background(ZColor.Accent).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                Text(count.toString(), color = ZColor.AccentInk, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+private fun mixColor(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.lerp(a, b, t)

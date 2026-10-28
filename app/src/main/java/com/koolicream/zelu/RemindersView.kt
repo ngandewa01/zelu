@@ -1,5 +1,9 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,9 +79,9 @@ import java.util.Calendar
 
     Spacer(Modifier.height(12.dp))
     ChipScroll {
-        Chip("Upcoming" + if (pending.isNotEmpty()) " (" + pending.size + ")" else "", duesTab == 0, filled = true) { duesTab = 0 }
-        Chip("Paid", duesTab == 1, filled = true) { duesTab = 1 }
-        if (mandates.isNotEmpty()) Chip("Autopay", duesTab == 2, filled = true) { duesTab = 2 }
+        IconTab(Icons.Rounded.Schedule, "Upcoming", 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size) { duesTab = 0 }
+        IconTab(Icons.Rounded.TaskAlt, "Paid", 0xFF22B455, 0xFF3DD171, duesTab == 1) { duesTab = 1 }
+        if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, "Autopay", 0xFFC026D3, 0xFFE879F9, duesTab == 2) { duesTab = 2 }
     }
 
     // Summary: what is overdue, what lands this week, and where the month is heading.

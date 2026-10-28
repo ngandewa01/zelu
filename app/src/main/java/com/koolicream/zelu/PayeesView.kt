@@ -1,5 +1,9 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FiberNew
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,9 +92,9 @@ import androidx.compose.ui.window.Dialog
     }
     Spacer(Modifier.height(12.dp))
     ChipScroll {
-        Chip("Overview", ptab == "overview", true) { ptab = "overview" }
-        Chip("All", ptab == "all", true) { ptab = "all" }
-        Chip("New" + (if (freshN > 0) " ($freshN)" else ""), ptab == "new", true) { ptab = "new" }
+        IconTab(Icons.Rounded.Leaderboard, "Overview", 0xFF3B82F6, 0xFF60A5FA, ptab == "overview") { ptab = "overview" }
+        IconTab(Icons.Rounded.Group, "All", 0xFF22B455, 0xFF3DD171, ptab == "all") { ptab = "all" }
+        IconTab(Icons.Rounded.FiberNew, "New", 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN) { ptab = "new" }
     }
     if (ptab == "overview") {
         // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces

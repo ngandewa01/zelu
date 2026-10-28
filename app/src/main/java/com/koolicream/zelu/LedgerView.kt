@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.RealEstateAgent
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -521,10 +523,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
-            else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasAcc) Chip("Accounts", moneyTabNow == "accounts") { moneyTab = "accounts" }
-                if (hasCard) Chip("Cards", moneyTabNow == "cards") { moneyTab = "cards" }
-                if (hasLoan) Chip("Loans", moneyTabNow == "loans") { moneyTab = "loans" }
+            else Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts") { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards") { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans") { moneyTab = "loans" }
             }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
@@ -699,22 +701,61 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
                 Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
+        // One compact row per person: who, which way, how much is left and how much has come back.
+        val owe = borrowByPerson.sumOf { it.third }
+        val people = byPerson.map { Triple(it, true, it.third <= 0.0) } + borrowByPerson.map { Triple(it, false, it.third <= 0.0) }
+        val open = people.filter { !it.third }
+        var peopleAll by remember { mutableStateOf(false) }
         Panel {
-            Eyebrow("People · you get / you pay")
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Owed to you", money(owedToYou), ZColor.Income)
-                Fact("You owe", money(borrowByPerson.sumOf { it.third }), ZColor.Warn)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("People")
+                Spacer(Modifier.weight(1f))
+                if (owedToYou > 0) Text(money(owedToYou), color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (owedToYou > 0) Text(" to get", color = ZColor.Muted, fontSize = 13.sp)
+                if (owedToYou > 0 && owe > 0) Text(" · ", color = ZColor.Muted, fontSize = 13.sp)
+                if (owe > 0) Text(money(owe), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (owe > 0) Text(" to pay", color = ZColor.Muted, fontSize = 13.sp)
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Open balances first, settled ones at the end.
-                byPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
-                    PersonCard(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
+            val shown = if (peopleAll) people.sortedBy { it.third } else open.take(3)
+            shown.forEach { (p, theyOwe, settled) ->
+                val (person, total, bal) = p
+                val tone = if (theyOwe) ZColor.Income else ZColor.Ink
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .clickable { if (theyOwe) onOpenLend(person) else onOpenBorrow(person) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                        Text(niceName(person).take(1).uppercase(), color = if (theyOwe) ZColor.Income else ZColor.Warn,
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val back = total - bal
+                        MutedText(when {
+                            settled -> "settled"
+                            back >= 1 -> (if (theyOwe) "owes you · " else "you owe · ") + money(back) + " of " + money(total) + " back"
+                            else -> if (theyOwe) "owes you" else "you owe"
+                        }, 12)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(money(if (settled) total else bal), color = if (settled) ZColor.Muted else tone,
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        if (!settled && total > bal) {
+                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.width(64.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ZColor.Line)) {
+                                Box(Modifier.fillMaxWidth(((total - bal) / total).toFloat().coerceIn(0f, 1f)).fillMaxHeight()
+                                    .background(if (theyOwe) ZColor.Income else ZColor.Accent))
+                            }
+                        }
+                    }
                 }
-                borrowByPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
-                    PersonCard(person, total, bal, ZColor.Warn, "you owe") { onOpenBorrow(person) }
-                }
+            }
+            if (people.size > shown.size || peopleAll) {
+                Spacer(Modifier.height(8.dp))
+                Text(if (peopleAll) "Show less" else "See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp)).clickable { peopleAll = !peopleAll }.padding(4.dp))
             }
         }
     }
