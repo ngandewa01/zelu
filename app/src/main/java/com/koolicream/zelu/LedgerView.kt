@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -300,8 +299,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 ?.let { (c, up) -> infoRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c: " + money(up) + " more than this time last month",
                     "Why ›", ZColor.Accent, onOpenSpend) }
         }
-        if (s.income > 0) infoRow(Icons.Rounded.Payments, ZColor.Income, if (isMonth) "Money in this month" else "Money in",
-            money(s.income), ZColor.Ink, null)
         if (glanceAlerts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -316,10 +313,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }
         if (emiAmt > 0 || excludeEmi) {
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                MutedText(if (excludeEmi) "EMI left out" else "Includes " + money(emiAmt) + " of EMI", 12)
-                Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
-            }
+            Text(if (excludeEmi) "EMI left out · Include ›" else "Includes " + money(emiAmt) + " of EMI · Leave out ›",
+                color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onToggleEmi() })
         }
     }
 
@@ -330,12 +325,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val nowMonth = Dates.todayMonth()
         val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
         val thisMonth = open.filter { it.dueDate <= monthEnd }
-        val shownBills = thisMonth.take(3).ifEmpty { open.take(1) }
+        val shownBills = thisMonth.take(2).ifEmpty { open.take(1) }
         if (shownBills.isNotEmpty()) Panel {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpenDues() },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Eyebrow(if (thisMonth.isNotEmpty()) "Bills before month-end" else "Next bill")
-                Text(if (thisMonth.size > 3) "All ${thisMonth.size} ›" else "All dues ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (thisMonth.size > 2) "All ${thisMonth.size} ›" else "All dues ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             shownBills.forEach { r ->
                 val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
@@ -358,7 +353,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
     val snoozeCtx = LocalContext.current
     var snoozeTick by remember { mutableStateOf(0) }
-    (if (snoozeTick >= 0 && Storage.refundSnoozed(snoozeCtx)) null else refundSuggestions.firstOrNull())?.let { (rf, sp) ->
+    val refundAsk = if (snoozeTick >= 0 && Storage.refundSnoozed(snoozeCtx)) null else refundSuggestions.firstOrNull()
+    refundAsk?.let { (rf, sp) ->
         Panel {
             Eyebrow("Needs you · refund")
             Spacer(Modifier.height(6.dp))
@@ -391,7 +387,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     // Ask-me — tackle the biggest unknowns first.
     val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }.sortedByDescending { it.amount }
     val next = pending.firstOrNull()
-    if (next != null) {
+    // One "Needs you" card at a time keeps Home short: the refund question comes first.
+    if (next != null && refundAsk == null) {
         Panel {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
