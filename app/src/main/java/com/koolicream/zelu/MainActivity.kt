@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.DonutLarge
 import android.Manifest
@@ -61,6 +62,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -338,7 +340,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }) {
                             androidx.compose.material3.Icon(
                                 if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                                null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
+                                null, tint = Color(if (ZTheme.dark) 0xFF818CF8 else 0xFFF59E0B), modifier = Modifier.size(21.dp))
                         }
                         TopIcon("Filters", onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
                         TopIcon("Menu", onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
@@ -408,6 +410,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null,
+                            tint = Color(if (ZTheme.dark) 0xFF3DD171 else 0xFF22B455), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(summary, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(8.dp))

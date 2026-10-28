@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,23 +52,28 @@ import androidx.compose.ui.unit.sp
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
     Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
-    // Three equal buttons: Trends, Budgets and the day-by-day calendar.
-    @Composable fun RowScope.ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
-        Row(
-            Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (on) ZColor.OrangeSoft else Color.Transparent)
-                .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { onClick() }.padding(vertical = 9.dp),
-            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    // Three equal tiles: a bright icon on a round tile, the word under it.
+    @Composable fun RowScope.ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                        on: Boolean, onClick: () -> Unit) {
+        val tint = Color(if (ZTheme.dark) dark else light)
+        Column(
+            Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                .background(if (on) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card)
+                .border(if (on) 1.5.dp else 1.dp, if (on) tint else ZColor.Line, RoundedCornerShape(16.dp))
+                .clickable { onClick() }.padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            androidx.compose.material3.Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
+            Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.height(6.dp))
             FitText(label, ZColor.Ink, 13f, FontWeight.SemiBold)
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (onTrends != null) ToolButton(Icons.Rounded.BarChart, "Trends", false) { onTrends() }
-        ToolButton(Icons.Rounded.AccountBalanceWallet, "Budgets", false) { onEditBudgets() }
-        if (onCalendar != null) ToolButton(Icons.Rounded.CalendarMonth, "Calendar", calActive) { onCalendar() }
+        if (onTrends != null) ToolButton(Icons.Rounded.BarChart, "Trends", 0xFF06B6D4, 0xFF22D3EE, false) { onTrends() }
+        ToolButton(Icons.Rounded.AccountBalanceWallet, "Budgets", 0xFF8B5CF6, 0xFFA78BFA, false) { onEditBudgets() }
+        if (onCalendar != null) ToolButton(Icons.Rounded.CalendarMonth, "Calendar", 0xFFFF6B1A, 0xFFFF8A3D, calActive) { onCalendar() }
     }
     if (dayLabel != null) {
         Spacer(Modifier.height(10.dp))
