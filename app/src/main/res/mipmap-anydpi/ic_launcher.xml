@@ -18,21 +18,14 @@
             android:viewportWidth="72"
             android:viewportHeight="72">
             <path
-                android:pathData="M17,18 H55"
-                android:strokeColor="@color/zelu_brand_ink"
-                android:strokeLineCap="round"
-                android:strokeWidth="11" />
-            <path
-                android:pathData="M17,30 H43"
-                android:strokeColor="@color/zelu_brand_ink"
-                android:strokeLineCap="round"
-                android:strokeWidth="8" />
-            <path
-                android:pathData="M55,18 L17,54 H55"
+                android:pathData="M17,19 H54 L18,53 H38"
                 android:strokeColor="@color/zelu_brand_ink"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
-                android:strokeWidth="11" />
+                android:strokeWidth="12" />
+            <path
+                android:fillColor="@color/zelu_brand_ink"
+                android:pathData="M45.5,53 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
         </vector>
     </item>
 </layer-list>

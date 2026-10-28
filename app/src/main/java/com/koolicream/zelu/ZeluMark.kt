@@ -20,19 +20,18 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
-// The Zelu mark, as on the launcher icon (res/drawable/ic_launcher_fg.xml, colours in ic_launcher_colors.xml): a Z
-// whose doubled top bar echoes the rupee sign, dark ink on a marigold gradient. Drawn here for the app's own screens
-// and the home-screen widget. Coordinates are in a 72-unit square, the part of the launcher grid a phone shows.
+// The Zelu mark, as on the launcher icon (res/drawable/ic_launcher_fg.xml, colours in ic_launcher_colors.xml): a bold
+// Z whose bottom bar ends in a coin, dark ink on a marigold gradient. Drawn here for the app's own screens and the
+// home-screen widget. Coordinates are in a 72-unit square, the part of the launcher grid a phone shows.
 object ZeluMark {
     const val LIGHT = 0xFFFFC94D
     const val DEEP = 0xFFFF7A2E
     const val INK = 0xFF1E1611
 
-    // x1, y1, x2, y2, stroke width: the top bar and the shorter second bar.
-    val BARS = listOf(floatArrayOf(17f, 18f, 55f, 18f, 11f), floatArrayOf(17f, 30f, 43f, 30f, 8f))
-    // The diagonal and the bottom bar, one stroke.
-    val Z = floatArrayOf(55f, 18f, 17f, 54f, 55f, 54f)
-    const val Z_WIDTH = 11f
+    // The Z as one stroke through these points (x, y pairs), then the coin: centre x, y and radius.
+    val Z = floatArrayOf(17f, 19f, 54f, 19f, 18f, 53f, 38f, 53f)
+    const val Z_WIDTH = 12f
+    val COIN = floatArrayOf(52.5f, 53f, 7f)
 
     /** The mark on its rounded tile, for the widget (a widget can't draw Compose). */
     fun bitmap(px: Int): Bitmap {
@@ -45,12 +44,10 @@ object ZeluMark {
         val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = INK.toInt(); style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
         }
-        for (bar in BARS) {
-            ink.strokeWidth = bar[4] * k
-            c.drawLine(bar[0] * k, bar[1] * k, bar[2] * k, bar[3] * k, ink)
-        }
         ink.strokeWidth = Z_WIDTH * k
-        c.drawPath(android.graphics.Path().apply { moveTo(Z[0] * k, Z[1] * k); lineTo(Z[2] * k, Z[3] * k); lineTo(Z[4] * k, Z[5] * k) }, ink)
+        c.drawPath(android.graphics.Path().apply { moveTo(Z[0] * k, Z[1] * k); for (i in 2 until Z.size step 2) lineTo(Z[i] * k, Z[i + 1] * k) }, ink)
+        ink.style = Paint.Style.FILL
+        c.drawCircle(COIN[0] * k, COIN[1] * k, COIN[2] * k, ink)
         return b
     }
 }
@@ -60,11 +57,10 @@ object ZeluMark {
         val k = size.width / 72f
         drawRect(Brush.linearGradient(listOf(Color(ZeluMark.LIGHT), Color(ZeluMark.DEEP)), Offset.Zero, Offset(size.width, size.height)))
         val ink = Color(ZeluMark.INK)
-        for (bar in ZeluMark.BARS) {
-            drawLine(ink, Offset(bar[0] * k, bar[1] * k), Offset(bar[2] * k, bar[3] * k), bar[4] * k, StrokeCap.Round)
-        }
         val z = ZeluMark.Z
-        drawPath(Path().apply { moveTo(z[0] * k, z[1] * k); lineTo(z[2] * k, z[3] * k); lineTo(z[4] * k, z[5] * k) }, ink,
+        drawPath(Path().apply { moveTo(z[0] * k, z[1] * k); for (i in 2 until z.size step 2) lineTo(z[i] * k, z[i + 1] * k) }, ink,
             style = Stroke(width = ZeluMark.Z_WIDTH * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        val coin = ZeluMark.COIN
+        drawCircle(ink, coin[2] * k, Offset(coin[0] * k, coin[1] * k))
     }
 }
