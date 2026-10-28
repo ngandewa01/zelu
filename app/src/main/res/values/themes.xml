@@ -1,4 +1,7 @@
 <resources>
-    <!-- Plain framework theme; Compose supplies its own Material3 theming in code. -->
-    <style name="Theme.Zelu" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Plain framework theme; Compose supplies its own Material3 theming in code. The window starts in the start
+         screen's colour (light, or dark at night) so opening Zelu never flashes white. -->
+    <style name="Theme.Zelu" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_bg</item>
+    </style>
 </resources>

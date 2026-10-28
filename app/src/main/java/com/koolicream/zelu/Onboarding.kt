@@ -183,17 +183,10 @@ import kotlinx.coroutines.delay
                     Cta(if (accountsNext) "Check my accounts" else "Open Zelu", onNext)
                     Text("Read on this phone. Nothing was uploaded.", color = ZColor.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
                 }
-                else -> { // splash
-                    LogoMark(86f)
-                    Row {
-                        Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 38.sp)
-                        Text("lu", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = 38.sp)
-                    }
-                    Text("Every rupee, tracked on your phone.", color = ZColor.Muted,
-                        fontSize = 14.sp, textAlign = TextAlign.Center)
-                }
+                else -> SplashBrand()
             }
         }
+        if (stage == "splash") SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
     }
 }
 

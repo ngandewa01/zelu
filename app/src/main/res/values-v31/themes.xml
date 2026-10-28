@@ -1,0 +1,19 @@
+<resources>
+    <!-- Android 12+ shows its own launch screen first: the Zelu mark on the start screen's colour, then the app's
+         animated start screen takes over. The mark sits on an espresso circle. -->
+    <style name="Theme.Zelu" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_fg</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/zelu_brand_top</item>
+    </style>
+
+    <!-- Android 13+ remembers which of these to use next time, so the launch screen follows Zelu's own dark/light
+         switch rather than the phone's (MainActivity sets it). -->
+    <style name="Theme.Zelu.SplashLight" parent="Theme.Zelu">
+        <item name="android:windowSplashScreenBackground">@color/splash_bg_light</item>
+    </style>
+    <style name="Theme.Zelu.SplashDark" parent="Theme.Zelu">
+        <item name="android:windowSplashScreenBackground">@color/splash_bg_dark</item>
+    </style>
+</resources>

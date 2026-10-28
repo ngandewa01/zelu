@@ -130,6 +130,11 @@ class MainActivity : ComponentActivity() {
                 c.isAppearanceLightStatusBars = !ZTheme.dark
                 c.isAppearanceLightNavigationBars = !ZTheme.dark
             }
+            // Android 13+: the next launch screen follows Zelu's own dark/light switch, not the phone's.
+            androidx.compose.runtime.LaunchedEffect(ZTheme.dark) {
+                if (android.os.Build.VERSION.SDK_INT >= 33) splashScreen.setSplashScreenTheme(
+                    if (ZTheme.dark) R.style.Theme_Zelu_SplashDark else R.style.Theme_Zelu_SplashLight)
+            }
             // Sample data runs the whole app on its own storage; switching it rebuilds the app from scratch.
             val demoOn = Demo.on
             val appContext = androidx.compose.runtime.remember(demoOn) { if (demoOn) DemoContext(this) else this }
@@ -204,7 +209,7 @@ fun ZeluApp() {
                 return@LaunchedEffect
             }
             stage = "splash"
-            delay(1200)
+            delay(1600)                                      // the start animation takes about 1.5 s
             if (hasPerm()) { stage = "app"; rescan() } else if (rows.isNotEmpty()) { stage = "app"; smsOk = false } else { stage = "welcome" }
         }
 

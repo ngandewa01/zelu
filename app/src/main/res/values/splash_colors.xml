@@ -1,0 +1,6 @@
+<resources>
+    <!-- The start screen's background: Sand's paper colour (values-night has the dark one). -->
+    <color name="splash_bg">#F9F8F6</color>
+    <color name="splash_bg_light">#F9F8F6</color>
+    <color name="splash_bg_dark">#1E1B18</color>
+</resources>
