@@ -1,8 +1,17 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.HomeWork
+import androidx.compose.material.icons.rounded.BusinessCenter
+import androidx.compose.material.icons.rounded.RequestQuote
+import androidx.compose.material.icons.rounded.Paid
+import androidx.compose.material.icons.rounded.MoneyOff
+import androidx.compose.material.icons.rounded.LocalAtm
+import androidx.compose.material.icons.rounded.ShowChart
+import androidx.compose.material.icons.rounded.RealEstateAgent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BeachAccess
@@ -72,25 +81,26 @@ object CatIcons {
     )
 
     private val byCategory: Map<String, ImageVector> = mapOf(
+        "Unknown" to Icons.Rounded.PriorityHigh,
         "Food" to Icons.Rounded.Restaurant, "Groceries" to Icons.Rounded.ShoppingBasket,
         "Shopping" to Icons.Rounded.ShoppingCart, "Fuel" to Icons.Rounded.LocalGasStation,
         "Transport" to Icons.Rounded.DirectionsCar, "Travel" to Icons.Rounded.Flight,
         "Bills" to Icons.Rounded.Receipt, "Entertainment" to Icons.Rounded.Movie,
         "Health" to Icons.Rounded.Favorite, "Education" to Icons.Rounded.School,
-        "Rent" to Icons.Rounded.Home, "EMI" to Icons.Rounded.AccountBalance,
-        "Investment" to Icons.Rounded.TrendingUp, "Subscriptions" to Icons.Rounded.Autorenew,
-        "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.Payments,
+        "Rent" to Icons.Rounded.Home, "EMI" to Icons.Rounded.RealEstateAgent,
+        "Investment" to Icons.Rounded.ShowChart, "Subscriptions" to Icons.Rounded.Autorenew,
+        "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.LocalAtm,
         "Wallet" to Icons.Rounded.AccountBalanceWallet, "Home services" to Icons.Rounded.Handyman,
         "Donation" to Icons.Rounded.VolunteerActivism, "Transfer" to Icons.Rounded.SwapHoriz,
-        "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.AccountBalance, "Income" to Icons.Rounded.ArrowDownward,
+        "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.MoneyOff, "Income" to Icons.Rounded.ArrowDownward,
         "Refund" to Icons.Rounded.Undo, "Milk & Dairy" to Icons.Rounded.LocalDrink,
         "Internet" to Icons.Rounded.Wifi, "Mobile" to Icons.Rounded.PhoneAndroid,
         "Laundry" to Icons.Rounded.LocalLaundryService, "Maid" to Icons.Rounded.CleaningServices,
         "Domestic help" to Icons.Rounded.CleaningServices, "Gym" to Icons.Rounded.FitnessCenter,
         "FASTag" to Icons.Rounded.Toll,
-        "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.TrendingUp, "Dividend" to Icons.Rounded.TrendingUp,
-        "Reimbursement" to Icons.Rounded.Receipt, "Rewards" to Icons.Rounded.Star, "Business" to Icons.Rounded.Handyman,
-        "Gift" to Icons.Rounded.VolunteerActivism, "Rent received" to Icons.Rounded.Home,
+        "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.Paid, "Dividend" to Icons.Rounded.TrendingUp,
+        "Reimbursement" to Icons.Rounded.RequestQuote, "Rewards" to Icons.Rounded.Star, "Business" to Icons.Rounded.BusinessCenter,
+        "Gift" to Icons.Rounded.CardGiftcard, "Rent received" to Icons.Rounded.HomeWork,
     )
 
     // Icon for a category (standard or custom), or null to fall back to a letter.

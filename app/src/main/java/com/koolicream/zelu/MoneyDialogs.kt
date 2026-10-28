@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -120,8 +121,8 @@ internal fun CategoriesDialog(s: AppState) {
                 Text("Categories", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("Spending", catTab == 0, filled = true) { catTab = 0 }
-                    Chip("Income", catTab == 1, filled = true) { catTab = 1 }
+                    KindTab("spending", "Spending", catTab == 0) { catTab = 0 }
+                    KindTab("income", "Income", catTab == 1) { catTab = 1 }
                 }
                 Spacer(Modifier.height(10.dp))
                 if (catTab == 1) IncomeCategoriesBody() else {
@@ -279,7 +280,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 person = person,
                 lentRows = pRows,
                 repaidSoFar = repaid[person.lowercase().trim()] ?: 0.0,
-                onRowClick = { detailRow = it },
+                onRowClick = { lendPerson = null; detailRow = it },
                 onSave = { amt -> setRepayment(person.lowercase().trim(), amt) },
                 onDismiss = { lendPerson = null },
             )
@@ -291,7 +292,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 person = person,
                 lentRows = pRows,
                 repaidSoFar = repaid["b:" + person.lowercase().trim()] ?: 0.0,
-                onRowClick = { detailRow = it },
+                onRowClick = { borrowPerson = null; detailRow = it },
                 onSave = { amt -> setRepayment("b:" + person.lowercase().trim(), amt) },
                 onDismiss = { borrowPerson = null },
                 youOwe = true,

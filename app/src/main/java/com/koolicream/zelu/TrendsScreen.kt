@@ -1,5 +1,12 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Today
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -207,16 +214,17 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                 TopIcon("Filters", onClick = { filterOpen = true }, dot = acct != "All" || cat != "All", dotLabel = "some are on") { FunnelIcon() }
             }
             Spacer(Modifier.height(14.dp))
-            ChipScroll {
-                listOf("day" to "Day", "week" to "Week", "month" to "Month", "quarter" to "Quarter").forEach { (k, l) ->
-                    Chip(l, period == k, filled = true) { period = k; sel = -1 }
-                }
+            TabRowWrap {
+                IconTab(Icons.Rounded.Today, "Day", 0xFFFF6B1A, 0xFFFF8A3D, period == "day", compact = true, modifier = Modifier.weight(1f)) { period = "day"; sel = -1 }
+                IconTab(Icons.Rounded.DateRange, "Week", 0xFF3B82F6, 0xFF60A5FA, period == "week", compact = true, modifier = Modifier.weight(1f)) { period = "week"; sel = -1 }
+                IconTab(Icons.Rounded.CalendarMonth, "Month", 0xFF22B455, 0xFF3DD171, period == "month", compact = true, modifier = Modifier.weight(1f)) { period = "month"; sel = -1 }
+                IconTab(Icons.Rounded.Event, "Quarter", 0xFF8B5CF6, 0xFFA78BFA, period == "quarter", compact = true, modifier = Modifier.weight(1f)) { period = "quarter"; sel = -1 }
             }
             Spacer(Modifier.height(8.dp))
-            ChipScroll {
-                listOf("both" to "Spend & income", "saved" to "Saved", "cat" to "By category").forEach { (k, l) ->
-                    Chip(l, mode == k) { mode = k }
-                }
+            TabRowWrap {
+                IconTab(Icons.Rounded.SwapVert, "Spend & income", 0xFF0D9488, 0xFF2DD4BF, mode == "both", modifier = Modifier.weight(1f)) { mode = "both" }
+                IconTab(Icons.Rounded.Savings, "Saved", 0xFF22B455, 0xFF3DD171, mode == "saved", modifier = Modifier.weight(1f)) { mode = "saved" }
+                IconTab(Icons.Rounded.Category, "By category", 0xFF8B5CF6, 0xFFA78BFA, mode == "cat", modifier = Modifier.weight(1f)) { mode = "cat" }
             }
             Spacer(Modifier.height(14.dp))
             if (n == 0) {

@@ -1,5 +1,13 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FiberNew
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -87,10 +95,10 @@ import androidx.compose.ui.window.Dialog
         if (seen.size <= 6) 0 else payees.count { seen[it.name]?.startsWith(thisM) == true }.coerceAtMost(6)
     }
     Spacer(Modifier.height(12.dp))
-    ChipScroll {
-        Chip("Overview", ptab == "overview", true) { ptab = "overview" }
-        Chip("All", ptab == "all", true) { ptab = "all" }
-        Chip("New" + (if (freshN > 0) " ($freshN)" else ""), ptab == "new", true) { ptab = "new" }
+    TabRowWrap {
+        IconTab(Icons.Rounded.Leaderboard, "Overview", 0xFF3B82F6, 0xFF60A5FA, ptab == "overview", modifier = Modifier.weight(1f)) { ptab = "overview" }
+        IconTab(Icons.Rounded.Group, "All", 0xFF22B455, 0xFF3DD171, ptab == "all", modifier = Modifier.weight(1f)) { ptab = "all" }
+        IconTab(Icons.Rounded.FiberNew, "New", 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN, modifier = Modifier.weight(1f)) { ptab = "new" }
     }
     if (ptab == "overview") {
         // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
@@ -164,10 +172,10 @@ import androidx.compose.ui.window.Dialog
         placeholder = { Text("Search payee") }, modifier = Modifier.fillMaxWidth(),
     )
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
-    ChipScroll {
-        listOf("amount" to "Amount", "count" to "Most paid", "recent" to "Recent").forEach { (k, l) ->
-            Chip(l, sort == k, true) { sort = k }
-        }
+    TabRowWrap {
+        IconTab(Icons.Rounded.Payments, "Amount", 0xFF22B455, 0xFF3DD171, sort == "amount", modifier = Modifier.weight(1f)) { sort = "amount" }
+        IconTab(Icons.Rounded.Repeat, "Most paid", 0xFF3B82F6, 0xFF60A5FA, sort == "count", modifier = Modifier.weight(1f)) { sort = "count" }
+        IconTab(Icons.Rounded.Schedule, "Recent", 0xFFEAB308, 0xFFFACC15, sort == "recent", modifier = Modifier.weight(1f)) { sort = "recent" }
     } }
     val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
         .sortedByDescending { it.value }.map { it.key }
@@ -175,8 +183,8 @@ import androidx.compose.ui.window.Dialog
     androidx.compose.runtime.LaunchedEffect(query, sort, sel) { limit = 10 }
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
-        Chip("All", sel == "All", true) { catSel = "All" }
-        catsPresent.forEach { c -> Chip(customLabel(c), sel == c, true) { catSel = c } }
+        IconTab(Icons.Rounded.Apps, "All", 0xFF64748B, 0xFF94A3B8, sel == "All") { catSel = "All" }
+        catsPresent.forEach { c -> CatTab(c, sel == c) { catSel = c } }
     } }
 
     val q = query.trim().lowercase()
@@ -378,16 +386,16 @@ import androidx.compose.ui.window.Dialog
                 MutedText("Applies to every payment to $name:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
-                    CustomCats.names.forEach { c -> Chip(customLabel(c), false) { pick("expense", c) } }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> pick("expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    CustomCats.names.forEach { c -> CatTab(c, false) { pick("expense", c) } }
+                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Chip("Money in", false) { pick("income", "Income") }
-                    Chip("Lent", false) { pick("lent", "Lent") }
-                    Chip("Borrowed", false) { pick("borrowed", "Borrowed") }
-                    Chip("Ignore", false) { pick("ignore", "Ignore") }
+                    KindTab("income", "Money in", false) { pick("income", "Income") }
+                    KindTab("lent", "Lent", false) { pick("lent", "Lent") }
+                    KindTab("borrowed", "Borrowed", false) { pick("borrowed", "Borrowed") }
+                    KindTab("ignore", "Ignore", false) { pick("ignore", "Ignore") }
                 }
             }
             Spacer(Modifier.height(14.dp))

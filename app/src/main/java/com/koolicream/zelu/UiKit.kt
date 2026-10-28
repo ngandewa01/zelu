@@ -1,5 +1,17 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.MoveToInbox
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -191,8 +203,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 // label names the button for TalkBack; dotLabel says what the dot means when it shows.
 @Composable internal fun TopIcon(label: String, onClick: () -> Unit, dot: Boolean = false, dotLabel: String = "", content: @Composable () -> Unit) {
     Box(
-        Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }
+        Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile)
+            .border(1.dp, ZColor.Line, CircleShape).clickable { onClick() }
             .buttonLabel(if (dot && dotLabel.isNotEmpty()) "$label, $dotLabel" else label),
         contentAlignment = Alignment.Center,
     ) {
@@ -202,7 +214,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 }
 
 @Composable internal fun FunnelIcon() {
-    val c = ZColor.Ink
+    val c = Color(if (ZTheme.dark) 0xFFA78BFA else 0xFF8B5CF6)
     Canvas(Modifier.size(18.dp)) {
         val w = size.width; val h = size.height
         val path = Path().apply {
@@ -259,32 +271,35 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 }
 
 @Composable internal fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
+    // Each tab has its own colour on a round tile, like every other icon in the app; the chosen one gets a wash
+    // of its colour and a bold name.
+    data class Tab(val key: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
     val items = listOf(
-        Triple("ledger", "Home", Icons.Rounded.Home), Triple("spend", "Spend", Icons.Rounded.PieChart),
-        Triple("payees", "Payees", Icons.Rounded.People), Triple("dues", "Dues", Icons.Rounded.CalendarMonth),
+        Tab("ledger", "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), Tab("spend", "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
+        Tab("payees", "Payees", Icons.Rounded.People, 0xFF22B455, 0xFF3DD171), Tab("dues", "Dues", Icons.Rounded.ReceiptLong, 0xFFEAB308, 0xFFFACC15),
     )
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+            .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        items.forEach { (k, label, icon) ->
-            val on = view == k
-            val pill by animateColorAsState(if (on) ZColor.Ink else ZColor.Card, tween(200), label = "tab")
-            Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
-                    .background(pill)
-                    .clickable { onPick(k) }.padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center,
+        items.forEach { t ->
+            val on = view == t.key
+            val tint = Color(if (ZTheme.dark) t.dark else t.light)
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val tint by animateColorAsState(if (on) ZColor.Paper else ZColor.Muted, tween(200), label = "tabTint")
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(2.dp))
-                    Text(label, color = tint, fontSize = 12.sp,
-                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
+                Box(Modifier.size(32.dp).clip(CircleShape)
+                    .background(if (on) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.16f) else ZColor.Tile)
+                    .border(if (on) 1.5.dp else 1.dp, if (on) tint else ZColor.Line, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Icon(t.icon, null, tint = tint, modifier = Modifier.size(19.dp))
                 }
+                Spacer(Modifier.height(2.dp))
+                Text(t.label, color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 11.sp,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
             }
         }
     }
@@ -292,8 +307,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 
 @Composable internal fun NavButton(symbol: String, label: String = if (symbol == "‹") "Previous" else "Next", onClick: () -> Unit) {
     Box(
-        Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }.buttonLabel(label),
+        Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile)
+            .border(1.dp, ZColor.Line, CircleShape).clickable { onClick() }.buttonLabel(label),
         contentAlignment = Alignment.Center,
     ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp, modifier = Unspoken) }
 }
@@ -347,14 +362,14 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     }
 }
 
-// Small tinted tile with the category's icon ("All" gets a generic grid icon).
+// Small round tile with the category's icon in its colour ("All" gets a generic grid icon).
 @Composable internal fun CatDot(cat: String, size: androidx.compose.ui.unit.Dp) {
     val all = cat == "All" || cat.isBlank()
     val tint = if (all) ZColor.Ink else catColor(cat)
     val icon = if (all) Icons.Rounded.Category else CatIcons.forCategory(cat)
-    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(tint.copy(alpha = 0.18f)),
+    Box(Modifier.size(size).clip(CircleShape).background(ZColor.Tile),
         contentAlignment = Alignment.Center) {
-        if (icon != null) androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.58f))
+        if (icon != null) androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.6f))
         else Text(cat.take(1).uppercase(), color = tint, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.42f).sp)
     }
 }
@@ -524,3 +539,93 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 }
 
 // ---------- Trends ----------
+
+// A screen tab: a bright icon on a round tile (same look as the category icons), then the name and an optional
+// count (not shown: tabs carry only an icon and a name). The chosen tab takes a soft wash of its own icon colour with a matching outline.
+@Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                 selected: Boolean, count: Int = 0, compact: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) =
+    IconTab(icon, label, Color(if (ZTheme.dark) dark else light), selected, count, compact, modifier, onClick)
+
+@Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color,
+                                 selected: Boolean, count: Int = 0, compact: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val bg = if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card
+    val border = if (selected) tint else ZColor.Line
+    val tileSize = if (compact) 24.dp else 28.dp
+    Row(
+        modifier.clip(RoundedCornerShape(22.dp)).background(bg)
+            .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(22.dp))
+            .clickable { onClick() }.padding(start = 4.dp, end = if (compact) 10.dp else 12.dp, top = 4.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(tileSize).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
+        }
+        Spacer(Modifier.width(if (compact) 6.dp else 7.dp))
+        val fit = LocalTabFit.current
+        if (fit != null) Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = fit.size.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
+            modifier = Modifier.weight(1f, fill = false).drawWithContent { if (fit.settled) drawContent() },
+            onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true })
+        else FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
+            Modifier.weight(1f, fill = false))
+    }
+}
+
+
+// A category as an icon pill: its own icon and colour, the same as everywhere else in the app.
+@Composable internal fun CatTab(cat: String, selected: Boolean, onClick: () -> Unit) {
+    val icon = CatIcons.forCategory(cat)
+    IconTab(icon ?: Icons.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick = onClick)
+}
+
+// What a payment is, other than a spending category: the same icons and colours as the Needs-you answers.
+@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val (icon, light, dark) = when (kind) {
+        "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
+        "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
+        "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
+        "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
+        "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
+        "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
+        "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
+        else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
+    }
+    IconTab(icon, label, light, dark, selected, onClick = onClick)
+}
+
+// A row of tabs that always stays one line: the tabs share the width equally (each passes Modifier.weight(1f)).
+@Composable internal fun TabRowWrap(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    // All tabs in the row use one text size: if any name needs to shrink to fit, they all shrink together.
+    val fit = remember { TabFit() }
+    androidx.compose.runtime.CompositionLocalProvider(LocalTabFit provides fit) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    }
+}
+
+internal class TabFit { var size by mutableStateOf(13f); var settled by mutableStateOf(false) }
+internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> { null }
+
+// A round answer button: a bright icon in a circle with its word underneath (used for the Needs-you answers,
+// so all five fit in one row).
+@Composable internal fun ActionCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                      selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val tint = Color(if (ZTheme.dark) dark else light)
+    Column(modifier.clip(RoundedCornerShape(14.dp)).clickable { onClick() }.padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Tile)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) tint else ZColor.Line, CircleShape), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        FitText(label, if (selected) ZColor.Ink else ZColor.InkSoft, 12f, if (selected) FontWeight.Bold else FontWeight.Medium)
+    }
+}
+
+// One line of text that shrinks a little until it fits, so a tab or button name is never cut off ("Acc…").
+@Composable internal fun FitText(text: String, color: Color, size: Float, weight: FontWeight, modifier: Modifier = Modifier, minSize: Float = 9f) {
+    var fs by remember(text, size) { mutableStateOf(size) }
+    var ready by remember(text, size) { mutableStateOf(false) }
+    Text(text, color = color, fontSize = fs.sp, fontWeight = weight, maxLines = 1, softWrap = false,
+        modifier = modifier.drawWithContent { if (ready) drawContent() },
+        onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true })
+}

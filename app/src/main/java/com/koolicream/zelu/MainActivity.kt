@@ -1,5 +1,8 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.DonutLarge
 import android.Manifest
 import android.content.Context
 import android.os.Build
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
@@ -42,6 +46,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +62,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -334,7 +340,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }) {
                             androidx.compose.material3.Icon(
                                 if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                                null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
+                                null, tint = Color(if (ZTheme.dark) 0xFF818CF8 else 0xFFF59E0B), modifier = Modifier.size(21.dp))
                         }
                         TopIcon("Filters", onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
                         TopIcon("Menu", onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
@@ -404,6 +410,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null,
+                            tint = Color(if (ZTheme.dark) 0xFF3DD171 else 0xFF22B455), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(summary, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(8.dp))
@@ -532,7 +541,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         val fixedNote = when {
                             emiSpent <= 0 || cat == "EMI" -> null
                             excludeEmi -> "Leaves out " + money(emiSpent) + " of EMI"
-                            else -> "Includes " + money(emiSpent) + " of EMI. Turn on Exclude EMI in the filter to leave it out."
+                            else -> "Includes " + money(emiSpent) + " of EMI"
                         }
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
@@ -543,10 +552,10 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             onClearDay = { daySel = 0 },
                             tabs = {
                                 Spacer(Modifier.height(12.dp))
-                                ChipScroll {
-                                    listOf("Overview", "Categories", "Patterns").forEachIndexed { i, t ->
-                                        Chip(t, spendTab == i, filled = true) { spendTab = i }
-                                    }
+                                TabRowWrap {
+                                    IconTab(Icons.Rounded.DonutLarge, "Overview", 0xFFFF6B1A, 0xFFFF8A3D, spendTab == 0, modifier = Modifier.weight(1f)) { spendTab = 0 }
+                                    IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, spendTab == 1, modifier = Modifier.weight(1f)) { spendTab = 1 }
+                                    IconTab(Icons.Rounded.Insights, "Patterns", 0xFF06B6D4, 0xFF22D3EE, spendTab == 2, modifier = Modifier.weight(1f)) { spendTab = 2 }
                                 }
                             },
                             showSummary = spendTab == 0,
@@ -592,10 +601,17 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
                         onRemove = { id -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
-                            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
+                            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
+                        adding = addingBill, setAdding = { addingBill = it })
                 }
                 }
             }
+            // Dues: add a bill from a round + button that stays put while the list scrolls.
+            if (view == "dues") Box(
+                Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.navigationBars).padding(end = 18.dp, bottom = 84.dp)
+                    .size(56.dp).clip(CircleShape).background(ZColor.Accent).clickable { addingBill = true }.buttonLabel("Add bill"),
+                contentAlignment = Alignment.Center,
+            ) { androidx.compose.material3.Icon(Icons.Rounded.Add, null, tint = ZColor.AccentInk, modifier = Modifier.size(28.dp)) }
             BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
             undo?.let { u ->
                 LaunchedEffect(u) { delay(6000); if (undo === u) undo = null }

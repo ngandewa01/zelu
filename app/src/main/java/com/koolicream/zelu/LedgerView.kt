@@ -1,5 +1,13 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.MoveToInbox
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.RealEstateAgent
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,6 +22,9 @@ import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Home
@@ -280,6 +291,30 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
 
+        // A bill that is overdue or due in the next 3 days shows here as one line; the full list lives on Dues.
+        run {
+            val soonEnd = Dates.shiftDays(today, 3)
+            val soon = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate <= soonEnd &&
+                r.dueDate.take(7) >= Dates.shiftMonth(Dates.todayMonth(), -1) }.sortedBy { it.dueDate }
+            soon.firstOrNull()?.let { r ->
+                val inDays = Dates.daysBetween(today, r.dueDate)
+                val name = niceName(r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill")
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Tile).clickable { onOpenDues() }
+                    .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Schedule, null, tint = if (inDays < 0) ZColor.Warn else Color(0xFFEAB308),
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    Text(" " + money(r.amount) + " · " + when { inDays < 0 -> "overdue"; inDays == 0 -> "due today"; inDays == 1 -> "due tomorrow"; else -> "due in $inDays days" } +
+                        (if (soon.size > 1) " · +${soon.size - 1}" else ""),
+                        color = if (inDays < 0) ZColor.Warn else ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                    Spacer(Modifier.weight(1f))
+                    Text("›", color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         // A quiet line: icon, words, and an optional link. No box, so the card stays light.
         @Composable fun noteRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String,
                                 action: String?, onClick: (() -> Unit)?) {
@@ -338,40 +373,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         if (!(liveMonth && budget > 0)) emiSwitch()
     }
 
-    // Bills before month-end (or the next one when none are left this month).
-    run {
-        val today = Dates.today()
-        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
-        val open = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate.take(7) >= Dates.todayMonth() }
-            .sortedBy { it.dueDate }
-        val nowMonth = Dates.todayMonth()
-        val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
-        val thisMonth = open.filter { it.dueDate <= monthEnd }
-        val shownBills = thisMonth.take(2).ifEmpty { open.take(1) }
-        if (shownBills.isNotEmpty()) Panel {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpenDues() },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(if (thisMonth.isNotEmpty()) "Bills before month-end" else "Next bill")
-                Text(if (thisMonth.size > 2) "All ${thisMonth.size} ›" else "All dues ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            shownBills.forEach { r ->
-                val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
-                val inDays = Dates.daysBetween(today, r.dueDate)
-                val whenText = "Due " + prettyDay(r.dueDate) + when { inDays < 0 -> " · overdue"; inDays == 0 -> " · today"; inDays == 1 -> " · tomorrow"; inDays <= 9 -> " · in $inDays days"; else -> "" }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(name, "", 34.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText(whenText + if (isCardBill(r)) " · card bill" else "", 12)
-                    }
-                    Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-
     // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
     val snoozeCtx = LocalContext.current
     var snoozeTick by remember { mutableStateOf(0) }
@@ -423,16 +424,14 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             MutedText(money(next.amount) + " · " + prettyDate(next.date) + if (next.account.isNotBlank()) " · " + next.account else "", 13)
             Spacer(Modifier.height(10.dp))
-            // Two short rows, so every answer is visible without scrolling sideways.
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Spending", false, filled = true) { setAskOpen(true) }
-                Chip("Money in", false) { decide(next.id, "income", "Income", next.counterparty, false) }
-                Chip("Lent", false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Borrowed", false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
-                Chip("Ignore", false) { decide(next.id, "ignore", "Ignore", null, false) }
+            // Five round answers in one row: the icon in a circle, the word under it.
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth()) {
+                ActionCircle(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
+                ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, "income", "Income", next.counterparty, false) }
+                ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, "lent", "Lent", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.MoveToInbox, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, "ignore", "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
@@ -440,12 +439,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
-                        Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
                     CustomCats.names.forEach { c ->
-                        Chip(customLabel(c), false) { decide(next.id, "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, "expense", c, next.counterparty, true) }
                     }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
+                    KindTab("new", "New", false) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
                 }
             }
         }
@@ -468,13 +467,22 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
                         .clickable { onRowClick(t) }.padding(12.dp),
                 ) {
-                    MerchantTile(t.counterparty ?: "", t.category, 30.dp, t.kind)
+                    // Like a bank app's card: icon, which way the money went, name, amount and when.
+                    val moneyIn = t.kind == "income" || t.kind == "refund" || t.kind == "borrowed"
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        MerchantTile(t.counterparty ?: "", t.category, 36.dp, t.kind)
+                        Spacer(Modifier.weight(1f))
+                        androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
+                            if (moneyIn) "Money in" else "Spent", tint = if (moneyIn) ZColor.Income else ZColor.Muted,
+                            modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(rowTitle(t), color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (t.direction == "credit") money(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
+                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    MutedText(prettyDay(t.date), 11)
+                    val at = TxnTime.label(t)
+                    MutedText((if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
                 }
             }
         }
@@ -510,39 +518,35 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
-            else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasAcc) Chip("Accounts", moneyTabNow == "accounts") { moneyTab = "accounts" }
-                if (hasCard) Chip("Cards", moneyTabNow == "cards") { moneyTab = "cards" }
-                if (hasLoan) Chip("Loans", moneyTabNow == "loans") { moneyTab = "loans" }
-            }
+            // The tabs share the row equally, so they stay on one line next to the eye button.
+            else Box(Modifier.weight(1f)) { TabRowWrap {
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
+            } }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
                 if (Privacy.hideBalance) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null,
                 tint = if (Privacy.hideBalance) ZColor.Accent else ZColor.Muted,
-                modifier = Modifier.size(34.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }
-                    .buttonLabel(if (Privacy.hideBalance) "Show balances" else "Hide balances").padding(6.dp))
+                modifier = Modifier.size(30.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }
+                    .buttonLabel(if (Privacy.hideBalance) "Show balances" else "Hide balances").padding(5.dp))
         }
     }
     if (hasAcc && moneyTabNow == "accounts") {
         Panel {
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clickable { allAccountsOpen = true },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                MutedText("Total balance", 12)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (balances.isNotEmpty())
-                        Text(if (Privacy.hideBalance) Privacy.MASK else money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans && !it.contains(" DC ") }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Spacer(Modifier.height(10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 acctNames.sortedBy { it in closedLoans }.forEach { a ->
                     ClosableFrame(a in closedLoans, 16.dp, Modifier.width(280.dp), onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
                     }) { AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth()) }
+                }
+                // Every account, with where each one came from, sits at the end of the strip.
+                Box(Modifier.align(Alignment.CenterVertically).clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { allAccountsOpen = true }
+                    .padding(horizontal = 18.dp, vertical = 14.dp)) {
+                    Text("See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -637,40 +641,63 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Panel {
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                loanGroups.entries.sortedWith(compareBy<Map.Entry<String, List<Row>>> { it.key in closedLoans }
-                    .thenByDescending { e -> e.value.maxOf { it.date } }).forEach { (name, rs) ->
+            // Open loans as cards: the EMI is the one big number. Closed ones fold into a line each underneath.
+            val byLatest = loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }
+            fun loanTitle(name: String): Pair<String, String> {
+                val m = Regex("(.*)\\bLoan (\\d{3,4})$").find(name)
+                return if (m == null) niceName(name) to "Loan" else (niceName(m.groupValues[1].trim()) + " loan") to ("•• " + m.groupValues[2])
+            }
+            val openLoans = byLatest.filter { it.key !in closedLoans }
+            if (openLoans.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                openLoans.forEach { (name, rs) ->
                     val last = rs.maxByOrNull { it.date }!!
                     val logo = bankLogoRes(name)
-                    val closed = name in closedLoans
-                    // A closed loan is frozen: cool blue instead of the usual card colours.
-                    val ice = Color(0xFF6FA8D6)
-                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp))
-                        .background(if (closed) ice.copy(alpha = 0.13f) else ZColor.Paper)
-                        .border(1.dp, if (closed) ice.copy(alpha = 0.55f) else ZColor.Line, RoundedCornerShape(16.dp))
-                        .clickable { onDrill(name, rs.newestFirst()) }.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                                if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
-                                    contentDescription = null, modifier = Modifier.size(22.dp))
-                                else BankMark(name)
+                    val (title, sub) = loanTitle(name)
+                    ClosableFrame(false, 16.dp, Modifier.width(260.dp), onToggle = {
+                        Storage.setLoanClosed(acctCtx, name, true); closedLoans = Storage.closedLoans(acctCtx)
+                    }) {
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { onDrill(name, rs.newestFirst()) }.padding(14.dp)) {
+                            Row(Modifier.padding(end = 30.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White).border(1.dp, ZColor.Line, RoundedCornerShape(11.dp)),
+                                    contentAlignment = Alignment.Center) {
+                                    if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
+                                        contentDescription = null, modifier = Modifier.size(26.dp))
+                                    else BankMark(name)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(sub, color = ZColor.Muted, fontSize = 12.sp)
+                                }
                             }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (closed) Text("❄ Closed", color = ice, fontSize = 11.sp, fontWeight = FontWeight.Bold) else MutedText("Loan", 11)
+                            Spacer(Modifier.height(12.dp))
+                            Text("EMI every month", color = ZColor.Muted, fontSize = 12.sp)
+                            Text(privateMoney(last.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${rs.size} paid", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(" · " + privateMoney(rs.sumOf { it.amount }), color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Text("last " + prettyDay(last.date), color = ZColor.Muted, fontSize = 12.sp)
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        MutedText(if (closed) "Last EMI" else "Monthly EMI", 11)
-                        Text(money(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        MutedText("Last paid " + prettyDate(last.date), 11)
-                        MutedText(plural(rs.size, "EMI", "EMIs") + " · " + money(rs.sumOf { it.amount }) + " paid", 11)
-                        Spacer(Modifier.height(8.dp))
-                        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { Storage.setLoanClosed(acctCtx, name, !closed); closedLoans = Storage.closedLoans(acctCtx) })
                     }
+                }
+            }
+            byLatest.filter { it.key in closedLoans }.forEach { (name, rs) ->
+                val ice = Color(0xFF6FA8D6)
+                val (title, sub) = loanTitle(name)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                    .clickable { onDrill(name, rs.newestFirst()) }.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("❄", color = ice, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("$title $sub · closed · ${plural(rs.size, "EMI", "EMIs")}", color = ZColor.Muted, fontSize = 13.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text("Reopen", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { Storage.setLoanClosed(acctCtx, name, false); closedLoans = Storage.closedLoans(acctCtx) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp))
                 }
             }
         }
@@ -693,22 +720,62 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
                 Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
+        // One compact row per person: who, which way, how much is left and how much has come back.
+        val owe = borrowByPerson.sumOf { it.third }
+        val people = byPerson.map { Triple(it, true, it.third <= 0.0) } + borrowByPerson.map { Triple(it, false, it.third <= 0.0) }
+        val open = people.filter { !it.third }
+        var peopleAll by remember { mutableStateOf(false) }
         Panel {
-            Eyebrow("People · you get / you pay")
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Owed to you", money(owedToYou), ZColor.Income)
-                Fact("You owe", money(borrowByPerson.sumOf { it.third }), ZColor.Warn)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("People")
+                Spacer(Modifier.weight(1f))
+                if (owedToYou > 0) Text(money(owedToYou), color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (owedToYou > 0) Text(" to get", color = ZColor.Muted, fontSize = 13.sp)
+                if (owedToYou > 0 && owe > 0) Text(" · ", color = ZColor.Muted, fontSize = 13.sp)
+                if (owe > 0) Text(money(owe), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (owe > 0) Text(" to pay", color = ZColor.Muted, fontSize = 13.sp)
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Open balances first, settled ones at the end.
-                byPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
-                    PersonCard(person, total, bal, ZColor.Income, "owes you") { onOpenLend(person) }
+            val shown = if (peopleAll) people.sortedBy { it.third } else open.take(3)
+            shown.forEach { (p, theyOwe, settled) ->
+                val (person, total, bal) = p
+                val tone = if (theyOwe) ZColor.Income else ZColor.Ink
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .clickable { if (theyOwe) onOpenLend(person) else onOpenBorrow(person) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                        Text(niceName(person).take(1).uppercase(), color = if (theyOwe) ZColor.Income else ZColor.Warn,
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    // Name across the full width, with how much came back under it; the amount and who owes whom on the right.
+                    Column(Modifier.weight(1f)) {
+                        Text(niceName(person), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val back = total - bal
+                        if (!settled && back >= 1) {
+                            Spacer(Modifier.height(5.dp))
+                            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(ZColor.Line)) {
+                                Box(Modifier.fillMaxWidth((back / total).toFloat().coerceIn(0f, 1f)).fillMaxHeight()
+                                    .background(if (theyOwe) ZColor.Income else ZColor.Accent))
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(money(back) + " of " + money(total) + " back", color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                        } else Text(if (settled) "Settled" else if (theyOwe) "Lent " + money(total) else "Borrowed " + money(total),
+                            color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(money(if (settled) total else bal), color = if (settled) ZColor.Muted else tone,
+                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(if (settled) "settled" else if (theyOwe) "owes you" else "you owe", color = ZColor.Muted, fontSize = 12.sp)
+                    }
                 }
-                borrowByPerson.sortedBy { it.third <= 0.0 }.forEach { (person, total, bal) ->
-                    PersonCard(person, total, bal, ZColor.Warn, "you owe") { onOpenBorrow(person) }
-                }
+            }
+            if (people.size > shown.size || peopleAll) {
+                Spacer(Modifier.height(8.dp))
+                Text(if (peopleAll) "Show less" else "See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp)).clickable { peopleAll = !peopleAll }.padding(4.dp))
             }
         }
     }
