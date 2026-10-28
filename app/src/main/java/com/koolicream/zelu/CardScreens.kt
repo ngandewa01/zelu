@@ -148,9 +148,10 @@ import java.util.Locale
             }
             Spacer(Modifier.height(20.dp))
             val track = ZColor.Line; val arc = if (budget > 0 && spent > budget) ZColor.Warn else ZColor.Accent
-            val frac = if (budget > 0) (spent / budget).coerceIn(0.0, 1.0).toFloat() else if (spent > 0) 1f else 0f
-            Box(Modifier.align(Alignment.CenterHorizontally).size(190.dp), contentAlignment = Alignment.Center) {
-                Canvas(Modifier.fillMaxSize()) {
+            val frac = if (budget > 0) (spent / budget).coerceIn(0.0, 1.0).toFloat() else 0f
+            // The ring shows spending against this card's budget; with no budget there is nothing to fill, so just the number.
+            Box(Modifier.align(Alignment.CenterHorizontally).size(if (budget > 0) 190.dp else 110.dp), contentAlignment = Alignment.Center) {
+                if (budget > 0) Canvas(Modifier.fillMaxSize()) {
                     val w = 16f
                     val sz = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
                     val tl = androidx.compose.ui.geometry.Offset(w / 2, w / 2)
@@ -158,7 +159,10 @@ import java.util.Locale
                     if (frac > 0f) drawArc(arc, -90f, 360f * frac, false, tl, sz, style = Stroke(width = w, cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    MutedText("Spent", 12)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MutedText("Spent", 12)
+                        InfoDot("Card spends count in your totals as they happen. Paying the card bill later is a transfer, so it isn't counted again.")
+                    }
                     Text(money(spent), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     if (budget > 0) MutedText("of " + money(budget), 12)
                 }
