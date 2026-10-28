@@ -133,13 +133,14 @@ import androidx.compose.ui.unit.sp
             Spacer(Modifier.height(16.dp))
             Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Eyebrow("What changed")
+                InfoDot("Compared with $prevLabel.")
+                Spacer(Modifier.weight(1f))
                 val ch = ((total - prevTotal) / prevTotal * 100).toInt()
-                if (ch != 0) TonePill((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% overall",
-                    if (ch > 0) ZColor.Warn else ZColor.Income, if (ch > 0) ZColor.WarnSoft else ZColor.IncomeSoft)
+                if (ch != 0) Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "%", color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
-            MutedText("Compared with $prevLabel", 12)
             moves.forEach { (c, v, before) ->
                 val d = v - before
                 Spacer(Modifier.height(10.dp))
@@ -155,7 +156,8 @@ import androidx.compose.ui.unit.sp
                             d > 0 -> "+" + money(d)
                             else -> "−" + money(-d)
                         },
-                        color = if (d > 0) ZColor.Warn else ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        // More spending is shown plainly, less in green: a change, not an alarm.
+                        color = if (d > 0) ZColor.InkSoft else ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
@@ -185,7 +187,7 @@ import androidx.compose.ui.unit.sp
                     if (dayLabel != null) {
                     } else if (prev != null && prev > 0) {
                         val ch = ((v - prev) / prev * 100).toInt()
-                        if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.Warn, ZColor.WarnSoft)
+                        if (ch > 0) TonePill("▲ $ch% vs last month", ZColor.InkSoft, ZColor.Paper)
                         else if (ch < 0) TonePill("▼ ${kotlin.math.abs(ch)}% vs last month", ZColor.Income, ZColor.IncomeSoft)
                         else TonePill("• same as last month", ZColor.Muted, ZColor.Paper)
                     } else {

@@ -92,16 +92,11 @@ import java.util.Calendar
     val overdueList = pending.filter { it.dueDate < today }
     val weekList = pending.filter { it.dueDate >= today && it.dueDate <= weekEnd }
     val laterList = pending.filter { it.dueDate > weekEnd }
-    val dim = Dates.daysInMonth(curMonth)
-    val spentSoFar = rows.filter { it.kind == "expense" && it.date.startsWith(curMonth) }.sumOf { it.amount }
-    val dueLeft = pending.filter { it.dueDate.take(7) == curMonth }.sumOf { it.amount }
-    val typicalDaily = remember(rows) { Analytics.typicalDaily(rows, today) }
-    val daysLeft = (dim - Dates.dayOfMonth()).coerceAtLeast(0)
-    val projected = spentSoFar + dueLeft + typicalDaily * daysLeft
-    if (duesTab == 0 && (pending.isNotEmpty() || spentSoFar > 0)) Panel {
-        if (pending.isNotEmpty()) {
+    if (duesTab == 0 && pending.isNotEmpty()) Panel {
+        run {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Fact("Overdue", money(overdueList.sumOf { it.amount }))
+            val od = overdueList.sumOf { it.amount }
+            Fact("Overdue", money(od), if (od > 0) ZColor.Warn else ZColor.Ink)
             Fact("Next 7 days", money(weekList.sumOf { it.amount }))
             Fact("Later", money(laterList.sumOf { it.amount }))
         }
@@ -114,8 +109,9 @@ import java.util.Calendar
                 val letter = "SMTWTFS"[Dates.parse(d).get(java.util.Calendar.DAY_OF_WEEK) - 1].toString()
                 val dayN = d.substring(8, 10).toInt()
                 val shape = RoundedCornerShape(10.dp)
-                Column(Modifier.width(44.dp).clip(shape)
-                    .background(if (due.isNotEmpty()) ZColor.Warn.copy(alpha = 0.14f) else ZColor.Paper)
+                Column(Modifier.width(50.dp).clip(shape)
+                    .background(if (due.isNotEmpty()) ZColor.AmberSoft else ZColor.Paper)
+                    .then(if (due.isNotEmpty()) Modifier.border(1.dp, ZColor.AmberInk.copy(alpha = 0.5f), shape) else Modifier)
                     .then(if (i == 0) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
                     .then(if (due.isNotEmpty()) Modifier.clickable { detail = due.first() } else Modifier)
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -124,21 +120,12 @@ import java.util.Calendar
                         fontWeight = if (i == 0 || dayN == 1) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
                     Text(dayN.toString(), color = ZColor.Ink, fontSize = 15.sp,
                         fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
-                    Text(if (due.isNotEmpty()) shortAmt(due.sumOf { it.amount }) else "·",
-                        color = if (due.isNotEmpty()) ZColor.Warn else ZColor.Line, fontSize = 10.sp, maxLines = 1)
+                    // A bill day shows its amount; an empty day shows nothing, so bill days stand out.
+                    Text(if (due.isNotEmpty()) "₹" + shortAmt(due.sumOf { it.amount }) else " ",
+                        color = ZColor.AmberInk, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        MutedText("Swipe for the next 30 days. Tap an orange day to open its bill.", 11)
-        }
-        if (spentSoFar > 0) {
-            if (pending.isNotEmpty()) Spacer(Modifier.height(14.dp))
-            Eyebrow("Expected by month end")
-            Spacer(Modifier.height(4.dp))
-            Text("≈ " + money(projected), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            MutedText("${money(spentSoFar)} spent" + (if (dueLeft > 0) " + ${money(dueLeft)} dues left" else "") +
-                (if (daysLeft > 0 && typicalDaily > 0) " + about ${money(typicalDaily)} a day for $daysLeft more days" else ""), 12)
         }
     }
 
@@ -148,12 +135,12 @@ import java.util.Calendar
         MutedText("Nothing due. Bill and EMI reminders from your SMS show up here.", 13)
     } else {
         Spacer(Modifier.height(4.dp))
-        MutedText("Tap the circle to mark a bill paid.", 12)
+        OnceHint("dues_tick", "Tap ✓ when a bill is paid.")
         @Composable fun group(label: String, list: List<Reminder>, overdue: Boolean) {
             if (list.isEmpty()) return
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Eyebrow(label)
+                Text(label.uppercase(), color = if (overdue) ZColor.Warn else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 MutedText(money(list.sumOf { it.amount }), 12)
             }
             list.forEach { r -> ReminderCard(r, overdue = overdue, onOpen = { detail = r }) { onMark(r.id, true) } }
@@ -179,11 +166,13 @@ import java.util.Calendar
     if (duesTab == 2 && mandates.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Eyebrow("Autopay & mandates")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Autopay & mandates")
+                InfoDot("UPI AutoPay set up from your bank messages. These debit on their own, so keep money in the account.")
+            }
             MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
         }
-        Spacer(Modifier.height(4.dp))
-        MutedText("UPI AutoPay set up from your bank messages. These debit on their own, so keep money in the account.", 12)
+
         Spacer(Modifier.height(6.dp))
         mandates.forEach { md ->
             val live = md.status == "active" || md.status == "scheduled"
@@ -217,8 +206,6 @@ import java.util.Calendar
             }
         }
     }
-    Spacer(Modifier.height(6.dp))
-    MutedText("Reminders are never counted as spending — only money that actually leaves your bank is.", 11)
 
     mandateOpen?.let { md ->
         Dialog(onDismissRequest = { mandateOpen = null }) {
@@ -325,40 +312,33 @@ import java.util.Calendar
     }
 }
 
+// One bill on one compact line: name with "Due 2 Oct · Monthly" under it, the amount, and the ✓ to mark it paid.
 @Composable internal fun ReminderCard(r: Reminder, overdue: Boolean, paid: Boolean = false, onOpen: () -> Unit = {}, onTick: () -> Unit) {
+    val name = niceName(r.counterparty?.takeIf { it.isNotBlank() } ?: r.account.ifBlank { "Bill" })
     Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp))
-            .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
-            .clickable { onOpen() }.padding(14.dp),
+        Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp))
+            .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
+            .clickable { onOpen() }.padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MerchantTile(r.counterparty ?: "Bill", "Bills", 40.dp)
+        MerchantTile(name, "Bills", 34.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(r.counterparty?.takeIf { it.isNotBlank() } ?: r.account.ifBlank { "Bill" },
-                color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(money(r.amount), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                if (r.minAmount != null) { Spacer(Modifier.width(6.dp)); MutedText("Min ${money(r.minAmount)}", 12) }
-            }
-            Spacer(Modifier.height(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text((if (overdue) "Due " else "") + prettyDate(r.dueDate),
-                    color = if (overdue) ZColor.Warn else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                if (r.recurring) { Spacer(Modifier.width(8.dp)); Pill("Monthly") }
-                if (r.account.isNotBlank()) { Spacer(Modifier.width(8.dp)); MutedText(r.account, 11) }
-            }
+            Text(name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val acct = r.account.takeIf { it.isNotBlank() && !it.equals(r.counterparty ?: "", ignoreCase = true) }
+            MutedText(listOfNotNull("Due " + prettyDate(r.dueDate), if (r.recurring) "Monthly" else null, acct,
+                r.minAmount?.let { "min " + money(it) }).joinToString(" · "), 12)
         }
+        Spacer(Modifier.width(8.dp))
+        Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.width(10.dp))
         Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
+            Modifier.size(32.dp).clip(RoundedCornerShape(16.dp))
                 .background(if (paid) ZColor.Income.copy(alpha = 0.15f) else Color.Transparent)
-                .border(1.5.dp, if (paid) ZColor.Income else if (overdue) ZColor.Warn else ZColor.Line, RoundedCornerShape(17.dp))
+                .border(1.5.dp, if (paid) ZColor.Income else ZColor.Line, RoundedCornerShape(16.dp))
                 .checkRow(paid) { onTick() }.spoken("Bill paid"),
             contentAlignment = Alignment.Center,
-        ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Unspoken) }
+        ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Unspoken) }
     }
 }
 

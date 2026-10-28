@@ -30,6 +30,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -311,6 +314,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
             pageAlpha.snapTo(0.35f); pageAlpha.animateTo(1f, tween(180))
         }
         Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
+            // Page colour behind the status bar, drawn on top, so scrolled content never runs under the clock.
+            Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(ZColor.Paper)
+                .align(Alignment.TopCenter).zIndex(1f))
             Column(
                 Modifier.fillMaxSize().verticalScroll(pageScroll)
                     .windowInsetsPadding(WindowInsets.navigationBars)
@@ -387,7 +393,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 }
                 val advActive = type != "all" || cat != "All" || query.isNotBlank()
                 val summary = rangeLabel
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                // Dues always shows the next 30 days, so the month picker would only confuse there.
+                if (view != "dues") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     if (period == "month") NavButton("‹", "Previous month") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                     Row(

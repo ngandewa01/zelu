@@ -130,12 +130,12 @@ import androidx.compose.ui.window.Dialog
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Everyone else", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        MutedText(plural(restN, "payee", "payees") + " · " + share(restAmt) + " of spend · tap to see all", 11)
+                        MutedText(plural(restN, "payee", "payees") + " · " + share(restAmt) + " of spend ›", 11)
                     }
                     Text(money(restAmt), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            MutedText("Tap a payee to see its payments, rename it or change its category.", 11)
+            OnceHint("payee_tap", "Tap a payee to see its payments or rename it.")
         }
         val freq = payees.sortedByDescending { it.count }.take(4)
         if (freq.isNotEmpty() && freq.first().count > 1) {
@@ -147,7 +147,7 @@ import androidx.compose.ui.window.Dialog
                     Column(Modifier.width(124.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
                         .clickable { open = p.name }.padding(12.dp)) {
                         Text(p.count.toString() + "×", color = ZColor.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(p.name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(niceName(p.name), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         MutedText(money(p.amount), 12)
                     }
                 }
@@ -207,7 +207,7 @@ import androidx.compose.ui.window.Dialog
                         MerchantTile(p.name, c0, 36.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(p.name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            Text(niceName(p.name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             MutedText("${p.count} ${if (p.count == 1) "payment" else "payments"} · ${p.cats.joinToString(", ")}", 11)
                         }
@@ -245,7 +245,7 @@ import androidx.compose.ui.window.Dialog
                     MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown", 30.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(p.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(niceName(p.name), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         MutedText(prettyDate(firstSeen[p.name] ?: ""), 11)
                     }
                     Text(money(p.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -261,9 +261,13 @@ import androidx.compose.ui.window.Dialog
             split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
             else -> section(if (split) "All payees" else "Results", shownList)
         }
-        if (ordered.size > limit) {
+        // Grow the list ten at a time, and fold it back up again.
+        if (ordered.size > limit || limit > 10) {
             Spacer(Modifier.height(12.dp))
-            Chip("Show 10 more (" + (ordered.size - limit) + " left)", false) { limit += 10 }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ordered.size > limit) Chip("Show 10 more (" + (ordered.size - limit) + " left)", false) { limit += 10 }
+                if (limit > 10) Chip("Show less", false) { limit = 10 }
+            }
         }
     }
 
@@ -302,7 +306,7 @@ import androidx.compose.ui.window.Dialog
                 MerchantTile(name, primary)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(name, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    Text(niceName(name), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     MutedText(primary + (if (viewTotal > 0) " · " + Math.round(total / viewTotal * 100) + "% of this view" else ""), 12)
                 }
@@ -426,7 +430,7 @@ import androidx.compose.ui.window.Dialog
                     MerchantTile(name, "Investment", 32.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        Text(niceName(name), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         MutedText("$cnt ${if (cnt == 1) "contribution" else "contributions"}", 11)
                     }
