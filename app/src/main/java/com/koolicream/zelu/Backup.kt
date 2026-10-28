@@ -66,6 +66,8 @@ object Backup {
             if (prefs != null) for (name in PREF_FILES) {
                 val o = prefs.optJSONObject(name) ?: continue
                 val e = context.getSharedPreferences(name, Context.MODE_PRIVATE).edit()
+                // A backup from before palettes were saved by name: its old "palette" number should win.
+                if (o.has("palette") && !o.has("colours")) e.remove("colours")
                 for (k in o.keys()) {
                     val item = o.getJSONObject(k)
                     when (item.optString("t")) {

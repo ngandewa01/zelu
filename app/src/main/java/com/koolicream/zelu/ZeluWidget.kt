@@ -42,7 +42,7 @@ class ZeluWidget : AppWidgetProvider() {
 
         private fun build(context: Context): RemoteViews {
             val theme = context.getSharedPreferences("zelu_theme", Context.MODE_PRIVATE)
-            val pal = PALETTES[theme.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)]
+            val pal = PALETTES[paletteIndex(theme)]
             val set = if (theme.getBoolean("dark", false)) pal.dark else pal.light
 
             val month = Dates.todayMonth()

@@ -432,7 +432,7 @@ internal fun RestoreDialog(s: AppState) {
                                         val ok = r == Backup.Result.OK
                                         if (ok) {
                                             val sp = context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
-                                            ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
+                                            ZTheme.palette = paletteIndex(sp)
                                             if (sp.contains("dark")) ZTheme.dark = sp.getBoolean("dark", false)
                                             reload()
                                         }
@@ -462,8 +462,7 @@ internal fun ThemeDialog(s: AppState) {
                     Row(
                         Modifier.fillMaxWidth().choice(sel) {
                             ZTheme.palette = i
-                            context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
-                                .edit().putInt("palette", i).apply()
+                            savePalette(context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE), i)
                         }.padding(horizontal = 20.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

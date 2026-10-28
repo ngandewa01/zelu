@@ -111,7 +111,7 @@ class MainActivity : ComponentActivity() {
         val sysDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         ZTheme.dark = if (sp.contains("dark")) sp.getBoolean("dark", false) else sysDark
-        ZTheme.palette = sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)
+        ZTheme.palette = paletteIndex(sp)
         Privacy.load(this)
         IncomeCats.load(this)
         Demo.load(this)

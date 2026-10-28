@@ -78,7 +78,7 @@ object Notifier {
     // The theme accent (as chosen in the app), for tinting the status-bar icon.
     private fun accentInt(context: Context): Int = try {
         val sp = context.getSharedPreferences("zelu_theme", Context.MODE_PRIVATE)
-        val pal = PALETTES[sp.getInt("palette", 0).coerceIn(0, PALETTES.size - 1)]
+        val pal = PALETTES[paletteIndex(sp)]
         val sysDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         val dark = if (sp.contains("dark")) sp.getBoolean("dark", false) else sysDark
