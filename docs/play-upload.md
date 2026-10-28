@@ -2,8 +2,8 @@
 
 Once this is set up, GitHub uploads a build of `main` to the **Closed testing (Alpha)** track only when you ask:
 **Actions → Build release APK → Run workflow**, branch `main`, tick **Upload this build to Google Play**. Pushes and
-merges never upload. The upload is not sent for review by itself: with **managed publishing** on, it waits in
-**Play Console → Publishing overview** until you press **Send changes for review**. Release notes come from
+merges never upload. Play sends the upload for review by itself; with **managed publishing** on, an approved release
+waits in **Play Console → Publishing overview** until you press **Publish**. Release notes come from
 `distribution/whatsnew/whatsnew-en-US` (500 characters at most).
 
 One-time setup, about 15 minutes. The key file you make in step 4 works like a password: keep it private and delete

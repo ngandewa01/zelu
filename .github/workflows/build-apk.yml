@@ -133,8 +133,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       # Only a hand-started build of main with "Upload this build to Google Play" ticked goes to the Closed testing
-      # (Alpha) track; pushes never upload. It waits in Play Console, Publishing overview (managed publishing), until
-      # you press "Send changes for review". Release notes come from distribution/whatsnew/whatsnew-en-US.
+      # (Alpha) track; pushes never upload. Play sends it for review on its own; with managed publishing on, an approved
+      # release still waits in Play Console, Publishing overview, until you press "Publish". Release notes come from
+      # distribution/whatsnew/whatsnew-en-US.
       - name: Upload to Google Play (Closed testing)
         if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.upload_to_play && env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1
@@ -147,4 +148,3 @@ jobs:
           status: completed
           releaseName: ${{ github.run_number }} (0.3.${{ github.run_number }})
           whatsNewDirectory: distribution/whatsnew
-          changesNotSentForReview: true
