@@ -447,12 +447,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
-                        Chip(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
                     }
                     CustomCats.names.forEach { c ->
-                        Chip(customLabel(c), false) { decide(next.id, "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, "expense", c, next.counterparty, true) }
                     }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
+                    KindTab("new", "New", false) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
                 }
             }
         }

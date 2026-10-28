@@ -1,5 +1,14 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Label
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -528,8 +537,11 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 // A screen tab: a bright icon on a round tile (same look as the category icons), then the name and an optional
 // count. The chosen tab takes a soft wash of its own icon colour with a matching outline.
 @Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                 selected: Boolean, count: Int = 0, compact: Boolean = false, onClick: () -> Unit) =
+    IconTab(icon, label, Color(if (ZTheme.dark) dark else light), selected, count, compact, onClick)
+
+@Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color,
                                  selected: Boolean, count: Int = 0, compact: Boolean = false, onClick: () -> Unit) {
-    val tint = Color(if (ZTheme.dark) dark else light)
     val bg = if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card
     val border = if (selected) tint else ZColor.Line
     val tileSize = if (compact) 24.dp else 28.dp
@@ -554,3 +566,24 @@ internal fun treemap(values: List<Double>): List<TmCell> {
     }
 }
 
+
+// A category as an icon pill: its own icon and colour, the same as everywhere else in the app.
+@Composable internal fun CatTab(cat: String, selected: Boolean, onClick: () -> Unit) {
+    val icon = CatIcons.forCategory(cat)
+    IconTab(icon ?: Icons.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick = onClick)
+}
+
+// What a payment is, other than a spending category: the same icons and colours as the Needs-you answers.
+@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val (icon, light, dark) = when (kind) {
+        "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
+        "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
+        "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
+        "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
+        "borrowed" -> Triple(Icons.Rounded.AccountBalanceWallet, 0xFF8B5CF6, 0xFFA78BFA)
+        "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
+        "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
+        else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
+    }
+    IconTab(icon, label, light, dark, selected, onClick = onClick)
+}

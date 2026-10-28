@@ -1,5 +1,9 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FiberNew
 import androidx.compose.material.icons.rounded.Group
@@ -169,9 +173,9 @@ import androidx.compose.ui.window.Dialog
     )
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
-        listOf("amount" to "Amount", "count" to "Most paid", "recent" to "Recent").forEach { (k, l) ->
-            Chip(l, sort == k, true) { sort = k }
-        }
+        IconTab(Icons.Rounded.Payments, "Amount", 0xFF22B455, 0xFF3DD171, sort == "amount") { sort = "amount" }
+        IconTab(Icons.Rounded.Repeat, "Most paid", 0xFF3B82F6, 0xFF60A5FA, sort == "count") { sort = "count" }
+        IconTab(Icons.Rounded.Schedule, "Recent", 0xFFEAB308, 0xFFFACC15, sort == "recent") { sort = "recent" }
     } }
     val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
         .sortedByDescending { it.value }.map { it.key }
@@ -179,8 +183,8 @@ import androidx.compose.ui.window.Dialog
     androidx.compose.runtime.LaunchedEffect(query, sort, sel) { limit = 10 }
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
-        Chip("All", sel == "All", true) { catSel = "All" }
-        catsPresent.forEach { c -> Chip(customLabel(c), sel == c, true) { catSel = c } }
+        IconTab(Icons.Rounded.Apps, "All", 0xFF64748B, 0xFF94A3B8, sel == "All") { catSel = "All" }
+        catsPresent.forEach { c -> CatTab(c, sel == c) { catSel = c } }
     } }
 
     val q = query.trim().lowercase()
@@ -382,16 +386,16 @@ import androidx.compose.ui.window.Dialog
                 MutedText("Applies to every payment to $name:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
-                    CustomCats.names.forEach { c -> Chip(customLabel(c), false) { pick("expense", c) } }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> pick("expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    CustomCats.names.forEach { c -> CatTab(c, false) { pick("expense", c) } }
+                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Chip("Money in", false) { pick("income", "Income") }
-                    Chip("Lent", false) { pick("lent", "Lent") }
-                    Chip("Borrowed", false) { pick("borrowed", "Borrowed") }
-                    Chip("Ignore", false) { pick("ignore", "Ignore") }
+                    KindTab("income", "Money in", false) { pick("income", "Income") }
+                    KindTab("lent", "Lent", false) { pick("lent", "Lent") }
+                    KindTab("borrowed", "Borrowed", false) { pick("borrowed", "Borrowed") }
+                    KindTab("ignore", "Ignore", false) { pick("ignore", "Ignore") }
                 }
             }
             Spacer(Modifier.height(14.dp))

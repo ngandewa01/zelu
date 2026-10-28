@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -244,8 +245,8 @@ internal fun AddPaymentDialog(s: AppState) {
                     MutedText(sms.body.take(160) + if (sms.body.length > 160) "…" else "", 11)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Spent", !isIn, true) { isIn = false }
-                        Chip("Received", isIn, true) { isIn = true }
+                        KindTab("spending", "Spent", !isIn) { isIn = false }
+                        KindTab("income", "Received", isIn) { isIn = true }
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = amtText, onValueChange = { v -> amtText = v.filter { it.isDigit() || it == '.' } }, singleLine = true,

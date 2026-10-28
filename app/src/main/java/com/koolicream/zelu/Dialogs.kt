@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -555,26 +556,26 @@ import androidx.compose.ui.window.Dialog
                 MutedText("Remembered for ${t.counterparty ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> Chip(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
                     CustomCats.names.forEach { c ->
-                        Chip(customLabel(c), t.category == c) { pick("expense", c) }
+                        CatTab(c, t.category == c) { pick("expense", c) }
                     }
-                    Chip("＋ New", false, filled = true) { onNewCat { c -> pick("expense", c) } }
+                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
                 }
                 if (t.direction == "credit") {
                     Spacer(Modifier.height(6.dp))
                     MutedText("Money-in category:", 12)
                     Spacer(Modifier.height(6.dp))
-                    ChipScroll { IncomeCats.all.forEach { c -> Chip(c, t.category == c) { pick("income", c) } } }
+                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick("income", c) } } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Chip("Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
-                    Chip("Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
-                    Chip("Lent", t.kind == "lent") { pick("lent", "Lent") }
-                    Chip("Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }
-                    Chip("Ignore", t.kind == "ignore") { pick("ignore", "Ignore") }
-                    if (onSplit != null) Chip(if (t.id.contains('#')) "Remove split" else "Split…", false) { onSplit() }
+                    KindTab("income", "Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
+                    KindTab("transfer", "Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
+                    KindTab("lent", "Lent", t.kind == "lent") { pick("lent", "Lent") }
+                    KindTab("borrowed", "Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }
+                    KindTab("ignore", "Ignore", t.kind == "ignore") { pick("ignore", "Ignore") }
+                    if (onSplit != null) KindTab("split", if (t.id.contains('#')) "Remove split" else "Split", false) { onSplit() }
                 }
             }
         }
