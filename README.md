@@ -41,8 +41,8 @@ Native Android app written in Kotlin with Jetpack Compose.
 
 GitHub Actions builds, runs the unit tests and checks the APK asks for no internet access on every push
 (`.github/workflows/build-apk.yml`). Release builds are signed with the upload key kept in the repository secrets;
-builds from `main` are published as a GitHub release and uploaded to Play's closed testing track (see
-`docs/play-upload.md`).
+builds from `main` are published as a GitHub release. A build goes to Play's closed testing track only when started by
+hand with the upload ticked (see `docs/play-upload.md`).
 
 ## Permissions
 
