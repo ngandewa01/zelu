@@ -1,5 +1,8 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.RealEstateAgent
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.foundation.Canvas
@@ -364,7 +367,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 val whenText = "Due " + prettyDay(r.dueDate) + when { inDays < 0 -> " · overdue"; inDays == 0 -> " · today"; inDays == 1 -> " · tomorrow"; inDays <= 9 -> " · in $inDays days"; else -> "" }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(name, "", 34.dp)
+                    MerchantTile(name, "Bills", 34.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -427,16 +430,16 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             MutedText(money(next.amount) + " · " + prettyDate(next.date) + if (next.account.isNotBlank()) " · " + next.account else "", 13)
             Spacer(Modifier.height(10.dp))
-            // Two short rows, so every answer is visible without scrolling sideways.
+            // Two short rows of the same icon pills as the tabs, so every answer is visible without scrolling sideways.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Spending", false, filled = true) { setAskOpen(true) }
-                Chip("Money in", false) { decide(next.id, "income", "Income", next.counterparty, false) }
-                Chip("Lent", false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
+                IconTab(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen) { setAskOpen(!askOpen) }
+                IconTab(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false) { decide(next.id, "income", "Income", next.counterparty, false) }
+                IconTab(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Borrowed", false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
-                Chip("Ignore", false) { decide(next.id, "ignore", "Ignore", null, false) }
+                IconTab(Icons.Rounded.AccountBalanceWallet, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
+                IconTab(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false) { decide(next.id, "ignore", "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
