@@ -454,7 +454,7 @@ import androidx.compose.ui.window.Dialog
                 Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                     lentRows.newestFirst().forEach { TxnRow(it, false, onRowClick) }
                 }
-                MutedText("Tap a transfer to see its message.", 11)
+                MutedText("Not a loan? Tap the transfer to change it.", 11)
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {

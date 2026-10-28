@@ -280,7 +280,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 person = person,
                 lentRows = pRows,
                 repaidSoFar = repaid[person.lowercase().trim()] ?: 0.0,
-                onRowClick = { detailRow = it },
+                onRowClick = { lendPerson = null; detailRow = it },
                 onSave = { amt -> setRepayment(person.lowercase().trim(), amt) },
                 onDismiss = { lendPerson = null },
             )
@@ -292,7 +292,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 person = person,
                 lentRows = pRows,
                 repaidSoFar = repaid["b:" + person.lowercase().trim()] ?: 0.0,
-                onRowClick = { detailRow = it },
+                onRowClick = { borrowPerson = null; detailRow = it },
                 onSave = { amt -> setRepayment("b:" + person.lowercase().trim(), amt) },
                 onDismiss = { borrowPerson = null },
                 youOwe = true,
