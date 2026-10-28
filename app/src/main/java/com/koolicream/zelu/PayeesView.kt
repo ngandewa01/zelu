@@ -56,7 +56,7 @@ import androidx.compose.ui.window.Dialog
     // Loan EMIs are large and fixed, so they would top every ranking. The overview ranks everyday payees and shows
     // the EMIs as one line; the All tab still lists everyone.
     val loanPayees = payees.filter { p -> p.cats.isNotEmpty() && p.cats.all { it == "EMI" } }
-    val everyday = payees.filter { it !in loanPayees }
+    val ranked = payees.filter { it !in loanPayees }
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("amount") }
     var catSel by remember { mutableStateOf("All") }
@@ -64,7 +64,7 @@ import androidx.compose.ui.window.Dialog
     var ptab by remember { mutableStateOf("overview") }
     var limit by remember { mutableStateOf(10) }
     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
-    val total = everyday.sumOf { it.amount }
+    val total = ranked.sumOf { it.amount }
     val lastDate = spend.groupBy { nameOf(it) }.mapValues { e -> e.value.maxOf { it.date } }
 
     Text("Who you paid", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -74,8 +74,8 @@ import androidx.compose.ui.window.Dialog
     Panel {
         Eyebrow("This view")
         Spacer(Modifier.height(6.dp))
-        Text("${everyday.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        val top5 = everyday.take(5)
+        Text("${ranked.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        val top5 = ranked.take(5)
         val share = if (total > 0) top5.sumOf { it.amount } / total else 0.0
         MutedText("Your top ${top5.size} take ${Math.round(share * 100)}% of it.", 13)
         if (total > 0) {
@@ -107,8 +107,8 @@ import androidx.compose.ui.window.Dialog
     if (ptab == "overview") {
         // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
         // hid most amounts, cut names off, and gave the biggest box to "everyone else".)
-        val top = everyday.take(8)
-        val restN = everyday.size - top.size
+        val top = ranked.take(8)
+        val restN = ranked.size - top.size
         val restAmt = (total - top.sumOf { it.amount }).coerceAtLeast(0.0)
         val biggest = (top.maxOfOrNull { it.amount } ?: 1.0).coerceAtLeast(1.0)
         fun share(a: Double) = if (total > 0) { val p = a / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else ""
@@ -162,7 +162,7 @@ import androidx.compose.ui.window.Dialog
             }
             OnceHint("payee_tap", "Tap a payee to see its payments or rename it.")
         }
-        val freq = everyday.sortedByDescending { it.count }.take(4)
+        val freq = ranked.sortedByDescending { it.count }.take(4)
         if (freq.isNotEmpty() && freq.first().count > 1) {
             Spacer(Modifier.height(14.dp))
             Text("Paid most often", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
