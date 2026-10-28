@@ -503,7 +503,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets)
+                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        onOpenSpend = { view = "spend" })
                     "spend" -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
                         // when this month's view leaves it out. (Comparing part of this month with all of last month showed
@@ -542,18 +543,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                                     { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
                             },
-                            afterSummary = {
-                                if (isMonth && month == Dates.todayMonth() && dayStr == null) {
-                                    val todayD = Dates.dayOfMonth()
-                                    val spentNow = Analytics.summarize(flexShown).spent.coerceAtLeast(0.0)
-                                    val prevM = Dates.shiftMonth(month, -1)
-                                    val prevList = Analytics.filter(rows, f.copy(month = prevM)).let { l ->
-                                        if (excludeEmi && cat != "EMI") l.filter { it.category != "EMI" } else l }
-                                    val prevSame = Analytics.summarize(prevList.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
-                                    val curSame = Analytics.summarize(flexShown.filter { (it.date.drop(8).toIntOrNull() ?: 99) <= todayD }).spent.coerceAtLeast(0.0)
-                                    SpendNowPanel(spentNow, Analytics.BUDGET, Dates.daysInMonth(month) - todayD + 1, todayD, curSame, prevSame, fixedNote, Dates.monthLong(prevM))
-                                }
-                            }) { title, rows -> drill = title to rows }
+                            prevLabel = Dates.monthLong(Dates.shiftMonth(month, -1)).let { prev ->
+                                if (month == Dates.todayMonth()) "the same days of $prev" else prev },
+                        ) { title, rows -> drill = title to rows }
                         if (spendTab == 2 && dayStr == null) {
                             val wFrom: String; val wTo: String
                             if (isMonth) {

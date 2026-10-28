@@ -23,6 +23,10 @@ object Dates {
         val c = parse(dateStr); c.add(Calendar.DAY_OF_MONTH, delta); return sdf("yyyy-MM-dd").format(c.time)
     }
 
+    // Whole days from one yyyy-MM-dd to another (negative when "to" is earlier).
+    fun daysBetween(from: String, to: String): Int =
+        Math.round((parse(to).timeInMillis - parse(from).timeInMillis) / 86_400_000.0).toInt()
+
     // First day of the month that is (n-1) months before monthStr (yyyy-MM).
     fun firstDayMonthsAgo(monthStr: String, n: Int): String {
         val (y, mo) = monthStr.split("-").map { it.toInt() }

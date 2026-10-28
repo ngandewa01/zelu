@@ -22,6 +22,8 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -101,63 +103,8 @@ import java.util.Locale
 
 // ---------- Ledger ----------
 
-// A rotating pool of "At a glance" one-liners, so the panel feels alive rather than
-// repeating one line. The caller picks one by a seed that shifts with day/category/month.
-internal fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, fixedCats: Set<String>): List<String> {
-    val cat = ins.topCat
-    val pct = ins.topCatPct
-    val big = ins.biggestName
-    val ob = ins.overBy
-    val over = ob != null && ob > 0
-    val under = ob != null && ob < 0
-    val savings = if (income > 0) Math.round((income - spent) / income * 100).toInt() else null
-    // Fixed costs (EMI, rent...) aren't something you trim, so no "cut $cat" advice for them.
-    val fixedTop = cat.lowercase() in fixedCats
-    return buildList {
-        add("$cat is your biggest bucket at $pct% — trimming it is the quickest win.")
-        add("$pct% of your spending went to $cat this month.")
-        add("Your largest single spend was $big.")
-        add("A small trim to $cat moves the needle more than anything else.")
-        add("Most of the money flowed into $cat — the rest is spread thin.")
-        add("$cat leads the month; everything else trails well behind.")
-        add("Spending is concentrated: $cat alone is $pct%.")
-        add("$big was the heaviest hitter this month.")
-        add("If you trimmed $cat by a tenth, you'd barely notice the rest.")
-        add("Keep an eye on $cat — it's doing most of the work here.")
-        add("$cat is where a budget would bite first.")
-        add("Your money has a clear favourite this month: $cat.")
-        add("$pct% in one bucket ($cat); the rest is background noise.")
-        add("The 80/20 here is simple — $cat is the 80.")
-        add("One bucket, $cat, carries $pct% of the load.")
-        add("Trim $cat, cap $big, and the month looks lean.")
-        add("$cat and $big tell most of this month's story.")
-        add("Nothing wild this month — $cat just leads as usual.")
-        add("Small leaks in $cat add up fast — worth a glance.")
-        add("If you only tracked one thing, track $cat.")
-        add("$cat tops the list again — it's your steady number one.")
-        add("Curious where it goes? $cat is the headline at $pct%.")
-        if (savings != null && savings > 0) {
-            add("You held on to about $savings% of what came in this month.")
-            add("Roughly $savings% of your income stayed put — not bad.")
-        }
-        if (savings != null && savings <= 0 && savings > -15) {
-            add("You spent about as much as came in this month.")
-            add("Money in and money out are running neck and neck.")
-        }
-        if (savings != null && savings <= -15 && income > 0) {
-            add("You've spent about " + String.format(java.util.Locale.US, "%.1f", spent / income) + "× what came in so far.")
-            add("Spending is well ahead of income — large EMIs or one-off payments may be the reason.")
-        }
-        if (over) {
-            add("You're ahead of a steady pace — easing $cat helps most.")
-            add("Running a little hot this month; $cat is the lever to pull.")
-        }
-        if (under) {
-            add("You're under a steady pace — comfortably on track.")
-            add("Spending's calmer than a steady pace allows. Nice work.")
-        }
-    }.filter { !fixedTop || !it.contains(cat) }.ifEmpty { listOf("Your fixed costs are most of this month. The flexible part is what you can steer.") }
-}
+// A credit-card bill settles spends already counted, so it is not new spending.
+private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(" CC ") || r.account.startsWith("CC ") || r.account.endsWith(" CC")
 
 @Composable internal fun LedgerView(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, accounts: List<String>,
@@ -184,19 +131,12 @@ internal fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, f
     refundSuggestions: List<Pair<Row, Row>> = emptyList(),
     onRefundAnswer: (String, Boolean) -> Unit = { _, _ -> },
     budgets: Map<String, Double> = emptyMap(),
+    onOpenSpend: () -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
-    val ins = Analytics.insight(list, f)
-    // Committed costs (EMI, rent...) are learned from your data; At a glance looks at everyday spending.
-    val fixedSet = remember(allRows, fixed) { Analytics.fixedSet(allRows, Dates.todayMonth(), fixed) }
-    val flexIns = Analytics.insight(list.filter { !Analytics.isFixed(it, fixedSet) }, f) ?: ins
-    val bigIds = Analytics.bigSpendIds(list)
-    val pct = if (Analytics.BUDGET > 0) (s.spent / Analytics.BUDGET).toFloat() else 0f
-    val budgetLeft = (Analytics.BUDGET - s.spent).coerceAtLeast(0.0)
 
     // Heads up — budgets nearly used or exceeded, and cards running low (current month only).
-    // These now live inside "At a glance" instead of a card of their own.
-    var glanceForecast = 0.0
+    // They show as chips on the Home card.
     val glanceAlerts = ArrayList<Triple<String, Boolean, () -> Unit>>()   // (what, over?, open)
     val glanceAlertPct = ArrayList<Int>()
     run {
@@ -233,224 +173,183 @@ internal fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, f
                 }
             }
             val shownAlerts = alerts.sortedByDescending { it.ratio }.take(3)
-            val tdy = Dates.today()
-            val spentNow = allRows.filter { it.kind == "expense" && it.date.startsWith(f.month) }.sumOf { it.amount }
-            val duesLeft = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= tdy }.sumOf { it.amount }
-            val daysToGo = (Dates.daysInMonth(f.month) - Dates.dayOfMonth()).coerceAtLeast(0)
-            val projectedEnd = spentNow + duesLeft + Analytics.typicalDaily(allRows, tdy) * daysToGo
-            if (spentNow > 0) glanceForecast = projectedEnd
             shownAlerts.forEach { a -> glanceAlerts.add(Triple(a.title, a.over, a.go)); glanceAlertPct.add((a.ratio * 100).toInt()) }
         }
     }
 
-    // One hero card: what you spent, how the month is going, and where it went.
+    // Home looks ahead: what you can still spend, what's due and where the month will end.
+    // Where the money went is on the Spend tab, so it isn't repeated here.
     Panel {
-        val overBudget = s.spent > Analytics.BUDGET
-        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         val isMonth = f.period == "month"
         val liveMonth = isMonth && f.month == Dates.todayMonth()
-        Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
-        // Against the same days of last month, with whatever filters are on.
-        val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
-        val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
-        val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
-            .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-            Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-            if (prevSpent > 0 && s.spent > 0) {
-                val diff = Math.round((s.spent - prevSpent) / prevSpent * 100).toInt()
-                val down = diff <= 0
-                Box(Modifier.padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(if (down) ZColor.IncomeSoft else ZColor.WarnSoft)
-                    .padding(horizontal = 9.dp, vertical = 4.dp)) {
-                    Text((if (down) "↓ " else "↑ ") + Math.abs(diff) + "% vs " + Dates.monthLabel(prevMonth).take(3),
-                        color = if (down) ZColor.Income else ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+        val budget = Analytics.BUDGET
+        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
+        val today = Dates.today()
+        // Bills still to pay this month. A card bill pays for spends already counted, so it doesn't use up the budget.
+        val billsLeft = if (!liveMonth) 0.0 else reminders.filter { r ->
+            !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= today && !isCardBill(r)
+        }.sumOf { it.amount }
+        val daysLeft = if (liveMonth) Dates.daysInMonth(f.month) - Dates.dayOfMonth() + 1 else 0
+        val free = budget - s.spent - billsLeft
+        if (liveMonth && budget > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Safe to spend" + if (excludeEmi) " · after EMI" else "")
+                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
-        }
-        // How the spending built up through the month, with the budget as a dashed line.
-        val showTrend = isMonth && s.spent > 0
-        if (showTrend) {
-            val dim = Dates.daysInMonth(f.month)
-            val daily = DoubleArray(dim + 1)
-            list.filter { it.kind == "expense" }.forEach { r -> val d = r.date.substring(8, 10).toInt(); if (d in 1..dim) daily[d] += r.amount }
-            val lastDay = if (liveMonth) Dates.dayOfMonth().coerceAtMost(dim) else dim
-            val cum = DoubleArray(lastDay + 1)
-            for (d in 1..lastDay) cum[d] = cum[d - 1] + daily[d]
-            val ceil = maxOf(cum[lastDay], if (Analytics.BUDGET > 0) Analytics.BUDGET else 0.0, 1.0)
-            val lineCol = if (overBudget) ZColor.Warn else ZColor.Accent
-            val budgetCol = ZColor.Muted
-            Spacer(Modifier.height(10.dp))
-            Canvas(Modifier.fillMaxWidth().height(60.dp)) {
-                val w = size.width; val h = size.height - 6.dp.toPx()
-                fun x(d: Int) = if (dim <= 1) 0f else (d - 1).toFloat() / (dim - 1) * w
-                fun y(v: Double) = (h - (v / ceil * h)).toFloat() + 3.dp.toPx()
-                if (Analytics.BUDGET > 0) drawLine(budgetCol, Offset(0f, y(Analytics.BUDGET)), Offset(w, y(Analytics.BUDGET)), strokeWidth = 1.dp.toPx(),
-                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
-                val line = Path(); val area = Path()
-                for (d in 1..lastDay) {
-                    if (d == 1) { line.moveTo(x(d), y(cum[d])); area.moveTo(x(d), size.height); area.lineTo(x(d), y(cum[d])) }
-                    else { line.lineTo(x(d), y(cum[d])); area.lineTo(x(d), y(cum[d])) }
+            Spacer(Modifier.height(4.dp))
+            if (free > 0) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                    Text(" a day", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 7.dp))
                 }
-                area.lineTo(x(lastDay), size.height); area.close()
-                drawPath(area, lineCol.copy(alpha = 0.12f))
-                drawPath(line, lineCol, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
-                drawCircle(lineCol, 4.dp.toPx(), Offset(x(lastDay), y(cum[lastDay])))
+                MutedText(if (daysLeft == 1) "for today, after bills still due" else "for the next $daysLeft days, after bills still due", 13)
+            } else {
+                Text(money(-free) + " over", color = ZColor.Warn, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                MutedText(if (billsLeft > 0) "Spending and bills still due are past your budget" else "Spending is past your budget", 13)
             }
-        }
-        if (Analytics.BUDGET > 0) {
-            if (!showTrend) { Spacer(Modifier.height(10.dp)); Meter(pct.coerceIn(0f, 1f), if (overBudget) ZColor.Warn else ZColor.Accent) }
+            // The month in one bar: spent, still due, free.
+            Spacer(Modifier.height(12.dp))
+            val parts = listOf(s.spent to ZColor.Accent, billsLeft to ZColor.AmberInk, free.coerceAtLeast(0.0) to ZColor.Income.copy(alpha = 0.35f))
+            Row(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(ZColor.Paper)) {
+                parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
+            }
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().clickable { onEditBudget() }, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    if (overBudget) money(s.spent - Analytics.BUDGET) + " over budget" else money(budgetLeft) + " left",
-                    color = if (overBudget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                )
-                MutedText("of " + money(Analytics.BUDGET) + " ›", 13)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Fact("Spent", money(s.spent))
+                Fact("Bills due", money(billsLeft))
+                Fact("Free", money(free.coerceAtLeast(0.0)), if (free > 0) ZColor.Income else ZColor.Warn)
             }
         } else {
-            Spacer(Modifier.height(8.dp))
-            Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable { onEditBudget() })
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Fact("Money in", money(s.income), ZColor.Income)
-                if (s.income > s.spent) MutedText("Saved " + money(s.income - s.spent) + " (" + Math.round((s.income - s.spent) / s.income * 100) + "%)", 12)
-            }
-            if (emiAmt > 0 || excludeEmi) {
-                Column(horizontalAlignment = Alignment.End) {
-                    if (!excludeEmi) MutedText("EMI included " + money(emiAmt), 12)
-                    Spacer(Modifier.height(4.dp))
-                    Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
+            // Past months, other periods, or no budget yet: what was spent, against the month before.
+            Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
+            val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
+            val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
+            val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
+                .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                if (prevSpent > 0 && s.spent > 0) {
+                    val diff = Math.round((s.spent - prevSpent) / prevSpent * 100).toInt()
+                    val down = diff <= 0
+                    Box(Modifier.padding(bottom = 8.dp).clip(RoundedCornerShape(10.dp)).background(if (down) ZColor.IncomeSoft else ZColor.WarnSoft)
+                        .padding(horizontal = 9.dp, vertical = 4.dp)) {
+                        Text((if (down) "↓ " else "↑ ") + Math.abs(diff) + "% vs " + Dates.monthLabel(prevMonth).take(3),
+                            color = if (down) ZColor.Income else ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-        }
-        if (fixed.isNotEmpty()) {
-            val fixedTotal = fixed.values.sum()
-            Spacer(Modifier.height(10.dp))
-            MutedText("Fixed " + money(fixedTotal) + " · free " + money((s.income - fixedTotal).coerceAtLeast(0.0)) +
-                " · beyond fixed " + money((s.spent - fixedTotal).coerceAtLeast(0.0)), 12)
+            if (isMonth && budget > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(if (s.spent > budget) money(s.spent - budget) + " over the " + money(budget) + " budget"
+                    else money(budget - s.spent) + " under the " + money(budget) + " budget",
+                    color = if (s.spent > budget) ZColor.Warn else ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onEditBudget() })
+            } else if (liveMonth) {
+                // No budget yet: suggest one from what a month usually costs.
+                val usual = (1..3).map { i ->
+                    Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -i)))
+                        .filter { it.kind == "expense" && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
+                }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
+                Spacer(Modifier.height(8.dp))
+                Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onEditBudget() })
+                if (usual > 0) MutedText("You usually spend " + money(usual) + " a month. Zelu then shows what you can spend each day.", 12)
+            }
         }
 
-        // Where it went, and what to watch.
-        if (ins != null) {
-            val fi = flexIns ?: ins
-            val everyday = list.filter { it.kind == "expense" && !Analytics.isFixed(it, fixedSet) }
-            val byCat = everyday.groupBy { it.category }.map { (c, rs) -> c to rs.sumOf { it.amount } }.sortedByDescending { it.second }
-            val totalEv = byCat.sumOf { it.second }
-            Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
-            Spacer(Modifier.height(14.dp))
-            Eyebrow("Where it went")
-            Spacer(Modifier.height(12.dp))
-            if (totalEv > 0) {
-                val topCats = byCat.take(3)
-                val rest = totalEv - topCats.sumOf { it.second }
-                val ringCols = listOf(ZColor.Accent, ZColor.Income, ZColor.AmberInk)
-                val restCol = ZColor.Muted
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.fillMaxSize()) {
-                            val st = 15.dp.toPx(); val tl = Offset(st / 2, st / 2); val sz = Size(size.width - st, size.height - st)
-                            drawArc(ZColor.Paper, 0f, 360f, false, tl, sz, style = Stroke(st))
-                            var start = -90f
-                            topCats.forEachIndexed { i, e ->
-                                val sw = (e.second / totalEv * 360.0).toFloat()
-                                drawArc(ringCols[i], start, (sw - 2f).coerceAtLeast(1f), false, tl, sz, style = Stroke(st))
-                                start += sw
-                            }
-                            if (rest > 0.0) drawArc(restCol.copy(alpha = 0.45f), start, (rest / totalEv * 360.0).toFloat().coerceAtLeast(1f), false, tl, sz, style = Stroke(st))
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(Math.round(topCats[0].second / totalEv * 100).toString() + "%", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            MutedText(topCats[0].first, 11)
-                        }
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        topCats.forEachIndexed { i, (c, amt) ->
-                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                                .clickable { onDrill(c, list.filter { it.kind == "expense" && it.category == c }) },
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(ringCols[i]))
-                                Spacer(Modifier.width(8.dp))
-                                Text(c, color = ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                Text(money(amt), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        if (rest > 0.5) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(restCol.copy(alpha = 0.45f)))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Everything else", color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            Text(money(rest), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.OrangeSoft).padding(12.dp),
+        // Where the month is heading, and the money that came in.
+        @Composable fun infoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, label: String,
+                                value: String, valueColor: androidx.compose.ui.graphics.Color, onClick: (() -> Unit)?) {
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(fi.biggestName, "", 34.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    MutedText("Biggest spend", 11)
-                    Text(fi.biggestName, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text(money(fi.biggestAmt), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(label, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
-            if (glanceForecast > 0) {
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenDues() }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Rounded.TrendingUp, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text("Month-end forecast", color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("≈ " + money(glanceForecast), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
+        }
+        // Month-end estimate from the same numbers as above: spent, bills still due, and a normal day's spending
+        // (last 30 days, big one-offs left out) for the days still to come.
+        val forecast = if (!liveMonth || s.spent <= 0) 0.0 else {
+            val base = allRows.filter { (account == "All" || it.account == account) && !(excludeEmi && it.category == "EMI") }
+            s.spent + billsLeft + Analytics.typicalDaily(base, today) * (daysLeft - 1).coerceAtLeast(0)
+        }
+        val overPace = liveMonth && budget > 0 && forecast > budget
+        if (forecast > 0) {
+            val end = Dates.daysInMonth(f.month).toString() + " " + Dates.monthLabel(f.month).take(3)
+            val verdict = when {
+                budget <= 0 -> ""
+                forecast > budget -> " · " + money(forecast - budget) + " over"
+                else -> " · under"
             }
-            if (glanceAlerts.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    glanceAlerts.forEachIndexed { i, (what, over, go) ->
-                        val tone = if (over) ZColor.Warn else ZColor.AmberInk
-                        val soft = if (over) ZColor.WarnSoft else ZColor.AmberSoft
-                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).clickable { go() }.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(what + " " + glanceAlertPct[i] + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+            infoRow(if (overPace) Icons.Rounded.Warning else Icons.Rounded.TrendingUp, if (overPace) ZColor.Warn else ZColor.Income,
+                "At this pace, by $end", "≈ " + money(forecast) + verdict, if (overPace) ZColor.Warn else ZColor.Income, onOpenDues)
+        }
+        // Running hot: name the category that grew most against the same days last month; the why is on Spend.
+        if (liveMonth && (overPace || free <= 0)) {
+            val cut = Dates.dayOfMonth()
+            val prev = Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -1)))
+                .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
+                .mapValues { (_, rs) -> rs.sumOf { it.amount } }
+            list.filter { it.kind == "expense" }.groupBy { it.category }.mapValues { (_, rs) -> rs.sumOf { it.amount } }
+                .map { (c, v) -> c to v - (prev[c] ?: 0.0) }.filter { it.second >= 1000 }.maxByOrNull { it.second }
+                ?.let { (c, up) -> infoRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c: " + money(up) + " more than this time last month",
+                    "Why ›", ZColor.Accent, onOpenSpend) }
+        }
+        if (s.income > 0) infoRow(Icons.Rounded.Payments, ZColor.Income, if (isMonth) "Money in this month" else "Money in",
+            money(s.income), ZColor.Ink, null)
+        if (glanceAlerts.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                glanceAlerts.forEachIndexed { i, (what, over, go) ->
+                    val tone = if (over) ZColor.Warn else ZColor.AmberInk
+                    val soft = if (over) ZColor.WarnSoft else ZColor.AmberSoft
+                    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(soft).clickable { go() }.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                        Text(what + " " + glanceAlertPct[i] + "%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
-            val tips = glanceTips(fi, s.spent, s.income, fixedSet.cats)
-            if (tips.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                val seed = kotlin.math.abs(Dates.dayOfMonth() * 31 + fi.topCat.hashCode() + month.hashCode())
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.IncomeSoft).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = ZColor.Income, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(tips[seed % tips.size], color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                }
+        }
+        if (emiAmt > 0 || excludeEmi) {
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                MutedText(if (excludeEmi) "EMI left out" else "Includes " + money(emiAmt) + " of EMI", 12)
+                Chip(if (excludeEmi) "EMI excluded ✓" else "Exclude EMI", excludeEmi, filled = true) { onToggleEmi() }
             }
         }
     }
 
-    // Upcoming bill — the next unpaid reminder
+    // Bills before month-end (or the next one when none are left this month).
     run {
         val today = Dates.today()
-        val next = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }.minByOrNull { it.dueDate }
-        if (next != null) {
-            Panel {
-                Row(Modifier.fillMaxWidth().clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
+        val open = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }.sortedBy { it.dueDate }
+        val nowMonth = Dates.todayMonth()
+        val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
+        val thisMonth = open.filter { it.dueDate <= monthEnd }
+        val shownBills = thisMonth.take(3).ifEmpty { open.take(1) }
+        if (shownBills.isNotEmpty()) Panel {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpenDues() },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow(if (thisMonth.isNotEmpty()) "Bills before month-end" else "Next bill")
+                Text(if (thisMonth.size > 3) "All ${thisMonth.size} ›" else "All dues ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            shownBills.forEach { r ->
+                val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
+                val inDays = Dates.daysBetween(today, r.dueDate)
+                val whenText = "Due " + prettyDay(r.dueDate) + when (inDays) { 0 -> " · today"; 1 -> " · tomorrow"; in 2..9 -> " · in $inDays days"; else -> "" }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(name, "", 34.dp)
+                    Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Eyebrow("Upcoming bill")
-                        Spacer(Modifier.height(4.dp))
-                        Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Bill", color = ZColor.Ink, fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText("due " + prettyDay(next.dueDate), 12)
+                        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(whenText + if (isCardBill(r)) " · card bill" else "", 12)
                     }
-                    Text(money(next.amount), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("  ›", color = ZColor.Muted, fontSize = 16.sp)
+                    Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

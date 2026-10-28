@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
     tabs: @Composable () -> Unit = {},
     showSummary: Boolean = true,
     showCategories: Boolean = true,
+    prevLabel: String = "last month",
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -101,24 +102,10 @@ import androidx.compose.ui.unit.sp
         if (name == "Other") rest.flatMap { rowsFor(it.first) } else rowsFor(name)
 
     if (showSummary) Panel {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Eyebrow("Spent")
-                Text(money(total), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            }
-            val prevTotal = prevByCat.values.sum()
-            if (prevTotal > 0 && dayLabel == null) {
-                val ch = ((total - prevTotal) / prevTotal * 100).toInt()
-                if (ch != 0) TonePill(
-                    (if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% vs last month",
-                    if (ch > 0) ZColor.Warn else ZColor.Income,
-                    if (ch > 0) ZColor.WarnSoft else ZColor.IncomeSoft,
-                )
-            }
-        }
-        Spacer(Modifier.height(16.dp))
+        // The total sits inside the pie; how much and how fast against the budget is on Home.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Donut(groups.map { it.third to (it.second / total).toFloat() }, "${cats.size}", "categories", 128.dp, 20.dp) { i ->
+            Donut(groups.map { it.third to (it.second / total).toFloat() }, money(total),
+                if (cats.size == 1) "1 category" else "${cats.size} categories", 128.dp, 20.dp) { i ->
                 onDrill(groups[i].first, rowsForGroup(groups[i].first))
             }
             Spacer(Modifier.width(14.dp))
@@ -132,6 +119,44 @@ import androidx.compose.ui.unit.sp
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp)
                     }
+                }
+            }
+        }
+
+        // What changed against the month before: the categories that moved most, in rupees.
+        val prevTotal = prevByCat.values.sum()
+        if (prevTotal > 0 && dayLabel == null) {
+            val now = cats.toMap()
+            val moves = (now.keys + prevByCat.keys).map { c -> Triple(c, now[c] ?: 0.0, prevByCat[c] ?: 0.0) }
+                .filter { kotlin.math.abs(it.second - it.third) >= 1.0 }
+                .sortedByDescending { kotlin.math.abs(it.second - it.third) }.take(4)
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("What changed")
+                val ch = ((total - prevTotal) / prevTotal * 100).toInt()
+                if (ch != 0) TonePill((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% overall",
+                    if (ch > 0) ZColor.Warn else ZColor.Income, if (ch > 0) ZColor.WarnSoft else ZColor.IncomeSoft)
+            }
+            MutedText("Compared with $prevLabel", 12)
+            moves.forEach { (c, v, before) ->
+                val d = v - before
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(c, rowsFor(c)) },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(catColor(c)))
+                    Spacer(Modifier.width(8.dp))
+                    Text(c, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        when {
+                            before <= 0 -> "+" + money(d) + " new"
+                            v <= 0 -> "−" + money(-d) + ", none now"
+                            d > 0 -> "+" + money(d)
+                            else -> "−" + money(-d)
+                        },
+                        color = if (d > 0) ZColor.Warn else ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
         }
@@ -178,58 +203,6 @@ import androidx.compose.ui.unit.sp
                 else Meter((v / top).toFloat(), catColor(c))
             }
         }
-    }
-}
-
-// This month so far, in plain sentences: where you stand against your budget, and against the same days last month.
-@Composable internal fun SpendNowPanel(spent: Double, budget: Double, daysLeft: Int, dayNum: Int, curSame: Double, prevSame: Double,
-    note: String? = null, prevName: String = "last month") {
-    Panel {
-        Eyebrow("This month so far")
-        Spacer(Modifier.height(10.dp))
-        val over = budget > 0 && spent > budget
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-            .background(if (budget <= 0) ZColor.Paper else if (over) ZColor.WarnSoft else ZColor.IncomeSoft).padding(12.dp)) {
-            when {
-                budget <= 0 -> {
-                    Text("No monthly budget set", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    MutedText("Set one in Budgets to see how much you can spend each day.", 12)
-                }
-                over -> {
-                    Text(money(spent - budget) + " over your budget", color = ZColor.Warn, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    MutedText("Budget " + money(budget) + " · spent " + money(spent), 12)
-                    Spacer(Modifier.height(8.dp)); Meter(1f, ZColor.Warn)
-                }
-                else -> {
-                    val left = budget - spent
-                    Text(money(left) + " left in your budget", color = ZColor.Income, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    MutedText("About " + money(if (daysLeft > 0) left / daysLeft else left) + " a day for the last " +
-                        plural(daysLeft, "day", "days") + " · budget " + money(budget), 12)
-                    Spacer(Modifier.height(8.dp)); Meter((spent / budget).toFloat().coerceIn(0f, 1f), ZColor.Income)
-                }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(12.dp)) {
-            val upTo = "${dayNum}${ordinal(dayNum)}"
-            if (prevSame > 0) {
-                val diff = curSame - prevSame
-                val ch = Math.round(kotlin.math.abs(diff) / prevSame * 100)
-                Text(
-                    when {
-                        kotlin.math.abs(diff) < 1 -> "Same as $prevName so far"
-                        diff > 0 -> money(diff) + " more than $prevName so far"
-                        else -> money(-diff) + " less than $prevName so far"
-                    },
-                    color = if (diff > 0) ZColor.Warn else if (diff < 0) ZColor.Income else ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                )
-                MutedText("1st to $upTo: " + money(curSame) + " now, " + money(prevSame) + " in $prevName" +
-                    (if (ch > 0) " (" + (if (diff > 0) "▲ " else "▼ ") + ch + "%)" else ""), 12)
-            } else {
-                Text("No spending in $prevName to compare", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        if (note != null) { Spacer(Modifier.height(10.dp)); MutedText(note, 11) }
     }
 }
 
