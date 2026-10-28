@@ -281,14 +281,14 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+            .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         items.forEach { t ->
             val on = view == t.key
             val tint = Color(if (ZTheme.dark) t.dark else t.light)
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 4.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.size(32.dp).clip(CircleShape)
@@ -297,8 +297,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
                     contentAlignment = Alignment.Center) {
                     androidx.compose.material3.Icon(t.icon, null, tint = tint, modifier = Modifier.size(19.dp))
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(t.label, color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
+                Spacer(Modifier.height(2.dp))
+                Text(t.label, color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 11.sp,
                     fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
             }
         }
