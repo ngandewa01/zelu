@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
@@ -50,31 +51,23 @@ import androidx.compose.ui.unit.sp
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
     Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (onTrends != null) Row(
-            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { onTrends() }.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.material3.Icon(Icons.Rounded.BarChart, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Trends", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
+    // Three equal buttons: Trends, Budgets and the day-by-day calendar.
+    @Composable fun RowScope.ToolButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
         Row(
-            Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { onEditBudgets() }.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (on) ZColor.OrangeSoft else Color.Transparent)
+                .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(20.dp))
+                .clickable { onClick() }.padding(vertical = 9.dp),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
-            androidx.compose.material3.Icon(Icons.Rounded.AccountBalanceWallet, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+            androidx.compose.material3.Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Budgets", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(label, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
-        if (onCalendar != null) Box(
-            Modifier.clip(RoundedCornerShape(20.dp)).background(if (calActive) ZColor.OrangeSoft else Color.Transparent)
-                .border(1.dp, if (calActive) ZColor.Accent else ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { onCalendar() }.buttonLabel(if (calActive) "Hide calendar" else "Show calendar").padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) { androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp)) }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (onTrends != null) ToolButton(Icons.Rounded.BarChart, "Trends", false) { onTrends() }
+        ToolButton(Icons.Rounded.AccountBalanceWallet, "Budgets", false) { onEditBudgets() }
+        if (onCalendar != null) ToolButton(Icons.Rounded.CalendarMonth, "Calendar", calActive) { onCalendar() }
     }
     if (dayLabel != null) {
         Spacer(Modifier.height(10.dp))
@@ -103,63 +96,47 @@ import androidx.compose.ui.unit.sp
 
     if (showSummary) Panel {
         // The total sits inside the pie; how much and how fast against the budget is on Home.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Donut(groups.map { it.third to (it.second / total).toFloat() }, money(total),
-                if (cats.size == 1) "1 category" else "${cats.size} categories", 128.dp, 20.dp) { i ->
+                if (cats.size == 1) "1 category" else "${cats.size} categories", 150.dp, 22.dp) { i ->
                 onDrill(groups[i].first, rowsForGroup(groups[i].first))
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                groups.forEach { (name, v, color) ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(name, rowsForGroup(name)) },
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(color))
-                        Spacer(Modifier.width(8.dp))
-                        Text(name, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp)
-                    }
-                }
             }
         }
 
-        // What changed against the month before: the categories that moved most, in rupees.
+        // Each category once: amount, and how it moved against the month before.
         val prevTotal = prevByCat.values.sum()
-        if (prevTotal > 0 && dayLabel == null) {
-            val now = cats.toMap()
-            val moves = (now.keys + prevByCat.keys).map { c -> Triple(c, now[c] ?: 0.0, prevByCat[c] ?: 0.0) }
-                .filter { kotlin.math.abs(it.second - it.third) >= 1.0 }
-                .sortedByDescending { kotlin.math.abs(it.second - it.third) }.take(4)
-            Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("What changed")
-                InfoDot("Compared with $prevLabel.")
-                Spacer(Modifier.weight(1f))
-                val ch = ((total - prevTotal) / prevTotal * 100).toInt()
-                if (ch != 0) Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "%", color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
-                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
-            moves.forEach { (c, v, before) ->
-                val d = v - before
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(c, rowsFor(c)) },
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(catColor(c)))
-                    Spacer(Modifier.width(8.dp))
-                    Text(c, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        when {
-                            before <= 0 -> "+" + money(d) + " new"
-                            v <= 0 -> "−" + money(-d) + ", none now"
-                            d > 0 -> "+" + money(d)
-                            else -> "−" + money(-d)
-                        },
-                        // More spending is shown plainly, less in green: a change, not an alarm.
-                        color = if (d > 0) ZColor.InkSoft else ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    )
-                }
+        val compare = prevTotal > 0 && dayLabel == null
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow(if (compare) "Vs $prevLabel" else "By category")
+            if (compare) InfoDot("How each category moved against $prevLabel.")
+            Spacer(Modifier.weight(1f))
+            val ch = if (compare) ((total - prevTotal) / prevTotal * 100).toInt() else 0
+            if (ch != 0) Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "%", color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        groups.forEach { (name, v, color) ->
+            val before = if (name == "Other") rest.sumOf { prevByCat[it.first] ?: 0.0 } else prevByCat[name] ?: 0.0
+            val d = v - before
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(name, rowsForGroup(name)) },
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(color))
+                Spacer(Modifier.width(8.dp))
+                Text(name, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(money(v), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(" · ${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp)
+                if (compare) Text(
+                    when {
+                        kotlin.math.abs(d) < 1 -> "same"
+                        before <= 0 -> "new"
+                        d > 0 -> "▲ " + money(d)
+                        else -> "▼ " + money(-d)
+                    },
+                    // More spending is shown plainly, less in green: a change, not an alarm.
+                    color = if (d < -0.5) ZColor.Income else ZColor.Muted, fontSize = 12.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.width(92.dp),
+                )
             }
         }
     }

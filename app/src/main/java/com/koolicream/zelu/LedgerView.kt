@@ -14,6 +14,8 @@ import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Home
@@ -468,13 +470,22 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
                         .clickable { onRowClick(t) }.padding(12.dp),
                 ) {
-                    MerchantTile(t.counterparty ?: "", t.category, 30.dp, t.kind)
+                    // Like a bank app's card: icon, which way the money went, name, amount and when.
+                    val moneyIn = t.kind == "income" || t.kind == "refund" || t.kind == "borrowed"
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        MerchantTile(t.counterparty ?: "", t.category, 36.dp, t.kind)
+                        Spacer(Modifier.weight(1f))
+                        androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
+                            if (moneyIn) "Money in" else "Spent", tint = if (moneyIn) ZColor.Income else ZColor.Muted,
+                            modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(rowTitle(t), color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (t.direction == "credit") money(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
+                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    MutedText(prettyDay(t.date), 11)
+                    val at = TxnTime.label(t)
+                    MutedText((if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
                 }
             }
         }
@@ -527,22 +538,17 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Panel {
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clickable { allAccountsOpen = true },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                MutedText("Total balance", 12)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (balances.isNotEmpty())
-                        Text(if (Privacy.hideBalance) Privacy.MASK else money(balances.filterKeys { it !in hiddenAccts && it !in closedLoans && !it.contains(" DC ") }.values.sumOf { it.first }), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Spacer(Modifier.height(10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 acctNames.sortedBy { it in closedLoans }.forEach { a ->
                     ClosableFrame(a in closedLoans, 16.dp, Modifier.width(280.dp), onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
                     }) { AccountCard(a, balances[a], spentBy[a] ?: 0.0, Modifier.fillMaxWidth()) }
+                }
+                // Every account, with where each one came from, sits at the end of the strip.
+                Box(Modifier.align(Alignment.CenterVertically).clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { allAccountsOpen = true }
+                    .padding(horizontal = 18.dp, vertical = 14.dp)) {
+                    Text("See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

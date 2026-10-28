@@ -114,8 +114,8 @@ import java.util.Locale
     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
         IncomeCats.all.forEach { c ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(catColor(c).copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Icon(CatIcons.forCategory(c) ?: Icons.Rounded.ArrowDownward, null, tint = catColor(c), modifier = Modifier.size(19.dp))
+                Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Icon(CatIcons.forCategory(c) ?: Icons.Rounded.ArrowDownward, null, tint = catColor(c), modifier = Modifier.size(21.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(c, color = ZColor.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))

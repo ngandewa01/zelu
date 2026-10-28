@@ -347,14 +347,14 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     }
 }
 
-// Small tinted tile with the category's icon ("All" gets a generic grid icon).
+// Small round tile with the category's icon in its colour ("All" gets a generic grid icon).
 @Composable internal fun CatDot(cat: String, size: androidx.compose.ui.unit.Dp) {
     val all = cat == "All" || cat.isBlank()
     val tint = if (all) ZColor.Ink else catColor(cat)
     val icon = if (all) Icons.Rounded.Category else CatIcons.forCategory(cat)
-    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(tint.copy(alpha = 0.18f)),
+    Box(Modifier.size(size).clip(CircleShape).background(ZColor.Tile),
         contentAlignment = Alignment.Center) {
-        if (icon != null) androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.58f))
+        if (icon != null) androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(size * 0.6f))
         else Text(cat.take(1).uppercase(), color = tint, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.42f).sp)
     }
 }

@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.SouthWest
 
 // ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
@@ -88,6 +91,12 @@ object ZColor {
     val OrangeSoft get() = mix(Color(s.card), Color(s.accent), 0.16f)
     val AmberSoft get() = mix(Color(s.card), AmberInk, 0.16f)
     val AmberInk get() = if (ZTheme.dark) Color(0xFFE3B35A) else Color(0xFFB7791F)
+    // Neutral round tile behind category icons: white on tinted cards, a soft grey on white ones, lifted in dark mode.
+    val Tile get() = when {
+        ZTheme.dark -> mix(Color(s.card), Color(s.ink), 0.09f)
+        s.card == 0xFFFFFFFF -> mix(Color(s.card), Color(s.ink), 0.06f)
+        else -> Color.White
+    }
 }
 
 data class Brand(val key: String, val name: String, val bg: Color, val fg: Color, val mark: String)
@@ -114,43 +123,47 @@ val BRANDS = listOf(
     Brand("mother dairy", "Mother Dairy", Color(0xFF00843D), Color(0xFFFFFFFF), "M"),
 )
 
-private fun buildCatColors(): Map<String, Color> = mapOf(
-    // Fixed colours (not the theme's), so the biggest categories never share a colour in any theme.
-    "Food" to Color(0xFFE07A3F),
-    "Groceries" to Color(0xFF3E9F5E),
-    "Shopping" to Color(0xFF3F7FBF),
-    "Bills" to Color(0xFF7B8C85),
-    "Entertainment" to Color(0xFFC9A13B),
-    "Fuel" to Color(0xFF8A6BB0),
-    "Rent" to Color(0xFFB5573D),
-    "EMI" to Color(0xFF4F6D8A),
-    "Travel" to Color(0xFF3E9C86),
-    "Health" to Color(0xFFC97B84),
-    "Transport" to Color(0xFF6E7F99),
-    "Milk & Dairy" to Color(0xFF7E97B8),
-    "Internet" to Color(0xFF4E6E8E),
-    "Mobile" to Color(0xFF9A6FB0),
-    "Laundry" to Color(0xFF5AA0A8),
-    "Maid" to Color(0xFF9A8F5E),
-    "Domestic help" to Color(0xFF9A8F5E),
-    "Home services" to Color(0xFFC08457),
-    "Donation" to Color(0xFFCB6D5A),
-    "Investment" to Color(0xFF3A7D52),
-    "FASTag" to Color(0xFF5C6B7A),
-    "Education" to Color(0xFF4A6FA5),
-    "Subscriptions" to Color(0xFF7B5EA7),
-    "Gym" to Color(0xFFB5744A),
-    "Personal care" to Color(0xFFCF8FB0),
-    "ATM / Cash" to Color(0xFF788074),
-    "Bank charges" to Color(0xFFB0705E),
-    "Unknown" to Color(0xFF9AA39C),
-    "Income" to ZColor.Income,
-    "Refund" to ZColor.Income,
-    "Transfer" to ZColor.Muted,
-    "Card bill" to ZColor.Muted,
-    "Wallet" to Color(0xFF8A7CB8),
-    "Education" to Color(0xFF5B8DB8),
-)
+// Bright, clearly different colours, one per category, each with a lighter tone for dark mode. They sit on a
+// neutral tile (ZColor.Tile), so the icon itself carries the colour and stands out.
+private fun buildCatColors(): Map<String, Color> {
+    val d = ZTheme.dark
+    fun c(light: Long, dark: Long) = Color(if (d) dark else light)
+    return mapOf(
+        "Unknown" to c(0xFFE5484D, 0xFFFF6369),
+        "Food" to c(0xFFFF6B1A, 0xFFFF8A3D),
+        "Groceries" to c(0xFF22B455, 0xFF3DD171),
+        "Shopping" to c(0xFF06B6D4, 0xFF22D3EE),
+        "Health" to c(0xFFEC4899, 0xFFF472B6),
+        "Travel" to c(0xFF8B5CF6, 0xFFA78BFA),
+        "Entertainment" to c(0xFF6366F1, 0xFF818CF8),
+        "Bills" to c(0xFF0D9488, 0xFF2DD4BF),
+        "Fuel" to c(0xFFEAB308, 0xFFFACC15),
+        "Transport" to c(0xFF3B82F6, 0xFF60A5FA),
+        "Home services" to c(0xFFF59E0B, 0xFFFBBF24),
+        "Rent" to c(0xFF9A3412, 0xFFD2875A),
+        "EMI" to c(0xFF64748B, 0xFF94A3B8),
+        "Subscriptions" to c(0xFFC026D3, 0xFFE879F9),
+        "Gym" to c(0xFF65A30D, 0xFFA3E635),
+        "Milk & Dairy" to c(0xFF0EA5E9, 0xFF7DD3FC),
+        "Internet" to c(0xFF2563EB, 0xFF93C5FD),
+        "Mobile" to c(0xFF7C3AED, 0xFFC4B5FD),
+        "Laundry" to c(0xFF0891B2, 0xFF67E8F9),
+        "Maid" to c(0xFFA16207, 0xFFE0B04A),
+        "Domestic help" to c(0xFFA16207, 0xFFE0B04A),
+        "Donation" to c(0xFFF43F5E, 0xFFFB7185),
+        "Investment" to c(0xFF16A34A, 0xFF4ADE80),
+        "FASTag" to c(0xFF475569, 0xFFA8B3C2),
+        "Education" to c(0xFF4F46E5, 0xFFA5B4FC),
+        "Personal care" to c(0xFFDB2777, 0xFFF9A8D4),
+        "ATM / Cash" to c(0xFF15803D, 0xFF86EFAC),
+        "Bank charges" to c(0xFFB45309, 0xFFF59E0B),
+        "Wallet" to c(0xFF7C3AED, 0xFFC4B5FD),
+        "Income" to ZColor.Income,
+        "Refund" to ZColor.Income,
+        "Transfer" to ZColor.Muted,
+        "Card bill" to ZColor.Muted,
+    )
+}
 
 // Built once per palette+mode, because a few entries follow the theme (Accent, Ink, Income, Muted).
 private var catKey = -1
@@ -310,32 +323,35 @@ private fun logoFor(slug: String?): Int? = when (slug) {
 @Composable
 fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String = "") {
     payLogoFor(name)?.let { logo ->
-        Box(Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-            androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.74f))
+        Box(Modifier.size(size).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.66f))
         }
         return
     }
     val b = brandFor(name)
-    // Transfers and person-to-person lending get the banking-style swap icon.
+    val moneyIn = kind == "income" || kind == "refund"
+    // Transfers and person-to-person lending get the banking-style swap icon; money in gets an arrow pointing in.
     val icon = when {
         b != null -> null
         kind == "transfer" || kind == "lent" || kind == "borrowed" -> CatIcons.forCategory("Transfer")
+        moneyIn -> Icons.Rounded.SouthWest
         else -> CatIcons.forCategory(category)
     }
     // Old custom categories may still hold an emoji.
     val emoji = if (b == null && icon == null) CustomCats.map[category]?.first?.takeIf { !it.startsWith("i:") } else null
-    val bg = b?.bg ?: catColor(category).copy(alpha = 0.18f)
-    val fg = b?.fg ?: catColor(category)
+    // The icon carries the colour; the round tile behind it stays neutral so the colour stands out.
+    val bg = b?.bg ?: ZColor.Tile
+    val fg = b?.fg ?: if (moneyIn) ZColor.Income else catColor(category)
     Box(
-        modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(bg),
+        modifier = Modifier.size(size).clip(CircleShape).background(bg),
         contentAlignment = Alignment.Center,
     ) {
         when {
             b != null -> Text(b.mark, color = b.fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
-            icon != null -> Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(size * 0.54f))
+            icon != null -> Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(size * 0.6f))
             emoji != null -> Text(emoji, fontSize = (size.value * 0.44f).sp)
             else -> Text((name.ifBlank { category }).trim().take(1).uppercase(),
-                color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38f).sp)
+                color = fg, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.4f).sp)
         }
     }
 }

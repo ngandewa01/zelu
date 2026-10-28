@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
@@ -592,10 +594,17 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
                         onRemove = { id -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
-                            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } })
+                            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
+                        adding = addingBill, setAdding = { addingBill = it })
                 }
                 }
             }
+            // Dues: add a bill from a round + button that stays put while the list scrolls.
+            if (view == "dues") Box(
+                Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.navigationBars).padding(end = 18.dp, bottom = 84.dp)
+                    .size(56.dp).clip(CircleShape).background(ZColor.Accent).clickable { addingBill = true }.buttonLabel("Add bill"),
+                contentAlignment = Alignment.Center,
+            ) { androidx.compose.material3.Icon(Icons.Rounded.Add, null, tint = ZColor.AccentInk, modifier = Modifier.size(28.dp)) }
             BottomNav(view, Modifier.align(Alignment.BottomCenter)) { view = it; daySel = 0 }
             undo?.let { u ->
                 LaunchedEffect(u) { delay(6000); if (undo === u) undo = null }

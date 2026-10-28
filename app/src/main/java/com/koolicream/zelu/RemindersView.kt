@@ -45,9 +45,9 @@ import java.util.Calendar
 @Composable internal fun RemindersView(
     reminders: List<Reminder>, rows: List<Row>, state: Map<String, Boolean>, onMark: (String, Boolean) -> Unit,
     onAdd: (String, Double, String, Boolean) -> Unit = { _, _, _, _ -> }, onRemove: (String) -> Unit = {},
+    adding: Boolean = false, setAdding: (Boolean) -> Unit = {},
 ) {
     var detail by remember { mutableStateOf<Reminder?>(null) }
-    var adding by remember { mutableStateOf(false) }
     val ctxAdd = LocalContext.current
     var mandates by remember { mutableStateOf<List<Mandate>>(emptyList()) }
     var mandateOpen by remember { mutableStateOf<Mandate?>(null) }
@@ -70,15 +70,8 @@ import java.util.Calendar
     val paidOlder = paid.filter { it.dueDate.take(7) < curMonth }
 
     Spacer(Modifier.height(4.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Dues & reminders", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold,
-            maxLines = 2, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-            .clickable { adding = true }.padding(horizontal = 14.dp, vertical = 8.dp)) {
-            Text("+ Add bill", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
-        }
-    }
+    // Adding a bill is the round + button above the nav bar (MainActivity), so the title stands alone.
+    Text("Dues & reminders", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 2)
 
     Spacer(Modifier.height(12.dp))
     ChipScroll {
@@ -237,7 +230,7 @@ import java.util.Calendar
         var amt by remember { mutableStateOf("") }
         var due by remember { mutableStateOf(Dates.today()) }
         var monthly by remember { mutableStateOf(true) }
-        Dialog(onDismissRequest = { adding = false }) {
+        Dialog(onDismissRequest = { setAdding(false) }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Add a bill", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
@@ -258,11 +251,11 @@ import java.util.Calendar
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { adding = false }.padding(12.dp))
+                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { setAdding(false) }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                         val a = amt.toDoubleOrNull() ?: 0.0
-                        if (name.isNotBlank() && a > 0) { onAdd(name.trim(), a, due, monthly); adding = false }
+                        if (name.isNotBlank() && a > 0) { onAdd(name.trim(), a, due, monthly); setAdding(false) }
                     }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }

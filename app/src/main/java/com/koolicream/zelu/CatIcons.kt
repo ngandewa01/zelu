@@ -3,6 +3,7 @@ package com.koolicream.zelu
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BeachAccess
@@ -72,6 +73,7 @@ object CatIcons {
     )
 
     private val byCategory: Map<String, ImageVector> = mapOf(
+        "Unknown" to Icons.Rounded.PriorityHigh,
         "Food" to Icons.Rounded.Restaurant, "Groceries" to Icons.Rounded.ShoppingBasket,
         "Shopping" to Icons.Rounded.ShoppingCart, "Fuel" to Icons.Rounded.LocalGasStation,
         "Transport" to Icons.Rounded.DirectionsCar, "Travel" to Icons.Rounded.Flight,

@@ -31,6 +31,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var budgetsOpen by mutableStateOf(false)
     var savingsOpen by mutableStateOf(false)
     var trendsOpen by mutableStateOf(false)
+    var addingBill by mutableStateOf(false)
     var fixed by mutableStateOf<Map<String, Double>>(emptyMap())
     var menuOpen by mutableStateOf(false)
     var menuSection by mutableStateOf<String?>(null)   // the menu topic page open, if any
