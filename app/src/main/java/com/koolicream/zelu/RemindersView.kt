@@ -78,7 +78,7 @@ import java.util.Calendar
     Text("Dues & reminders", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 2)
 
     Spacer(Modifier.height(12.dp))
-    ChipScroll {
+    TabRowWrap {
         IconTab(Icons.Rounded.Schedule, "Upcoming", 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size) { duesTab = 0 }
         IconTab(Icons.Rounded.TaskAlt, "Paid", 0xFF22B455, 0xFF3DD171, duesTab == 1) { duesTab = 1 }
         if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, "Autopay", 0xFFC026D3, 0xFFE879F9, duesTab == 2) { duesTab = 2 }

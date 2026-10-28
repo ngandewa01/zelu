@@ -547,7 +547,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             onClearDay = { daySel = 0 },
                             tabs = {
                                 Spacer(Modifier.height(12.dp))
-                                ChipScroll {
+                                TabRowWrap {
                                     IconTab(Icons.Rounded.DonutLarge, "Overview", 0xFFFF6B1A, 0xFFFF8A3D, spendTab == 0) { spendTab = 0 }
                                     IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, spendTab == 1) { spendTab = 1 }
                                     IconTab(Icons.Rounded.Insights, "Patterns", 0xFF06B6D4, 0xFF22D3EE, spendTab == 2) { spendTab = 2 }

@@ -587,3 +587,10 @@ internal fun treemap(values: List<Double>): List<TmCell> {
     }
     IconTab(icon, label, light, dark, selected, onClick = onClick)
 }
+
+// A row of tabs that wraps onto a second line when the screen is narrow or the text is large, instead of cutting one off.
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable internal fun TabRowWrap(content: @Composable () -> Unit) {
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+}

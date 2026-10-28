@@ -183,7 +183,7 @@ import java.util.Locale
                 }
             }
             Spacer(Modifier.height(16.dp))
-            ChipScroll {
+            TabRowWrap {
                 IconTab(Icons.Rounded.ReceiptLong, "Transactions", 0xFF3B82F6, 0xFF60A5FA, tab == 0) { tab = 0 }
                 IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, tab == 1) { tab = 1 }
                 IconTab(Icons.Rounded.Storefront, "Merchants", 0xFFFF6B1A, 0xFFFF8A3D, tab == 2) { tab = 2 }
