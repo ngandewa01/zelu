@@ -65,6 +65,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 
+@Composable internal fun LogoMark(sizeDp: Float) {
+    Box(
+        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Accent),
+        contentAlignment = Alignment.Center,
+    ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
+}
+
 @Composable internal fun AcctLogo(key: String, size: Int = 38) {
     val logo = bankLogoRes(key)
     Box(Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.29f).dp)).background(Color.White), contentAlignment = Alignment.Center) {
@@ -102,7 +109,10 @@ import androidx.compose.ui.semantics.semantics
 
 @Composable internal fun BrandBar() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        LogoMark(30f)
+        Box(
+            Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(ZColor.Accent),
+            contentAlignment = Alignment.Center,
+        ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         Spacer(Modifier.width(9.dp))
         Row {
             Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)

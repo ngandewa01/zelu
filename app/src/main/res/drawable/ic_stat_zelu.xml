@@ -1,17 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Status bar icon: the Zelu mark in white (Android colours it), a third of the launcher grid's centre. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="72"
-    android:viewportHeight="72">
-    <path
-        android:pathData="M17,19 H54 L18,53 H38"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="12" />
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M45.5,53 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+        android:pathData="M5,4 H19 V7 L9.4,17 H19 V20 H5 V17 L14.6,7 H5 Z" />
 </vector>

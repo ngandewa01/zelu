@@ -1,6 +1,3 @@
 <resources>
-    <!-- The Zelu mark: dark ink on a marigold gradient. ZeluMark.kt draws the same in the app and the widget. -->
-    <color name="zelu_brand_light">#FFC94D</color>
-    <color name="zelu_brand_deep">#FF7A2E</color>
-    <color name="zelu_brand_ink">#1E1611</color>
+    <color name="zelu_icon_bg">#A8845A</color>
 </resources>
