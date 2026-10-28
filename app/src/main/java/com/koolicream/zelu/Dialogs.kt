@@ -316,7 +316,7 @@ import androidx.compose.ui.window.Dialog
             Text(person.trim().take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
         Spacer(Modifier.height(8.dp))
-        Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         MutedText(verb, 11)
         Spacer(Modifier.height(4.dp))
         Text(if (settled) "Settled ✓" else money(bal), color = if (settled) ZColor.Muted else color,
@@ -394,7 +394,7 @@ import androidx.compose.ui.window.Dialog
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             MutedText(
                 if (bal <= 0.0) "Settled · ${money(total)}"
@@ -421,7 +421,7 @@ import androidx.compose.ui.window.Dialog
     val headWord = if (youOwe) "Borrowed" else "Lent"
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-            Text(person, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            Text(niceName(person), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             MutedText("$headWord ${money(total)} in ${lentRows.size} ${if (lentRows.size == 1) "transfer" else "transfers"}", 12)

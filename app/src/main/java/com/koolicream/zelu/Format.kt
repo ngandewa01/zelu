@@ -131,14 +131,15 @@ internal fun prettyDate(iso: String): String = try {
 } catch (_: Exception) { iso }
 
 // Names written in capitals by banks ("CHAI WORLD", "SHIVPRAKASH ARUN GANDEWAR") read as "Chai World". Names that
-// already have small letters are left alone, and so are short codes and bank names (HDFC, SBI, UPI, LIC).
+// already have small letters keep them, and so are short codes and bank names (HDFC, SBI, UPI, LIC).
 private val KEEP_CAPS = setOf("HDFC", "ICICI", "SBI", "IDFC", "AXIS", "UPI", "ATM", "EMI", "LIC", "NPS", "EPF", "IRCTC", "BSNL",
     "NACH", "ACH", "IMPS", "NEFT", "RTGS", "KFC", "IOB", "BOB", "UCO", "PNB", "HPCL", "BPCL", "IOCL", "MGB", "TGB", "CC", "PVT", "LTD")
 internal fun niceName(s: String): String {
-    if (s.any { it.isLowerCase() } || s.none { it.isLetter() }) return s
+    if (s.none { it.isLetter() }) return s
+    // Word by word, so a half-capital name like "UNION Loan 0126" reads "Union Loan 0126" too.
     return s.split(" ").joinToString(" ") { w ->
         val letters = w.filter { it.isLetter() }
-        if (w.uppercase() in KEEP_CAPS || letters.length <= 2 || w.any { it.isDigit() }) w
+        if (letters.any { it.isLowerCase() } || w.uppercase() in KEEP_CAPS || letters.length <= 2 || w.any { it.isDigit() }) w
         else w.lowercase().replaceFirstChar { it.uppercase() }
     }
 }
