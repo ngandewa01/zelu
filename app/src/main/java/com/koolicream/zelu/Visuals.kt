@@ -362,6 +362,9 @@ object LinkInfo {
 }
 
 // Hide balances: one switch for account balances, total balance and card limits.
+// Money on the account, card and loan cards: hidden behind dots while the eye button is on.
+fun privateMoney(v: Double): String = if (Privacy.hideBalance) Privacy.MASK else money(v)
+
 object Privacy {
     var hideBalance by mutableStateOf(false)
     const val MASK = "₹ ••••"

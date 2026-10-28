@@ -86,7 +86,7 @@ import java.util.Locale
                 Text(if (bal != null) (if (Privacy.hideBalance) Privacy.MASK else money(bal.first)) else "—", color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
             }
-            MutedText("Spent  " + money(spent), 12)
+            MutedText("Spent  " + privateMoney(spent), 12)
         }
     }
 }
@@ -367,8 +367,8 @@ internal object LimitAsk {
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Spent", color = soft, fontSize = 10.sp)
-                        Text(money(spent), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) + " · " + money(due.amount) else "No bill due",
+                        Text(privateMoney(spent), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) + " · " + privateMoney(due.amount) else "No bill due",
                             color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
                     }
                 }

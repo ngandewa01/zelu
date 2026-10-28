@@ -674,10 +674,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         }
                         Spacer(Modifier.height(12.dp))
                         MutedText(if (closed) "Last EMI" else "Monthly EMI", 11)
-                        Text(money(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(privateMoney(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         MutedText("Last paid " + prettyDate(last.date), 11)
-                        MutedText(plural(rs.size, "EMI", "EMIs") + " · " + money(rs.sumOf { it.amount }) + " paid", 11)
+                        MutedText(plural(rs.size, "EMI", "EMIs") + " · " + privateMoney(rs.sumOf { it.amount }) + " paid", 11)
                         Spacer(Modifier.height(8.dp))
                         Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { Storage.setLoanClosed(acctCtx, name, !closed); closedLoans = Storage.closedLoans(acctCtx) })
