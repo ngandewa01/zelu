@@ -53,7 +53,7 @@ internal fun MonthlyBudgetDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text("Monthly budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Your overall spending limit per month. Shown on Home and used for the pace chart. Enter 0 for no budget.", 12)
+                    MutedText("Your monthly limit. 0 for none.", 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
@@ -126,7 +126,7 @@ internal fun CategoriesDialog(s: AppState) {
                 }
                 Spacer(Modifier.height(10.dp))
                 if (catTab == 1) IncomeCategoriesBody() else {
-                MutedText("Tap to choose whether a category counts as spending. Left out, its payments stay in your list under Ignored but are not in totals, the pace chart or budgets.", 12)
+                MutedText("Tap to count a category as spending or leave it out of totals.", 12)
                 Spacer(Modifier.height(10.dp))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     names.forEach { c ->
@@ -216,7 +216,7 @@ internal fun DuplicatesDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
                     Text("Possible duplicates", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Two payments with the same amount, account and day. If it is one payment reported twice, hide the extra one. If you really paid twice, keep both.", 12)
+                    MutedText("Same amount, account and day. Hide the extra if it's one payment.", 12)
                     Spacer(Modifier.height(10.dp))
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         pairs.forEach { (a, b) ->

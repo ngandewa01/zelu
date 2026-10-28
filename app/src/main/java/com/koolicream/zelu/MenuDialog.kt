@@ -378,7 +378,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     val hits = scored.filter { it.second == tokens.size }.map { it.first }
                         .ifEmpty { scored.filter { it.second > 0 }.sortedByDescending { it.second }.map { it.first } }
                     Spacer(Modifier.height(8.dp))
-                    if (hits.isEmpty()) MutedText("Nothing called that. Try another word, or look under Help.", 14)
+                    if (hits.isEmpty()) MutedText("Nothing found. Try another word.", 14)
                     else MenuGroup(null, hits, showSection = true, onRun = { runEntry(it) })
                 } else if (page != null) {
                     // One topic's own short page; rarely used rows wait under "More options".

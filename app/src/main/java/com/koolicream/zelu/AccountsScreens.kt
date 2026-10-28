@@ -69,7 +69,7 @@ import java.util.Locale
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
             Text("Rescan between dates", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("Zelu reads only the messages of this period. Anything already in is left as it is.", 12)
+            MutedText("Reads only this period. Nothing already in changes.", 12)
             Spacer(Modifier.height(12.dp))
             ChipScroll {
                 val cur = Dates.todayMonth()
@@ -109,7 +109,7 @@ import java.util.Locale
 @Composable internal fun ColumnScope.IncomeCategoriesBody() {
     val context = LocalContext.current
     var name by remember { mutableStateOf("") }
-    MutedText("Pick one from a payment's details (Change category). The built-in ones stay; ones you add can be deleted.", 12)
+    MutedText("Yours can be deleted; built-in ones stay.", 12)
     Spacer(Modifier.height(10.dp))
     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
         IncomeCats.all.forEach { c ->
@@ -242,7 +242,7 @@ import java.util.Locale
                 if (unknown.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
                     Eyebrow("Bank not known")
-                    MutedText("Zelu could not tell which bank these are. If one is the same as an account above, tap it and tick that account. Otherwise leave it.", 12)
+                    MutedText("Bank not known. Tap one to link it to an account above.", 12)
                     unknown.forEach { card(it) }
                 }
                 if (removed.isNotEmpty()) {
@@ -323,11 +323,11 @@ import java.util.Locale
                     }
                     if (suggested != null && !a.declined) {
                         Spacer(Modifier.height(10.dp))
-                        MutedText("This looks like the debit card of ${suggested.key}. It is ticked below. Save to link it, or untick it to keep it separate.", 13)
+                        MutedText("Looks like ${suggested.key}'s debit card. Save to link it.", 13)
                     }
                     if (a.declined) {
                         Spacer(Modifier.height(14.dp))
-                        MutedText("You said this is not your account, so its payments are not counted.", 13)
+                        MutedText("Not your account, so not counted.", 13)
                     } else {
                         if (a.type != "loan" && a.type != "debit") {
                             Spacer(Modifier.height(12.dp))

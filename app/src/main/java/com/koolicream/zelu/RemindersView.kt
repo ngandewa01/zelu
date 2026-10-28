@@ -135,7 +135,7 @@ import java.util.Calendar
     if (duesTab != 0) { /* the Upcoming list is only on its own tab */ }
     else if (pending.isEmpty()) {
         Spacer(Modifier.height(10.dp))
-        MutedText("Nothing due. Bill and EMI reminders from your SMS show up here.", 13)
+        MutedText("Nothing due.", 13)
     } else {
         Spacer(Modifier.height(4.dp))
         OnceHint("dues_tick", "Tap ✓ when a bill is paid.")
@@ -223,7 +223,7 @@ import java.util.Calendar
                     Text(md.raw, color = ZColor.Ink, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(8.dp))
-                MutedText("To stop an AutoPay, cancel it in your UPI app (Mandates / AutoPay). Zelu only reads the messages.", 11)
+                MutedText("To stop it, cancel it in your UPI app.", 11)
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { mandateOpen = null }.padding(horizontal = 22.dp, vertical = 10.dp)) {
@@ -242,7 +242,7 @@ import java.util.Calendar
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Add a bill", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("For things with no SMS: rent, school fee, a loan from a friend. Zelu reminds you before the due date.", 12)
+                MutedText("For bills with no SMS, like rent or school fees.", 12)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, placeholder = { Text("What is it? (Rent)") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))

@@ -557,7 +557,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                MutedText("Tap an account to see the SMS it came from. You can keep it or hide it.", 12)
+                MutedText("Tap one to see its messages, or hide it.", 12)
                 acctNames.sortedBy { it in closedLoans }.forEach { a ->
                     ClosableFrame(a in closedLoans, 16.dp, Modifier.fillMaxWidth(), onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
@@ -586,7 +586,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
                 Text(a, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Zelu made this account from these messages. If they aren't about an account of yours, hide it.", 12)
+                MutedText("Made from these messages. Not yours? Hide it.", 12)
                 Spacer(Modifier.height(10.dp))
                 val refs = sourceRefs
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {

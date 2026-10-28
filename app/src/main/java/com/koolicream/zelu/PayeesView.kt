@@ -257,7 +257,7 @@ import androidx.compose.ui.window.Dialog
             if (cur == null || r.date < cur) firstSeen[n] = r.date
         }
         val fresh = payees.filter { firstSeen[it.name]?.startsWith(thisM) == true }.take(6)
-        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText("Nothing new this month. Every payee here is one you have paid before.") }
+        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText("No new payees this month.") }
         else Panel {
             Eyebrow("New this month")
             Spacer(Modifier.height(4.dp))
@@ -381,7 +381,7 @@ import androidx.compose.ui.window.Dialog
             }
             if (renaming) {
                 Spacer(Modifier.height(10.dp))
-                MutedText("Give it a better name, or type another payee's name to merge the two.", 12)
+                MutedText("Rename it, or type another payee's name to merge them.", 12)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (others.isNotEmpty()) {
@@ -429,7 +429,7 @@ import androidx.compose.ui.window.Dialog
     val inv = Analytics.investments(allRows)
     Text("Investments", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     if (inv.isEmpty()) {
-        Panel { MutedText("Nothing yet. PF, NPS and mutual-fund contributions will show up here.") }
+        Panel { MutedText("PF, NPS and fund contributions show up here.") }
         return
     }
     Panel {
@@ -437,7 +437,7 @@ import androidx.compose.ui.window.Dialog
         Spacer(Modifier.height(4.dp))
         Text(money(inv.sumOf { it.amount }), color = ZColor.Income, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        MutedText("PF, NPS and funds — kept out of your spending and income.", 11)
+        MutedText("Kept out of spending and income.", 11)
     }
     fun typeOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: "Investment"
     val byType = inv.groupBy { typeOf(it) }
