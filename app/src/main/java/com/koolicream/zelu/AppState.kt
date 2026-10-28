@@ -107,6 +107,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var restoreLauncher: ActivityResultLauncher<Array<String>>? = null
 
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
+
     fun backupNow() {
         scope.launch {
             val body = withContext(Dispatchers.IO) { Backup.exportEncrypted(context) }
@@ -117,6 +118,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
         }
     }
+
     fun hasPerm() = context is DemoContext || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
 
@@ -256,6 +258,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     }
 
     fun checkNotif() { notifBlocked = !Notifier.enabled(context) }
+
     fun fixNotif() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED)
@@ -318,6 +321,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             undo = msg to snap
         }
     }
+
     fun saveAccountPlan(plan: AccountBook.Plan, msg: String) = relink(msg) { Storage.applyAccountPlan(context, plan) }
     fun declineAcct(key: String, type: String) = relink("Removed " + AccountBook.displayName(key)) { Storage.declineAccount(context, key, type) }
     fun restoreAcct(key: String) = relink("Brought back " + AccountBook.displayName(key)) { Storage.restoreAccount(context, key) }
