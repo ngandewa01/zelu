@@ -91,14 +91,19 @@ import java.util.Calendar
     val laterList = pending.filter { it.dueDate > weekEnd }
     if (duesTab == 0 && pending.isNotEmpty()) Panel {
         run {
+        // Only the totals that have something in them: a "₹0" box says nothing.
+        val od = overdueList.sumOf { it.amount }
+        val wk = weekList.sumOf { it.amount }
+        val lt = laterList.sumOf { it.amount }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val od = overdueList.sumOf { it.amount }
-            Fact("Overdue", money(od), if (od > 0) ZColor.Warn else ZColor.Ink)
-            Fact("Next 7 days", money(weekList.sumOf { it.amount }))
-            Fact("Later", money(laterList.sumOf { it.amount }))
+            if (od > 0) Fact("Overdue", money(od), ZColor.Warn)
+            if (wk > 0) Fact("Next 7 days", money(wk))
+            if (lt > 0) Fact("Later", money(lt))
         }
+        // The day strip only when a bill falls in the next 7 days, so it never shows a row of empty days.
+        // Today has an outline; a day with a bill is gold and opens it; swipe for later days.
+        if (weekList.isNotEmpty()) {
         Spacer(Modifier.height(14.dp))
-        // The next 30 days; swipe sideways for later ones. Today has an outline; a day with a bill is orange and opens it.
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 0..29) {
                 val d = Dates.shiftDays(today, i)
@@ -124,6 +129,7 @@ import java.util.Calendar
             }
         }
         }
+        }
     }
 
     if (duesTab != 0) { /* the Upcoming list is only on its own tab */ }
@@ -136,10 +142,8 @@ import java.util.Calendar
         @Composable fun group(label: String, list: List<Reminder>, overdue: Boolean) {
             if (list.isEmpty()) return
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(label.uppercase(), color = if (overdue) ZColor.Warn else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                MutedText(money(list.sumOf { it.amount }), 12)
-            }
+            // The total for each group is already in the summary above, so the heading is just its name.
+            Text(label.uppercase(), color = if (overdue) ZColor.Warn else ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             list.forEach { r -> ReminderCard(r, overdue = overdue, onOpen = { detail = r }) { onMark(r.id, true) } }
         }
         group("Overdue", overdueList, true)
