@@ -538,7 +538,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 // ---------- Trends ----------
 
 // A screen tab: a bright icon on a round tile (same look as the category icons), then the name and an optional
-// count. The chosen tab takes a soft wash of its own icon colour with a matching outline.
+// count (not shown: tabs carry only an icon and a name). The chosen tab takes a soft wash of its own icon colour with a matching outline.
 @Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
                                  selected: Boolean, count: Int = 0, compact: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) =
     IconTab(icon, label, Color(if (ZTheme.dark) dark else light), selected, count, compact, modifier, onClick)
@@ -565,12 +565,6 @@ internal fun treemap(values: List<Double>): List<TmCell> {
             onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true })
         else FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
             Modifier.weight(1f, fill = false))
-        if (count > 0) {
-            Spacer(Modifier.width(6.dp))
-            Box(Modifier.clip(RoundedCornerShape(9.dp)).background(ZColor.Accent).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                Text(count.toString(), color = ZColor.AccentInk, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
 
