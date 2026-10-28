@@ -1,15 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Zelu mark: a Z whose doubled top bar echoes the rupee sign. Drawn in the 108 grid of an adaptive icon and
+     kept inside its safe circle (radius 33 around the centre). Also the themed (monochrome) icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="2.6"
-        android:scaleY="2.6"
-        android:translateX="22.8"
-        android:translateY="22.8">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M5,4 H19 V7 L9.4,17 H19 V20 H5 V17 L14.6,7 H5 Z" />
-    </group>
+    <path
+        android:pathData="M35,36 H73"
+        android:strokeColor="@color/zelu_brand_ink"
+        android:strokeLineCap="round"
+        android:strokeWidth="11" />
+    <path
+        android:pathData="M35,48 H61"
+        android:strokeColor="@color/zelu_brand_ink"
+        android:strokeLineCap="round"
+        android:strokeWidth="8" />
+    <path
+        android:pathData="M73,36 L35,72 H73"
+        android:strokeColor="@color/zelu_brand_ink"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="11" />
 </vector>

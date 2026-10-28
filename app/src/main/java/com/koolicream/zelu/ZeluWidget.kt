@@ -10,7 +10,6 @@ import android.graphics.Canvas
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RectF
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
@@ -68,7 +67,7 @@ class ZeluWidget : AppWidgetProvider() {
 
             val v = RemoteViews(context.packageName, R.layout.widget_zelu)
             v.setInt(R.id.w_root, "setBackgroundColor", set.card.toInt())
-            v.setImageViewBitmap(R.id.w_logo, logo(set.accent.toInt(), set.accentInk.toInt()))
+            v.setImageViewBitmap(R.id.w_logo, ZeluMark.bitmap(60))
 
             v.setTextViewText(R.id.w_label, Dates.monthLong(month))
             v.setTextColor(R.id.w_label, set.muted.toInt())
@@ -127,21 +126,6 @@ class ZeluWidget : AppWidgetProvider() {
         } catch (_: Exception) { ymd }
 
         /** Zelu's mark: the "Z" on the accent colour, as in the app icon. */
-        private fun logo(bg: Int, fg: Int): Bitmap {
-            val s = 60
-            val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
-            val c = Canvas(b)
-            c.drawRoundRect(RectF(0f, 0f, s.toFloat(), s.toFloat()), 16f, 16f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bg })
-            // The launcher icon's path, drawn in a 24-unit box scaled to the tile.
-            val k = s / 24f * 0.78f
-            val o = (s - 24 * k) / 2
-            fun p(x: Float, y: Float) = Pair(o + x * k, o + y * k)
-            val pts = listOf(p(5f, 4f), p(19f, 4f), p(19f, 7f), p(9.4f, 17f), p(19f, 17f), p(19f, 20f), p(5f, 20f), p(5f, 17f), p(14.6f, 7f), p(5f, 7f))
-            val path = Path().apply { moveTo(pts[0].first, pts[0].second); pts.drop(1).forEach { lineTo(it.first, it.second) }; close() }
-            c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fg })
-            return b
-        }
-
         /** Running spend this month (solid, up to today) over last month (dashed), and the budget as a line. */
         private fun chart(cur: DoubleArray, prev: DoubleArray, day: Int, budget: Double, set: PalSet): Bitmap {
             val w = 720; val h = 150; val pad = 8f
