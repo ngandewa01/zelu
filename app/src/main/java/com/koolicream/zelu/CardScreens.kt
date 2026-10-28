@@ -1,5 +1,6 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Category
@@ -57,36 +58,35 @@ import java.util.Locale
     val tint = bankColor(account)
     val logo = bankLogoRes(account)
     val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.US)
-    Row(modifier.height(112.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))) {
-        Column(
-            Modifier.weight(0.42f).fillMaxHeight().background(tint.copy(alpha = 0.22f)).padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Box(
-                Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White),
-                contentAlignment = Alignment.Center,
-            ) {
+    // Bank and number on top, the balance as the one big number, and what went out this month under it.
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(ZColor.Paper).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp))
+        .padding(14.dp)) {
+        Row(Modifier.fillMaxWidth().padding(end = 30.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White).border(1.dp, tint.copy(alpha = 0.25f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center) {
                 if (logo != null) androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null,
-                    modifier = Modifier.size(24.dp),
+                    painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(26.dp),
                 ) else BankMark(account, tint, 16.sp)
             }
-            Column {
-                Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (last4 != null) MutedText("xx$last4", 11)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(niceName(name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val nLinked = LinkInfo.map[account]?.size ?: 0
-                if (nLinked > 0) Text("+$nLinked linked", color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text((if (last4 != null) "•• $last4" else "Account") + (if (nLinked > 0) " · +$nLinked linked" else ""),
+                    color = ZColor.Muted, fontSize = 12.sp)
             }
         }
-        Column(
-            Modifier.weight(0.58f).fillMaxHeight().background(ZColor.Card).padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Text(if (bal != null) (if (Privacy.hideBalance) Privacy.MASK else money(bal.first)) else "—", color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                MutedText(if (bal != null && bal.second > 0) "as of " + fmt.format(java.util.Date(bal.second)) else "no balance alert", 11)
-            }
-            MutedText("Spent  " + privateMoney(spent), 12)
+        Spacer(Modifier.height(12.dp))
+        Text(if (bal != null && bal.second > 0) "Balance · " + fmt.format(java.util.Date(bal.second)) else "Balance",
+            color = ZColor.Muted, fontSize = 12.sp)
+        Text(if (bal != null) privateMoney(bal.first) else "—", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.NorthEast, null,
+                tint = Color(if (ZTheme.dark) 0xFFFF8A3D else 0xFFFF6B1A), modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(privateMoney(spent), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(" spent", color = ZColor.Muted, fontSize = 13.sp)
         }
     }
 }
@@ -331,46 +331,46 @@ internal object LimitAsk {
                 drawCircle(Color.White.copy(alpha = 0.07f), radius = size.width * 0.38f, center = androidx.compose.ui.geometry.Offset(size.width * 0.92f, size.height * 0.08f))
                 drawCircle(Color.White.copy(alpha = 0.05f), radius = size.width * 0.30f, center = androidx.compose.ui.geometry.Offset(size.width * 0.78f, size.height * 1.02f))
             }
+            // Name on top, one big number (what you can still spend), and one line for this cycle. The top-right corner
+            // is left free for the ⋯ menu.
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                Row(Modifier.fillMaxWidth().padding(end = 34.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                         if (logo != null) androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(22.dp),
+                            painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(24.dp),
                         ) else BankMark(account, base, 15.sp)
                     }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(niceName(bank) + " Credit Card", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("•• $last4", color = soft, fontSize = 12.sp, letterSpacing = 1.sp)
+                    }
+                    NetBadge(account, 28.dp)
+                }
+                Column {
+                    val isManual = account in LimitAsk.manual
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("CREDIT CARD", color = soft, fontSize = 11.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium)
-                        if (enquiry != null) Text("  ↻", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable {
+                        Text(if (limit != null || shown == null) "Available" else "Credit limit", color = soft, fontSize = 13.sp)
+                        // Asks the bank for the latest limit by SMS.
+                        if (enquiry != null) Text("  ↻", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                 try {
                                     ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO,
                                         android.net.Uri.parse("smsto:${enquiry.first}")).putExtra("sms_body", enquiry.second))
                                 } catch (_: Exception) {}
-                            })
+                            }.buttonLabel("Ask the bank for the latest limit"))
+                        if (asOf != null) Text("  · $asOf", color = soft, fontSize = 12.sp)
                     }
+                    Text(if (shown != null) privateMoney(shown.first) else "Add your limit ›", color = Color.White,
+                        fontSize = if (shown != null) 26.sp else 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(34.dp).height(25.dp).clip(RoundedCornerShape(5.dp)).background(
-                        androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFE8C766), Color(0xFFB99434)))))
-                    Spacer(Modifier.width(14.dp))
-                    Text("••••  ••••  ••••  $last4", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
-                    Spacer(Modifier.weight(1f))
-                    NetBadge(account, 30.dp)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Column {
-                        val isManual = account in LimitAsk.manual
-                        Text(if (limit != null || shown == null) "Available limit" else "Credit limit", color = soft, fontSize = 10.sp)
-                        Text(if (shown != null) (if (Privacy.hideBalance) Privacy.MASK else money(shown.first)) else "Add your limit ›", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                            modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
-                        if (asOf != null) Text(if (account in LimitAsk.manual) "set by you on $asOf, less spends since · tap to change" else if (limit != null && kotlin.math.abs(usedSince) >= 1.0) "est. · SMS of $asOf, less spends since" else "as of $asOf", color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Spent", color = soft, fontSize = 10.sp)
-                        Text(privateMoney(spent), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text(if (due != null) "Due " + due.dueDate.takeLast(5) + " · " + privateMoney(due.amount) else "No bill due",
-                            color = Color.White.copy(alpha = 0.6f), fontSize = 9.sp)
-                    }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(privateMoney(spent), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(" spent this cycle", color = soft, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (due != null) "Due " + prettyDay(due.dueDate) + " · " + privateMoney(due.amount) else "No bill due",
+                        color = if (due != null) Color.White else soft, fontSize = 13.sp, fontWeight = if (due != null) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }

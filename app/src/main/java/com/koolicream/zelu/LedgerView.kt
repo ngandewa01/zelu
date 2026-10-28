@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -289,6 +290,30 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
 
+        // A bill that is overdue or due in the next 3 days shows here as one line; the full list lives on Dues.
+        run {
+            val soonEnd = Dates.shiftDays(today, 3)
+            val soon = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate <= soonEnd &&
+                r.dueDate.take(7) >= Dates.shiftMonth(Dates.todayMonth(), -1) }.sortedBy { it.dueDate }
+            soon.firstOrNull()?.let { r ->
+                val inDays = Dates.daysBetween(today, r.dueDate)
+                val name = niceName(r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill")
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Tile).clickable { onOpenDues() }
+                    .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Schedule, null, tint = if (inDays < 0) ZColor.Warn else Color(0xFFEAB308),
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(name, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    Text(" " + money(r.amount) + " · " + when { inDays < 0 -> "overdue"; inDays == 0 -> "due today"; inDays == 1 -> "due tomorrow"; else -> "due in $inDays days" } +
+                        (if (soon.size > 1) " · +${soon.size - 1}" else ""),
+                        color = if (inDays < 0) ZColor.Warn else ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                    Spacer(Modifier.weight(1f))
+                    Text("›", color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         // A quiet line: icon, words, and an optional link. No box, so the card stays light.
         @Composable fun noteRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String,
                                 action: String?, onClick: (() -> Unit)?) {
@@ -345,40 +370,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
         if (!(liveMonth && budget > 0)) emiSwitch()
-    }
-
-    // Bills before month-end (or the next one when none are left this month).
-    run {
-        val today = Dates.today()
-        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
-        val open = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate.take(7) >= Dates.todayMonth() }
-            .sortedBy { it.dueDate }
-        val nowMonth = Dates.todayMonth()
-        val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
-        val thisMonth = open.filter { it.dueDate <= monthEnd }
-        val shownBills = thisMonth.take(2).ifEmpty { open.take(1) }
-        if (shownBills.isNotEmpty()) Panel {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpenDues() },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(if (thisMonth.isNotEmpty()) "Bills before month-end" else "Next bill")
-                Text(if (thisMonth.size > 2) "All ${thisMonth.size} ›" else "All dues ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            shownBills.forEach { r ->
-                val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
-                val inDays = Dates.daysBetween(today, r.dueDate)
-                val whenText = "Due " + prettyDay(r.dueDate) + when { inDays < 0 -> " · overdue"; inDays == 0 -> " · today"; inDays == 1 -> " · tomorrow"; inDays <= 9 -> " · in $inDays days"; else -> "" }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(name, "Bills", 34.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText(whenText + if (isCardBill(r)) " · card bill" else "", 12)
-                    }
-                    Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
     }
 
     // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
@@ -649,40 +640,63 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Panel {
             MoneyTabs()
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                loanGroups.entries.sortedWith(compareBy<Map.Entry<String, List<Row>>> { it.key in closedLoans }
-                    .thenByDescending { e -> e.value.maxOf { it.date } }).forEach { (name, rs) ->
+            // Open loans as cards: the EMI is the one big number. Closed ones fold into a line each underneath.
+            val byLatest = loanGroups.entries.sortedByDescending { e -> e.value.maxOf { it.date } }
+            fun loanTitle(name: String): Pair<String, String> {
+                val m = Regex("(.*)\\bLoan (\\d{3,4})$").find(name)
+                return if (m == null) niceName(name) to "Loan" else (niceName(m.groupValues[1].trim()) + " loan") to ("•• " + m.groupValues[2])
+            }
+            val openLoans = byLatest.filter { it.key !in closedLoans }
+            if (openLoans.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                openLoans.forEach { (name, rs) ->
                     val last = rs.maxByOrNull { it.date }!!
                     val logo = bankLogoRes(name)
-                    val closed = name in closedLoans
-                    // A closed loan is frozen: cool blue instead of the usual card colours.
-                    val ice = Color(0xFF6FA8D6)
-                    Column(Modifier.width(220.dp).clip(RoundedCornerShape(16.dp))
-                        .background(if (closed) ice.copy(alpha = 0.13f) else ZColor.Paper)
-                        .border(1.dp, if (closed) ice.copy(alpha = 0.55f) else ZColor.Line, RoundedCornerShape(16.dp))
-                        .clickable { onDrill(name, rs.newestFirst()) }.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-                                if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
-                                    contentDescription = null, modifier = Modifier.size(22.dp))
-                                else BankMark(name)
+                    val (title, sub) = loanTitle(name)
+                    ClosableFrame(false, 16.dp, Modifier.width(260.dp), onToggle = {
+                        Storage.setLoanClosed(acctCtx, name, true); closedLoans = Storage.closedLoans(acctCtx)
+                    }) {
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { onDrill(name, rs.newestFirst()) }.padding(14.dp)) {
+                            Row(Modifier.padding(end = 30.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White).border(1.dp, ZColor.Line, RoundedCornerShape(11.dp)),
+                                    contentAlignment = Alignment.Center) {
+                                    if (logo != null) androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo),
+                                        contentDescription = null, modifier = Modifier.size(26.dp))
+                                    else BankMark(name)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(sub, color = ZColor.Muted, fontSize = 12.sp)
+                                }
                             }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (closed) Text("❄ Closed", color = ice, fontSize = 11.sp, fontWeight = FontWeight.Bold) else MutedText("Loan", 11)
+                            Spacer(Modifier.height(12.dp))
+                            Text("EMI every month", color = ZColor.Muted, fontSize = 12.sp)
+                            Text(privateMoney(last.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${rs.size} paid", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(" · " + privateMoney(rs.sumOf { it.amount }), color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Text("last " + prettyDay(last.date), color = ZColor.Muted, fontSize = 12.sp)
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        MutedText(if (closed) "Last EMI" else "Monthly EMI", 11)
-                        Text(privateMoney(last.amount), color = if (closed) ZColor.Muted else ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        MutedText("Last paid " + prettyDate(last.date), 11)
-                        MutedText(plural(rs.size, "EMI", "EMIs") + " · " + privateMoney(rs.sumOf { it.amount }) + " paid", 11)
-                        Spacer(Modifier.height(8.dp))
-                        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { Storage.setLoanClosed(acctCtx, name, !closed); closedLoans = Storage.closedLoans(acctCtx) })
                     }
+                }
+            }
+            byLatest.filter { it.key in closedLoans }.forEach { (name, rs) ->
+                val ice = Color(0xFF6FA8D6)
+                val (title, sub) = loanTitle(name)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
+                    .clickable { onDrill(name, rs.newestFirst()) }.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("❄", color = ice, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("$title $sub · closed · ${plural(rs.size, "EMI", "EMIs")}", color = ZColor.Muted, fontSize = 13.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text("Reopen", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { Storage.setLoanClosed(acctCtx, name, false); closedLoans = Storage.closedLoans(acctCtx) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp))
                 }
             }
         }
@@ -733,26 +747,27 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                             fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.width(12.dp))
+                    // Name across the full width, with how much came back under it; the amount and who owes whom on the right.
                     Column(Modifier.weight(1f)) {
-                        Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        Text(niceName(person), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val back = total - bal
-                        MutedText(when {
-                            settled -> "settled"
-                            back >= 1 -> (if (theyOwe) "owes you · " else "you owe · ") + money(back) + " of " + money(total) + " back"
-                            else -> if (theyOwe) "owes you" else "you owe"
-                        }, 12)
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(money(if (settled) total else bal), color = if (settled) ZColor.Muted else tone,
-                            fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        if (!settled && total > bal) {
-                            Spacer(Modifier.height(4.dp))
-                            Box(Modifier.width(64.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ZColor.Line)) {
-                                Box(Modifier.fillMaxWidth(((total - bal) / total).toFloat().coerceIn(0f, 1f)).fillMaxHeight()
+                        if (!settled && back >= 1) {
+                            Spacer(Modifier.height(5.dp))
+                            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(ZColor.Line)) {
+                                Box(Modifier.fillMaxWidth((back / total).toFloat().coerceIn(0f, 1f)).fillMaxHeight()
                                     .background(if (theyOwe) ZColor.Income else ZColor.Accent))
                             }
-                        }
+                            Spacer(Modifier.height(3.dp))
+                            Text(money(back) + " of " + money(total) + " back", color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                        } else Text(if (settled) "Settled" else if (theyOwe) "Lent " + money(total) else "Borrowed " + money(total),
+                            color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(money(if (settled) total else bal), color = if (settled) ZColor.Muted else tone,
+                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(if (settled) "settled" else if (theyOwe) "owes you" else "you owe", color = ZColor.Muted, fontSize = 12.sp)
                     }
                 }
             }
