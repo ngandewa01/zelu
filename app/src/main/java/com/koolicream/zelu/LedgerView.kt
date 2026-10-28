@@ -184,9 +184,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val budget = Analytics.BUDGET
         val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         val today = Dates.today()
-        // Bills still to pay this month. A card bill pays for spends already counted, so it doesn't use up the budget.
+        // Bills still to pay this month, overdue ones included, settled the same way as on Dues. A card bill pays for
+        // spends already counted, so it doesn't use up the budget.
+        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
         val billsLeft = if (!liveMonth) 0.0 else reminders.filter { r ->
-            !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= today && !isCardBill(r)
+            !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && !isCardBill(r) && r.dueDate.take(7) == f.month
         }.sumOf { it.amount }
         val daysLeft = if (liveMonth) Dates.daysInMonth(f.month) - Dates.dayOfMonth() + 1 else 0
         val free = budget - s.spent - billsLeft
@@ -335,7 +337,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     // Bills before month-end (or the next one when none are left this month).
     run {
         val today = Dates.today()
-        val open = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }.sortedBy { it.dueDate }
+        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
+        val open = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate.take(7) >= Dates.todayMonth() }
+            .sortedBy { it.dueDate }
         val nowMonth = Dates.todayMonth()
         val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
         val thisMonth = open.filter { it.dueDate <= monthEnd }
@@ -349,7 +353,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             shownBills.forEach { r ->
                 val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
                 val inDays = Dates.daysBetween(today, r.dueDate)
-                val whenText = "Due " + prettyDay(r.dueDate) + when (inDays) { 0 -> " · today"; 1 -> " · tomorrow"; in 2..9 -> " · in $inDays days"; else -> "" }
+                val whenText = "Due " + prettyDay(r.dueDate) + when { inDays < 0 -> " · overdue"; inDays == 0 -> " · today"; inDays == 1 -> " · tomorrow"; inDays <= 9 -> " · in $inDays days"; else -> "" }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile(name, "", 34.dp)

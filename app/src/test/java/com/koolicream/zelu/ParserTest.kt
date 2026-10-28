@@ -15,7 +15,8 @@ class ParserTest {
     private val received = 1773556200000L
 
     private fun ok(src: String, body: String, dir: String, amount: Double, account: String?, payee: String?, date: String?, ref: String?) {
-        val t = Parser.parseSms(body, received, src)
+        // A message arrives on the day of its payment (a payment can't be in a later month than its message).
+        val t = Parser.parseSms(body, arrivedOn(date), src)
         assertNotNull("Should be read as a payment: $body", t)
         t!!
         assertEquals("direction: $body", dir, t.direction)
@@ -24,6 +25,13 @@ class ParserTest {
         if (payee != null) assertEquals("payee: $body", payee, t.counterparty)
         if (date != null) assertEquals("date: $body", date, t.date)
         if (ref != null) assertEquals("ref: $body", ref, t.ref)
+    }
+
+    // Midday India time on that date, or the default "received" time for messages without a date of their own.
+    private fun arrivedOn(date: String?): Long {
+        if (date == null) return received
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata") }
+        return maxOf(received, f.parse("$date 12:00")!!.time)
     }
 
     private fun none(src: String, body: String) {
@@ -285,5 +293,17 @@ class ParserTest {
         ok("JM-JIOPBK-S", "Rs.250.00 debited from your Jio Payments Bank a/c XX1122 to SURESH PATIL via UPI Ref 629678901288", "debit", 250.0, null, "SURESH PATIL", null, null)
         // Paying Airtel itself from the Airtel Payments Bank is still Airtel.
         ok("AD-AIRBNK-S", "Rs.599.00 debited from your Airtel Payments Bank a/c for UPI txn to AIRTEL PREPAID Ref no 629678901300", "debit", 599.0, null, "Airtel", null, null)
+    }
+
+    @Test fun aPaymentDatedInALaterMonthGetsTheDayItArrived() {
+        // Arrived 15 March 2026; the bank wrote December. Spending can't be in a later month than its message.
+        val wrong = Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 28-12-26 to VPA shop@okaxis. UPI Ref 611122223333", received, "AX-HDFCBK-S")!!
+        assertEquals("2026-03-15", wrong.date)
+        // A wrong year too.
+        val year = Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 02-03-27 to VPA shop@okaxis. UPI Ref 611122224444", received, "AX-HDFCBK-S")!!
+        assertEquals("2026-03-15", year.date)
+        // Later in the same month is left alone, and so is an earlier month.
+        assertEquals("2026-03-20", Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 20-03-26 to VPA shop@okaxis. UPI Ref 611122225555", received, "AX-HDFCBK-S")!!.date)
+        assertEquals("2026-02-27", Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 27-02-26 to VPA shop@okaxis. UPI Ref 611122226666", received, "AX-HDFCBK-S")!!.date)
     }
 }

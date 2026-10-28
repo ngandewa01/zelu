@@ -262,4 +262,20 @@ object Reconcile {
             }
         }
     }
+
+    // A bill counts as paid when a payment clearly matches it: money left the same bank between 10 days before and
+    // 3 days after the due date, for the same amount (a card bill: anything from its minimum due up to the full amount).
+    // Returns the matching payment, or null. A bill with no bank named is never matched, to avoid guessing.
+    fun paidBy(bill: Reminder, rows: List<Row>): Row? {
+        val bank = bill.account.trim().substringBefore(' ').uppercase()
+        if (bank.isEmpty()) return null
+        val from = Dates.shiftDays(bill.dueDate, -10)
+        val to = Dates.shiftDays(bill.dueDate, 3)
+        fun amountFits(a: Double) = kotlin.math.abs(a - bill.amount) <= maxOf(1.0, bill.amount * 0.01) ||
+            (bill.minAmount != null && a >= bill.minAmount - 1.0 && a <= bill.amount + 1.0)
+        return rows.filter { r ->
+            r.direction == "debit" && (r.kind == "expense" || r.kind == "transfer") && r.date in from..to &&
+                r.account.trim().substringBefore(' ').uppercase() == bank && amountFits(r.amount)
+        }.minByOrNull { kotlin.math.abs(Dates.daysBetween(bill.dueDate, it.date)) }
+    }
 }

@@ -59,7 +59,7 @@ import java.util.Calendar
     val autoSet = remember(reminders, rows) { autoSettledReminders(reminders, rows) }
     // An explicit paid/unpaid tap always wins; otherwise a previous-month due or a debit-matched
     // one is assumed paid.
-    fun settled(r: Reminder) = state[r.id] ?: (r.dueDate.take(7) < curMonth || r.id in autoSet)
+    fun settled(r: Reminder) = state[r.id] ?: (r.dueDate.take(7) < curMonth || r.id in autoSet || r.done)
 
     val pending = reminders.filter { !settled(it) }.sortedBy { it.dueDate }
     val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
