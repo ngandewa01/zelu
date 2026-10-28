@@ -1,5 +1,36 @@
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.VpnKey
+import androidx.compose.material.icons.rounded.ViewWeek
+import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.SupportAgent
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.ShowChart
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.MarkEmailUnread
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.AddBusiness
+import androidx.compose.material.icons.rounded.AddAlert
+import androidx.compose.material.icons.rounded.AccessTime
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.runtime.LaunchedEffect
@@ -151,23 +182,23 @@ private fun MenuPage(s: AppState, v: Filtered) {
             if (missedNew > 0) add(Entry(ATTENTION, plural(missedNew, "new missed message", "new missed messages"),
                 "Bank messages Zelu couldn't read. Add them or teach Zelu.", Icons.Rounded.Receipt, ZColor.Warn, button = "Review") { openMissed() })
             if (notifBlocked) add(Entry(ATTENTION, "Alerts are off", "Turn on notifications for payment and bill alerts",
-                Icons.Rounded.Notifications, ZColor.Warn, button = "Turn on") { shut(); fixNotif() })
+                Icons.Rounded.NotificationsOff, ZColor.Warn, button = "Turn on") { shut(); fixNotif() })
             if (!hasPw && rows.isNotEmpty()) add(Entry(ATTENTION, "Set a backup password", "Backups wait until you set one",
-                Icons.Rounded.Lock, ZColor.Warn, button = "Set") { shut(); backupAfterPw = false; backupPwOpen = true })
-            if (Demo.on) add(Entry(ATTENTION, "Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Visibility, ZColor.Warn, button = "Turn off") {
+                Icons.Rounded.VpnKey, ZColor.Warn, button = "Set") { shut(); backupAfterPw = false; backupPwOpen = true })
+            if (Demo.on) add(Entry(ATTENTION, "Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Science, ZColor.Warn, button = "Turn off") {
                 shut(); Demo.set(context, false)
                 Toast.makeText(context, "Back to your own payments", Toast.LENGTH_SHORT).show()
             })
 
-            add(Entry(MONEY, "Monthly budget", "", Icons.Rounded.AccountBalanceWallet, ZColor.Accent, "limit spending",
+            add(Entry(MONEY, "Monthly budget", "", Icons.Rounded.Speed, ZColor.Accent, "limit spending",
                 value = if (monthlyBudget > 0) money(monthlyBudget) else "Not set") { shut(); budgetDlg = true })
-            add(Entry(MONEY, "Budgets by category", "A limit for food, shopping and the rest", Icons.Rounded.BarChart, ZColor.Accent,
+            add(Entry(MONEY, "Budgets by category", "A limit for food, shopping and the rest", Icons.Rounded.PieChart, ZColor.Accent,
                 "category limit") { shut(); budgetsOpen = true })
             add(Entry(MONEY, "Categories", "What counts as spending, and income categories", Icons.Rounded.Category, ZColor.Accent,
                 "counted ignore income") { shut(); catsOpen = true })
             add(Entry(MONEY, "Savings plan", "What's left after SIPs, EMIs and goals", Icons.Rounded.Savings, ZColor.Income,
                 "sip emi goal") { shut(); savingsOpen = true })
-            add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.Rounded.TrendingUp, ZColor.Income,
+            add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.Rounded.ShowChart, ZColor.Income,
                 "epf nps mutual fund stocks") { shut(); view = "invest"; daySel = 0 })
 
             add(Entry(ACCOUNTS, "Your accounts", "Join duplicates, say what each one is, remove what isn't yours",
@@ -189,53 +220,53 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(MESSAGES, "Check for new payments",
                 if (lastRead == 0L) "Look for anything new in your messages"
                 else "Last checked " + agoText(lastRead) + (if (newest > 0) " · newest bank SMS " + agoText(newest) else ""),
-                Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent, "rescan refresh sync update",
+                Icons.Rounded.Sync, if (stale) ZColor.Warn else ZColor.Accent, "rescan refresh sync update",
                 value = if (lastRead > 0) agoText(lastRead) else null, warn = stale) { shut(); rescan(notify = true) })
             add(Entry(MESSAGES, "Missed messages",
                 if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read",
-                Icons.Rounded.Receipt, ZColor.Warn, "unread sms add manually teach",
+                Icons.Rounded.MarkEmailUnread, ZColor.Warn, "unread sms add manually teach",
                 value = if (missedCount > 0) "$missedCount" else null, warn = missedCount > 0) { openMissed() })
-            add(Entry(MESSAGES, "Banks Zelu doesn't know", "A bank or wallet that was skipped? Tell Zelu here", Icons.Rounded.AccountBalance,
+            add(Entry(MESSAGES, "Banks Zelu doesn't know", "A bank or wallet that was skipped? Tell Zelu here", Icons.Rounded.AddBusiness,
                 ZColor.Muted, "unrecognised senders wallet sender") {
                 shut(); sendersOpen = true; senderList = null
                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
             })
-            add(Entry(MESSAGES, "Check a date range", "Read only the messages of a period you pick", Icons.Rounded.CalendarMonth, ZColor.Muted,
+            add(Entry(MESSAGES, "Check a date range", "Read only the messages of a period you pick", Icons.Rounded.DateRange, ZColor.Muted,
                 "rescan between dates period", more = true) { shut(); rescanRangeOpen = true })
-            add(Entry(MESSAGES, "Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.Restore,
+            add(Entry(MESSAGES, "Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.History,
                 ZColor.Muted, "history old", more = true) { shut(); rescan(notify = true, depth = 100_000) })
-            add(Entry(MESSAGES, "Data check", "What was read, and whether balances add up", Icons.Rounded.Receipt, ZColor.Muted,
+            add(Entry(MESSAGES, "Data check", "What was read, and whether balances add up", Icons.Rounded.FactCheck, ZColor.Muted,
                 "diagnose balance gaps missing", more = true) {
                 shut(); checkOpen = true; check = null
                 scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
             })
-            add(Entry(MESSAGES, "Read everything again", "Reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted,
+            add(Entry(MESSAGES, "Read everything again", "Reads all messages afresh. Your edits stay.", Icons.Rounded.Replay, ZColor.Muted,
                 "reset rebuild start again", more = true) { shut(); fullConfirm = true })
 
-            add(Entry(ALERTS, "Payment alerts", "A note for every payment or balance message", Icons.Rounded.Notifications, ZColor.Accent,
+            add(Entry(ALERTS, "Payment alerts", "A note for every payment or balance message", Icons.Rounded.NotificationsActive, ZColor.Accent,
                 "notification", on = spendOn) { NotifyPrefs.setSpend(context, !spendOn); tick++ })
-            add(Entry(ALERTS, "Daily summary", "What you spent today", Icons.Rounded.BarChart, ZColor.Accent, "notification",
+            add(Entry(ALERTS, "Daily summary", "What you spent today", Icons.Rounded.Today, ZColor.Accent, "notification",
                 on = dailyOn) { NotifyPrefs.setDailyOn(context, !dailyOn); tick++ })
-            if (dailyOn) add(Entry(ALERTS, "Daily summary time", "", Icons.Rounded.CalendarMonth,
+            if (dailyOn) add(Entry(ALERTS, "Daily summary time", "", Icons.Rounded.Schedule,
                 ZColor.Muted, "notification", value = NotifyPrefs.timeText(NotifyPrefs.dailyAt(context))) {
                 val at = NotifyPrefs.dailyAt(context)
                 android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
-            add(Entry(ALERTS, "Weekly summary", "Sundays: the week against the one before", Icons.Rounded.BarChart, ZColor.Accent,
+            add(Entry(ALERTS, "Weekly summary", "Sundays: the week against the one before", Icons.Rounded.ViewWeek, ZColor.Accent,
                 "notification", on = weeklyOn) { NotifyPrefs.setWeeklyOn(context, !weeklyOn); tick++ })
             if (weeklyOn) add(Entry(ALERTS, "Weekly summary time", "Sundays",
-                Icons.Rounded.CalendarMonth, ZColor.Muted, "notification", value = "Sun " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context))) {
+                Icons.Rounded.AccessTime, ZColor.Muted, "notification", value = "Sun " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context))) {
                 val at = NotifyPrefs.weeklyAt(context)
                 android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setWeeklyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
-            add(Entry(ALERTS, "Bill reminders", "Before a bill or card is due, around 9 AM", Icons.Rounded.Receipt, ZColor.Accent,
+            add(Entry(ALERTS, "Bill reminders", "Before a bill or card is due, around 9 AM", Icons.Rounded.Alarm, ZColor.Accent,
                 "dues notification", on = duesOn) { NotifyPrefs.setDuesOn(context, !duesOn); tick++ })
-            if (duesOn) add(Entry(ALERTS, "Remind me", "bill reminder days before", Icons.Rounded.CalendarMonth, ZColor.Muted, "dues days before",
+            if (duesOn) add(Entry(ALERTS, "Remind me", "bill reminder days before", Icons.Rounded.Timer, ZColor.Muted, "dues days before",
                 value = listOf("3 days before", "2 days before", "On the day", "A week before").getOrElse(NotifyPrefs.leadIndex(context)) { "" }) { leadPick = true })
-            add(Entry(ALERTS, "Monthly recap", "A note in the first days of a new month", Icons.Rounded.TrendingUp, ZColor.Accent,
+            add(Entry(ALERTS, "Monthly recap", "A note in the first days of a new month", Icons.Rounded.Assessment, ZColor.Accent,
                 "notification", on = recapOn) { NotifyPrefs.setRecapOn(context, !recapOn); tick++ })
             add(Entry(ALERTS, "Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
-                Icons.Rounded.Notifications, if (notifBlocked) ZColor.Warn else ZColor.Muted, "notification try", more = true) {
+                Icons.Rounded.AddAlert, if (notifBlocked) ZColor.Warn else ZColor.Muted, "notification try", more = true) {
                 shut()
                 if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
             })
@@ -249,16 +280,16 @@ private fun MenuPage(s: AppState, v: Filtered) {
             })
             add(Entry(BACKUP, "Weekly backup",
                 if (hasPw) "Saved to Downloads/Zelu every week; the newest 4 are kept" else "Needs a backup password first",
-                Icons.Rounded.CloudUpload, ZColor.Income, "automatic", on = autoBackup && hasPw) {
+                Icons.Rounded.Backup, ZColor.Income, "automatic", on = autoBackup && hasPw) {
                 // Without a password a weekly backup can't run: ask for one first instead of showing a switch that does nothing.
                 if (!hasPw) { shut(); backupAfterPw = false; backupPwOpen = true }
                 else { autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup) }
             })
             add(Entry(BACKUP, "Backup password", "needed to restore on a new phone",
-                Icons.Rounded.Lock, if (hasPw) ZColor.Income else ZColor.Warn, value = if (hasPw) "Set" else "Not set", warn = !hasPw) { shut(); backupAfterPw = false; backupPwOpen = true })
-            add(Entry(BACKUP, "Restore from a backup", "Load a backup file, for example on a new phone", Icons.Rounded.Restore, ZColor.Muted,
+                Icons.Rounded.VpnKey, if (hasPw) ZColor.Income else ZColor.Warn, value = if (hasPw) "Set" else "Not set", warn = !hasPw) { shut(); backupAfterPw = false; backupPwOpen = true })
+            add(Entry(BACKUP, "Restore from a backup", "Load a backup file, for example on a new phone", Icons.Rounded.CloudDownload, ZColor.Muted,
                 "import new phone") { shut(); restoreLauncher?.launch(arrayOf("*/*")) })
-            add(Entry(BACKUP, "App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Lock, ZColor.Income,
+            add(Entry(BACKUP, "App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Fingerprint, ZColor.Income,
                 "pin fingerprint password security", on = lockOn) {
                 val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                 if (!lockOn && !km.isDeviceSecure) {
@@ -274,7 +305,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 val ok = Exporter.exportCsv(context, v.shown, "zelu-${Dates.today()}.csv")
                 Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
             })
-            add(Entry(BACKUP, "Erase everything", "Delete all Zelu data from this phone", Icons.Rounded.Warning, ZColor.Warn,
+            add(Entry(BACKUP, "Erase everything", "Delete all Zelu data from this phone", Icons.Rounded.DeleteForever, ZColor.Warn,
                 "delete wipe reset") { shut(); eraseOpen = true })
 
             add(Entry(LOOK, "Theme colours", "", Icons.Rounded.Palette, ZColor.Accent, "colour color palette", value = PALETTES[ZTheme.palette].name) {
@@ -289,16 +320,16 @@ private fun MenuPage(s: AppState, v: Filtered) {
 
             add(Entry(HELP, "How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb, ZColor.Accent,
                 "guide faq") { shut(); helpOpen = true })
-            add(Entry(HELP, "Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.Email, ZColor.Accent,
+            add(Entry(HELP, "Report a problem", "Email " + Storage.reportEmail(context), Icons.Rounded.BugReport, ZColor.Accent,
                 "bug feedback contact support") { shut(); reportOpen = true })
-            add(Entry(HELP, "Privacy policy", "What Zelu reads and keeps", Icons.Rounded.Lock, ZColor.Income, "data") { shut(); privacyOpen = true })
+            add(Entry(HELP, "Privacy policy", "What Zelu reads and keeps", Icons.Rounded.PrivacyTip, ZColor.Income, "data") { shut(); privacyOpen = true })
             add(Entry(HELP, "Keep Zelu running", "Stop battery saver blocking new messages", Icons.Rounded.BatteryChargingFull, ZColor.Accent,
                 "battery background stopped not working") { shut(); Notifier.openBatterySettings(context) })
             add(Entry(HELP, "Report address", "", Icons.Rounded.Email, ZColor.Muted, "email", more = true, value = Storage.reportEmail(context)) {
                 shut(); emailOpen = true
             })
             if (!Demo.on) add(Entry(HELP, "Show sample data", "Made-up payments for screenshots and demos. Yours stay safe",
-                Icons.Rounded.Visibility, ZColor.Muted, "demo", more = true) {
+                Icons.Rounded.Science, ZColor.Muted, "demo", more = true) {
                 shut(); Demo.set(context, true)
                 Toast.makeText(context, "Showing sample data. Menu, Help to go back", Toast.LENGTH_LONG).show()
             })
@@ -464,8 +495,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                                     Icon(e.icon, null, tint = tint, modifier = Modifier.size(21.dp))
                                 }
                                 Spacer(Modifier.height(6.dp))
-                                Text(shortName(e), color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                FitText(shortName(e), ZColor.Ink, 12f, FontWeight.SemiBold)
                             }
                         }
                     }
@@ -475,20 +505,20 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     val topics = listOf(
                         Triple(MONEY, Icons.Rounded.AccountBalanceWallet, (if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "No budget") to false),
                         Triple(ACCOUNTS, Icons.Rounded.AccountBalance, (if (v.accounts.isNotEmpty()) plural(v.accounts.size, "account", "accounts") else "") to false),
-                        Triple(MESSAGES, Icons.Rounded.Receipt, when {
+                        Triple(MESSAGES, Icons.Rounded.Sms, when {
                             missedCount > 0 -> "$missedCount to review" to true
                             stale -> "Check now" to true
                             else -> "Up to date" to false
                         }),
                         Triple(ALERTS, Icons.Rounded.Notifications, (if (notifBlocked) "Blocked" else "$alertsOn on") to notifBlocked),
-                        Triple(BACKUP, Icons.Rounded.Lock, when {
+                        Triple(BACKUP, Icons.Rounded.Security, when {
                             !hasPw -> "No password" to true
                             lastBackup == 0L -> "Not backed up" to true
                             System.currentTimeMillis() - lastBackup > 8L * 86_400_000L -> agoText(lastBackup) to true
                             else -> "Safe" to false
                         }),
                         Triple(LOOK, Icons.Rounded.Palette, (PALETTES[ZTheme.palette].name + if (ZTheme.dark) " · dark" else "") to false),
-                        Triple(HELP, Icons.Rounded.Lightbulb, "" to false),
+                        Triple(HELP, Icons.Rounded.SupportAgent, "" to false),
                     )
                     Spacer(Modifier.height(16.dp))
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))) {
@@ -651,26 +681,26 @@ private fun SmallButton(label: String, filled: Boolean, onClick: () -> Unit) {
 private fun menuTint(e: Entry): Color = if (e.tint == ZColor.Warn) ZColor.Warn else iconTint(e.icon)
 
 private fun iconTint(icon: androidx.compose.ui.graphics.vector.ImageVector): Color {
+    val violet = 0xFF8B5CF6 to 0xFFA78BFA; val blue = 0xFF3B82F6 to 0xFF60A5FA; val teal = 0xFF0D9488 to 0xFF2DD4BF
+    val yellow = 0xFFEAB308 to 0xFFFACC15; val green = 0xFF22B455 to 0xFF3DD171; val pink = 0xFFEC4899 to 0xFFF472B6
+    val amber = 0xFFF59E0B to 0xFFFBBF24; val cyan = 0xFF06B6D4 to 0xFF22D3EE; val orange = 0xFFFF6B1A to 0xFFFF8A3D
+    val sky = 0xFF0EA5E9 to 0xFF7DD3FC; val indigo = 0xFF6366F1 to 0xFF818CF8; val red = 0xFFE5484D to 0xFFFF6369
+    val magenta = 0xFFC026D3 to 0xFFE879F9; val slate = 0xFF64748B to 0xFF94A3B8
     val (light, dark) = when (icon) {
-        Icons.Rounded.AccountBalanceWallet -> 0xFF8B5CF6 to 0xFFA78BFA
-        Icons.Rounded.AccountBalance -> 0xFF3B82F6 to 0xFF60A5FA
-        Icons.Rounded.Receipt -> 0xFF0D9488 to 0xFF2DD4BF
-        Icons.Rounded.Notifications -> 0xFFEAB308 to 0xFFFACC15
-        Icons.Rounded.Lock -> 0xFF22B455 to 0xFF3DD171
-        Icons.Rounded.Palette -> 0xFFEC4899 to 0xFFF472B6
-        Icons.Rounded.Lightbulb -> 0xFFF59E0B to 0xFFFBBF24
-        Icons.Rounded.BarChart -> 0xFF06B6D4 to 0xFF22D3EE
-        Icons.Rounded.Category -> 0xFF8B5CF6 to 0xFFA78BFA
-        Icons.Rounded.Savings, Icons.Rounded.TrendingUp -> 0xFF22B455 to 0xFF3DD171
-        Icons.Rounded.Restore -> 0xFF3B82F6 to 0xFF60A5FA
-        Icons.Rounded.CalendarMonth -> 0xFFFF6B1A to 0xFFFF8A3D
-        Icons.Rounded.CloudUpload -> 0xFF0EA5E9 to 0xFF7DD3FC
-        Icons.Rounded.FileDownload -> 0xFF0D9488 to 0xFF2DD4BF
-        Icons.Rounded.DarkMode -> 0xFF6366F1 to 0xFF818CF8
-        Icons.Rounded.Home -> 0xFFFF6B1A to 0xFFFF8A3D
-        Icons.Rounded.Email -> 0xFF3B82F6 to 0xFF60A5FA
-        Icons.Rounded.Warning -> 0xFFE5484D to 0xFFFF6369
-        else -> 0xFF64748B to 0xFF94A3B8
+        Icons.Rounded.AccountBalanceWallet, Icons.Rounded.Category -> violet
+        Icons.Rounded.AccountBalance, Icons.Rounded.Restore, Icons.Rounded.Email, Icons.Rounded.Sync -> blue
+        Icons.Rounded.Sms, Icons.Rounded.FactCheck, Icons.Rounded.FileDownload -> teal
+        Icons.Rounded.Notifications, Icons.Rounded.NotificationsActive, Icons.Rounded.Alarm -> yellow
+        Icons.Rounded.Security, Icons.Rounded.Savings, Icons.Rounded.ShowChart, Icons.Rounded.Fingerprint, Icons.Rounded.PrivacyTip -> green
+        Icons.Rounded.Palette, Icons.Rounded.PieChart -> pink
+        Icons.Rounded.Lightbulb, Icons.Rounded.SupportAgent, Icons.Rounded.VpnKey, Icons.Rounded.Speed -> amber
+        Icons.Rounded.Today, Icons.Rounded.ViewWeek, Icons.Rounded.Assessment -> cyan
+        Icons.Rounded.DateRange, Icons.Rounded.Home, Icons.Rounded.Timer, Icons.Rounded.History -> orange
+        Icons.Rounded.CloudUpload, Icons.Rounded.Backup, Icons.Rounded.CloudDownload -> sky
+        Icons.Rounded.DarkMode, Icons.Rounded.AddBusiness, Icons.Rounded.MarkEmailUnread -> indigo
+        Icons.Rounded.DeleteForever, Icons.Rounded.BugReport, Icons.Rounded.NotificationsOff -> red
+        Icons.Rounded.Science, Icons.Rounded.AddAlert, Icons.Rounded.Replay -> magenta
+        else -> slate
     }
     return Color(if (ZTheme.dark) dark else light)
 }

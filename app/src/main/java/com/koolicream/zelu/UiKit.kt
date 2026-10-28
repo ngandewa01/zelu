@@ -1,5 +1,8 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CallSplit
@@ -270,7 +273,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 @Composable internal fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
     val items = listOf(
         Triple("ledger", "Home", Icons.Rounded.Home), Triple("spend", "Spend", Icons.Rounded.PieChart),
-        Triple("payees", "Payees", Icons.Rounded.People), Triple("dues", "Dues", Icons.Rounded.CalendarMonth),
+        Triple("payees", "Payees", Icons.Rounded.People), Triple("dues", "Dues", Icons.Rounded.ReceiptLong),
     )
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
@@ -555,9 +558,8 @@ internal fun treemap(values: List<Double>): List<TmCell> {
             androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
         }
         Spacer(Modifier.width(if (compact) 6.dp else 7.dp))
-        Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
+            Modifier.weight(1f, fill = false))
         if (count > 0) {
             Spacer(Modifier.width(6.dp))
             Box(Modifier.clip(RoundedCornerShape(9.dp)).background(ZColor.Accent).padding(horizontal = 6.dp, vertical = 1.dp)) {
@@ -581,7 +583,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
         "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
         "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
-        "borrowed" -> Triple(Icons.Rounded.AccountBalanceWallet, 0xFF8B5CF6, 0xFFA78BFA)
+        "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
         "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
@@ -606,8 +608,15 @@ internal fun treemap(values: List<Double>): List<TmCell> {
             androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = if (selected) ZColor.Ink else ZColor.InkSoft, fontSize = 12.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        FitText(label, if (selected) ZColor.Ink else ZColor.InkSoft, 12f, if (selected) FontWeight.Bold else FontWeight.Medium)
     }
+}
+
+// One line of text that shrinks a little until it fits, so a tab or button name is never cut off ("Acc…").
+@Composable internal fun FitText(text: String, color: Color, size: Float, weight: FontWeight, modifier: Modifier = Modifier, minSize: Float = 9f) {
+    var fs by remember(text, size) { mutableStateOf(size) }
+    var ready by remember(text, size) { mutableStateOf(false) }
+    Text(text, color = color, fontSize = fs.sp, fontWeight = weight, maxLines = 1, softWrap = false,
+        modifier = modifier.drawWithContent { if (ready) drawContent() },
+        onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true })
 }

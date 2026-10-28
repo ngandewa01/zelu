@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.sp
         ) {
             androidx.compose.material3.Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            FitText(label, ZColor.Ink, 13f, FontWeight.SemiBold)
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

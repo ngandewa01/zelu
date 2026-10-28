@@ -2,6 +2,7 @@
 
 package com.koolicream.zelu
 
+import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Send
@@ -429,7 +430,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 ActionCircle(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
                 ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, "income", "Income", next.counterparty, false) }
                 ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, "lent", "Lent", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.AccountBalanceWallet, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.MoveToInbox, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
                 ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, "ignore", "Ignore", null, false) }
             }
             if (askOpen) {
