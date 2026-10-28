@@ -252,7 +252,7 @@ fun ZeluApp() {
                 val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
                 val cardsN = accts.count { it.contains(" CC") }
                 OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
-                    smsGiven = onbSms, notifGiven = onbNotif,
+                    smsGiven = onbSms, notifGiven = onbNotif, accountsNext = !acctConfirmed,
                     onBack = { stage = if (stage == "perm") "privacy" else "welcome" },
                     onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> if (acctConfirmed) "app" else "accounts"; else -> stage } },
                     onAllow = {
@@ -478,7 +478,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 }
 
                 if (loading) {
-                    Spacer(Modifier.height(10.dp)); MutedText("Reading messages…")
+                    Spacer(Modifier.height(10.dp)); MutedText("Checking for new payments…")
                 }
 
                 Spacer(Modifier.height(8.dp))

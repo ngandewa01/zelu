@@ -133,7 +133,7 @@ internal fun DataCheckDialog(s: AppState) {
                 Spacer(Modifier.height(10.dp))
                 val c = check
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                    if (c == null) MutedText("Reading your messages…", 13) else {
+                    if (c == null) MutedText("Checking your bank alerts…", 13) else {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Fact("Bank SMS", c.bankSms.toString()); Fact("Payments", c.txns.toString()); Fact("Balances", c.balanceAlerts.toString())
                         }

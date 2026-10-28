@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +63,7 @@ import kotlinx.coroutines.delay
 @Composable internal fun OnboardFlow(
     stage: String, denied: Boolean, stats: Triple<Int, Int, Int>,
     onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
-    smsGiven: Boolean = false, notifGiven: Boolean = false,
+    smsGiven: Boolean = false, notifGiven: Boolean = false, accountsNext: Boolean = false,
 ) {
     val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
@@ -107,19 +112,8 @@ import kotlinx.coroutines.delay
                 "privacy" -> {
                     Text("Nothing leaves your phone.", color = ZColor.Ink, fontSize = 24.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        listOf(
-                            Triple("Reads", ZColor.Income, listOf("Bank & card alerts", "UPI payment messages", "Bill due reminders")),
-                            Triple("Never reads", ZColor.Warn, listOf("OTPs", "Personal chats", "Anything from contacts")),
-                        ).forEach { (title, color, items) ->
-                            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-                                .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(title, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                items.forEach { Text((if (title == "Reads") "✓ " else "✕ ") + it, color = ZColor.InkSoft, fontSize = 13.sp) }
-                            }
-                        }
-                    }
+                    PromiseCard("Zelu reads", true, listOf("Bank and card alerts", "UPI payment messages", "Bill and EMI reminders"))
+                    PromiseCard("Zelu skips", false, listOf("OTPs and passwords", "Personal chats", "Messages from people"))
                     Text("No account. No login. No upload.", color = ZColor.Muted, fontSize = 14.sp)
                     Cta("Continue", onNext)
                 }
@@ -152,9 +146,23 @@ import kotlinx.coroutines.delay
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
                 "scan" -> {
+                    // "Reading your messages" worried people. Say what is looked for, what is skipped, and where it stays,
+                    // one line at a time while the alerts are read.
+                    var lines by remember { mutableStateOf(0) }
+                    LaunchedEffect(Unit) { repeat(3) { delay(500); lines++ } }
                     LogoMark(66f)
-                    Text("Reading your messages…", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    CircularProgressIndicator(color = ZColor.Accent)
+                    Text("Finding your payments", color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center)
+                    MutedText("Usually a few seconds.", 14)
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf("Only bank, card and UPI alerts", "OTPs and personal chats skipped", "Stays on this phone").forEachIndexed { i, t ->
+                            val a by animateFloatAsState(if (lines > i) 1f else 0f, tween(400), label = "line$i")
+                            Box(Modifier.graphicsLayer { alpha = a }) { PromiseRow(t, true) }
+                        }
+                    }
+                    CircularProgressIndicator(color = ZColor.Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                 }
                 "done" -> {
                     var go by remember { mutableStateOf(false) }
@@ -163,12 +171,17 @@ import kotlinx.coroutines.delay
                     val b by animateIntAsState(if (go) stats.second else 0, tween(1400), label = "b")
                     val c by animateIntAsState(if (go) stats.third else 0, tween(1400), label = "c")
                     Text("All set.", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
-                    Text("payments found", color = ZColor.Muted, fontSize = 15.sp)
-                    Text("$b bank account${if (b == 1) "" else "s"} · $c card${if (c == 1) "" else "s"}",
-                        color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(6.dp))
-                    Cta("Open Zelu", onNext)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
+                        Text(if (stats.first == 1) "payment found" else "payments found", color = ZColor.Muted, fontSize = 15.sp)
+                    }
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatTile(b, if (b == 1) "bank account" else "bank accounts", Modifier.weight(1f))
+                        StatTile(c, if (c == 1) "card" else "cards", Modifier.weight(1f))
+                    }
+                    if (accountsNext) MutedText("Next, tick which of these are yours.", 14)
+                    Cta(if (accountsNext) "Check my accounts" else "Open Zelu", onNext)
+                    Text("Read on this phone. Nothing was uploaded.", color = ZColor.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
                 }
                 else -> { // splash
                     LogoMark(86f)
@@ -181,5 +194,37 @@ import kotlinx.coroutines.delay
                 }
             }
         }
+    }
+}
+
+// One line of what Zelu does with your messages: a round tick (or cross), then the words.
+@Composable private fun PromiseRow(text: String, yes: Boolean) {
+    val tint = if (yes) ZColor.Income else ZColor.Warn
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(22.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Icon(if (yes) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = tint, modifier = Modifier.size(14.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(text, color = ZColor.InkSoft, fontSize = 14.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+// What Zelu reads, or skips. Both cards are full width with three lines each, so they match.
+@Composable private fun PromiseCard(title: String, yes: Boolean, items: List<String>) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(title, color = if (yes) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        items.forEach { PromiseRow(it, yes) }
+    }
+}
+
+// A count with its name under it, for the "All set" screen; two side by side are the same size.
+@Composable private fun StatTile(n: Int, label: String, modifier: Modifier) {
+    Column(modifier.fillMaxHeight().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(vertical = 14.dp, horizontal = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(n.toString(), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = ZColor.Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
 }
