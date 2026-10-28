@@ -72,12 +72,11 @@ import androidx.compose.ui.window.Dialog
 
     // 1. Summary: how concentrated your spending is.
     Panel {
-        Eyebrow("This view")
-        Spacer(Modifier.height(6.dp))
-        Text("${ranked.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        // One line says it all: how many payees, how much, and how much of it the top few take.
         val top5 = ranked.take(5)
         val share = if (total > 0) top5.sumOf { it.amount } / total else 0.0
-        MutedText("Your top ${top5.size} take ${Math.round(share * 100)}% of it.", 13)
+        Text("${ranked.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        if (ranked.size > top5.size) MutedText("Top ${top5.size} take ${Math.round(share * 100)}%", 13)
         if (total > 0) {
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {

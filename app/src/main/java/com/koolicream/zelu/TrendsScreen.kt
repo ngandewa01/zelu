@@ -60,39 +60,41 @@ import kotlinx.coroutines.delay
 ) {
     // The budget is for flexible spending: EMI and costs marked Fixed are left out here.
     val baseRows = allRows.filter { it.category !in leave && !(excludeEmi && it.category == "EMI") }
-    Text("Budget pace", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-    if (leave.isNotEmpty()) MutedText("Leaves out EMI and fixed costs", 12)
-
-    if (Analytics.BUDGET <= 0) {
-        MutedText("Set a monthly budget from the menu to see if you are ahead or behind.", 13)
-    } else if (f.period == "month") {
-        val dim = Dates.daysInMonth(month)
-        val isCur = month == Dates.todayMonth()
-        val upto = if (isCur) Dates.dayOfMonth() else dim
-        val run = Analytics.runningTotals(baseRows, month, account, upto)
-        val total = if (upto > 0) run[upto] else 0.0
-        val pace = Analytics.BUDGET * upto / dim
-        val diff = total - pace
-        Panel {
-            Eyebrow("${Dates.monthLong(month)} running total")
-            Text(money(total), color = ZColor.Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            MutedText(
-                if (isCur) (if (diff > 0) "${money(diff)} above the pace for day $upto"
-                else "${money(-diff)} under the pace for day $upto")
-                else "Month total against a ${money(Analytics.BUDGET)} budget", 13)
+    // One card: how far over or under the budget's pace you are (the month's total is already on Home and
+    // Overview), what that leads to by month-end, and the chart.
+    Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("Budget pace")
+            InfoDot("Your spending so far against an even share of the monthly budget for the days gone." +
+                if (leave.isNotEmpty()) " EMI and fixed costs are left out." else "", "Budget pace")
+        }
+        if (Analytics.BUDGET <= 0) {
+            Spacer(Modifier.height(4.dp))
+            MutedText("Set a monthly budget to see your pace.", 13)
+        } else if (f.period != "month") {
+            Spacer(Modifier.height(4.dp))
+            MutedText("Pick a single month to see your pace.", 13)
+        } else {
+            val dim = Dates.daysInMonth(month)
+            val isCur = month == Dates.todayMonth()
+            val upto = if (isCur) Dates.dayOfMonth() else dim
+            val run = Analytics.runningTotals(baseRows, month, account, upto)
+            val total = if (upto > 0) run[upto] else 0.0
+            val pace = Analytics.BUDGET * upto / dim
+            val diff = total - pace
+            Text(if (diff > 0) money(diff) + " over pace" else money(-diff) + " under pace",
+                color = if (diff > 0) ZColor.AmberInk else ZColor.Income, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            MutedText(money(total) + " of " + money(Analytics.BUDGET) + (if (isCur) " · day $upto of $dim" else ""), 12)
             if (isCur && upto > 0) {
                 val projected = total / upto * dim
-                Spacer(Modifier.height(8.dp))
-                MutedText("On this run-rate", 12)
-                Text("~${money(projected)} by ${Dates.monthLabel(month)}-end",
-                    color = if (projected > Analytics.BUDGET) ZColor.Accent else ZColor.Income,
-                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Text("≈ ${money(projected)} by ${Dates.monthLabel(month).take(3)}-end",
+                    color = if (projected > Analytics.BUDGET) ZColor.AmberInk else ZColor.Income,
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(12.dp))
             PaceChart(run, upto, dim, Analytics.BUDGET)
         }
-    } else {
-        Panel { MutedText("The running total works on a single month. Switch to Month to see it.") }
     }
 }
 
