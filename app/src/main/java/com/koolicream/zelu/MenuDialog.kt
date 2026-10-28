@@ -2,6 +2,10 @@ package com.koolicream.zelu
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -72,11 +76,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// The menu: one page with a search box. What needs doing (missed messages, alerts off, no backup password) comes first,
-// then everything else under plain headings. Every row does its job directly; switches change in place.
+// The menu fits on one screen: a search that forgives typos, what needs fixing (or "All good"), one suggestion made
+// from your own data, four shortcuts learned from what you use, and seven topics with their status. A topic opens its
+// own short page. Every row does its job directly; switches change in place and can be undone.
 @Composable
 internal fun MenuDialog(s: AppState, v: Filtered) {
-    if (s.menuOpen) Dialog(onDismissRequest = { s.menuOpen = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    if (s.menuOpen) Dialog(onDismissRequest = { if (s.menuSection != null) s.menuSection = null else s.menuOpen = false },
+        properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MenuPage(s, v)
     }
 }
@@ -84,8 +90,20 @@ internal fun MenuDialog(s: AppState, v: Filtered) {
 // One row of the menu. on is set for a switch; more rows stay under "More options" until opened or searched for.
 private class Entry(
     val section: String, val title: String, val sub: String, val icon: ImageVector, val tint: Color,
-    val words: String = "", val on: Boolean? = null, val more: Boolean = false, val act: () -> Unit,
+    val words: String = "", val on: Boolean? = null, val more: Boolean = false, val button: String? = null, val act: () -> Unit,
 )
+
+// What you use in the menu (for the shortcuts) and the suggestions you said no to. Kept on this phone.
+private object MenuUse {
+    private fun sp(c: android.content.Context) = c.getSharedPreferences("zelu_menu", android.content.Context.MODE_PRIVATE)
+    fun note(c: android.content.Context, key: String) { val p = sp(c); p.edit().putInt("use.$key", p.getInt("use.$key", 0) + 1).apply() }
+    fun count(c: android.content.Context, key: String) = sp(c).getInt("use.$key", 0)
+    fun dismissed(c: android.content.Context, id: String) = sp(c).getBoolean("no.$id", false)
+    fun dismiss(c: android.content.Context, id: String) = sp(c).edit().putBoolean("no.$id", true).apply()
+}
+
+// One suggestion made from your own data, with a button that does it.
+private class Suggestion(val id: String, val title: String, val sub: String, val button: String, val act: () -> Unit)
 
 private const val ATTENTION = "Needs attention"
 private const val MONEY = "Money"
@@ -95,7 +113,6 @@ private const val ALERTS = "Alerts"
 private const val BACKUP = "Backup and privacy"
 private const val LOOK = "Look"
 private const val HELP = "Help"
-private val SECTIONS = listOf(ATTENTION, MONEY, ACCOUNTS, MESSAGES, ALERTS, BACKUP, LOOK, HELP)
 private val START_PAGES = listOf("ledger" to "Home", "spend" to "Spend", "payees" to "Payees", "dues" to "Dues")
 
 @Composable
@@ -105,7 +122,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
         var tick by remember { mutableStateOf(0) }                 // a setting changed here: read them all again
         var opened by remember { mutableStateOf(setOf<String>()) }  // sections showing their "More options"
         var startPick by remember { mutableStateOf(false) }
-        fun shut() { menuOpen = false }
+        var undo by remember { mutableStateOf<Pair<String, Boolean>?>(null) }  // switch just changed, and whether it is now on
+        fun shut() { menuOpen = false; menuSection = null }
         fun openMissed() {
             shut(); unreadOpen = true; unreadList = null
             scope.launch { val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }; unreadList = l; noteMissed(l.size) }
@@ -129,12 +147,12 @@ private fun MenuPage(s: AppState, v: Filtered) {
 
         val all = buildList {
             if (missedNew > 0) add(Entry(ATTENTION, plural(missedNew, "new missed message", "new missed messages"),
-                "Bank messages Zelu couldn't read. Add them or teach Zelu.", Icons.Rounded.Receipt, ZColor.Warn) { openMissed() })
+                "Bank messages Zelu couldn't read. Add them or teach Zelu.", Icons.Rounded.Receipt, ZColor.Warn, button = "Review") { openMissed() })
             if (notifBlocked) add(Entry(ATTENTION, "Alerts are off", "Turn on notifications for payment and bill alerts",
-                Icons.Rounded.Notifications, ZColor.Warn) { shut(); fixNotif() })
+                Icons.Rounded.Notifications, ZColor.Warn, button = "Turn on") { shut(); fixNotif() })
             if (!hasPw && rows.isNotEmpty()) add(Entry(ATTENTION, "Set a backup password", "Backups wait until you set one",
-                Icons.Rounded.Lock, ZColor.Warn) { shut(); backupAfterPw = false; backupPwOpen = true })
-            if (Demo.on) add(Entry(ATTENTION, "Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Visibility, ZColor.Warn) {
+                Icons.Rounded.Lock, ZColor.Warn, button = "Set") { shut(); backupAfterPw = false; backupPwOpen = true })
+            if (Demo.on) add(Entry(ATTENTION, "Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Visibility, ZColor.Warn, button = "Turn off") {
                 shut(); Demo.set(context, false)
                 Toast.makeText(context, "Back to your own payments", Toast.LENGTH_SHORT).show()
             })
@@ -280,16 +298,33 @@ private fun MenuPage(s: AppState, v: Filtered) {
             })
         }
 
-        Column(Modifier.fillMaxSize().background(ZColor.Paper)) {
-            Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, top = 14.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Menu", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        // Tapping a row: remember it for the shortcuts; a switch can be undone from the bar at the bottom.
+        fun runEntry(e: Entry) {
+            MenuUse.note(context, e.title)
+            if (e.on != null) undo = e.title to !e.on
+            e.act()
+        }
+        val fixes = all.filter { it.section == ATTENTION }
+        val page = menuSection
+        val tokens = MenuSearch.tokens(find)
+
+        Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (page != null && tokens.isEmpty()) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).clickable { menuSection = null }.buttonLabel("Back to menu"), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.ChevronLeft, null, tint = ZColor.Ink)
+                    }
+                } else Spacer(Modifier.width(12.dp))
+                Text(if (page != null && tokens.isEmpty()) page else "Menu", color = ZColor.Ink, fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Box(Modifier.size(44.dp).clip(CircleShape).clickable { shut() }.buttonLabel("Close menu"), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Close, null, tint = ZColor.Ink)
                 }
             }
             OutlinedTextField(
                 value = find, onValueChange = { find = it }, singleLine = true,
-                placeholder = { Text("Search: budget, backup, missed…") },
+                placeholder = { Text("Search or ask: \"remind me\", \"pin\"…") },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = ZColor.Muted) },
                 trailingIcon = if (find.isEmpty()) null else ({
                     Box(Modifier.size(40.dp).clip(CircleShape).clickable { find = "" }.buttonLabel("Clear search"), contentAlignment = Alignment.Center) {
@@ -300,27 +335,189 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             )
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                val words = find.trim().lowercase().split(' ').filter { it.isNotEmpty() }
-                if (words.isNotEmpty()) {
-                    val hits = all.filter { e ->
-                        val hay = (e.section + " " + e.title + " " + e.sub + " " + e.words).lowercase()
-                        words.all { hay.contains(it) }
-                    }
+                if (tokens.isNotEmpty()) {
+                    // Rows matching every word first; if none do, the ones matching most of them.
+                    val scored = all.map { e -> e to MenuSearch.score(tokens, e.section + " " + e.title + " " + e.sub + " " + e.words) }
+                    val hits = scored.filter { it.second == tokens.size }.map { it.first }
+                        .ifEmpty { scored.filter { it.second > 0 }.sortedByDescending { it.second }.map { it.first } }
                     Spacer(Modifier.height(8.dp))
                     if (hits.isEmpty()) MutedText("Nothing called that. Try another word, or look under Help.", 14)
-                    else MenuGroup(null, hits, showSection = true)
-                } else for (section in SECTIONS) {
-                    val inSection = all.filter { it.section == section }
-                    if (inSection.isEmpty()) continue
+                    else MenuGroup(null, hits, showSection = true, onRun = { runEntry(it) })
+                } else if (page != null) {
+                    // One topic's own short page; rarely used rows wait under "More options".
+                    val inSection = all.filter { it.section == page }
                     val extra = inSection.filter { it.more }
-                    val open = section in opened
-                    MenuGroup(section, inSection.filter { !it.more || open }, moreOpen = if (extra.isEmpty()) null else open) {
-                        opened = if (open) opened - section else opened + section
+                    val open = page in opened
+                    Spacer(Modifier.height(4.dp))
+                    MenuGroup(null, inSection.filter { !it.more || open }, moreOpen = if (extra.isEmpty()) null else open,
+                        onMore = { opened = if (open) opened - page else opened + page }, onRun = { runEntry(it) })
+                } else {
+                    Spacer(Modifier.height(6.dp))
+                    // What needs fixing, each with its own button; or one calm line saying all is well.
+                    if (fixes.isNotEmpty()) {
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
+                            .border(1.dp, ZColor.Warn.copy(alpha = 0.45f), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text("FIX IN ONE TAP · ${fixes.size}", color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            fixes.forEach { e ->
+                                Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(e.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(e.sub, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    SmallButton(e.button ?: "Fix", filled = true) { runEntry(e) }
+                                }
+                            }
+                        }
+                    } else {
+                        val facts = listOfNotNull(
+                            if (lastRead > 0) "Checked " + agoText(lastRead) else null,
+                            if (lastBackup > 0) "Backed up " + agoText(lastBackup) else "No backup yet",
+                            if (spendOn || duesOn) "Alerts on" else "Alerts off",
+                        )
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.IncomeSoft).padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.CheckCircle, null, tint = ZColor.Income, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("All good", color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(facts.joinToString(" · "), color = ZColor.InkSoft, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    // One suggestion at a time, worked out from your own data. "Not now" hides it for good.
+                    val today = Dates.today()
+                    val usual = (1..3).map { i ->
+                        val m = Dates.shiftMonth(Dates.todayMonth(), -i)
+                        rows.filter { it.kind == "expense" && it.date.startsWith(m) }.sumOf { it.amount }
+                    }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
+                    val suggestions = buildList {
+                        if (monthlyBudget <= 0 && usual > 0) {
+                            val pick = Math.ceil(usual / 1000.0) * 1000.0
+                            add(Suggestion("budget", "Set a monthly budget of " + money(pick) + "?",
+                                "You usually spend " + money(usual) + " a month. Home then shows what you can spend each day.",
+                                "Set " + money(pick)) {
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, pick) }
+                                    monthlyBudget = pick
+                                }
+                                Toast.makeText(context, "Budget set to " + money(pick) + " a month", Toast.LENGTH_SHORT).show()
+                            })
+                        }
+                        if (!duesOn && reminders.any { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }) {
+                            add(Suggestion("dues", "Get reminded before bills are due?", "You have bills coming up. Zelu can remind you a few days before.",
+                                "Turn on") { NotifyPrefs.setDuesOn(context, true); tick++ })
+                        }
+                        if (hasPw && !autoBackup) {
+                            add(Suggestion("autobackup", "Back up every week by itself?", "A locked copy goes to Downloads/Zelu each week; the newest 4 are kept.",
+                                "Turn on") { autoBackup = true; Backup.setAutoOn(context, true) })
+                        }
+                        val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                        if (!lockOn && rows.size >= 20 && km.isDeviceSecure) {
+                            add(Suggestion("lock", "Lock Zelu with your phone lock?", "Your balances show as soon as the app opens.",
+                                "Turn on") {
+                                lockOn = true
+                                context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", true).apply()
+                            })
+                        }
+                    }
+                    suggestions.firstOrNull { !MenuUse.dismissed(context, it.id) }?.let { sg ->
+                        Spacer(Modifier.height(10.dp))
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.OrangeSoft).padding(14.dp)) {
+                            Text("SUGGESTED FOR YOU", color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(sg.title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text(sg.sub, color = ZColor.Muted, fontSize = 12.sp)
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SmallButton(sg.button, filled = true) { MenuUse.dismiss(context, sg.id); sg.act(); tick++ }
+                                SmallButton("Not now", filled = false) { MenuUse.dismiss(context, sg.id); tick++ }
+                            }
+                        }
+                    }
+
+                    // Four shortcuts: what you use most here. A backup that's overdue moves to the front.
+                    val pool = all.filter { it.section != ATTENTION && !it.more }
+                    val used = pool.map { it to MenuUse.count(context, it.title) }.filter { it.second > 0 }
+                        .sortedByDescending { it.second }.map { it.first }
+                    val defaults = listOf("Check for new payments", "Back up now", "Dark theme", "Theme colours")
+                        .mapNotNull { t -> pool.firstOrNull { it.title == t } }
+                    val backupDue = hasPw && (lastBackup == 0L || System.currentTimeMillis() - lastBackup > 7L * 86_400_000L)
+                    val shortcuts = ((if (backupDue) pool.filter { it.title == "Back up now" } else emptyList()) + used + defaults)
+                        .distinctBy { it.title }.take(4)
+                    Text("YOUR SHORTCUTS", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 6.dp, top = 16.dp, bottom = 8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        shortcuts.forEach { e ->
+                            val lit = e.on == true
+                            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (lit) ZColor.Ink else ZColor.Card)
+                                .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).clickable { runEntry(e) }.padding(vertical = 10.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(e.icon, null, tint = if (lit) ZColor.Paper else e.tint, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.height(4.dp))
+                                Text(shortName(e), color = if (lit) ZColor.Paper else ZColor.Ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            }
+                        }
+                    }
+
+                    // The seven topics, each with how it stands right now.
+                    val alertsOn = listOf(spendOn, dailyOn, weeklyOn, duesOn, recapOn).count { it }
+                    val topics = listOf(
+                        Triple(MONEY, Icons.Rounded.AccountBalanceWallet, (if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "No budget") to false),
+                        Triple(ACCOUNTS, Icons.Rounded.AccountBalance, (if (v.accounts.isNotEmpty()) plural(v.accounts.size, "account", "accounts") else "") to false),
+                        Triple(MESSAGES, Icons.Rounded.Receipt, when {
+                            missedCount > 0 -> "$missedCount to review" to true
+                            stale -> "Check now" to true
+                            else -> "Up to date" to false
+                        }),
+                        Triple(ALERTS, Icons.Rounded.Notifications, (if (notifBlocked) "Blocked" else "$alertsOn on") to notifBlocked),
+                        Triple(BACKUP, Icons.Rounded.Lock, when {
+                            !hasPw -> "No password" to true
+                            lastBackup == 0L -> "Not backed up" to true
+                            System.currentTimeMillis() - lastBackup > 8L * 86_400_000L -> agoText(lastBackup) to true
+                            else -> "Safe" to false
+                        }),
+                        Triple(LOOK, Icons.Rounded.Palette, (PALETTES[ZTheme.palette].name + if (ZTheme.dark) " · dark" else "") to false),
+                        Triple(HELP, Icons.Rounded.Lightbulb, "" to false),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))) {
+                        topics.forEachIndexed { i, (name, icon, status) ->
+                            if (i > 0) RowDivider()
+                            Row(Modifier.fillMaxWidth().clickable { menuSection = name }.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(ZColor.Accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(19.dp))
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Text(name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                if (status.first.isNotEmpty()) Text(status.first, color = if (status.second) ZColor.Warn else ZColor.Muted, fontSize = 12.sp,
+                                    fontWeight = if (status.second) FontWeight.SemiBold else FontWeight.Normal)
+                                Icon(Icons.Rounded.ChevronRight, null, tint = ZColor.Muted, modifier = Modifier.size(20.dp))
+                            }
+                        }
                     }
                 }
                 val version = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (_: Exception) { null }
-                if (version != null) Text("Zelu $version", color = ZColor.Muted, fontSize = 12.sp,
+                if (version != null) Text("Zelu $version · nothing leaves your phone", color = ZColor.Muted, fontSize = 12.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 18.dp))
+            }
+        }
+
+            // A switch just changed: Undo instead of "Are you sure?".
+            undo?.let { (title, nowOn) ->
+                LaunchedEffect(undo) { kotlinx.coroutines.delay(4000); undo = null }
+                Row(Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .background(ZColor.Ink).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(title + if (nowOn) " turned on" else " turned off", color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("UNDO", color = ZColor.AmberInk, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
+                            all.firstOrNull { it.title == title && it.on != null }?.act()
+                            undo = null
+                        }.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
             }
         }
 
@@ -344,13 +541,14 @@ private fun MenuPage(s: AppState, v: Filtered) {
 
 // A heading and its rows on one card. moreOpen is null when the group has nothing under "More options".
 @Composable
-private fun MenuGroup(title: String?, items: List<Entry>, showSection: Boolean = false, moreOpen: Boolean? = null, onMore: () -> Unit = {}) {
+private fun MenuGroup(title: String?, items: List<Entry>, showSection: Boolean = false, moreOpen: Boolean? = null, onMore: () -> Unit = {},
+                      onRun: (Entry) -> Unit) {
     if (title != null) Text(title.uppercase(), color = if (title == ATTENTION) ZColor.Warn else ZColor.Muted, fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, top = 18.dp, bottom = 8.dp))
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))) {
         items.forEachIndexed { i, e ->
             if (i > 0) RowDivider()
-            EntryRow(e, showSection)
+            EntryRow(e, showSection, onRun)
         }
         if (moreOpen != null) {
             RowDivider()
@@ -369,11 +567,11 @@ private fun RowDivider() {
 }
 
 @Composable
-private fun EntryRow(e: Entry, showSection: Boolean) {
+private fun EntryRow(e: Entry, showSection: Boolean, onRun: (Entry) -> Unit) {
     val on = e.on
     Row(
         Modifier.fillMaxWidth()
-            .then(if (on != null) Modifier.toggleable(value = on, role = Role.Switch) { e.act() } else Modifier.clickable { e.act() })
+            .then(if (on != null) Modifier.toggleable(value = on, role = Role.Switch) { onRun(e) } else Modifier.clickable { onRun(e) })
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -392,5 +590,27 @@ private fun EntryRow(e: Entry, showSection: Boolean) {
             uncheckedThumbColor = ZColor.Muted, uncheckedTrackColor = ZColor.Paper, uncheckedBorderColor = ZColor.Line,
         ))
         else Icon(Icons.Rounded.ChevronRight, null, tint = ZColor.Muted, modifier = Modifier.size(20.dp))
+    }
+}
+
+// Short names for the shortcut tiles.
+private fun shortName(e: Entry): String = when (e.title) {
+    "Check for new payments" -> "Check now"
+    "Back up now" -> "Back up"
+    "Dark theme" -> if (e.on == true) "Dark on" else "Dark"
+    "Theme colours" -> "Colours"
+    "Budgets by category" -> "Budgets"
+    "Your accounts" -> "Accounts"
+    "Export spending (CSV)" -> "Export"
+    "Missed messages" -> "Missed"
+    else -> e.title
+}
+
+@Composable
+private fun SmallButton(label: String, filled: Boolean, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(if (filled) ZColor.Ink else ZColor.Card)
+        .border(1.dp, if (filled) ZColor.Ink else ZColor.Line, RoundedCornerShape(12.dp))
+        .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 7.dp)) {
+        Text(label, color = if (filled) ZColor.Paper else ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
