@@ -419,7 +419,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(centerText, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(centerText, color = ZColor.Ink, fontSize = if (centerText.length > 8) 15.sp else 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             MutedText(caption, 11)
         }
     }

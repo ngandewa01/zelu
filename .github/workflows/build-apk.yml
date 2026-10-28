@@ -2,7 +2,13 @@ name: Build release APK
 
 on:
   push:
+  # Run by hand (Actions, "Build release APK", "Run workflow") to build main and, when ticked, upload it to Play.
   workflow_dispatch:
+    inputs:
+      upload_to_play:
+        description: Upload this build to Google Play (Closed testing)
+        type: boolean
+        default: false
 
 # A newer push to the same branch cancels the build still running for an older one,
 # so the latest APK arrives sooner instead of waiting behind outdated builds.
@@ -126,11 +132,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Each main build goes to the Closed testing (Alpha) track on Google Play, held back from review: it waits in
-      # Play Console, Publishing overview, until you press "Send changes for review". Release notes come from
-      # distribution/whatsnew/whatsnew-en-US.
+      # Only a hand-started build of main with "Upload this build to Google Play" ticked goes to the Closed testing
+      # (Alpha) track; pushes never upload. It waits in Play Console, Publishing overview (managed publishing), until
+      # you press "Send changes for review". Release notes come from distribution/whatsnew/whatsnew-en-US.
       - name: Upload to Google Play (Closed testing)
-        if: github.ref == 'refs/heads/main' && env.PLAY_JSON != ''
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.upload_to_play && env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
