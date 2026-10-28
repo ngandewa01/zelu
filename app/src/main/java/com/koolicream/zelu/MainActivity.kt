@@ -525,6 +525,10 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
                         repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        onSetBudget = { amt, noEmi ->
+                            scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
+                            if (noEmi) excludeEmi = true
+                        },
                         onOpenSpend = { view = "spend" })
                     "spend" -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
