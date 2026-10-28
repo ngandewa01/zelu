@@ -321,7 +321,7 @@ import java.util.Calendar
         MerchantTile(name, "Bills", 34.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(niceName(name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val acct = r.account.takeIf { it.isNotBlank() && !it.equals(r.counterparty ?: "", ignoreCase = true) }
             MutedText(listOfNotNull("Due " + prettyDate(r.dueDate), if (r.recurring) "Monthly" else null, acct,
                 r.minAmount?.let { "min " + money(it) }).joinToString(" · "), 12)
@@ -361,6 +361,13 @@ internal fun autoSettledReminders(reminders: List<Reminder>, rows: List<Row>): S
                 }
         }
         if (debit != null) { used.add(debit.id); matched.add(r.id) }
+    }
+    // A card's newer statement replaces the older one (it carries over anything unpaid), so an older bill for the
+    // same card no longer shows as due or overdue next to it.
+    fun isCard(r: Reminder) = r.minAmount != null || r.account.contains(" CC ") || r.account.startsWith("CC ") || r.account.endsWith(" CC")
+    reminders.filter { isCard(it) && it.account.isNotBlank() }.groupBy { it.account }.values.forEach { bills ->
+        val latest = bills.maxOf { it.dueDate }
+        bills.filter { it.dueDate < latest }.forEach { matched.add(it.id) }
     }
     return matched
 }

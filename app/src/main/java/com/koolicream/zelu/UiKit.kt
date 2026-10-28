@@ -565,9 +565,11 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         if (fit != null) Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = fit.size.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
             modifier = Modifier.weight(1f, fill = false).drawWithContent { if (fit.settled) drawContent() },
-            onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true })
-        else FitText(label, if (selected) ZColor.Ink else ZColor.Muted, 13f, if (selected) FontWeight.Bold else FontWeight.Medium,
-            Modifier.weight(1f, fill = false))
+            onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true },
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        // Outside a tab row (a scrolling list of choices) there is room for the whole name.
+        else Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
     }
 }
 
@@ -627,5 +629,6 @@ internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> 
     var ready by remember(text, size) { mutableStateOf(false) }
     Text(text, color = color, fontSize = fs.sp, fontWeight = weight, maxLines = 1, softWrap = false,
         modifier = modifier.drawWithContent { if (ready) drawContent() },
-        onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true })
+        onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true },
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }

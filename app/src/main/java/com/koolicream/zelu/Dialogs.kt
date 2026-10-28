@@ -316,7 +316,7 @@ import androidx.compose.ui.window.Dialog
             Text(person.trim().take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
         Spacer(Modifier.height(8.dp))
-        Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         MutedText(verb, 11)
         Spacer(Modifier.height(4.dp))
         Text(if (settled) "Settled ✓" else money(bal), color = if (settled) ZColor.Muted else color,
@@ -394,7 +394,7 @@ import androidx.compose.ui.window.Dialog
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(person, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            Text(niceName(person), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             MutedText(
                 if (bal <= 0.0) "Settled · ${money(total)}"
@@ -421,7 +421,7 @@ import androidx.compose.ui.window.Dialog
     val headWord = if (youOwe) "Borrowed" else "Lent"
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-            Text(person, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            Text(niceName(person), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             MutedText("$headWord ${money(total)} in ${lentRows.size} ${if (lentRows.size == 1) "transfer" else "transfers"}", 12)
@@ -483,9 +483,9 @@ import androidx.compose.ui.window.Dialog
                 MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink,
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText("${t.date} · ${subtitleFor(t)}", 12)
+                    Text(rowTitle(t), color = ZColor.Ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) ", $it" else "" }) + " · " + subtitleFor(t), 12)
                 }
                 Spacer(Modifier.width(10.dp))
                 AmountText(t, false)
@@ -553,7 +553,7 @@ import androidx.compose.ui.window.Dialog
                         (if (kind != "income" && kind != "ignore" && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
                 }
                 Spacer(Modifier.height(10.dp))
-                MutedText("Remembered for ${t.counterparty ?: "this payee"}:", 12)
+                MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
