@@ -20,9 +20,11 @@ import android.widget.RemoteViews
 // updates whenever a new bank SMS arrives.
 class ZeluWidget : AppWidgetProvider() {
 
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+    // Building the widget reads every payment, so it is done off the main thread.
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = inBackground {
+        val views = build(context)
         for (id in ids) {
-            try { manager.updateAppWidget(id, build(context)) } catch (_: Exception) {}
+            try { manager.updateAppWidget(id, views) } catch (_: Exception) {}
         }
     }
 

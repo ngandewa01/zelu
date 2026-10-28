@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 70
+    const val PARSER_VERSION = 71
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -143,44 +143,24 @@ object Storage {
             if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
             return row
         }
-        val canon = canonicalizeAccounts(expanded, apart)
+        val canon = Reconcile.canonicalizeAccounts(expanded, apart)
         val retyped = if (retype.isEmpty()) canon else canon.map { r ->
             val n = retype[r.account]
             if (n == null) r else reapply(r.copy(account = n))
         }
         // Every label before anything you joined is applied, for the Your accounts screen.
         labelStatsCache = AccountBook.stats(retyped)
-        val joined = if (dups.isEmpty()) retyped else joinAccounts(retyped, dups)
+        val joined = if (dups.isEmpty()) retyped else Reconcile.joinAccounts(retyped, dups)
         cardNetAuto = AccountBook.networks(joined)
         val declined = reg.filter { it.value.first == "declined" }.keys
-        val processed = pairRefunds(detectSelfTransfers(dedupBillers(inferEmiSeries(joined, overrides.keys))), loadRefundLinks(context))
+        val userSet = overrides.keys
+        val paired = Reconcile.pairRefunds(
+            Reconcile.detectSelfTransfers(Reconcile.dedupBillers(Reconcile.inferEmiSeries(joined, userSet)), userSet),
+            loadRefundLinks(context))
+        Refunds.suggestions = paired.suggestions
+        val processed = paired.rows
         loanStatsCache = AccountBook.loanStats(processed) + loansFromNotices(context, processed)
         return (if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }).newestFirst()
-    }
-
-    // Labels you joined into another account count under it. A label joined to a loan is that loan's EMI messages, and
-    // the money left from the bank's main account, so it counts there.
-    private fun joinAccounts(rows: List<Row>, dups: Map<String, String>): List<Row> {
-        fun root(k: String): String {
-            var c = k; var hops = 0
-            while (hops++ < 8) { val t = dups[c] ?: break; if (t == c) break; c = t }
-            return c
-        }
-        val counts = rows.groupingBy { it.account }.eachCount()
-        val mainOfBank = HashMap<String, String>()
-        fun bankMain(loan: String): String {
-            val bank = AccountBook.bankOf(loan) ?: return loan.substringBefore(' ')
-            return mainOfBank.getOrPut(bank) {
-                counts.keys.filter { AccountBook.bankOf(it) == bank && AccountBook.guessType(it) == "savings" && !dups.containsKey(it) }
-                    .maxByOrNull { counts[it] ?: 0 } ?: bank
-            }
-        }
-        val target = HashMap<String, String>()
-        for (k in counts.keys) if (dups.containsKey(k)) {
-            val t = root(k)
-            target[k] = if (t.contains(" Loan ")) bankMain(t) else t
-        }
-        return if (target.isEmpty()) rows else rows.map { r -> target[r.account]?.let { r.copy(account = it) } ?: r }
     }
 
     // The label an account takes once you say what it is: a savings account never carries "CC", a card always does.
@@ -218,221 +198,39 @@ object Storage {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("accounts_confirmed", true).apply()
     }
 
-    // An EMI repeats: the same amount leaves the same account around the same day every month. When one
-    // payment of such a series is already known as an EMI (its SMS says so), the other months of that
-    // series that came without the word (and stayed Unknown / Transfer) are the same EMI. Nothing is
-    // hard-coded, and a category you set yourself is never touched.
-    private fun inferEmiSeries(rows: List<Row>, userSet: Set<String>): List<Row> {
-        val known = rows.filter { it.category == "EMI" && it.direction == "debit" && it.account.isNotBlank() }
-        if (known.isEmpty()) return rows
-        fun day(d: String) = d.substring(8, 10).toIntOrNull() ?: 0
-        return rows.map { c ->
-            if (c.direction != "debit" || c.account.isBlank() || c.id in userSet) return@map c
-            if (c.category != "Unknown" && c.category != "Transfer") return@map c
-            val series = known.any { e ->
-                e.account == c.account && kotlin.math.abs(e.amount - c.amount) < 0.5 &&
-                    e.date.take(7) != c.date.take(7) && kotlin.math.abs(day(e.date) - day(c.date)) <= 3
-            }
-            if (series) c.copy(kind = "expense", category = "EMI") else c
-        }
-    }
-
-    // A refund that looks like it belongs to an earlier spend (same merchant, or same amount on the
-    // same account, within 120 days) is suggested to you; once you confirm it takes that spend's
-    // category and nets against it. Until then (or on "No") it stays a plain "Refund" in Money in.
-    private fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): List<Row> {
-        fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
-        val expenses = rows.filter { it.kind == "expense" }
-        val remaining = HashMap<String, Double>().apply { expenses.forEach { put(it.id, it.amount) } }
-        val paired = HashMap<String, String>()
-        val suggest = ArrayList<Pair<Row, Row>>()
-        for (r in rows.filter { it.kind == "refund" && it.category == "Refund" }.sortedBy { it.date }) {
-            if (answers[r.id] == false) continue
-            // Only suggest a pairing that is clearly the same purchase: the same amount (within 60 days),
-            // or the same payee with a refund that is most of the original (within 45 days). A small
-            // refund against a much bigger spend at a busy merchant (Amazon...) is too uncertain to guess.
-            val lo = Dates.shiftDays(r.date, -60)
-            val lo45 = Dates.shiftDays(r.date, -45)
-            val rc = norm(r.counterparty)
-            val best = expenses.filter { e ->
-                val samePayee = rc.length >= 4 && norm(e.counterparty).let { ec -> ec.length >= 4 && (ec.contains(rc) || rc.contains(ec)) }
-                val exact = kotlin.math.abs(e.amount - r.amount) < 0.5
-                e.date <= r.date && e.date >= lo && (remaining[e.id] ?: 0.0) >= r.amount - 0.5 && (
-                    (samePayee && (exact || (e.date >= lo45 && r.amount >= e.amount * 0.6))) ||
-                        (exact && e.account.isNotBlank() && e.account == r.account))
-            }.sortedWith(compareByDescending<Row> { kotlin.math.abs(it.amount - r.amount) < 0.5 }.thenByDescending { it.date })
-                .firstOrNull() ?: continue
-            if (answers[r.id] == true) {
-                remaining[best.id] = (remaining[best.id] ?: 0.0) - r.amount
-                paired[r.id] = best.category
-            } else suggest.add(r to best)
-        }
-        Refunds.suggestions = suggest.sortedByDescending { it.first.date }
-        return if (paired.isEmpty()) rows else rows.map { r -> paired[r.id]?.let { r.copy(category = it) } ?: r }
-    }
-
-    // A transfer between your OWN accounts shows up as the same amount leaving one account
-    // and arriving in another within a day. Mark both as transfers, so it counts as neither
-    // spending nor income. Learned automatically from your accounts — nothing to configure.
-    private fun detectSelfTransfers(rows: List<Row>): List<Row> {
-        val move = HashSet<String>()
-        val credits = rows.filter { it.direction == "credit" && it.kind == "income" && it.account.isNotBlank() }
-        val used = HashSet<String>()
-        for (d in rows) {
-            if (d.direction != "debit" || d.kind != "expense" || d.account.isBlank()) continue
-            val match = credits.firstOrNull { c ->
-                c.id !in used && c.amount == d.amount && c.account != d.account && nearDay(c.date, d.date)
-            } ?: continue
-            used.add(match.id); move.add(d.id); move.add(match.id)
-        }
-        return rows.map { if (it.id in move) it.copy(kind = "transfer", category = "Transfer") else it }
-    }
-
-    private fun within3(a: String, b: String): Boolean = (-3..3).any { a == Dates.shiftDays(b, it) }
-
-    // Same day, or one day apart (a credit can post the next day).
-    private fun nearDay(a: String, b: String): Boolean =
-        a == b || a == Dates.shiftDays(b, 1) || a == Dates.shiftDays(b, -1)
-
-    // Merge account labels that are the same real account. Each account number is resolved
-    // to the bank it appears under MOST often, so a stray signature ("...-SBI" on an IT
-    // refund credited to an HDFC account) can't split HDFC 5997 into a phantom SBI 5997.
-    // Also folds "CC 6781" into "HDFC CC 6781" and "HDFC 1208" into "HDFC CC 1208".
-    // One account written with different tails ("898" and "4898", or "8003" and "4xxx8003" read badly) is one account:
-    // same bank, same kind, and at least three trailing digits in common.
-    private fun mergeTails(rows: List<Row>, apart: Set<String> = emptySet()): List<Row> {
-        val digits = Regex("""^\d{2,}$""")
-        fun split(s: String): Triple<String, Boolean, String>? {
-            if (s.contains("Loan") || s.contains("FASTag")) return null
-            val parts = s.trim().split(" ").filter { it.isNotEmpty() }
-            val tail = parts.lastOrNull()?.takeIf { digits.matches(it) } ?: return null
-            val bank = parts.firstOrNull { !it.equals("CC", true) && it != tail } ?: return null
-            return Triple(bank, parts.any { it.equals("CC", true) }, tail)
-        }
-        val count = HashMap<Triple<String, Boolean, String>, Int>()
-        for (r in rows) split(r.account)?.let { count[it] = (count[it] ?: 0) + 1 }
-        fun same(a: String, b: String) = a == b || (minOf(a.length, b.length) >= 3 && a.takeLast(3) == b.takeLast(3))
-        val remap = HashMap<String, String>()
-        for ((key, _) in count.entries.groupBy { it.key.first to it.key.second }) {
-            val tails = count.filter { it.key.first == key.first && it.key.second == key.second }.map { it.key.third to it.value }
-            val used = HashSet<String>()
-            for ((t, _) in tails.sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenByDescending { it.first.length })) {
-                if (t in used) continue
-                for ((u, _) in tails) if (u != t && u !in used && same(t, u)) {
-                    val from = key.first + (if (key.second) " CC " else " ") + u
-                    if (from in apart) continue                 // you separated it
-                    used.add(u)
-                    remap[from] = key.first + (if (key.second) " CC " else " ") + t
-                }
-                used.add(t)
-            }
-        }
-        return if (remap.isEmpty()) rows else rows.map { r -> remap[r.account]?.let { r.copy(account = it) } ?: r }
-    }
-
-    private fun canonicalizeAccounts(rows0: List<Row>, apart: Set<String> = emptySet()): List<Row> {
-        val rows = mergeTails(rows0, apart)
-        val four = Regex("""^\d{4}$""")
-        val anyDigits = Regex("""^\d{2,}$""")
-        fun parse(s: String): Triple<String, Boolean, String> {
-            var bank = ""; var cc = false; var last4 = ""
-            val isTail = if (s.contains("Loan")) four else anyDigits
-            for (p in s.trim().split(" ").filter { it.isNotEmpty() }) when {
-                p.equals("CC", true) -> cc = true
-                isTail.matches(p) -> last4 = p
-                else -> if (bank.isEmpty()) bank = p
-            }
-            return Triple(bank, cc, last4)
-        }
-        // last4 -> (bank -> how many rows name that bank); and whether any row marked it a card.
-        val bankCount = HashMap<String, HashMap<String, Int>>()
-        val ccForBankLast4 = HashMap<String, Boolean>()
-        // A savings account reports "Avl Bal"; a card reports "Avl Lmt". One stray message that says "card" must
-        // not turn an account that keeps reporting balances into a credit card.
-        val ccRows = HashMap<String, Int>()
-        val balRows = HashMap<String, Int>()
-        for (r in rows) {
-            val (bank, cc, last4) = parse(r.account)
-            if (last4.isNotEmpty() && bank.isNotEmpty()) {
-                val m = bankCount.getOrPut(last4) { HashMap() }
-                m[bank] = (m[bank] ?: 0) + 1
-                val k = "$bank|$last4"
-                if (cc) ccRows[k] = (ccRows[k] ?: 0) + 1
-                else if (Parser.balanceFromTxn(r.raw) != null && Parser.limitFromTxn(r.raw) == null) balRows[k] = (balRows[k] ?: 0) + 1
-            }
-        }
-        for ((k, n) in ccRows) ccForBankLast4[k] = n > 0 && (balRows[k] ?: 0) < n * 2
-        for (k in balRows.keys) if (!ccForBankLast4.containsKey(k)) ccForBankLast4[k] = false
-        // Savings accounts per bank (last4 not seen as a card) with their row counts, so a
-        // bank-only label like "HDFC" (from loan EMIs) folds into the main HDFC savings a/c.
-        val savingsCount = HashMap<String, HashMap<String, Int>>()
-        val cardCount = HashMap<String, HashMap<String, Int>>()
-        for ((l4, banks) in bankCount) {
-            for ((bk, cnt) in banks) {
-                if (ccForBankLast4["$bk|$l4"] == true) cardCount.getOrPut(bk) { HashMap() }[l4] = cnt
-                else savingsCount.getOrPut(bk) { HashMap() }[l4] = cnt
-            }
-        }
-        fun canonical(acct: String): String {
-            val (bank0, cc0, last4) = parse(acct)
-            if (last4.isEmpty()) {
-                if (bank0.isNotEmpty() && !cc0) {
-                    val sav = savingsCount[bank0]?.maxByOrNull { it.value }?.key
-                    if (sav != null) return "$bank0 $sav"
-                    // No savings for this bank — fold into its main card instead.
-                    val card = cardCount[bank0]?.maxByOrNull { it.value }?.key
-                    if (card != null) return "$bank0 CC $card"
-                }
-                return acct
-            }
-            val bank = bankCount[last4]?.maxByOrNull { it.value }?.key ?: bank0
-            if (bank.isEmpty()) return acct
-            val anyCC = ccForBankLast4["$bank|$last4"] ?: cc0
-            return (bank + " " + (if (anyCC) "CC " else "") + last4).trim()
-        }
-        return rows.map { it.copy(account = canonical(it.account)) }
-    }
-
-    // Collapse duplicates:
-    //  - Billers (e.g. Jio) send two confirmation SMS for one payment: same
-    //    date + amount + known merchant + direction.
-    //  - Loan EMIs arrive as repeated NACH notices: keep one per month per loan.
-    private fun dedupBillers(rows: List<Row>): List<Row> {
-        val seenBrand = HashSet<String>()
-        // One EMI per (month, amount) — the real bank debit and the lender's "payment
-        // received" confirmation are the same installment. Prefer the row that has an account.
-        val emiBest = HashMap<String, Row>()
-        for (r in rows) if (r.category == "EMI") {
-            val k = "${r.date.take(7)}|${r.amount}"
-            val cur = emiBest[k]
-            if (cur == null || (cur.account.isBlank() && r.account.isNotBlank())) emiBest[k] = r
-        }
-        val emiKeep = emiBest.values.map { it.id }.toHashSet()
-        // A biller's own "payment received" note (no account) is the same payment as your bank's debit of that
-        // amount within three days. Keep the bank's row, which has the account.
-        val bankDebits = rows.filter { it.direction == "debit" && it.account.isNotBlank() }
-        val billerEcho = rows.filter { r ->
-            r.direction == "debit" && r.account.isBlank() && Parser.isBillerSender(r.source.uppercase()) &&
-                bankDebits.any { b -> kotlin.math.abs(b.amount - r.amount) < 0.5 && within3(b.date, r.date) }
-        }.map { it.id }.toHashSet()
-        return rows.filter { r ->
-            val cp = r.counterparty
-            when {
-                r.id in billerEcho -> false
-                r.category == "EMI" -> r.id in emiKeep
-                cp != null && Parser.CANON_NAMES.contains(cp) ->
-                    seenBrand.add("${r.date}|${r.amount}|$cp|${r.direction}")
-                else -> true
-            }
-        }
-    }
-
-    fun saveRows(context: Context, newRows: List<Row>): Int = synchronized(lock) {
-        val map = readMap(context).toMutableMap()
+    // Adds payments not stored yet; with replace (a rebuild) the stored list becomes exactly these. Returns how many
+    // were not stored before. A transaction file that can't be read is never overwritten by an ordinary save.
+    fun saveRows(context: Context, newRows: List<Row>, replace: Boolean = false): Int = synchronized(lock) {
+        val old = readMapOrNull(context)
+        if (old == null && !replace) return@synchronized 0
+        val map = if (replace || old == null) LinkedHashMap<String, Row>() else old.toMutableMap()
         var added = 0
-        for (r in newRows) if (!map.containsKey(r.id)) { map[r.id] = r; added++ }
+        for (r in newRows) if (!map.containsKey(r.id)) { map[r.id] = r; if (old?.containsKey(r.id) != true) added++ }
         writeMap(context, map)
         added
+    }
+
+    /** The payments as stored, before any of your decisions are applied (what a rebuild reads again). */
+    fun storedRows(context: Context): Collection<Row> = synchronized(lock) { readMap(context).values }
+
+    /** Reminders read from messages, as stored (not the ones you added yourself). */
+    fun storedReminders(context: Context): Collection<Reminder> = synchronized(lock) { readReminderMap(context).values }
+
+    // Payment IDs from a reference number used to be the same for money in and money out ("ref-629112345678"), so a
+    // reversal replaced the payment it undid. Money in now has its own ID ("...-cr"). Your decisions about a payment
+    // stored under the old ID move to the new one. Safe to run again: only stored credits with the old ID are renamed.
+    fun migrateCreditIds(context: Context, rows: Collection<Row>): Unit = synchronized(lock) {
+        val renames = Rebuild.creditRenames(rows)
+        if (renames.isEmpty()) return@synchronized
+        fun <V> moved(m: Map<String, V>): Map<String, V> = m.mapKeys { Rebuild.renameKey(it.key, renames) }
+        for (name in listOf(OVERRIDE_FILE, TITLE_FILE, "dup_ok.json")) {
+            val kv = readKv(context, name)
+            if (kv.isNotEmpty()) writeKv(context, name, moved(kv))
+        }
+        val splits = loadSplits(context)
+        if (splits.isNotEmpty()) writeSplits(context, moved(splits))
+        val links = loadRefundLinks(context)
+        if (links.isNotEmpty()) writeRefundLinks(context, moved(links))
     }
 
     // ---- senders you said are your bank ----
@@ -478,7 +276,7 @@ object Storage {
     fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
         val f = file(context, SPLIT_FILE)
         if (!f.exists()) emptyMap() else try {
-            val obj = JSONObject(f.readText()); val out = HashMap<String, List<Pair<Double, String>>>()
+            val obj = f.readWithBackup { JSONObject(it) }; val out = HashMap<String, List<Pair<Double, String>>>()
             for (k in obj.keys()) {
                 val arr = obj.getJSONArray(k)
                 out[k] = (0 until arr.length()).map { i -> arr.getJSONObject(i).let { it.getDouble("a") to it.getString("c") } }
@@ -489,9 +287,13 @@ object Storage {
     fun setSplit(context: Context, id: String, parts: List<Pair<Double, String>>?): Unit = synchronized(lock) {
         val cur = loadSplits(context).toMutableMap()
         if (parts == null) cur.remove(id) else cur[id] = parts
+        writeSplits(context, cur)
+    }
+
+    private fun writeSplits(context: Context, splits: Map<String, List<Pair<Double, String>>>) {
         val obj = JSONObject()
-        for ((k, v) in cur) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
-        file(context, SPLIT_FILE).writeAtomic(obj.toString())
+        for ((k, v) in splits) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
+        file(context, SPLIT_FILE).writeKeepingBackup(obj.toString())
     }
 
     // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.
@@ -571,15 +373,15 @@ object Storage {
     fun loadMandates(context: Context): List<Mandate> = synchronized(lock) {
         val f = file(context, MANDATE_FILE)
         if (!f.exists()) emptyList() else try {
-            val obj = JSONObject(f.readText()); val out = ArrayList<Mandate>()
+            val obj = f.readWithBackup { JSONObject(it) }; val out = ArrayList<Mandate>()
             for (k in obj.keys()) out.add(mandateFromJson(obj.getJSONObject(k)))
             out.sortedByDescending { it.lastMs }
         } catch (_: Exception) { emptyList() }
     }
 
     // The newest message about a mandate decides its status; older ones only fill in what is missing.
-    fun saveMandates(context: Context, found: List<Mandate>): Unit = synchronized(lock) {
-        val cur = loadMandates(context).associateBy { it.key }.toMutableMap()
+    fun saveMandates(context: Context, found: List<Mandate>, replace: Boolean = false): Unit = synchronized(lock) {
+        val cur = if (replace) HashMap<String, Mandate>() else loadMandates(context).associateBy { it.key }.toMutableMap()
         for (m in found.sortedBy { it.lastMs }) {
             val e = cur[m.key]
             cur[m.key] = if (e == null) m else if (m.lastMs >= e.lastMs) m.copy(
@@ -587,19 +389,19 @@ object Storage {
                 nextDate = if (m.status == "scheduled" || m.status == "active") (m.nextDate ?: e.nextDate) else null)
             else e.copy(amount = e.amount ?: m.amount, account = e.account.ifBlank { m.account }, since = minOf(e.since, m.since))
         }
-        if (found.isNotEmpty()) {
+        if (found.isNotEmpty() || replace) {
             val obj = JSONObject()
             for ((k, v) in cur) obj.put(k, mandateToJson(v))
-            file(context, MANDATE_FILE).writeAtomic(obj.toString())
+            file(context, MANDATE_FILE).writeKeepingBackup(obj.toString())
         }
     }
 
     // ---- payments you added by hand from a message Zelu couldn't read ----
     fun addManualTxn(context: Context, row: Row, smsKey: String): Unit = synchronized(lock) {
         val f = file(context, MANUAL_TXN_FILE)
-        val obj = try { if (f.exists()) JSONObject(f.readText()) else JSONObject() } catch (_: Exception) { JSONObject() }
+        val obj = try { if (f.exists()) f.readWithBackup { JSONObject(it) } else JSONObject() } catch (_: Exception) { JSONObject() }
         obj.put(row.id, rowToJson(row))
-        f.writeAtomic(obj.toString())
+        f.writeKeepingBackup(obj.toString())
         markSmsHandled(context, smsKey)
     }
 
@@ -607,7 +409,7 @@ object Storage {
         val f = file(context, MANUAL_TXN_FILE)
         if (!f.exists()) return emptyMap()
         return try {
-            val obj = JSONObject(f.readText()); val out = HashMap<String, Row>()
+            val obj = f.readWithBackup { JSONObject(it) }; val out = HashMap<String, Row>()
             for (k in obj.keys()) out[k] = rowFromJson(obj.getJSONObject(k))
             out
         } catch (_: Exception) { emptyMap() }
@@ -623,8 +425,8 @@ object Storage {
     fun handledSms(context: Context): Set<String> = synchronized(lock) { readKv(context, HANDLED_FILE).keys }
 
     // ---- reminders (Dues page) ----
-    fun saveReminders(context: Context, newOnes: List<Reminder>): Int = synchronized(lock) {
-        val map = readReminderMap(context).toMutableMap()
+    fun saveReminders(context: Context, newOnes: List<Reminder>, replace: Boolean = false): Int = synchronized(lock) {
+        val map = if (replace) HashMap<String, Reminder>() else readReminderMap(context).toMutableMap()
         var added = 0
         for (r in newOnes) if (!map.containsKey(r.id)) { map[r.id] = r; added++ }
         writeReminderMap(context, map)
@@ -665,14 +467,14 @@ object Storage {
 
     private fun readManual(context: Context): org.json.JSONArray = try {
         val f = file(context, MANUAL_FILE)
-        if (f.exists()) org.json.JSONArray(f.readText()) else org.json.JSONArray()
+        if (f.exists()) f.readWithBackup { org.json.JSONArray(it) } else org.json.JSONArray()
     } catch (_: Exception) { org.json.JSONArray() }
 
     fun addManualReminder(context: Context, name: String, amount: Double, dueDate: String, recurring: Boolean) = synchronized(lock) {
         val arr = readManual(context)
         arr.put(JSONObject().put("id", System.currentTimeMillis().toString()).put("name", name).put("amount", amount)
             .put("due", dueDate).put("recurring", recurring))
-        file(context, MANUAL_FILE).writeAtomic(arr.toString())
+        file(context, MANUAL_FILE).writeKeepingBackup(arr.toString())
     }
 
     // id is a reminder id ("man-<id>" or "man-<id>-<yyyy-MM>").
@@ -680,7 +482,7 @@ object Storage {
         val base = reminderId.removePrefix("man-").substringBefore("-")
         val arr = readManual(context); val keep = org.json.JSONArray()
         for (i in 0 until arr.length()) if (arr.getJSONObject(i).getString("id") != base) keep.put(arr.getJSONObject(i))
-        file(context, MANUAL_FILE).writeAtomic(keep.toString())
+        file(context, MANUAL_FILE).writeKeepingBackup(keep.toString())
     }
 
     private fun manualReminders(context: Context): List<Reminder> {
@@ -713,7 +515,7 @@ object Storage {
         val f = file(context, REPAID_FILE)
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = HashMap<String, Double>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
@@ -726,7 +528,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(personKey) else cur[personKey] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, REPAID_FILE).writeAtomic(o.toString())
+        file(context, REPAID_FILE).writeKeepingBackup(o.toString())
     }
 
     // ---- per-category budgets ----
@@ -734,7 +536,7 @@ object Storage {
         val f = file(context, BUDGET_FILE)
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = HashMap<String, Double>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
@@ -747,7 +549,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(category) else cur[category] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, BUDGET_FILE).writeAtomic(o.toString())
+        file(context, BUDGET_FILE).writeKeepingBackup(o.toString())
     }
 
     // ---- latest known bank balance per account (account -> amount, receivedMs) ----
@@ -758,7 +560,7 @@ object Storage {
         val m = LinkedHashMap<String, Triple<Double, Long, String>>()
         if (!f.exists()) return m
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val ks = o.keys()
             while (ks.hasNext()) {
                 val k = ks.next(); val e = o.getJSONObject(k)
@@ -867,10 +669,13 @@ object Storage {
         readBalFile(context).mapValues { it.value.first to it.value.second }
     }
 
-    fun saveBalances(context: Context, fresh: Map<String, Pair<Double, Long>>, source: String): Unit = synchronized(lock) {
-        if (fresh.isEmpty()) return@synchronized
-        val cur = readBalFile(context)
-        for ((k, v) in fresh) {
+    // alerts: from balance-only messages; tails: from the end of payment messages. With replace (a rebuild) only what
+    // these messages say is kept, so a balance that no message produces any more does not linger.
+    fun saveBalances(context: Context, alerts: Map<String, Pair<Double, Long>>, tails: Map<String, Pair<Double, Long>>,
+                     replace: Boolean = false): Unit = synchronized(lock) {
+        if (alerts.isEmpty() && tails.isEmpty() && !replace) return@synchronized
+        val cur = if (replace) LinkedHashMap<String, Triple<Double, Long, String>>() else readBalFile(context)
+        for ((fresh, source) in listOf(alerts to "b", tails to "t")) for ((k, v) in fresh) {
             val c = cur[k]
             // The newest figure wins, whichever kind of SMS it came from.
             val take = c == null || v.second >= c.second
@@ -878,7 +683,7 @@ object Storage {
         }
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second).put("s", v.third))
-        file(context, "balances.json").writeAtomic(o.toString())
+        file(context, "balances.json").writeKeepingBackup(o.toString())
     }
 
     // ---- latest available credit limit per card account ----
@@ -890,7 +695,7 @@ object Storage {
         val f = file(context, "limits.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = LinkedHashMap<String, Pair<Double, Long>>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getDouble("a") to e.getLong("d") }
@@ -907,7 +712,7 @@ object Storage {
         cur[account] = amount to System.currentTimeMillis()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeAtomic(o.toString())
+        file(context, "limits.json").writeKeepingBackup(o.toString())
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", manualLimitKeys(context) + account).apply()
     }
 
@@ -920,7 +725,7 @@ object Storage {
         if (manChanged) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", man).apply()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeAtomic(o.toString())
+        file(context, "limits.json").writeKeepingBackup(o.toString())
     }
 
     // ---- refund links: refund id -> true (same spend, net it) / false (not related) ----
@@ -928,7 +733,7 @@ object Storage {
         val f = file(context, "refund_links.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText()); val m = HashMap<String, Boolean>()
+            val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, Boolean>()
             val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
             m
         } catch (_: Exception) { emptyMap() }
@@ -936,8 +741,12 @@ object Storage {
 
     fun setRefundLink(context: Context, refundId: String, yes: Boolean): Unit = synchronized(lock) {
         val cur = loadRefundLinks(context).toMutableMap(); cur[refundId] = yes
-        val o = JSONObject(); for ((k, v) in cur) o.put(k, v)
-        file(context, "refund_links.json").writeAtomic(o.toString())
+        writeRefundLinks(context, cur)
+    }
+
+    private fun writeRefundLinks(context: Context, links: Map<String, Boolean>) {
+        val o = JSONObject(); for ((k, v) in links) o.put(k, v)
+        file(context, "refund_links.json").writeKeepingBackup(o.toString())
     }
 
     // ---- savings plan inputs (SIP, EMI, goal...) ----
@@ -945,7 +754,7 @@ object Storage {
         val f = file(context, "plan.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText()); val m = HashMap<String, String>()
+            val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, String>()
             val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getString(k) }
             m
         } catch (_: Exception) { emptyMap() }
@@ -953,7 +762,7 @@ object Storage {
 
     fun savePlan(context: Context, m: Map<String, String>): Unit = synchronized(lock) {
         val o = JSONObject(); for ((k, v) in m) o.put(k, v)
-        file(context, "plan.json").writeAtomic(o.toString())
+        file(context, "plan.json").writeKeepingBackup(o.toString())
     }
 
     // ---- per-card preferences: billing cycle day + monthly budget ----
@@ -961,7 +770,7 @@ object Storage {
         val f = file(context, "card_prefs.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = HashMap<String, Pair<Int, Double>>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.optInt("d", 1) to e.optDouble("b", 0.0) }
@@ -974,7 +783,7 @@ object Storage {
         cur[account] = day to budget
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("d", v.first).put("b", v.second))
-        file(context, "card_prefs.json").writeAtomic(o.toString())
+        file(context, "card_prefs.json").writeKeepingBackup(o.toString())
     }
 
     // ---- overall monthly spending budget ----
@@ -984,7 +793,7 @@ object Storage {
     }
 
     fun saveMonthlyBudget(context: Context, amount: Double): Unit = synchronized(lock) {
-        file(context, "monthly_budget.txt").writeAtomic(amount.toString())
+        file(context, "monthly_budget.txt").writeKeepingBackup(amount.toString())
     }
 
     // ---- user-made categories (name -> emoji + colour) ----
@@ -992,7 +801,7 @@ object Storage {
         val f = file(context, "custom_categories.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = LinkedHashMap<String, Pair<String, Long>>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getString("e") to e.getLong("c") }
@@ -1005,7 +814,7 @@ object Storage {
         cur[name] = emoji to color
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("e", v.first).put("c", v.second))
-        file(context, "custom_categories.json").writeAtomic(o.toString())
+        file(context, "custom_categories.json").writeKeepingBackup(o.toString())
     }
 
     // ---- fixed monthly outflow plan (name -> typical monthly amount) ----
@@ -1013,7 +822,7 @@ object Storage {
         val f = file(context, "fixed_outflow.json")
         if (!f.exists()) return emptyMap()
         try {
-            val o = JSONObject(f.readText())
+            val o = f.readWithBackup { JSONObject(it) }
             val m = LinkedHashMap<String, Double>()
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
@@ -1026,7 +835,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(name) else cur[name] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, "fixed_outflow.json").writeAtomic(o.toString())
+        file(context, "fixed_outflow.json").writeKeepingBackup(o.toString())
     }
 
     // Explicit paid(true)/unpaid(false) override per reminder. An explicit entry always
@@ -1036,24 +845,25 @@ object Storage {
         m[id] = done
         val o = JSONObject()
         for ((k, v) in m) o.put(k, v)
-        file(context, REM_DONE_FILE).writeAtomic(o.toString())
+        file(context, REM_DONE_FILE).writeKeepingBackup(o.toString())
     }
 
     fun loadReminderState(context: Context): Map<String, Boolean> = synchronized(lock) {
         val f = file(context, REM_DONE_FILE)
         if (!f.exists()) return emptyMap()
-        val txt = f.readText()
         return try {
-            if (txt.trimStart().startsWith("[")) {
-                // legacy format: a JSON array of paid ids
-                val arr = org.json.JSONArray(txt)
-                (0 until arr.length()).associate { arr.getString(it) to true }
-            } else {
-                val o = JSONObject(txt)
-                val m = HashMap<String, Boolean>()
-                val ks = o.keys()
-                while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
-                m
+            f.readWithBackup { txt ->
+                if (txt.trimStart().startsWith("[")) {
+                    // legacy format: a JSON array of paid ids
+                    val arr = org.json.JSONArray(txt)
+                    (0 until arr.length()).associate { arr.getString(it) to true }
+                } else {
+                    val o = JSONObject(txt)
+                    val m = HashMap<String, Boolean>()
+                    val ks = o.keys()
+                    while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
+                    m
+                }
             }
         } catch (_: Exception) { emptyMap() }
     }
@@ -1062,7 +872,7 @@ object Storage {
         val f = file(context, REMINDER_FILE)
         if (!f.exists()) return emptyMap()
         return try {
-            val obj = JSONObject(f.readText())
+            val obj = f.readWithBackup { JSONObject(it) }
             val out = HashMap<String, Reminder>()
             val keys = obj.keys()
             while (keys.hasNext()) { val k = keys.next(); out[k] = reminderFromJson(obj.getJSONObject(k)) }
@@ -1073,7 +883,7 @@ object Storage {
     private fun writeReminderMap(context: Context, map: Map<String, Reminder>) {
         val obj = JSONObject()
         for ((k, r) in map) obj.put(k, reminderToJson(r))
-        file(context, REMINDER_FILE).writeAtomic(obj.toString())
+        file(context, REMINDER_FILE).writeKeepingBackup(obj.toString())
     }
 
     private fun reminderToJson(r: Reminder): JSONObject = JSONObject().apply {
@@ -1126,7 +936,7 @@ object Storage {
     }
 
     fun restoreSnapshot(context: Context, snap: Map<String, String?>): Unit = synchronized(lock) {
-        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeAtomic(t) }
+        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeKeepingBackup(t) }
     }
 
     fun setTitle(context: Context, id: String, title: String): Unit = synchronized(lock) {
@@ -1146,15 +956,6 @@ object Storage {
     fun splitList(s: String): List<String> =
         s.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-    fun clear(context: Context) = synchronized(lock) {
-        file(context, TXN_FILE).delete()
-        file(context, MANDATE_FILE).delete() // mandates are re-read from the messages too
-        file(context, REMINDER_FILE).delete() // reminders re-parse too; done ticks are kept
-        // Balances are rebuilt from the messages on every fresh read, so one that no message produces any more does not linger.
-        file(context, "balances.json").delete()
-        Unit
-    }
-
     // Accounts you chose not to show on Home.
     fun hiddenAccounts(context: Context): Set<String> =
         splitList(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("hidden_accounts", "") ?: "").toSet()
@@ -1168,33 +969,28 @@ object Storage {
     // ---- transaction file ----
     private fun file(context: Context, name: String) = File(context.filesDir, name)
 
-    private fun parseMap(f: File): Map<String, Row> {
-        val obj = JSONObject(f.readText())
-        val out = HashMap<String, Row>()
-        val keys = obj.keys()
-        while (keys.hasNext()) { val k = keys.next(); out[k] = rowFromJson(obj.getJSONObject(k)) }
-        return out
-    }
-
-    // If the transaction file can't be read, fall back to the copy kept from the previous save, and keep
-    // the damaged file aside rather than letting the next save overwrite it with an almost empty list.
-    private fun readMap(context: Context): Map<String, Row> {
+    // The transaction file, or null when neither it nor the copy kept from the previous save can be read (see
+    // readWithBackup). A missing file is an empty list.
+    private fun readMapOrNull(context: Context): Map<String, Row>? {
         val f = file(context, TXN_FILE)
         if (!f.exists()) return emptyMap()
-        return try { parseMap(f) } catch (_: Exception) {
-            val bak = File(f.parentFile, TXN_FILE + ".bak")
-            try { f.copyTo(File(f.parentFile, TXN_FILE + ".corrupt"), overwrite = true) } catch (_: Exception) {}
-            try { if (bak.exists()) parseMap(bak) else emptyMap() } catch (_: Exception) { emptyMap() }
-        }
+        return try {
+            f.readWithBackup { text ->
+                val obj = JSONObject(text)
+                val out = HashMap<String, Row>()
+                val keys = obj.keys()
+                while (keys.hasNext()) { val k = keys.next(); out[k] = rowFromJson(obj.getJSONObject(k)) }
+                out
+            }
+        } catch (_: Exception) { null }
     }
+
+    private fun readMap(context: Context): Map<String, Row> = readMapOrNull(context) ?: emptyMap()
 
     private fun writeMap(context: Context, map: Map<String, Row>) {
         val obj = JSONObject()
         for ((k, r) in map) obj.put(k, rowToJson(r))
-        val f = file(context, TXN_FILE)
-        // Keep the previous version as a safety copy before replacing it.
-        if (f.exists() && f.length() > 2) try { f.copyTo(File(f.parentFile, TXN_FILE + ".bak"), overwrite = true) } catch (_: Exception) {}
-        f.writeAtomic(obj.toString())
+        file(context, TXN_FILE).writeKeepingBackup(obj.toString())
     }
 
     // ---- key/value files (id -> "kind|category") ----
@@ -1202,7 +998,7 @@ object Storage {
         val f = file(context, name)
         if (!f.exists()) return emptyMap()
         return try {
-            val obj = JSONObject(f.readText())
+            val obj = f.readWithBackup { JSONObject(it) }
             val out = HashMap<String, Pair<String, String>>()
             val keys = obj.keys()
             while (keys.hasNext()) {
@@ -1217,7 +1013,7 @@ object Storage {
     private fun writeKv(context: Context, name: String, kv: Map<String, Pair<String, String>>) {
         val obj = JSONObject()
         for ((k, v) in kv) obj.put(k, v.first + "|" + v.second)
-        file(context, name).writeAtomic(obj.toString())
+        file(context, name).writeKeepingBackup(obj.toString())
     }
 
     private fun rowToJson(r: Row): JSONObject = JSONObject().apply {

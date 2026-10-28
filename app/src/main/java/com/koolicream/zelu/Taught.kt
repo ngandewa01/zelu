@@ -25,7 +25,7 @@ object Taught {
         val f = java.io.File(context.filesDir, FILE)
         if (!f.exists()) return emptyList()
         return try {
-            val arr = JSONArray(f.readText())
+            val arr = f.readWithBackup { JSONArray(it) }
             val out = ArrayList<Pattern>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
@@ -38,7 +38,7 @@ object Taught {
     private fun save(context: Context, list: List<Pattern>) {
         val arr = JSONArray()
         for (p in list) arr.put(JSONObject().put("s", p.sender).put("sig", p.sig).put("dir", p.direction).put("l", p.left).put("r", p.right))
-        java.io.File(context.filesDir, FILE).writeAtomic(arr.toString())
+        java.io.File(context.filesDir, FILE).writeKeepingBackup(arr.toString())
     }
 
     @Synchronized

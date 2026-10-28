@@ -124,6 +124,12 @@ import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.atan2
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 
 @Composable internal fun LogoMark(sizeDp: Float) {
     Box(
@@ -201,10 +207,30 @@ import kotlin.math.atan2
     }
 }
 
-@Composable internal fun TopIcon(onClick: () -> Unit, dot: Boolean = false, content: @Composable () -> Unit) {
+// For TalkBack: a tap target that shows only a symbol or an icon is read by this label, as a button.
+internal fun Modifier.buttonLabel(label: String): Modifier =
+    semantics { contentDescription = label; role = androidx.compose.ui.semantics.Role.Button }
+
+// What TalkBack says for something that shows its meaning only by a symbol or a colour.
+internal fun Modifier.spoken(label: String): Modifier = semantics { contentDescription = label }
+
+// A symbol drawn for the eye ("‹", "✓") that TalkBack would otherwise read out.
+internal val Unspoken: Modifier = Modifier.clearAndSetSemantics {}
+
+// A row that ticks on and off, read by TalkBack as a checkbox with its state.
+internal fun Modifier.checkRow(on: Boolean, flip: () -> Unit): Modifier =
+    toggleable(value = on, role = androidx.compose.ui.semantics.Role.Checkbox) { flip() }
+
+// One option in a list where one is picked, read as selected or not.
+internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
+    selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton) { pick() }
+
+// label names the button for TalkBack; dotLabel says what the dot means when it shows.
+@Composable internal fun TopIcon(label: String, onClick: () -> Unit, dot: Boolean = false, dotLabel: String = "", content: @Composable () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }
+            .buttonLabel(if (dot && dotLabel.isNotEmpty()) "$label, $dotLabel" else label),
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -301,12 +327,12 @@ import kotlin.math.atan2
     }
 }
 
-@Composable internal fun NavButton(symbol: String, onClick: () -> Unit) {
+@Composable internal fun NavButton(symbol: String, label: String = if (symbol == "‹") "Previous" else "Next", onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() },
+            .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onClick() }.buttonLabel(label),
         contentAlignment = Alignment.Center,
-    ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp) }
+    ) { Text(symbol, color = ZColor.Ink, fontSize = 20.sp, modifier = Unspoken) }
 }
 
 @Composable internal fun DateChip(value: String, onClick: () -> Unit) {

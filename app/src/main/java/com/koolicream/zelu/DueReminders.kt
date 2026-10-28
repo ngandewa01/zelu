@@ -81,7 +81,7 @@ object DueReminders {
 }
 
 class DueReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(context: Context, intent: Intent) = inBackground {
         try { Recap.maybe(context) } catch (_: Exception) {}
         try { Backup.maybeAuto(context) } catch (_: Exception) {}
         try { ZeluWidget.refresh(context) } catch (_: Exception) {}
@@ -92,10 +92,11 @@ class DueReceiver : BroadcastReceiver() {
 class MarkPaidReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra("id") ?: return
-        try {
+        val nid = intent.getIntExtra("nid", 0)
+        inBackground {
             Storage.setReminderDone(context, id, true)
-            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(intent.getIntExtra("nid", 0))
-        } catch (_: Exception) {}
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(nid)
+        }
     }
 }
 

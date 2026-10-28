@@ -277,12 +277,12 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 30.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
-                    .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onBack() }, contentAlignment = Alignment.Center) {
-                    Text("‹", color = ZColor.Ink, fontSize = 24.sp)
+                    .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).clickable { onBack() }.buttonLabel("Back"), contentAlignment = Alignment.Center) {
+                    Text("‹", color = ZColor.Ink, fontSize = 24.sp, modifier = Unspoken)
                 }
                 Spacer(Modifier.width(12.dp))
                 Text("Trends", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TopIcon(onClick = { filterOpen = true }, dot = acct != "All" || cat != "All") { FunnelIcon() }
+                TopIcon("Filters", onClick = { filterOpen = true }, dot = acct != "All" || cat != "All", dotLabel = "some are on") { FunnelIcon() }
             }
             Spacer(Modifier.height(14.dp))
             ChipScroll {

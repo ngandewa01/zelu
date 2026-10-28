@@ -16,8 +16,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Zelu">
 
+        <!-- Turning the phone, resizing in split screen or folding: the Compose screen redraws in place, so nothing
+             you have open is lost. -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation"
             android:exported="true"
             android:label="@string/app_name">
             <intent-filter>

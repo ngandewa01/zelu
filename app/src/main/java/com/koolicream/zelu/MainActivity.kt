@@ -97,6 +97,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -212,9 +213,9 @@ fun ZeluApp() {
     var reminderState by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var repaid by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var budgets by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
-    var budgetsOpen by remember { mutableStateOf(false) }
-    var savingsOpen by remember { mutableStateOf(false) }
-    var trendsOpen by remember { mutableStateOf(false) }
+    var budgetsOpen by rememberSaveable { mutableStateOf(false) }
+    var savingsOpen by rememberSaveable { mutableStateOf(false) }
+    var trendsOpen by rememberSaveable { mutableStateOf(false) }
     var fixed by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var menuOpen by remember { mutableStateOf(false) }
     var menuPage by remember { mutableStateOf("") }
@@ -249,7 +250,7 @@ fun ZeluApp() {
     var catOff by remember { mutableStateOf(Storage.categoriesOff(context)) }
     var splitFor by remember { mutableStateOf<Row?>(null) }
     var smsOk by remember { mutableStateOf(true) }
-    val lastScan = remember { longArrayOf(0L) }
+    val lastScan = rememberSaveable { longArrayOf(0L) }
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var backupPwOpen by remember { mutableStateOf(false) }
@@ -270,30 +271,30 @@ fun ZeluApp() {
     var balances by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var limits by remember { mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap()) }
     var cardPrefs by remember { mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap()) }
-    var cardOpen by remember { mutableStateOf<String?>(null) }
+    var cardOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var monthlyBudget by remember { mutableStateOf(0.0) }
     var budgetDlg by remember { mutableStateOf(false) }
     Analytics.BUDGET = monthlyBudget
-    var lendPerson by remember { mutableStateOf<String?>(null) }
-    var borrowPerson by remember { mutableStateOf<String?>(null) }
-    var view by remember { mutableStateOf(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", "ledger") ?: "ledger") }
-    var period by remember { mutableStateOf("month") }
-    var month by remember { mutableStateOf(Dates.todayMonth()) }
-    var account by remember { mutableStateOf("All") }
-    var daySel by remember { mutableStateOf(0) }
+    var lendPerson by rememberSaveable { mutableStateOf<String?>(null) }
+    var borrowPerson by rememberSaveable { mutableStateOf<String?>(null) }
+    var view by rememberSaveable { mutableStateOf(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", "ledger") ?: "ledger") }
+    var period by rememberSaveable { mutableStateOf("month") }
+    var month by rememberSaveable { mutableStateOf(Dates.todayMonth()) }
+    var account by rememberSaveable { mutableStateOf("All") }
+    var daySel by rememberSaveable { mutableStateOf(0) }
     var calOpen by remember { mutableStateOf(false) }
     // Spend page sub-tab: 0 Overview, 1 Categories, 2 Patterns.
-    var spendTab by remember { mutableStateOf(0) }
+    var spendTab by rememberSaveable { mutableStateOf(0) }
     var askOpen by remember { mutableStateOf(false) } // category picker open for ask
     var loading by remember { mutableStateOf(false) }
-    var type by remember { mutableStateOf("all") }
-    var cat by remember { mutableStateOf("All") }
-    var excludeEmi by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var controlsOpen by remember { mutableStateOf(false) }
-    var customFrom by remember { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
-    var customTo by remember { mutableStateOf(Dates.today()) }
-    var stage by remember { mutableStateOf("splash") } // splash, welcome, perm, scan, app
+    var type by rememberSaveable { mutableStateOf("all") }
+    var cat by rememberSaveable { mutableStateOf("All") }
+    var excludeEmi by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var controlsOpen by rememberSaveable { mutableStateOf(false) }
+    var customFrom by rememberSaveable { mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01") }
+    var customTo by rememberSaveable { mutableStateOf(Dates.today()) }
+    var stage by rememberSaveable { mutableStateOf("splash") } // splash, welcome, perm, scan, app
     var permDenied by remember { mutableStateOf(false) }
     var onbSms by remember { mutableStateOf(false) }
     var onbNotif by remember { mutableStateOf(false) }
@@ -401,9 +402,8 @@ fun ZeluApp() {
             var missed = 0
             withContext(Dispatchers.IO) {
                 val fresh = full || Storage.dataVersion(context) < Storage.PARSER_VERSION
-                if (fresh) Storage.clear(context)
                 val inbox = SmsReader.readInbox(context, if (fresh) maxOf(depth, 20_000) else depth)
-                added = Ingest.ingest(context, inbox).added
+                added = (if (fresh) Ingest.rebuild(context, inbox) else Ingest.ingest(context, inbox)).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
                 Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
                 missed = Ingest.unreadable(context).size
@@ -494,6 +494,13 @@ fun ZeluApp() {
         repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
         budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
         monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
+        // Coming back after Android closed the app in the background (or the theme changed): stay on the screen you were on.
+        if (stage == "app" || stage == "accounts") {
+            smsOk = hasPerm()
+            if (smsOk && System.currentTimeMillis() - lastScan[0] > 60_000L) rescan()
+            return@LaunchedEffect
+        }
+        stage = "splash"
         delay(1200)
         if (hasPerm()) { stage = "app"; rescan() } else if (rows.isNotEmpty()) { stage = "app"; smsOk = false } else { stage = "welcome" }
     }
@@ -581,8 +588,12 @@ fun ZeluApp() {
         if (stage == "app" && !acctConfirmed && rows.isNotEmpty()) stage = "accounts"
         if (stage == "done" && acctConfirmed) stage = "app"
     }
+    // Working out the accounts reads every payment, so it is done off the main thread.
+    val accountBook by androidx.compose.runtime.produceState<List<AccountBook.Acct>?>(null, rows, balances, limits, registry) {
+        value = withContext(Dispatchers.IO) { Storage.accountBook(context) }
+    }
     if (stage == "accounts") {
-        val book = remember(rows, balances, limits, registry) { Storage.accountBook(context) }
+        val book = accountBook ?: run { Box(Modifier.fillMaxSize().background(ZColor.Paper)); return }
         undo?.let { u -> LaunchedEffect(u) { delay(6000); if (undo === u) undo = null } }
         AccountsScreen(book, firstRun = !acctConfirmed, undoMsg = undo?.first, onUndo = { undoLast() },
             onSave = { plan, msg -> saveAccountPlan(plan, msg) }, onDecline = { k, t -> declineAcct(k, t) },
@@ -621,7 +632,7 @@ fun ZeluApp() {
                 verticalAlignment = Alignment.CenterVertically) {
                 BrandBar()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TopIcon(onClick = {
+                    TopIcon(if (ZTheme.dark) "Use light theme" else "Use dark theme", onClick = {
                         ZTheme.dark = !ZTheme.dark
                         context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
                             .edit().putBoolean("dark", ZTheme.dark).apply()
@@ -630,16 +641,16 @@ fun ZeluApp() {
                             if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
                             null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
                     }
-                    TopIcon(onClick = { controlsOpen = true }, dot = advActiveTop) { FunnelIcon() }
-                    TopIcon(onClick = { menuOpen = true }, dot = missedCount > missedSeen) { MenuIcon() }
+                    TopIcon("Filters", onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
+                    TopIcon("Menu", onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
                 }
             }
             Spacer(Modifier.height(14.dp))
 
             // A new account showed up in your messages after you set things up.
-            val pendingAccts = remember(rows, balances, limits, registry, acctConfirmed) {
+            val pendingAccts = remember(accountBook, registry, acctConfirmed) {
                 if (!acctConfirmed) emptyList()
-                else Storage.accountBook(context).filter { !it.declined && it.key !in registry && it.count > 0 && (it.count >= 2 || it.balance != null || it.limit != null || it.type == "loan") }
+                else accountBook.orEmpty().filter { !it.declined && it.key !in registry && it.count > 0 && (it.count >= 2 || it.balance != null || it.limit != null || it.type == "loan") }
             }
             pendingAccts.firstOrNull()?.let { c ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
@@ -689,7 +700,7 @@ fun ZeluApp() {
             val summary = rangeLabel
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                if (period == "month") NavButton("‹") { month = Dates.shiftMonth(month, -1); daySel = 0 }
+                if (period == "month") NavButton("‹", "Previous month") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                 Row(
                     Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
                         .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
@@ -702,7 +713,7 @@ fun ZeluApp() {
                     Spacer(Modifier.width(8.dp))
                     Text("▾", color = ZColor.Muted, fontSize = 12.sp)
                 }
-                if (period == "month") NavButton("›") { month = Dates.shiftMonth(month, 1); daySel = 0 }
+                if (period == "month") NavButton("›", "Next month") { month = Dates.shiftMonth(month, 1); daySel = 0 }
             }
             if (rangeOpen) Dialog(onDismissRequest = { rangeOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
@@ -710,13 +721,13 @@ fun ZeluApp() {
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                     RANGE_OPTS.forEach { (k, label) ->
                         Row(
-                            Modifier.fillMaxWidth().clickable { period = k; daySel = 0; if (k != "custom") rangeOpen = false }
+                            Modifier.fillMaxWidth().choice(k == period) { period = k; daySel = 0; if (k != "custom") rangeOpen = false }
                                 .padding(horizontal = 20.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(label, color = ZColor.Ink, fontSize = 15.sp,
                                 fontWeight = if (k == period) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
-                            if (k == period) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                            if (k == period) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Unspoken)
                         }
                     }
                     if (period == "custom") {
@@ -1000,9 +1011,9 @@ fun ZeluApp() {
                     }
                     MenuRow("Help", "How Zelu works, privacy policy, report a problem", Icons.Rounded.Lightbulb, ZColor.Accent) { menuPage = "help" }
                 } else {
-                    Row(Modifier.fillMaxWidth().clickable { menuPage = "" }.padding(horizontal = 20.dp, vertical = 8.dp),
+                    Row(Modifier.fillMaxWidth().clickable { menuPage = "" }.buttonLabel("Back to menu").padding(horizontal = 20.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Text("‹", color = ZColor.Ink, fontSize = 26.sp)
+                        Text("‹", color = ZColor.Ink, fontSize = 26.sp, modifier = Unspoken)
                         Spacer(Modifier.width(12.dp))
                         Text(when (menuPage) { "money" -> "Money"; "accounts" -> "Accounts"; "messages" -> "Messages"; "backup" -> "Backup and security"; "notify" -> "Notifications"; else -> "Help" },
                             color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -1093,7 +1104,7 @@ fun ZeluApp() {
                                 shut(); checkOpen = true; check = null
                                 scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
                             }
-                            MenuRow("Read everything again", "Clears payments and reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted) { shut(); fullConfirm = true }
+                            MenuRow("Read everything again", "Reads all messages afresh. Your edits stay.", Icons.Rounded.Warning, ZColor.Muted) { shut(); fullConfirm = true }
                             }
                         }
                         "backup" -> {
@@ -1379,8 +1390,7 @@ fun ZeluApp() {
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Warn).clickable {
                     eraseOpen = false
                     scope.launch {
-                        withContext(Dispatchers.IO) { Storage.eraseAll(context) }
-                        ZeluWidget.refresh(context)
+                        withContext(Dispatchers.IO) { Storage.eraseAll(context); ZeluWidget.refresh(context) }
                         Toast.makeText(context, "Erased. Open Zelu again to start fresh.", Toast.LENGTH_LONG).show()
                         (context as? android.app.Activity)?.finishAffinity()
                     }
@@ -1393,7 +1403,7 @@ fun ZeluApp() {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
             Text("Read everything again?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            MutedText("Zelu clears its payment list and reads all your messages from scratch. Renames, categories, accounts, budgets and payments you added by hand are kept.", 13)
+            MutedText("Zelu reads all your messages from scratch. Renames, categories, accounts, budgets, payments you added by hand and payments whose messages are no longer on the phone are kept.", 13)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { fullConfirm = false }.padding(12.dp))
@@ -1536,7 +1546,7 @@ fun ZeluApp() {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PrivacyText.facts.forEach { (t, d) ->
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(ZColor.IncomeSoft).padding(10.dp)) {
-                            Text("✓", color = ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("✓", color = ZColor.Income, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
                             Text(t, color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text(d, color = ZColor.InkSoft, fontSize = 11.sp)
                         }
@@ -1604,10 +1614,10 @@ fun ZeluApp() {
                     minLines = 3, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
                 @Composable fun tick(on: Boolean, title: String, sub: String, flip: () -> Unit) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { flip() }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).checkRow(on) { flip() }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (on) ZColor.Accent else ZColor.Paper)
                             .border(1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-                            if (on) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (on) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
                         }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
@@ -1779,10 +1789,10 @@ fun ZeluApp() {
                     Text(prettyDate(day), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { learnIt = !learnIt }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).checkRow(learnIt) { learnIt = !learnIt }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (learnIt) ZColor.Accent else ZColor.Paper)
                         .border(1.dp, if (learnIt) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-                        if (learnIt) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        if (learnIt) Text("✓", color = ZColor.AccentInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
@@ -1922,7 +1932,7 @@ fun ZeluApp() {
                 val set = if (ZTheme.dark) p.dark else p.light
                 val sel = i == ZTheme.palette
                 Row(
-                    Modifier.fillMaxWidth().clickable {
+                    Modifier.fillMaxWidth().choice(sel) {
                         ZTheme.palette = i
                         context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
                             .edit().putInt("palette", i).apply()
@@ -1937,7 +1947,7 @@ fun ZeluApp() {
                     Spacer(Modifier.width(14.dp))
                     Text(p.name, color = ZColor.Ink, fontSize = 15.sp,
                         fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
-                    if (sel) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold)
+                    if (sel) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Unspoken)
                 }
             }
             Text("Use the sun / moon button for light or dark.", color = ZColor.Muted, fontSize = 12.sp,

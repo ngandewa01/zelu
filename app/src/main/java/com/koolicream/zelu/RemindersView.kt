@@ -439,9 +439,9 @@ import kotlin.math.atan2
             Modifier.size(34.dp).clip(RoundedCornerShape(17.dp))
                 .background(if (paid) ZColor.Income.copy(alpha = 0.15f) else Color.Transparent)
                 .border(1.5.dp, if (paid) ZColor.Income else if (overdue) ZColor.Warn else ZColor.Line, RoundedCornerShape(17.dp))
-                .clickable { onTick() },
+                .checkRow(paid) { onTick() }.spoken("Bill paid"),
             contentAlignment = Alignment.Center,
-        ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+        ) { Text("✓", color = if (paid) ZColor.Income else ZColor.Muted, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Unspoken) }
     }
 }
 

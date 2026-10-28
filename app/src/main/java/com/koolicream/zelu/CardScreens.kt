@@ -199,7 +199,7 @@ import kotlin.math.atan2
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = if (due != null) 130.dp else 40.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TopIcon(onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp) }
+                TopIcon("Back", onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                     if (logo != null) androidx.compose.foundation.Image(
@@ -214,7 +214,7 @@ import kotlin.math.atan2
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                NavButton("‹") { offset -= 1 }
+                NavButton("‹", "Previous cycle") { offset -= 1 }
                 Row(
                     Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
                         .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp)).clickable { dayDialog = true }
@@ -223,7 +223,7 @@ import kotlin.math.atan2
                 ) {
                     Text(prettyDay(from) + " – " + prettyDay(to) + "  ▾", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
-                if (offset < 0) NavButton("›") { offset += 1 }
+                if (offset < 0) NavButton("›", "Next cycle") { offset += 1 }
             }
             Spacer(Modifier.height(20.dp))
             val track = ZColor.Line; val arc = if (budget > 0 && spent > budget) ZColor.Warn else ZColor.Accent

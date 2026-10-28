@@ -661,7 +661,8 @@ internal fun glanceTips(ins: Analytics.Insight, spent: Double, income: Double, f
             androidx.compose.material3.Icon(
                 if (Privacy.hideBalance) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null,
                 tint = if (Privacy.hideBalance) ZColor.Accent else ZColor.Muted,
-                modifier = Modifier.size(34.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }.padding(6.dp))
+                modifier = Modifier.size(34.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }
+                    .buttonLabel(if (Privacy.hideBalance) "Show balances" else "Hide balances").padding(6.dp))
         }
     }
     if (hasAcc && moneyTabNow == "accounts") {

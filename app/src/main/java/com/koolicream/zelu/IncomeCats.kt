@@ -25,7 +25,7 @@ object IncomeCats {
     fun load(c: Context) {
         custom = try {
             val f = file(c)
-            if (!f.exists()) emptyList() else JSONArray(f.readText()).let { a -> (0 until a.length()).map { a.getString(it) } }
+            if (!f.exists()) emptyList() else f.readWithBackup { JSONArray(it) }.let { a -> (0 until a.length()).map { a.getString(it) } }
         } catch (_: Exception) { emptyList() }
     }
 
@@ -41,6 +41,6 @@ object IncomeCats {
 
     private fun save(c: Context, list: List<String>) {
         custom = list
-        try { file(c).writeAtomic(JSONArray(list).toString()) } catch (_: Exception) {}
+        try { file(c).writeKeepingBackup(JSONArray(list).toString()) } catch (_: Exception) {}
     }
 }

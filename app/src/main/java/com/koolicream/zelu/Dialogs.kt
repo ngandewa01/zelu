@@ -433,7 +433,7 @@ import kotlin.math.atan2
                             Modifier.size(42.dp).clip(RoundedCornerShape(12.dp))
                                 .background(if (k == icon) Color(color).copy(alpha = 0.2f) else ZColor.Paper)
                                 .border(if (k == icon) 2.dp else 0.dp, Color(color), RoundedCornerShape(12.dp))
-                                .clickable { icon = k },
+                                .choice(k == icon) { icon = k }.spoken(k + " icon"),
                             contentAlignment = Alignment.Center,
                         ) { androidx.compose.material3.Icon(CatIcons.forKey(k), null,
                             tint = if (k == icon) Color(color) else ZColor.InkSoft, modifier = Modifier.size(22.dp)) }

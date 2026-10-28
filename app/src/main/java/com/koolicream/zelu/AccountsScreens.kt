@@ -436,7 +436,7 @@ import kotlin.math.atan2
                             else "Tick one if it is this account written another way, or its debit card. Leave them unticked if not.", 12)
                         options.forEach { o ->
                             val on = ticked[o.key] == true
-                            Row(Modifier.fillMaxWidth().clickable { ticked[o.key] = !on }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().checkRow(on) { ticked[o.key] = !on }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                 AcctLogo(o.key, 36)
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
@@ -450,7 +450,7 @@ import kotlin.math.atan2
                                 }
                                 Box(Modifier.size(24.dp).clip(RoundedCornerShape(7.dp)).background(if (on) ZColor.Accent else Color.Transparent)
                                     .border(2.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
-                                    if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    if (on) Text("✓", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Unspoken)
                                 }
                             }
                         }

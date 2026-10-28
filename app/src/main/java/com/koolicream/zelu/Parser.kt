@@ -379,6 +379,9 @@ object Parser {
 
     private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
+    /** Added to a reference-based ID when the money came in ("ref-629112345678-cr"). */
+    const val CREDIT_ID_SUFFIX = "-cr"
+
     // An insurer saying it received your premium. Your bank's own debit message already records the payment, and the
     // insurer's text has no account in it, so it must not become an account or a second payment.
     private val INSURER_ACK = Regex("""(received your (premium )?payment|premium.{0,40}received|thank you for choosing.{0,60}insurance).{0,160}(policy|premium|insurance)|against policy (no\b|number)""", RegexOption.IGNORE_CASE)
@@ -416,9 +419,11 @@ object Parser {
         return if (inr) fx.copy(estimated = false) else fx
     }
 
+    /** The message as a payment stores it: on one line, and "Rs.2000.00debited" spaced (some banks leave out the space). */
+    fun normalize(body: String): String = WS.replace(body, " ").trim().replace(GLUED, "$1 $2")
+
     fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
-        // "Rs.2000.00debited": some banks leave out the space after the amount.
-        val text = WS.replace(body, " ").trim().replace(GLUED, "$1 $2")
+        val text = normalize(body)
         if (INSURER_ACK.containsMatchIn(text)) return null
         // Your bank's debit already records a bill payment; the biller's "payment received" would count it twice.
         // A biller's own sender (ACT, BESCOM...) is read only when it confirms a payment you made. The ledger drops that
@@ -559,7 +564,9 @@ object Parser {
         else if (loanCredit) accountOf(text, source, direction).substringBefore(' ')
         else accountOf(text, source, direction)
 
-        val id = if (ref != null) "ref-$ref"
+        // A refund or reversal often quotes the reference of the payment it undoes, and a transfer between your own accounts
+        // carries one reference on both banks' messages: the money coming in gets its own ID, so neither replaces the other.
+        val id = if (ref != null) "ref-$ref" + (if (direction == "credit") CREDIT_ID_SUFFIX else "")
         else "sms-" + hash("$date|$amount|$direction|$text")
 
         return Txn(id, date, amount, direction, counterparty, ref, text, source, account, receivedMs ?: 0L)
@@ -789,8 +796,15 @@ object Parser {
         }
     }
 
-    private fun canonicalMerchant(text: String): String? =
-        MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(text) }?.second
+    private fun canonicalMerchant(text: String): String? {
+        val t = withoutPaymentsBank(text)
+        return MERCHANT_MAP.firstOrNull { it.first.containsMatchIn(t) }?.second
+    }
+
+    // "Airtel Payments Bank", "Jio Payments Bank": the bank a payment left from. Airtel and Jio are also billers, so the
+    // bank's name must not make the payee "Airtel" or the category Bills.
+    private val PAYMENTS_BANK = Regex("""\b(?:airtel|jio|paytm|fino|nsdl|india\s+post)\s+payments?\s+bank\b""", RegexOption.IGNORE_CASE)
+    fun withoutPaymentsBank(text: String): String = PAYMENTS_BANK.replace(text, " ")
 
     private val SALUTATION = Regex("""^(m/?s|mr|mrs|ms|dr|shri|smt|sri)\.?\s+""", RegexOption.IGNORE_CASE)
 

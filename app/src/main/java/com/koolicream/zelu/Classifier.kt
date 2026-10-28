@@ -126,7 +126,7 @@ object Classifier {
 
     // A plain-language reason for why a transaction got its label — shown in the detail dialog.
     fun explain(counterparty: String?, raw: String, kind: String, category: String): String {
-        val hay = ("${counterparty ?: ""} ${EMI_OFFER.replace(raw, " ")}".replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")).lowercase()
+        val hay = ("${counterparty ?: ""} ${EMI_OFFER.replace(Parser.withoutPaymentsBank(raw), " ")}".replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")).lowercase()
         return when (kind) {
             "income" -> "Counted as money in — a credit to your account."
             "refund" -> "A refund credited back to you."
@@ -237,7 +237,8 @@ object Classifier {
 
         // Names often arrive run together ("KimsHospital", "SriLakshmiMedicals"): also match on the
         // words split at each lower->UPPER change, so "hospital", "medical"... are found.
-        val raw = EMI_OFFER.replace(t.raw, " ")
+        // The bank the money left from ("Airtel Payments Bank") says nothing about what it paid for.
+        val raw = EMI_OFFER.replace(Parser.withoutPaymentsBank(t.raw), " ")
         val spaced = ((t.counterparty ?: "") + " " + raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
         val hay = ("$cp $raw $spaced").lowercase()
         val joined = hay.replace("*", " ")

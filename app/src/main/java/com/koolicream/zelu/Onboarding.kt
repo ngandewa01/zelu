@@ -147,8 +147,9 @@ import kotlin.math.atan2
     val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
         if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }, contentAlignment = Alignment.Center) {
-                if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp)
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }
+                .then(if (step > 0) Modifier.buttonLabel("Back") else Unspoken), contentAlignment = Alignment.Center) {
+                if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp, modifier = Unspoken)
             }
             Spacer(Modifier.width(10.dp))
             (0..2).forEach { i ->
@@ -217,8 +218,8 @@ import kotlin.math.atan2
                             val given = if (t == "SMS") smsGiven else notifGiven
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income), contentAlignment = Alignment.Center) {
-                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income).spoken("Allowed"), contentAlignment = Alignment.Center) {
+                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
                                 }
                             }
                             MutedText(d, 13)

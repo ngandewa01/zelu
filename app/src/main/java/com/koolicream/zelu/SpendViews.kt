@@ -164,20 +164,20 @@ import kotlin.math.atan2
         if (onCalendar != null) Box(
             Modifier.clip(RoundedCornerShape(20.dp)).background(if (calActive) ZColor.OrangeSoft else Color.Transparent)
                 .border(1.dp, if (calActive) ZColor.Accent else ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { onCalendar() }.padding(horizontal = 12.dp, vertical = 8.dp),
+                .clickable { onCalendar() }.buttonLabel(if (calActive) "Hide calendar" else "Show calendar").padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) { androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(18.dp)) }
     }
     if (dayLabel != null) {
         Spacer(Modifier.height(10.dp))
         Row(
-            Modifier.clip(RoundedCornerShape(16.dp)).background(ZColor.OrangeSoft).clickable { onClearDay() }
+            Modifier.clip(RoundedCornerShape(16.dp)).background(ZColor.OrangeSoft).clickable(onClickLabel = "Show every day") { onClearDay() }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Showing $dayLabel", color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(8.dp))
-            Text("✕", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("✕", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
         }
     }
     tabs()
