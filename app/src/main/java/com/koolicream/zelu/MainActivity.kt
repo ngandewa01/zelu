@@ -536,13 +536,12 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 .let { m -> if (excludeEmi && cat != "EMI") m - "EMI" else m }
                         } else emptyMap()
                         val isMonth = f.period == "month"
-                        val flexShown = shown
-                        val emiSpent = Analytics.summarize(Analytics.filter(rows, f).filter { it.category == "EMI" }).spent.coerceAtLeast(0.0)
-                        val fixedNote = when {
-                            emiSpent <= 0 || cat == "EMI" -> null
-                            excludeEmi -> "Leaves out " + money(emiSpent) + " of EMI"
-                            else -> "Includes " + money(emiSpent) + " of EMI"
-                        }
+                        // The weekday pattern is about everyday spending: EMI and rent land on one fixed day and would
+                        // make that weekday look the heaviest, so they are always left out (unless that is the filter).
+                        val fixedCats = setOf("EMI", "Rent")
+                        val flexShown = if (cat in fixedCats) shown else shown.filter { it.category !in fixedCats }
+                        val fixedSpent = shown.filter { it.kind == "expense" && it.category in fixedCats }.sumOf { it.amount }
+                        val fixedNote = if (fixedSpent <= 0 || cat in fixedCats) null else "Leaves out EMI and rent"
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
                         BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true },
