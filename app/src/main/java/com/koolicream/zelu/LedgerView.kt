@@ -526,17 +526,17 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
-            else Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts") { moneyTab = "accounts" }
-                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards") { moneyTab = "cards" }
-                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans") { moneyTab = "loans" }
+            else Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true) { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true) { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true) { moneyTab = "loans" }
             }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
                 if (Privacy.hideBalance) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null,
                 tint = if (Privacy.hideBalance) ZColor.Accent else ZColor.Muted,
-                modifier = Modifier.size(34.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }
-                    .buttonLabel(if (Privacy.hideBalance) "Show balances" else "Hide balances").padding(6.dp))
+                modifier = Modifier.size(30.dp).clip(CircleShape).clickable { Privacy.setBalance(acctCtx, !Privacy.hideBalance) }
+                    .buttonLabel(if (Privacy.hideBalance) "Show balances" else "Hide balances").padding(5.dp))
         }
     }
     if (hasAcc && moneyTabNow == "accounts") {
