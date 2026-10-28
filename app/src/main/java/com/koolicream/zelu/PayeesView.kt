@@ -96,9 +96,9 @@ import androidx.compose.ui.window.Dialog
     }
     Spacer(Modifier.height(12.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Leaderboard, "Overview", 0xFF3B82F6, 0xFF60A5FA, ptab == "overview") { ptab = "overview" }
-        IconTab(Icons.Rounded.Group, "All", 0xFF22B455, 0xFF3DD171, ptab == "all") { ptab = "all" }
-        IconTab(Icons.Rounded.FiberNew, "New", 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN) { ptab = "new" }
+        IconTab(Icons.Rounded.Leaderboard, "Overview", 0xFF3B82F6, 0xFF60A5FA, ptab == "overview", modifier = Modifier.weight(1f)) { ptab = "overview" }
+        IconTab(Icons.Rounded.Group, "All", 0xFF22B455, 0xFF3DD171, ptab == "all", modifier = Modifier.weight(1f)) { ptab = "all" }
+        IconTab(Icons.Rounded.FiberNew, "New", 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN, modifier = Modifier.weight(1f)) { ptab = "new" }
     }
     if (ptab == "overview") {
         // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
@@ -173,9 +173,9 @@ import androidx.compose.ui.window.Dialog
     )
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Payments, "Amount", 0xFF22B455, 0xFF3DD171, sort == "amount") { sort = "amount" }
-        IconTab(Icons.Rounded.Repeat, "Most paid", 0xFF3B82F6, 0xFF60A5FA, sort == "count") { sort = "count" }
-        IconTab(Icons.Rounded.Schedule, "Recent", 0xFFEAB308, 0xFFFACC15, sort == "recent") { sort = "recent" }
+        IconTab(Icons.Rounded.Payments, "Amount", 0xFF22B455, 0xFF3DD171, sort == "amount", modifier = Modifier.weight(1f)) { sort = "amount" }
+        IconTab(Icons.Rounded.Repeat, "Most paid", 0xFF3B82F6, 0xFF60A5FA, sort == "count", modifier = Modifier.weight(1f)) { sort = "count" }
+        IconTab(Icons.Rounded.Schedule, "Recent", 0xFFEAB308, 0xFFFACC15, sort == "recent", modifier = Modifier.weight(1f)) { sort = "recent" }
     } }
     val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
         .sortedByDescending { it.value }.map { it.key }

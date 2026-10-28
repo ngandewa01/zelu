@@ -184,9 +184,9 @@ import java.util.Locale
             }
             Spacer(Modifier.height(16.dp))
             TabRowWrap {
-                IconTab(Icons.Rounded.ReceiptLong, "Transactions", 0xFF3B82F6, 0xFF60A5FA, tab == 0) { tab = 0 }
-                IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, tab == 1) { tab = 1 }
-                IconTab(Icons.Rounded.Storefront, "Merchants", 0xFFFF6B1A, 0xFFFF8A3D, tab == 2) { tab = 2 }
+                IconTab(Icons.Rounded.ReceiptLong, "Transactions", 0xFF3B82F6, 0xFF60A5FA, tab == 0, modifier = Modifier.weight(1f)) { tab = 0 }
+                IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, tab == 1, modifier = Modifier.weight(1f)) { tab = 1 }
+                IconTab(Icons.Rounded.Storefront, "Merchants", 0xFFFF6B1A, 0xFFFF8A3D, tab == 2, modifier = Modifier.weight(1f)) { tab = 2 }
             }
             Spacer(Modifier.height(6.dp))
             when (tab) {

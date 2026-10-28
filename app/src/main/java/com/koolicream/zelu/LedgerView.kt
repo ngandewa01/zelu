@@ -423,13 +423,14 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             MutedText(money(next.amount) + " · " + prettyDate(next.date) + if (next.account.isNotBlank()) " · " + next.account else "", 13)
             Spacer(Modifier.height(10.dp))
-            // The answers wrap onto as many rows as the screen needs, so none is ever cut off.
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconTab(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen) { setAskOpen(!askOpen) }
-                IconTab(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false) { decide(next.id, "income", "Income", next.counterparty, false) }
-                IconTab(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
-                IconTab(Icons.Rounded.AccountBalanceWallet, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
-                IconTab(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false) { decide(next.id, "ignore", "Ignore", null, false) }
+            // Five round answers in one row: the icon in a circle, the word under it.
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth()) {
+                ActionCircle(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
+                ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, "income", "Income", next.counterparty, false) }
+                ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, "lent", "Lent", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.AccountBalanceWallet, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, "ignore", "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
@@ -516,12 +517,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
-            // Wraps to a second row on narrow screens or large text, so no tab is ever cut off.
-            else androidx.compose.foundation.layout.FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true) { moneyTab = "accounts" }
-                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true) { moneyTab = "cards" }
-                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true) { moneyTab = "loans" }
+            // The tabs share the row equally, so they stay on one line next to the eye button.
+            else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
             }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(

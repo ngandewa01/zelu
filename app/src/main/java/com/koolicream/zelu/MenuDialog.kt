@@ -453,13 +453,19 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         shortcuts.forEach { e ->
                             val lit = e.on == true
-                            Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (lit) ZColor.Ink else ZColor.Card)
-                                .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).clickable { runEntry(e) }.padding(vertical = 10.dp, horizontal = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(e.icon, null, tint = if (lit) ZColor.Paper else e.tint, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.height(4.dp))
-                                Text(shortName(e), color = if (lit) ZColor.Paper else ZColor.Ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                                    maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            // Same size for every tile: a bright icon on a round tile, and a one-line name.
+                            val tint = menuTint(e)
+                            Column(Modifier.weight(1f).height(88.dp).clip(RoundedCornerShape(16.dp))
+                                .background(if (lit) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card)
+                                .border(if (lit) 1.5.dp else 1.dp, if (lit) tint else ZColor.Line, RoundedCornerShape(16.dp))
+                                .clickable { runEntry(e) }.padding(vertical = 10.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Box(Modifier.size(38.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                                    Icon(e.icon, null, tint = tint, modifier = Modifier.size(21.dp))
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Text(shortName(e), color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -490,8 +496,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
                             if (i > 0) RowDivider()
                             Row(Modifier.fillMaxWidth().clickable { menuSection = name }.padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(ZColor.Accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(19.dp))
+                                Box(Modifier.size(38.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                                    Icon(icon, null, tint = iconTint(icon), modifier = Modifier.size(21.dp))
                                 }
                                 Spacer(Modifier.width(14.dp))
                                 Text(name, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -593,8 +599,8 @@ private fun EntryRow(e: Entry, showSection: Boolean, onRun: (Entry) -> Unit) {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(e.tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(e.icon, null, tint = e.tint, modifier = Modifier.size(19.dp))
+        Box(Modifier.size(38.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+            Icon(e.icon, null, tint = menuTint(e), modifier = Modifier.size(21.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -625,6 +631,10 @@ private fun shortName(e: Entry): String = when (e.title) {
     "Your accounts" -> "Accounts"
     "Export spending (CSV)" -> "Export"
     "Missed messages" -> "Missed"
+    "Banks Zelu doesn't know" -> "New bank"
+    "Export to Excel (CSV)" -> "Export"
+    "Read older messages" -> "Older"
+    "Payment alerts" -> "Alerts"
     else -> e.title
 }
 
@@ -635,4 +645,32 @@ private fun SmallButton(label: String, filled: Boolean, onClick: () -> Unit) {
         .clickable { onClick() }.padding(horizontal = 12.dp, vertical = 7.dp)) {
         Text(label, color = if (filled) ZColor.Paper else ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
+}
+
+// The menu's icons in the same bright colours as the rest of the app; a warning keeps its red.
+private fun menuTint(e: Entry): Color = if (e.tint == ZColor.Warn) ZColor.Warn else iconTint(e.icon)
+
+private fun iconTint(icon: androidx.compose.ui.graphics.vector.ImageVector): Color {
+    val (light, dark) = when (icon) {
+        Icons.Rounded.AccountBalanceWallet -> 0xFF8B5CF6 to 0xFFA78BFA
+        Icons.Rounded.AccountBalance -> 0xFF3B82F6 to 0xFF60A5FA
+        Icons.Rounded.Receipt -> 0xFF0D9488 to 0xFF2DD4BF
+        Icons.Rounded.Notifications -> 0xFFEAB308 to 0xFFFACC15
+        Icons.Rounded.Lock -> 0xFF22B455 to 0xFF3DD171
+        Icons.Rounded.Palette -> 0xFFEC4899 to 0xFFF472B6
+        Icons.Rounded.Lightbulb -> 0xFFF59E0B to 0xFFFBBF24
+        Icons.Rounded.BarChart -> 0xFF06B6D4 to 0xFF22D3EE
+        Icons.Rounded.Category -> 0xFF8B5CF6 to 0xFFA78BFA
+        Icons.Rounded.Savings, Icons.Rounded.TrendingUp -> 0xFF22B455 to 0xFF3DD171
+        Icons.Rounded.Restore -> 0xFF3B82F6 to 0xFF60A5FA
+        Icons.Rounded.CalendarMonth -> 0xFFFF6B1A to 0xFFFF8A3D
+        Icons.Rounded.CloudUpload -> 0xFF0EA5E9 to 0xFF7DD3FC
+        Icons.Rounded.FileDownload -> 0xFF0D9488 to 0xFF2DD4BF
+        Icons.Rounded.DarkMode -> 0xFF6366F1 to 0xFF818CF8
+        Icons.Rounded.Home -> 0xFFFF6B1A to 0xFFFF8A3D
+        Icons.Rounded.Email -> 0xFF3B82F6 to 0xFF60A5FA
+        Icons.Rounded.Warning -> 0xFFE5484D to 0xFFFF6369
+        else -> 0xFF64748B to 0xFF94A3B8
+    }
+    return Color(if (ZTheme.dark) dark else light)
 }

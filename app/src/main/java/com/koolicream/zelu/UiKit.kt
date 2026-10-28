@@ -537,26 +537,27 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 // A screen tab: a bright icon on a round tile (same look as the category icons), then the name and an optional
 // count. The chosen tab takes a soft wash of its own icon colour with a matching outline.
 @Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
-                                 selected: Boolean, count: Int = 0, compact: Boolean = false, onClick: () -> Unit) =
-    IconTab(icon, label, Color(if (ZTheme.dark) dark else light), selected, count, compact, onClick)
+                                 selected: Boolean, count: Int = 0, compact: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) =
+    IconTab(icon, label, Color(if (ZTheme.dark) dark else light), selected, count, compact, modifier, onClick)
 
 @Composable internal fun IconTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color,
-                                 selected: Boolean, count: Int = 0, compact: Boolean = false, onClick: () -> Unit) {
+                                 selected: Boolean, count: Int = 0, compact: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val bg = if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card
     val border = if (selected) tint else ZColor.Line
     val tileSize = if (compact) 24.dp else 28.dp
     Row(
-        Modifier.clip(RoundedCornerShape(22.dp)).background(bg)
+        modifier.clip(RoundedCornerShape(22.dp)).background(bg)
             .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(22.dp))
             .clickable { onClick() }.padding(start = 4.dp, end = if (compact) 10.dp else 12.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(tileSize).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
             androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
         }
         Spacer(Modifier.width(if (compact) 6.dp else 7.dp))
         Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         if (count > 0) {
             Spacer(Modifier.width(6.dp))
             Box(Modifier.clip(RoundedCornerShape(9.dp)).background(ZColor.Accent).padding(horizontal = 6.dp, vertical = 1.dp)) {
@@ -588,9 +589,25 @@ internal fun treemap(values: List<Double>): List<TmCell> {
     IconTab(icon, label, light, dark, selected, onClick = onClick)
 }
 
-// A row of tabs that wraps onto a second line when the screen is narrow or the text is large, instead of cutting one off.
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable internal fun TabRowWrap(content: @Composable () -> Unit) {
-    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+// A row of tabs that always stays one line: the tabs share the width equally (each passes Modifier.weight(1f)).
+@Composable internal fun TabRowWrap(content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+}
+
+// A round answer button: a bright icon in a circle with its word underneath (used for the Needs-you answers,
+// so all five fit in one row).
+@Composable internal fun ActionCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, light: Long, dark: Long,
+                                      selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val tint = Color(if (ZTheme.dark) dark else light)
+    Column(modifier.clip(RoundedCornerShape(14.dp)).clickable { onClick() }.padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Tile)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) tint else ZColor.Line, CircleShape), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = if (selected) ZColor.Ink else ZColor.InkSoft, fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
 }
