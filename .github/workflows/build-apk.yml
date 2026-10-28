@@ -6,9 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       upload_to_play:
-        description: Upload this build to Google Play (Closed testing)
+        description: Upload this build to Google Play
         type: boolean
         default: false
+      play_track:
+        description: "Where: internal (only you, no review, any branch) or alpha (closed testing, main only)"
+        type: choice
+        options: [internal, alpha]
+        default: internal
 
 # A newer push to the same branch cancels the build still running for an older one,
 # so the latest APK arrives sooner instead of waiting behind outdated builds.
@@ -132,19 +137,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Only a hand-started build of main with "Upload this build to Google Play" ticked goes to the Closed testing
-      # (Alpha) track; pushes never upload. Play sends it for review on its own; with managed publishing on, an approved
-      # release still waits in Play Console, Publishing overview, until you press "Publish". Release notes come from
-      # distribution/whatsnew/whatsnew-en-US.
-      - name: Upload to Google Play (Closed testing)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.upload_to_play && env.PLAY_JSON != ''
+      # Only a hand-started build with "Upload this build to Google Play" ticked is uploaded; pushes never are.
+      # internal: Internal testing (only you), from any branch, no review, on your phone within minutes.
+      # alpha: Closed testing, from main only; Play sends it for review, and with managed publishing on an approved
+      # release waits in Play Console, Publishing overview, until you press "Publish".
+      # Release notes come from distribution/whatsnew/whatsnew-en-US.
+      - name: Upload to Google Play
+        if: >-
+          github.event_name == 'workflow_dispatch' && inputs.upload_to_play && env.PLAY_JSON != '' &&
+          (inputs.play_track == 'internal' || github.ref == 'refs/heads/main')
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.koolicream.zelu
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           mappingFile: app/build/outputs/mapping/release/mapping.txt
-          track: alpha
+          track: ${{ inputs.play_track }}
           status: completed
           releaseName: ${{ github.run_number }} (0.3.${{ github.run_number }})
           whatsNewDirectory: distribution/whatsnew

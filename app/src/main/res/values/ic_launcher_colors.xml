@@ -1,3 +1,9 @@
 <resources>
-    <color name="zelu_icon_bg">#A8845A</color>
+    <!-- The Zelu mark ("Ledger Z"): a cream Z whose slanted line runs on as two golden lines, on espresso.
+         ZeluMark.kt draws the same in the app and the widget. -->
+    <color name="zelu_brand_top">#3B2F25</color>
+    <color name="zelu_brand_bottom">#211A14</color>
+    <color name="zelu_brand_cream">#F4EADC</color>
+    <color name="zelu_brand_tan">#F2C27A</color>
+    <color name="zelu_brand_tan_deep">#DDA35A</color>
 </resources>

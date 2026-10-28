@@ -595,7 +595,7 @@ object Parser {
         } ?: return null
         if (amount <= 0.0) return null
 
-        val date = parseDate(text, receivedMs)
+        val date = paymentDate(parseDate(text, receivedMs), receivedMs)
         val ref = REF.find(text)?.groupValues?.get(1)
         // Prefer a known merchant (clean, groups duplicates); then the ACH biller name;
         // then the generic "to/at NAME" and "after-amount NAME" fallbacks, junk filtered out.
@@ -975,6 +975,13 @@ object Parser {
         if (useB) return Triple(b!!.groupValues[1].toInt(), MONTHS[b.groupValues[2].lowercase()]!!, b.groupValues[3].toInt())
         if (a != null) return Triple(a.groupValues[1].toInt(), a.groupValues[2].toInt(), a.groupValues[3].toInt())
         return null
+    }
+
+    // A payment can't happen in a later month than the message telling you about it: a bank that writes a wrong month
+    // or year ("28-12-26" in October) gets the day the message arrived. Bills (due dates) are not checked here.
+    internal fun paymentDate(parsed: String, receivedMs: Long?): String {
+        val arrived = fmt(receivedMs ?: System.currentTimeMillis())
+        return if (parsed.take(7) > arrived.take(7)) arrived else parsed
     }
 
     private fun parseDate(text: String, receivedMs: Long?): String {

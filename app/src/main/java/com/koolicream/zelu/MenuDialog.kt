@@ -90,7 +90,8 @@ internal fun MenuDialog(s: AppState, v: Filtered) {
 // One row of the menu. on is set for a switch; more rows stay under "More options" until opened or searched for.
 private class Entry(
     val section: String, val title: String, val sub: String, val icon: ImageVector, val tint: Color,
-    val words: String = "", val on: Boolean? = null, val more: Boolean = false, val button: String? = null, val act: () -> Unit,
+    val words: String = "", val on: Boolean? = null, val more: Boolean = false, val button: String? = null,
+    val value: String? = null, val warn: Boolean = false, val act: () -> Unit,
 )
 
 // What you use in the menu (for the shortcuts) and the suggestions you said no to. Kept on this phone.
@@ -122,7 +123,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
         var tick by remember { mutableStateOf(0) }                 // a setting changed here: read them all again
         var opened by remember { mutableStateOf(setOf<String>()) }  // sections showing their "More options"
         var startPick by remember { mutableStateOf(false) }
-        var undo by remember { mutableStateOf<Pair<String, Boolean>?>(null) }  // switch just changed, and whether it is now on
+        var undo by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+        var leadPick by remember { mutableStateOf(false) }  // switch just changed, and whether it is now on
         fun shut() { menuOpen = false; menuSection = null }
         fun openMissed() {
             shut(); unreadOpen = true; unreadList = null
@@ -157,8 +159,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 Toast.makeText(context, "Back to your own payments", Toast.LENGTH_SHORT).show()
             })
 
-            add(Entry(MONEY, "Monthly budget", if (monthlyBudget > 0) money(monthlyBudget) + " a month" else "Not set",
-                Icons.Rounded.AccountBalanceWallet, ZColor.Accent, "limit spending") { shut(); budgetDlg = true })
+            add(Entry(MONEY, "Monthly budget", "", Icons.Rounded.AccountBalanceWallet, ZColor.Accent, "limit spending",
+                value = if (monthlyBudget > 0) money(monthlyBudget) else "Not set") { shut(); budgetDlg = true })
             add(Entry(MONEY, "Budgets by category", "A limit for food, shopping and the rest", Icons.Rounded.BarChart, ZColor.Accent,
                 "category limit") { shut(); budgetsOpen = true })
             add(Entry(MONEY, "Categories", "What counts as spending, and income categories", Icons.Rounded.Category, ZColor.Accent,
@@ -170,8 +172,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
 
             add(Entry(ACCOUNTS, "Your accounts", "Join duplicates, say what each one is, remove what isn't yours",
                 Icons.Rounded.AccountBalance, ZColor.Accent, "bank card loan merge join duplicate remove") { shut(); stage = "accounts" })
-            if (removed > 0) add(Entry(ACCOUNTS, "Bring back removed accounts", "$removed removed or hidden", Icons.Rounded.Restore,
-                ZColor.Muted, "hidden restore declined") {
+            if (removed > 0) add(Entry(ACCOUNTS, "Bring back removed accounts", "removed hidden", Icons.Rounded.Restore,
+                ZColor.Muted, "hidden restore declined", value = "$removed") {
                 shut()
                 scope.launch {
                     withContext(Dispatchers.IO) {
@@ -187,10 +189,12 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(MESSAGES, "Check for new payments",
                 if (lastRead == 0L) "Look for anything new in your messages"
                 else "Last checked " + agoText(lastRead) + (if (newest > 0) " · newest bank SMS " + agoText(newest) else ""),
-                Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent, "rescan refresh sync update") { shut(); rescan(notify = true) })
+                Icons.Rounded.Restore, if (stale) ZColor.Warn else ZColor.Accent, "rescan refresh sync update",
+                value = if (lastRead > 0) agoText(lastRead) else null, warn = stale) { shut(); rescan(notify = true) })
             add(Entry(MESSAGES, "Missed messages",
                 if (missedCount > 0) "$missedCount waiting · add by hand or teach Zelu" else "Money messages Zelu couldn't read",
-                Icons.Rounded.Receipt, ZColor.Warn, "unread sms add manually teach") { openMissed() })
+                Icons.Rounded.Receipt, ZColor.Warn, "unread sms add manually teach",
+                value = if (missedCount > 0) "$missedCount" else null, warn = missedCount > 0) { openMissed() })
             add(Entry(MESSAGES, "Banks Zelu doesn't know", "A bank or wallet that was skipped? Tell Zelu here", Icons.Rounded.AccountBalance,
                 ZColor.Muted, "unrecognised senders wallet sender") {
                 shut(); sendersOpen = true; senderList = null
@@ -212,24 +216,22 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 "notification", on = spendOn) { NotifyPrefs.setSpend(context, !spendOn); tick++ })
             add(Entry(ALERTS, "Daily summary", "What you spent today", Icons.Rounded.BarChart, ZColor.Accent, "notification",
                 on = dailyOn) { NotifyPrefs.setDailyOn(context, !dailyOn); tick++ })
-            if (dailyOn) add(Entry(ALERTS, "Daily summary time", NotifyPrefs.timeText(NotifyPrefs.dailyAt(context)), Icons.Rounded.CalendarMonth,
-                ZColor.Muted, "notification") {
+            if (dailyOn) add(Entry(ALERTS, "Daily summary time", "", Icons.Rounded.CalendarMonth,
+                ZColor.Muted, "notification", value = NotifyPrefs.timeText(NotifyPrefs.dailyAt(context))) {
                 val at = NotifyPrefs.dailyAt(context)
                 android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
             add(Entry(ALERTS, "Weekly summary", "Sundays: the week against the one before", Icons.Rounded.BarChart, ZColor.Accent,
                 "notification", on = weeklyOn) { NotifyPrefs.setWeeklyOn(context, !weeklyOn); tick++ })
-            if (weeklyOn) add(Entry(ALERTS, "Weekly summary time", "Sundays at " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context)),
-                Icons.Rounded.CalendarMonth, ZColor.Muted, "notification") {
+            if (weeklyOn) add(Entry(ALERTS, "Weekly summary time", "Sundays",
+                Icons.Rounded.CalendarMonth, ZColor.Muted, "notification", value = "Sun " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context))) {
                 val at = NotifyPrefs.weeklyAt(context)
                 android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setWeeklyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
             add(Entry(ALERTS, "Bill reminders", "Before a bill or card is due, around 9 AM", Icons.Rounded.Receipt, ZColor.Accent,
                 "dues notification", on = duesOn) { NotifyPrefs.setDuesOn(context, !duesOn); tick++ })
-            if (duesOn) add(Entry(ALERTS, "Remind me", NotifyPrefs.LEAD_PRESETS[NotifyPrefs.leadIndex(context)].first + " · tap to change",
-                Icons.Rounded.CalendarMonth, ZColor.Muted, "dues days before") {
-                NotifyPrefs.setLeadIndex(context, (NotifyPrefs.leadIndex(context) + 1) % NotifyPrefs.LEAD_PRESETS.size); tick++
-            })
+            if (duesOn) add(Entry(ALERTS, "Remind me", "bill reminder days before", Icons.Rounded.CalendarMonth, ZColor.Muted, "dues days before",
+                value = listOf("3 days before", "2 days before", "On the day", "A week before").getOrElse(NotifyPrefs.leadIndex(context)) { "" }) { leadPick = true })
             add(Entry(ALERTS, "Monthly recap", "A note in the first days of a new month", Icons.Rounded.TrendingUp, ZColor.Accent,
                 "notification", on = recapOn) { NotifyPrefs.setRecapOn(context, !recapOn); tick++ })
             add(Entry(ALERTS, "Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
@@ -238,18 +240,22 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
             })
 
-            add(Entry(BACKUP, "Back up now",
-                if (lastBackup > 0) "Last saved " + java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(lastBackup)) + " · locked with your password"
-                else "Save everything to Downloads/Zelu, locked with a password",
-                Icons.Rounded.CloudUpload, ZColor.Income, "save copy") {
+            add(Entry(BACKUP, "Back up now", "Save everything to Downloads/Zelu, locked with a password",
+                Icons.Rounded.CloudUpload, ZColor.Income, "save copy",
+                value = if (lastBackup > 0) java.text.SimpleDateFormat("d MMM", java.util.Locale.US).format(java.util.Date(lastBackup)) else "Never",
+                warn = lastBackup == 0L) {
                 shut()
                 if (hasPw) backupNow() else { backupAfterPw = true; backupPwOpen = true }
             })
             add(Entry(BACKUP, "Weekly backup",
                 if (hasPw) "Saved to Downloads/Zelu every week; the newest 4 are kept" else "Needs a backup password first",
-                Icons.Rounded.CloudUpload, ZColor.Income, "automatic", on = autoBackup) { autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup) })
-            add(Entry(BACKUP, "Backup password", if (hasPw) "Set · needed to restore on a new phone" else "Not set · backups wait until you set one",
-                Icons.Rounded.Lock, if (hasPw) ZColor.Income else ZColor.Warn) { shut(); backupAfterPw = false; backupPwOpen = true })
+                Icons.Rounded.CloudUpload, ZColor.Income, "automatic", on = autoBackup && hasPw) {
+                // Without a password a weekly backup can't run: ask for one first instead of showing a switch that does nothing.
+                if (!hasPw) { shut(); backupAfterPw = false; backupPwOpen = true }
+                else { autoBackup = !autoBackup; Backup.setAutoOn(context, autoBackup) }
+            })
+            add(Entry(BACKUP, "Backup password", "needed to restore on a new phone",
+                Icons.Rounded.Lock, if (hasPw) ZColor.Income else ZColor.Warn, value = if (hasPw) "Set" else "Not set", warn = !hasPw) { shut(); backupAfterPw = false; backupPwOpen = true })
             add(Entry(BACKUP, "Restore from a backup", "Load a backup file, for example on a new phone", Icons.Rounded.Restore, ZColor.Muted,
                 "import new phone") { shut(); restoreLauncher?.launch(arrayOf("*/*")) })
             add(Entry(BACKUP, "App lock", "Ask for your phone lock when opening Zelu", Icons.Rounded.Lock, ZColor.Income,
@@ -262,7 +268,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
                 }
             })
-            add(Entry(BACKUP, "Export spending (CSV)", "What's on screen now, to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted,
+            add(Entry(BACKUP, "Export to Excel (CSV)", "What's on screen now, to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted,
                 "csv excel spreadsheet download") {
                 shut()
                 val ok = Exporter.exportCsv(context, v.shown, "zelu-${Dates.today()}.csv")
@@ -271,15 +277,15 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(BACKUP, "Erase everything", "Delete all Zelu data from this phone", Icons.Rounded.Warning, ZColor.Warn,
                 "delete wipe reset") { shut(); eraseOpen = true })
 
-            add(Entry(LOOK, "Theme colours", PALETTES[ZTheme.palette].name, Icons.Rounded.Palette, ZColor.Accent, "colour color palette") {
+            add(Entry(LOOK, "Theme colours", "", Icons.Rounded.Palette, ZColor.Accent, "colour color palette", value = PALETTES[ZTheme.palette].name) {
                 shut(); themeOpen = true
             })
             add(Entry(LOOK, "Dark theme", "", Icons.Rounded.DarkMode, ZColor.Accent, "night light", on = ZTheme.dark) {
                 ZTheme.dark = !ZTheme.dark
                 context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE).edit().putBoolean("dark", ZTheme.dark).apply()
             })
-            add(Entry(LOOK, "Open Zelu on", START_PAGES.firstOrNull { it.first == startNow }?.second ?: "Home", Icons.Rounded.Home,
-                ZColor.Muted, "start screen first page") { startPick = true })
+            add(Entry(LOOK, "Open Zelu on", "", Icons.Rounded.Home, ZColor.Muted, "start screen first page",
+                value = START_PAGES.firstOrNull { it.first == startNow }?.second ?: "Home") { startPick = true })
 
             add(Entry(HELP, "How Zelu works", "Reading messages, dues, accounts, backup", Icons.Rounded.Lightbulb, ZColor.Accent,
                 "guide faq") { shut(); helpOpen = true })
@@ -288,7 +294,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(HELP, "Privacy policy", "What Zelu reads and keeps", Icons.Rounded.Lock, ZColor.Income, "data") { shut(); privacyOpen = true })
             add(Entry(HELP, "Keep Zelu running", "Stop battery saver blocking new messages", Icons.Rounded.BatteryChargingFull, ZColor.Accent,
                 "battery background stopped not working") { shut(); Notifier.openBatterySettings(context) })
-            add(Entry(HELP, "Report address", Storage.reportEmail(context), Icons.Rounded.Email, ZColor.Muted, "email", more = true) {
+            add(Entry(HELP, "Report address", "", Icons.Rounded.Email, ZColor.Muted, "email", more = true, value = Storage.reportEmail(context)) {
                 shut(); emailOpen = true
             })
             if (!Demo.on) add(Entry(HELP, "Show sample data", "Made-up payments for screenshots and demos. Yours stay safe",
@@ -360,10 +366,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                             Text("FIX IN ONE TAP · ${fixes.size}", color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             fixes.forEach { e ->
                                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(e.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                        Text(e.sub, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    }
+                                    Text(e.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                                     Spacer(Modifier.width(10.dp))
                                     SmallButton(e.button ?: "Fix", filled = true) { runEntry(e) }
                                 }
@@ -428,7 +431,6 @@ private fun MenuPage(s: AppState, v: Filtered) {
                             Text("SUGGESTED FOR YOU", color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text(sg.title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                            Text(sg.sub, color = ZColor.Muted, fontSize = 12.sp)
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 SmallButton(sg.button, filled = true) { MenuUse.dismiss(context, sg.id); sg.act(); tick++ }
@@ -438,7 +440,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     }
 
                     // Four shortcuts: what you use most here. A backup that's overdue moves to the front.
-                    val pool = all.filter { it.section != ATTENTION && !it.more }
+                    val pool = all.filter { it.section != ATTENTION && !it.more && it.title !in setOf("Remind me", "Daily summary time", "Weekly summary time") }
                     val used = pool.map { it to MenuUse.count(context, it.title) }.filter { it.second > 0 }
                         .sortedByDescending { it.second }.map { it.first }
                     val defaults = listOf("Check for new payments", "Back up now", "Dark theme", "Theme colours")
@@ -521,6 +523,22 @@ private fun MenuPage(s: AppState, v: Filtered) {
             }
         }
 
+        if (leadPick) Dialog(onDismissRequest = { leadPick = false }) {
+            val cur = NotifyPrefs.leadIndex(context)
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
+                Text("Remind me", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+                NotifyPrefs.LEAD_PRESETS.forEachIndexed { i, (label, _) ->
+                    Row(Modifier.fillMaxWidth().choice(i == cur) { NotifyPrefs.setLeadIndex(context, i); leadPick = false; tick++ }
+                        .padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = ZColor.Ink, fontSize = 15.sp, fontWeight = if (i == cur) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.weight(1f))
+                        if (i == cur) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Unspoken)
+                    }
+                }
+            }
+        }
+
         if (startPick) Dialog(onDismissRequest = { startPick = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
                 Text("Open Zelu on", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
@@ -582,9 +600,13 @@ private fun EntryRow(e: Entry, showSection: Boolean, onRun: (Entry) -> Unit) {
         Column(Modifier.weight(1f)) {
             if (showSection) Text(e.section.uppercase(), color = ZColor.Muted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
             Text(e.title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            if (e.sub.isNotEmpty()) Text(e.sub, color = ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
+        if (e.value != null) {
+            Text(e.value, color = if (e.warn) ZColor.Warn else ZColor.Muted, fontSize = 13.sp,
+                fontWeight = if (e.warn) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+            Spacer(Modifier.width(6.dp))
+        }
         if (on != null) Switch(checked = on, onCheckedChange = null, colors = SwitchDefaults.colors(
             checkedThumbColor = ZColor.AccentInk, checkedTrackColor = ZColor.Accent, checkedBorderColor = ZColor.Accent,
             uncheckedThumbColor = ZColor.Muted, uncheckedTrackColor = ZColor.Paper, uncheckedBorderColor = ZColor.Line,

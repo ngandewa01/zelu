@@ -61,26 +61,28 @@ import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 
+// A payment's name: the payee in readable case, or, when the message names none, what kind of payment it was
+// (so a row never says its category twice).
+internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank() }?.let { niceName(it) } ?: when {
+    t.kind == "expense" && (t.account.contains(" CC ") || t.account.endsWith(" CC")) -> "Card payment"
+    t.kind == "expense" -> "Payment"
+    t.kind == "income" -> "Money in"
+    else -> t.category
+}
+
 @Composable internal fun TxnRow(t: Row, highlight: Boolean, onClick: (Row) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { onClick(t) }.padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
         MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category,
-                color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            Text(rowTitle(t), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             val at = TxnTime.label(t)
-            MutedText("${t.date}${if (at.isNotEmpty()) " · $at" else ""} · ${subtitleFor(t)}", 11)
-            // A foreign-currency card spend: show what was actually charged, and that the rupee amount is an estimate.
+            // A foreign-currency card spend shows what was actually charged ("USD 25.00").
             val fx = remember(t.raw) { Parser.foreign(t.raw) }
-            if (fx != null) {
-                Spacer(Modifier.height(3.dp))
-                Text("🌐 " + Fx.label(fx) + if (fx.estimated) " · approx. rupees" else "",
-                    color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(ZColor.OrangeSoft)
-                        .padding(horizontal = 6.dp, vertical = 2.dp))
-            }
+            MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
+                (if (fx != null) " · " + Fx.label(fx) else ""), 12)
         }
         Spacer(Modifier.width(10.dp))
         AmountText(t, highlight)
@@ -95,7 +97,7 @@ import java.util.Locale
         "income", "refund", "borrowed" ->
             Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),
-            color = if (highlight && t.kind == "expense") ZColor.Accent else ZColor.Warn,
+            color = if (highlight && t.kind == "expense") ZColor.Accent else ZColor.Ink,   // spending is normal: not red
             fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -184,41 +186,61 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val budget = Analytics.BUDGET
         val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         val today = Dates.today()
-        // Bills still to pay this month. A card bill pays for spends already counted, so it doesn't use up the budget.
+        // Bills still to pay this month, overdue ones included, settled the same way as on Dues. A card bill pays for
+        // spends already counted, so it doesn't use up the budget.
+        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
         val billsLeft = if (!liveMonth) 0.0 else reminders.filter { r ->
-            !(reminderState[r.id] ?: r.done) && r.dueDate.take(7) == f.month && r.dueDate >= today && !isCardBill(r)
+            !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && !isCardBill(r) && r.dueDate.take(7) == f.month
         }.sumOf { it.amount }
         val daysLeft = if (liveMonth) Dates.daysInMonth(f.month) - Dates.dayOfMonth() + 1 else 0
         val free = budget - s.spent - billsLeft
+        // EMI often dwarfs everyday spending; one small pill leaves it out of every number on this card.
+        @Composable fun emiPill() {
+            if (emiAmt <= 0 && !excludeEmi) return
+            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (excludeEmi) ZColor.OrangeSoft else ZColor.Paper)
+                .clickable { onToggleEmi() }.padding(horizontal = 9.dp, vertical = 4.dp)) {
+                Text(if (excludeEmi) "EMI off ✓" else "Exclude EMI", color = if (excludeEmi) ZColor.Accent else ZColor.Muted,
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+        }
+        @Composable fun emiSwitch() {
+            if (emiAmt <= 0 && !excludeEmi) return
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { emiPill() }
+        }
         if (liveMonth && budget > 0) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Safe to spend" + if (excludeEmi) " · after EMI" else "")
-                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Safe to spend")
+                InfoDot("Your monthly budget, minus what you've spent and bills still due this month, shared over the days left." +
+                    if (excludeEmi) " EMI is left out." else "", "Safe to spend")
+                Spacer(Modifier.weight(1f))
+                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             if (free > 0) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
                     Text(" a day", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
-                MutedText(if (daysLeft == 1) "for today, after bills still due" else "for the next $daysLeft days, after bills still due", 13)
             } else {
-                Text(money(-free) + " over", color = ZColor.Warn, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                MutedText(if (billsLeft > 0) "Spending and bills still due are past your budget" else "Spending is past your budget", 13)
+                Text(money(-free) + " over", color = ZColor.Warn, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             }
-            // The month in one bar: spent, still due, free.
-            Spacer(Modifier.height(12.dp))
-            val parts = listOf(s.spent to ZColor.Accent, billsLeft to ZColor.AmberInk, free.coerceAtLeast(0.0) to ZColor.Income.copy(alpha = 0.35f))
-            Row(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(ZColor.Paper)) {
+            // The month in one thin bar: spent, still due, free.
+            Spacer(Modifier.height(10.dp))
+            val parts = listOf(s.spent to (if (free > 0) ZColor.Accent else ZColor.Warn), billsLeft to ZColor.AmberInk,
+                free.coerceAtLeast(0.0) to ZColor.Income.copy(alpha = 0.35f))
+            Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Paper)) {
                 parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
             }
+            // One quiet line for the numbers behind it, with the EMI pill at its end.
             Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Spent", money(s.spent))
-                Fact("Bills due", money(billsLeft))
-                Fact("Free", money(free.coerceAtLeast(0.0)), if (free > 0) ZColor.Income else ZColor.Warn)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val due = if (billsLeft > 0.5) " · " + money(billsLeft) + " due" else ""
+                val tail = if (free > 0) " · " + (if (daysLeft == 1) "today left" else "$daysLeft days left") else ""
+                Text(money(s.spent) + " spent" + due + tail, color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                emiPill()
             }
         } else {
             // Past months, other periods, or no budget yet: what was spent, against the month before.
@@ -258,17 +280,17 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
 
-        // Where the month is heading, and the money that came in.
-        @Composable fun infoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, label: String,
-                                value: String, valueColor: androidx.compose.ui.graphics.Color, onClick: (() -> Unit)?) {
+        // A quiet line: icon, words, and an optional link. No box, so the card stays light.
+        @Composable fun noteRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String,
+                                action: String?, onClick: (() -> Unit)?) {
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
-                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(horizontal = 12.dp, vertical = 10.dp),
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(label, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(text, color = ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                if (action != null) Text(action, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
         // Month-end estimate from the same numbers as above: spent, bills still due, and a normal day's spending
@@ -278,26 +300,28 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             s.spent + billsLeft + Analytics.typicalDaily(base, today) * (daysLeft - 1).coerceAtLeast(0)
         }
         val overPace = liveMonth && budget > 0 && forecast > budget
-        if (forecast > 0) {
+        val alreadyOver = liveMonth && budget > 0 && free <= 0
+        // Once the budget is gone the forecast says nothing new, so it shows only while there is still room.
+        if (forecast > 0 && !alreadyOver) {
             val end = Dates.daysInMonth(f.month).toString() + " " + Dates.monthLabel(f.month).take(3)
             val verdict = when {
                 budget <= 0 -> ""
                 forecast > budget -> " · " + money(forecast - budget) + " over"
-                else -> " · under"
+                else -> " · on track"
             }
-            infoRow(if (overPace) Icons.Rounded.Warning else Icons.Rounded.TrendingUp, if (overPace) ZColor.Warn else ZColor.Income,
-                "At this pace, by $end", "≈ " + money(forecast) + verdict, if (overPace) ZColor.Warn else ZColor.Income, onOpenDues)
+            noteRow(Icons.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
+                "≈ " + money(forecast) + " by $end" + verdict, null, onOpenDues)
         }
         // Running hot: name the category that grew most against the same days last month; the why is on Spend.
-        if (liveMonth && (overPace || free <= 0)) {
+        if (overPace || alreadyOver) {
             val cut = Dates.dayOfMonth()
             val prev = Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -1)))
                 .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
                 .mapValues { (_, rs) -> rs.sumOf { it.amount } }
             list.filter { it.kind == "expense" }.groupBy { it.category }.mapValues { (_, rs) -> rs.sumOf { it.amount } }
                 .map { (c, v) -> c to v - (prev[c] ?: 0.0) }.filter { it.second >= 1000 }.maxByOrNull { it.second }
-                ?.let { (c, up) -> infoRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c: " + money(up) + " more than this time last month",
-                    "Why ›", ZColor.Accent, onOpenSpend) }
+                ?.let { (c, up) -> noteRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c +" + money(up) + " vs last month",
+                    "Why ›", onOpenSpend) }
         }
         if (glanceAlerts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
@@ -311,17 +335,15 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 }
             }
         }
-        if (emiAmt > 0 || excludeEmi) {
-            Spacer(Modifier.height(10.dp))
-            Text(if (excludeEmi) "EMI left out · Include ›" else "Includes " + money(emiAmt) + " of EMI · Leave out ›",
-                color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onToggleEmi() })
-        }
+        if (!(liveMonth && budget > 0)) emiSwitch()
     }
 
     // Bills before month-end (or the next one when none are left this month).
     run {
         val today = Dates.today()
-        val open = reminders.filter { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }.sortedBy { it.dueDate }
+        val autoPaid = remember(reminders, allRows) { autoSettledReminders(reminders, allRows) }
+        val open = reminders.filter { r -> !(reminderState[r.id] ?: (r.done || r.id in autoPaid)) && r.dueDate.take(7) >= Dates.todayMonth() }
+            .sortedBy { it.dueDate }
         val nowMonth = Dates.todayMonth()
         val monthEnd = nowMonth + "-%02d".format(Dates.daysInMonth(nowMonth))
         val thisMonth = open.filter { it.dueDate <= monthEnd }
@@ -335,7 +357,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             shownBills.forEach { r ->
                 val name = r.counterparty?.takeIf { it.isNotBlank() } ?: "Bill"
                 val inDays = Dates.daysBetween(today, r.dueDate)
-                val whenText = "Due " + prettyDay(r.dueDate) + when (inDays) { 0 -> " · today"; 1 -> " · tomorrow"; in 2..9 -> " · in $inDays days"; else -> "" }
+                val whenText = "Due " + prettyDay(r.dueDate) + when { inDays < 0 -> " · overdue"; inDays == 0 -> " · today"; inDays == 1 -> " · tomorrow"; inDays <= 9 -> " · in $inDays days"; else -> "" }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenDues() }, verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile(name, "", 34.dp)
@@ -358,29 +380,30 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Panel {
             Eyebrow("Needs you · refund")
             Spacer(Modifier.height(6.dp))
-            Text(money(rf.amount) + " refund on " + rf.date, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("Is it for " + (sp.counterparty?.takeIf { it.isNotBlank() } ?: sp.category) + " " + money(sp.amount) + " on " + sp.date + "?", 13)
-            // The actual SMS for both, so you can check the match yourself.
+            Text(money(rf.amount) + " refund · " + prettyDate(rf.date), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            MutedText("For " + rowTitle(sp) + " " + money(sp.amount) + " on " + prettyDate(sp.date) + "?", 13)
+            // The actual SMS for both, behind a link, so you can check the match yourself without a tall card.
+            var showSms by remember(rf.id) { mutableStateOf(false) }
             @Composable fun smsBox(label: String, r: Row) {
                 Spacer(Modifier.height(10.dp))
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
                     .border(1.dp, ZColor.Line, RoundedCornerShape(12.dp)).padding(12.dp)) {
-                    Text(label.uppercase() + " · " + r.date + (if (r.account.isNotBlank()) " · " + r.account else ""),
+                    Text(label.uppercase() + " · " + prettyDate(r.date) + (if (r.account.isNotBlank()) " · " + r.account else ""),
                         color = ZColor.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
                     Spacer(Modifier.height(4.dp))
                     Text(r.raw.ifBlank { "(message text not stored)" }, color = ZColor.InkSoft, fontSize = 12.sp,
                         lineHeight = 17.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
                 }
             }
-            smsBox("Refund message", rf)
-            smsBox("Spend it may match", sp)
+            Text(if (showSms) "Hide the messages" else "See the messages", color = ZColor.Accent, fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(6.dp)).clickable { showSms = !showSms })
+            if (showSms) { smsBox("Refund message", rf); smsBox("Spend it may match", sp) }
             Spacer(Modifier.height(12.dp))
-            ChipScroll {
-                Chip("Yes, same spend", false, filled = true) { onRefundAnswer(rf.id, true) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Yes", false, filled = true) { onRefundAnswer(rf.id, true) }
                 Chip("No", false) { onRefundAnswer(rf.id, false) }
-                Chip("Do it later", false) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
+                Chip("Tomorrow", false) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
             }
-            MutedText("\"Do it later\" brings this back tomorrow.", 11)
         }
     }
 
@@ -396,20 +419,24 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 if (pending.size > 1) Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(6.dp))
-            Text(next.counterparty?.takeIf { it.isNotBlank() } ?: "Payment",
-                color = ZColor.Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("${money(next.amount)} on ${next.date}${if (next.account.isNotBlank()) " · ${next.account}" else ""}. What is this?", 13)
+            Text(rowTitle(next), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            MutedText(money(next.amount) + " · " + prettyDate(next.date) + if (next.account.isNotBlank()) " · " + next.account else "", 13)
             Spacer(Modifier.height(10.dp))
-            ChipScroll {
+            // Two short rows, so every answer is visible without scrolling sideways.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("Spending", false, filled = true) { setAskOpen(true) }
                 Chip("Money in", false) { decide(next.id, "income", "Income", next.counterparty, false) }
                 Chip("Lent", false) { decide(next.id, "lent", "Lent", next.counterparty, true) }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("Borrowed", false) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
                 Chip("Ignore", false) { decide(next.id, "ignore", "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
-                MutedText("Pick a category (remembered for ${next.counterparty ?: "this payee"}):", 12)
+                MutedText("Category", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
@@ -443,7 +470,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 ) {
                     MerchantTile(t.counterparty ?: "", t.category, 30.dp, t.kind)
                     Spacer(Modifier.height(8.dp))
-                    Text(t.counterparty?.takeIf { it.isNotBlank() } ?: t.category, color = ZColor.Ink, fontSize = 13.sp,
+                    Text(rowTitle(t), color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (t.direction == "credit") money(t.amount) else money(t.amount), color = if (t.direction == "credit") ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -602,8 +629,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     }) { CardTile(a, spent, limits[a], limits["$a#total"], due, usedSince = Analytics.cardUsedSince(allRows, a, limits[a])) { onOpenCard(a) } }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            MutedText("Tap a card to see its spends. Card spends count in your totals; paying the bill is a transfer.", 11)
         }
     }
 
@@ -698,11 +723,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     val bigIds = Analytics.bigSpendIds(list)
     val daily = Analytics.dailyTotals(allRows, month, account)
     if (showCal) Panel {
-        Eyebrow("Daily spend")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("Daily spend")
+            InfoDot("Darker days cost more. Tap a date to see only that day.")
+        }
         Spacer(Modifier.height(8.dp))
         Calendar(month, daily, daySel, onDay)
-        Spacer(Modifier.height(8.dp))
-        MutedText("Darker days cost more. Tap a date to filter this page to that day.", 12)
     }
     if (showList && daySel > 0) {
         val dayStr = "%s-%02d".format(month, daySel)

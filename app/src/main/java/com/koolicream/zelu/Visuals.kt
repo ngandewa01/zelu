@@ -115,9 +115,10 @@ val BRANDS = listOf(
 )
 
 private fun buildCatColors(): Map<String, Color> = mapOf(
-    "Food" to ZColor.Accent,
-    "Groceries" to ZColor.Income,
-    "Shopping" to ZColor.Ink,
+    // Fixed colours (not the theme's), so the biggest categories never share a colour in any theme.
+    "Food" to Color(0xFFE07A3F),
+    "Groceries" to Color(0xFF3E9F5E),
+    "Shopping" to Color(0xFF3F7FBF),
     "Bills" to Color(0xFF7B8C85),
     "Entertainment" to Color(0xFFC9A13B),
     "Fuel" to Color(0xFF8A6BB0),
@@ -142,7 +143,7 @@ private fun buildCatColors(): Map<String, Color> = mapOf(
     "Personal care" to Color(0xFFCF8FB0),
     "ATM / Cash" to Color(0xFF788074),
     "Bank charges" to Color(0xFFB0705E),
-    "Unknown" to Color(0xFFC1C8C2),
+    "Unknown" to Color(0xFF9AA39C),
     "Income" to ZColor.Income,
     "Refund" to ZColor.Income,
     "Transfer" to ZColor.Muted,

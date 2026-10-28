@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 72
+    const val PARSER_VERSION = 73
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -444,8 +444,10 @@ object Storage {
 
     fun loadReminders(context: Context): List<Reminder> = synchronized(lock) {
         val state = loadReminderState(context)
+        // A bill you haven't ticked counts as paid when a payment clearly matches it (Reconcile.paidBy); yours always wins.
+        val rows by lazy { loadRows(context) }
         val sorted = (readReminderMap(context).values + manualReminders(context))
-            .map { it.copy(done = state[it.id] ?: false) }
+            .map { it.copy(done = state[it.id] ?: (Reconcile.paidBy(it, rows) != null)) }
             .sortedBy { it.dueDate }
         // Collapse true duplicates: same payee + amount whose due dates are within 3 days
         // (the same bill arriving as two SMS). Keeps the earliest.

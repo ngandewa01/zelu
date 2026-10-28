@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -64,13 +65,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-
-@Composable internal fun LogoMark(sizeDp: Float) {
-    Box(
-        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp * 0.26f).dp)).background(ZColor.Accent),
-        contentAlignment = Alignment.Center,
-    ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = (sizeDp * 0.5f).sp) }
-}
 
 @Composable internal fun AcctLogo(key: String, size: Int = 38) {
     val logo = bankLogoRes(key)
@@ -109,10 +103,7 @@ import androidx.compose.ui.semantics.semantics
 
 @Composable internal fun BrandBar() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(ZColor.Accent),
-            contentAlignment = Alignment.Center,
-        ) { Text("Z", color = ZColor.AccentInk, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        LogoMark(30f)
         Spacer(Modifier.width(9.dp))
         Row {
             Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)
@@ -121,23 +112,61 @@ import androidx.compose.ui.semantics.semantics
     }
 }
 
-// Wraps an account or card with "Mark as closed". A closed one is frozen: a cool blue wash and a ❄ tag.
+// Wraps an account or card tile. "Mark as closed" sits behind a small ⋯ in the corner instead of a line of text under
+// every tile. A closed one is frozen: a cool blue wash, and its ❄ tag reopens it.
 @Composable internal fun ClosableFrame(
     closed: Boolean, radius: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, onToggle: () -> Unit, content: @Composable () -> Unit,
 ) {
     val ice = Color(0xFF6FA8D6)
-    Column(modifier) {
-        Box {
-            content()
-            if (closed) {
-                Box(Modifier.matchParentSize().clip(RoundedCornerShape(radius)).background(ice.copy(alpha = 0.34f)))
-                Text("❄ Closed", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(ice)
-                        .padding(horizontal = 8.dp, vertical = 3.dp))
+    var menu by remember { mutableStateOf(false) }
+    Box(modifier) {
+        content()
+        if (closed) {
+            Box(Modifier.matchParentSize().clip(RoundedCornerShape(radius)).background(ice.copy(alpha = 0.34f)))
+            Text("❄ Closed · Reopen", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(ice)
+                    .clickable { onToggle() }.padding(horizontal = 8.dp, vertical = 3.dp))
+        } else Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+            Box(Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.18f)).clickable { menu = true }
+                .buttonLabel("More"), contentAlignment = Alignment.Center) {
+                Text("⋯", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
+            }
+            androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Mark as closed") }, onClick = { menu = false; onToggle() })
             }
         }
-        Text(if (closed) "Reopen" else "Mark as closed", color = if (closed) ice else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clickable { onToggle() }.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+    }
+}
+
+// A small ⓘ: tap it to read what a number means. Explanations live here instead of under every card.
+@Composable internal fun InfoDot(text: String, title: String = "") {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.size(28.dp).clip(CircleShape).clickable { open = true }.buttonLabel("What this means"), contentAlignment = Alignment.Center) {
+        Text("ⓘ", color = ZColor.Muted, fontSize = 15.sp, modifier = Unspoken)
+    }
+    if (open) androidx.compose.ui.window.Dialog(onDismissRequest = { open = false }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(20.dp)) {
+            if (title.isNotEmpty()) { Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(8.dp)) }
+            Text(text, color = ZColor.InkSoft, fontSize = 14.sp, lineHeight = 20.sp)
+            Spacer(Modifier.height(14.dp))
+            Text("OK", color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp)).clickable { open = false }.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+    }
+}
+
+// A hint shown once, the first time, with "Got it"; never again after that.
+@Composable internal fun OnceHint(key: String, text: String) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val sp = remember { ctx.getSharedPreferences("zelu_hints", android.content.Context.MODE_PRIVATE) }
+    var seen by remember { mutableStateOf(sp.getBoolean(key, false)) }
+    if (seen) return
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.OrangeSoft).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(text, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text("Got it", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { sp.edit().putBoolean(key, true).apply(); seen = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp))
     }
 }
 

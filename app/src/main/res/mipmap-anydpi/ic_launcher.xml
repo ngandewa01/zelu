@@ -1,5 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android 7 has no adaptive icons: the same icon as a rounded square, with the mark filling it as it does on newer
+     phones (the middle 72 of the 108 grid). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/zelu_icon_bg" />
-    <item android:drawable="@drawable/ic_launcher_fg" />
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="11dp" />
+            <gradient
+                android:angle="315"
+                android:endColor="@color/zelu_brand_bottom"
+                android:startColor="@color/zelu_brand_top" />
+        </shape>
+    </item>
+    <item>
+        <vector
+            android:width="48dp"
+            android:height="48dp"
+            android:viewportWidth="72"
+            android:viewportHeight="72">
+            <path
+                android:pathData="M15,16 H57 L17,56"
+                android:strokeColor="@color/zelu_brand_cream"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:strokeWidth="7" />
+            <path
+                android:pathData="M57,31 L32,56"
+                android:strokeColor="@color/zelu_brand_tan"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:strokeWidth="7" />
+            <path
+                android:pathData="M57,46 L47,56"
+                android:strokeColor="@color/zelu_brand_tan_deep"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:strokeWidth="7" />
+        </vector>
+    </item>
 </layer-list>

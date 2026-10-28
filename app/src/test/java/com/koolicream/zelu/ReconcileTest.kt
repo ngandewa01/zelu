@@ -122,4 +122,28 @@ class ReconcileTest {
         // A label joined to a loan counts where the money left from: the bank's main account.
         assertEquals("HDFC 5997", r.first { it.id == "c" }.account)
     }
+
+    private fun bill(due: String, amount: Double, account: String = "HDFC", min: Double? = null) =
+        Reminder("r", due, amount, min, "HDFC", account, true, "", "AX-HDFCBK-S")
+
+    @Test
+    fun aBillPaidFromTheSameBankForTheSameAmountIsPaid() {
+        val paid = row("p", "2026-10-01", 1999.0, "debit", "expense", "Bills")
+        assertEquals("p", Reconcile.paidBy(bill("2026-10-02", 1999.0), listOf(paid))?.id)
+        // A card bill paid at least the minimum due counts too.
+        val part = row("q", "2026-10-05", 5000.0, "debit", "transfer", "Card bill")
+        assertEquals("q", Reconcile.paidBy(bill("2026-10-06", 12000.0, "HDFC CC 1291", min = 600.0), listOf(part))?.id)
+    }
+
+    @Test
+    fun aBillIsNotPaidByAnUnrelatedPayment() {
+        val due = bill("2026-10-02", 1999.0)
+        // Another amount, another bank, too long before, or money coming in: not a match.
+        assertEquals(null, Reconcile.paidBy(due, listOf(row("a", "2026-10-01", 2500.0, "debit", "expense", "Bills"))))
+        assertEquals(null, Reconcile.paidBy(due, listOf(row("b", "2026-10-01", 1999.0, "debit", "expense", "Bills", account = "SBI 1234"))))
+        assertEquals(null, Reconcile.paidBy(due, listOf(row("c", "2026-09-10", 1999.0, "debit", "expense", "Bills"))))
+        assertEquals(null, Reconcile.paidBy(due, listOf(row("d", "2026-10-01", 1999.0, "credit", "income", "Income"))))
+        // No bank on the bill: never guessed.
+        assertEquals(null, Reconcile.paidBy(bill("2026-10-02", 1999.0, ""), listOf(row("e", "2026-10-01", 1999.0, "debit", "expense", "Bills"))))
+    }
 }
