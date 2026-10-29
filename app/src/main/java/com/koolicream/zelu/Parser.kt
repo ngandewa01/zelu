@@ -31,9 +31,19 @@ object Parser {
     // "Never share OTP/PIN": a safety line at the end of a real alert, not an OTP message.
     private val SAFETY_LINE = Regex(
         """\b(?:never|do not|don'?t|pls do not|please do not)\s+share\s+(?:your\s+)?(?:otp|""" +
-            """pin|cvv|password)(?:\s*[/,]\s*(?:otp|pin|cvv|password|card details))*""",
+            """pin|cvv|password|card details|bank details)(?:\s*(?:[/,]|or|and)\s*(?:your\s+)?(?:otp|pin|cvv|password|card details|bank details))*""",
         RegexOption.IGNORE_CASE,
     )
+    // The tail of a completed payment's alert that talks about something else: cashback still to come ("Cashback of
+    // Rs.60 will be credited within 3 days"), the next due date or the next EMI ("Next EMI of Rs.10,000 will be debited
+    // on 05-11-26"). A dot inside "Rs." or an amount does not end the sentence.
+    private val AFTER_NOTE = Regex(
+        """\b(?:cashback|reward points?)\b(?:[^.]|\.(?=\d)|(?<=rs)\.){0,40}?\b(?:will|shall) be (?:credited|added|posted)\b(?:[^.]|\.(?=\d)|(?<=rs)\.)*|""" +
+            """\bnext\s+(?:due|emi|instal?ment|payment|bill|debit)\b(?:[^.]|\.(?=\d)|(?<=rs)\.)*""",
+        RegexOption.IGNORE_CASE,
+    )
+    // Money that has moved, after the notes above are taken out; without it the notes are the message.
+    private val MOVED = Regex("""\b(?:spent|withdrawn|debited|deducted|paid|sent|transferred|credited|received|deposited|refunded)\b""", RegexOption.IGNORE_CASE)
     // "Charges Rs.5.90 will be debited separately": a note about a fee to come, inside a completed transfer.
     private val GLUED = Regex("""(\d)(debited|credited)\b""", RegexOption.IGNORE_CASE)
     private val ORIGINAL_AMT = Regex("""\b(?:original|orig\.?|actual|total order)\s*(?:amt|amount|value)?\s*:?\s*$""", RegexOption.IGNORE_CASE)
@@ -51,7 +61,12 @@ object Parser {
     private val DR_AC = Regex("""\bdr\.?\s+(?:from\s+)?(?:a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val CR_AC = Regex("""\bcr\.?\s+(?:to|in)\s+(?:a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     // "the amount ... debited ... has been refunded and credited back": money in. "earlier reversed ... has been debited again": money out.
-    private val CREDITED_BACK = Regex("""\b(?:has been|have been|was|is)\s+(?:refunded|reversed|credited back)\b""", RegexOption.IGNORE_CASE)
+    // "Your Debit Card XX3308 has been credited with Rs.1,200.00 towards refund from AMAZON": money in, to the card.
+    private val CREDITED_BACK = Regex(
+        """\b(?:has been|have been|was|is)\s+(?:refunded|reversed|credited back)\b|""" +
+            """\b(?:has been|is|was)\s+credited\b[^.]{0,60}?\b(?:towards|as|for)\s+(?:a\s+)?(?:refund|reversal)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val DEBITED_AGAIN = Regex("""\bdebited again\b|\bre-?debited\b""", RegexOption.IGNORE_CASE)
     // "NEFT ... from your A/c ... has been credited to beneficiary NAME": your transfer reached them.
     private val TO_BENEFICIARY = Regex("""\bcredited to (?:the )?beneficiary\b""", RegexOption.IGNORE_CASE)
@@ -76,7 +91,7 @@ object Parser {
         RegexOption.IGNORE_CASE,
     )
     private val DEBIT = Regex(
-        """\b(debited|debit|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|""" +
+        """\b(debited|debit(?!\s*card)|sent|paid|spent|withdrawn|withdrawal|deducted|purchase|thank you for using|""" +
             """used for (?:a )?transaction|(?:is|was|been) used for|(?:levied|charged|posted)\s+(?:on|to)|""" +
             """(?:txn|transaction)\s+of\s+(?:rs\.?|inr\.?|₹)\s*[\d,.]+\s+(?:on|at)|(?:imps|neft|rtgs)\b.{0,120}?\bfrom\s+(?:your\s+)?(?:a/?c|acct|account)\b.{0,90}?\bis successful|""" +
             """transferred\s+from\s+(?:your\s+)?(?:a/c|ac|acct|account)|transferred\s+(?:via|by|through|using)\s+(?:imps|neft|rtgs|upi)\s+from|""" +
@@ -129,7 +144,8 @@ object Parser {
     )
 
     // FASTag / toll transactions come from the FASTag wallet, not the bank account.
-    private val FASTAG = Regex("""\b(fastt?ag|toll|netc)\b""", RegexOption.IGNORE_CASE)
+    // "Call toll free 1800..." is a helpline, not a toll.
+    private val FASTAG = Regex("""\b(fastt?ag|toll(?![\s-]*free)|netc)\b""", RegexOption.IGNORE_CASE)
 
     // OTPs, offers and loan promos contain amounts too; they are not transactions.
     private val SKIP = Regex(
@@ -527,7 +543,9 @@ object Parser {
         if (billerOnly && !isOutgoingPayment(text)) return null
         if (NOT_DONE.containsMatchIn(text) || CARD_BLOCKED.containsMatchIn(text) || CONVERTED_EMI.containsMatchIn(text)) return null
         // Text that only looks like a warning or a future step inside a real alert is set aside before the checks below.
-        val check = CHARGES_LATER.replace(SAFETY_LINE.replace(text, " "), " ")
+        val safe = CHARGES_LATER.replace(SAFETY_LINE.replace(text, " "), " ")
+        val core = AFTER_NOTE.replace(safe, " ")
+        val check = if (MOVED.containsMatchIn(core)) core else safe
         // A fee, interest or tax put on the account is a payment that has happened, even when the message also says to pay.
         val feeDone = FEE_DONE.containsMatchIn(check) && !FUTURE_DEBIT.containsMatchIn(check)
         if (MANDATE_SETUP.containsMatchIn(text)) return null
@@ -737,6 +755,19 @@ object Parser {
         return Mandate(merchant.lowercase().replace(Regex("[^a-z0-9]"), ""), merchant, amount, account, if (status == "scheduled" && next == null) "active" else status, next, ms, ms, text, source)
     }
 
+    // "EMI of Rs.10,000 ... has been debited ... Next EMI of Rs.10,000 will be debited on 05-11-26": the payment is read
+    // by parseSms, and the line about the next one is a reminder for the Dues page.
+    private val NEXT_EMI = Regex("""\bnext\s+(?:emi|instal?ment)\b(?:[^.]|\.(?=\d)|(?<=rs)\.)*""", RegexOption.IGNORE_CASE)
+
+    /** The reminder in a completed payment's "Next EMI ... will be debited on ..." line, if it has one. */
+    fun nextReminder(body: String, receivedMs: Long?, source: String): Reminder? {
+        val text = WS.replace(body, " ").trim()
+        val next = NEXT_EMI.find(text)?.value ?: return null
+        val loan = LOAN_AC.find(text)?.value?.let { " for $it" } ?: ""
+        val r = parseReminder("$next$loan.", receivedMs, source) ?: return null
+        return r.copy(raw = text)
+    }
+
     // Parse a bill / payment reminder (a "due" or "will be debited" notice) into a Reminder.
     // Called by Ingest only when parseSms returned null, so a completed payment is never a reminder.
     fun parseReminder(body: String, receivedMs: Long?, source: String): Reminder? {
@@ -864,7 +895,8 @@ object Parser {
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
     private fun accountOf(rawText: String, source: String, direction: Dir?): String {
-        val text = REF_NOISE.replace(PHONE_NOISE.replace(rawText, " "), " ")
+        // "Do not share your card details" is the bank's warning: it says nothing about which account paid.
+        val text = REF_NOISE.replace(PHONE_NOISE.replace(SAFETY_LINE.replace(rawText, " "), " "), " ")
         // The sender id names the bank first; only when it doesn't, the message text does.
         val src = source.uppercase()
         var bank = SENDER_CODES.firstOrNull { codeHit(src, it.first) }?.second ?: ""

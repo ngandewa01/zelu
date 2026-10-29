@@ -19,6 +19,12 @@ import javax.crypto.spec.SecretKeySpec
 object BackupCrypto {
     private const val ITER = 150_000
     const val MIN_PASSWORD = 6
+    // The file says how many rounds it was made with. A damaged or crafted file must not hang the phone (a huge count)
+    // or make a wrong password cheap to try (a tiny one).
+    private const val MIN_ITER = 100_000
+    private const val MAX_ITER = 2_000_000
+
+    internal fun roundsFrom(stored: Int): Int? = stored.takeIf { it in MIN_ITER..MAX_ITER }
 
     fun isEncrypted(text: String): Boolean = try { JSONObject(text).optInt("enc", 0) == 1 } catch (_: Exception) { false }
 
@@ -66,7 +72,8 @@ object BackupCrypto {
         val salt = Base64.decode(o.getString("salt"), Base64.NO_WRAP)
         val iv = Base64.decode(o.getString("iv"), Base64.NO_WRAP)
         val data = Base64.decode(o.getString("data"), Base64.NO_WRAP)
-        val key = SecretKeySpec(pbkdf2(password.toCharArray(), salt, o.optInt("iter", ITER), 32), "AES")
+        val rounds = roundsFrom(o.optInt("iter", ITER)) ?: return null
+        val key = SecretKeySpec(pbkdf2(password.toCharArray(), salt, rounds, 32), "AES")
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
         String(c.doFinal(data), Charsets.UTF_8)

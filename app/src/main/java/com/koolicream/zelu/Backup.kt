@@ -124,6 +124,6 @@ object Backup {
         if (ok) {
             context.getSharedPreferences("zelu_backup", Context.MODE_PRIVATE).edit().putLong("last", now).apply()
             Exporter.pruneBackups(context)
-        }
+        } else throw java.io.IOException("Weekly backup not saved")  // DailyWork tries again
     }
 }

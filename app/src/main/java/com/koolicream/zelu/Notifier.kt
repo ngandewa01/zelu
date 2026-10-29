@@ -42,11 +42,23 @@ object Notifier {
                 .setContentText(line)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
-            nm.notify(ID, builder.build())
+            nm.notify(ID, hideOnLockScreen(context, builder, CHANNEL).build())
         } catch (e: Exception) {
             CrashLog.warn("Notifier.notifyDueSoon", e)
             // notifications are best-effort
         }
+    }
+
+    // With the app lock on, amounts, payees and accounts are not shown on the lock screen: it shows only that Zelu has
+    // something new, and the full notification once the phone is unlocked.
+    fun hideOnLockScreen(context: Context, b: Notification.Builder, channel: String): Notification.Builder {
+        val locked = try { context.getSharedPreferences("zelu_security", Context.MODE_PRIVATE).getBoolean("lock", false) } catch (_: Exception) { false }
+        if (!locked) return b
+        val pub = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            Notification.Builder(context, channel) else @Suppress("DEPRECATION") Notification.Builder(context)
+        pub.setSmallIcon(R.drawable.ic_stat_zelu).setColor(accentInt(context))
+            .setContentTitle(context.getString(R.string.app_name)).setContentText(context.getString(R.string.notif_locked_text))
+        return b.setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(pub.build())
     }
 
     fun enabled(context: Context): Boolean = try {
@@ -157,7 +169,7 @@ object Notifier {
                 .setOnlyAlertOnce(true)
                 .setContentIntent(pi)
             if (logo != null) builder.setLargeIcon(logo)
-            nm.notify(60000 + (account.hashCode() and 0x7fffffff) % 1000, builder.build())
+            nm.notify(60000 + (account.hashCode() and 0x7fffffff) % 1000, hideOnLockScreen(context, builder, "zelu_balance").build())
         } catch (e: Exception) {
             CrashLog.warn("Notifier.notifyBalance", e)
             // best-effort
@@ -219,7 +231,7 @@ object Notifier {
                 .setAutoCancel(true)
                 .setContentIntent(pi)
             if (acct.isNotEmpty()) builder.setSubText(acct)
-            nm.notify(nid, builder.build())
+            nm.notify(nid, hideOnLockScreen(context, builder, "zelu_txn_hi").build())
         } catch (e: Exception) {
             CrashLog.warn("Notifier.notifyTxn", e)
             // best-effort

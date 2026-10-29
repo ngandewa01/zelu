@@ -306,4 +306,24 @@ class ParserTest {
         assertEquals("2026-03-20", Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 20-03-26 to VPA shop@okaxis. UPI Ref 611122225555", received, "AX-HDFCBK-S")!!.date)
         assertEquals("2026-02-27", Parser.parseSms("Rs.500.00 debited from A/c XX5997 on 27-02-26 to VPA shop@okaxis. UPI Ref 611122226666", received, "AX-HDFCBK-S")!!.date)
     }
+
+    // A paid EMI that also names the next one is a payment, and the next EMI goes on the Dues page.
+    @Test
+    fun paidEmiAlsoRemindsOfTheNext() {
+        val oct = 1792305000000L
+        val body = "EMI of Rs.10,000 for Loan A/c XX4488 has been debited from A/c XX5997 on 05-10-26. Next EMI of Rs.10,000 will be debited on 05-11-26."
+        val t = Parser.parseSms(body, oct, "VM-HDFCBK-S")
+        assertNotNull(t)
+        assertEquals(Dir.DEBIT, t!!.direction)
+        assertEquals(10000.0, t.amount, 0.001)
+        val r = Parser.nextReminder(body, oct, "VM-HDFCBK-S")
+        assertNotNull(r)
+        assertEquals("2026-11-05", r!!.dueDate)
+        assertEquals(10000.0, r.amount, 0.001)
+        // An ordinary payment has no next one.
+        assertNull(Parser.nextReminder("Rs.899 debited from A/c XX5997 for NETFLIX on 18-10-26.", oct, "AX-HDFCBK-S"))
+        // Messages set aside on purpose stay so: no debit yet, or an OTP.
+        assertTrue(Parser.isNotAPayment("Your EMI of Rs.10,000 for Loan A/c XX4488 will be debited from A/c XX5997 on 05-11-26.", "VM-HDFCBK-S"))
+        assertTrue(Parser.isNotAPayment("OTP for txn of Rs.2,000.00 at AMAZON on HDFC Bank Card XX1234 is 482913. Do not share it with anyone.", "AX-HDFCBK-S"))
+    }
 }

@@ -87,14 +87,18 @@ jobs:
           grep -h -E "AssertionError|Should be" app/build/test-results/testReleaseUnitTest/*.xml 2>/dev/null | head -10 | sed 's/^ *//; s/^/::error::/' | tr -d '\r' || true
 
       # Room's layout of each database version (app/schemas). A version not yet in the repository is printed, to be
-      # committed with the change that made it.
-      - name: Show new database layouts
+      # committed with the change that made it, and stops the build: without it the next migration can't be checked.
+      - name: Check database layouts are committed
         shell: bash
         run: |
-          git status --porcelain app/schemas | sed 's/^/new or changed: /' || true
-          for f in $(git status --porcelain app/schemas | awk '{print $2}'); do
-            find "$f" -name '*.json' -print -exec cat {} \; 2>/dev/null || true
+          changed=$(git status --porcelain app/schemas)
+          [ -z "$changed" ] && exit 0
+          echo "$changed" | sed 's/^/new or changed: /'
+          for f in $(echo "$changed" | awk '{print $2}'); do
+            find "$f" -name '*.json' -print -exec cat {} \; 2>/dev/null
           done
+          echo "::error::Commit the database layout above to app/schemas"
+          exit 1
 
       # Shows which key signed this build, to compare with the fingerprint of the key you made.
       - name: Show signing certificate

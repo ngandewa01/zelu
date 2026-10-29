@@ -75,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -119,7 +120,8 @@ class MainActivity : FragmentActivity() {
             @Suppress("DEPRECATION")
             val i = km.createConfirmDeviceCredentialIntent("Unlock Zelu", "Confirm it's you")
             if (i == null) { locked = false; return }
-            try { authShowing = true; credentialLauncher.launch(i) } catch (_: Exception) { authShowing = false; locked = false }
+            // A prompt that could not be shown leaves the app locked; the lock screen's Unlock button asks again.
+            try { authShowing = true; credentialLauncher.launch(i) } catch (e: Exception) { authShowing = false; CrashLog.warn("App lock", e) }
             return
         }
         val info = BiometricPrompt.PromptInfo.Builder()
@@ -127,7 +129,7 @@ class MainActivity : FragmentActivity() {
             .setSubtitle("Confirm it's you")
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()
-        try { authShowing = true; prompt.authenticate(info) } catch (_: Exception) { authShowing = false; locked = false }
+        try { authShowing = true; prompt.authenticate(info) } catch (e: Exception) { authShowing = false; CrashLog.warn("App lock", e) }
     }
 
     override fun onStart() {
@@ -142,7 +144,9 @@ class MainActivity : FragmentActivity() {
         // On older phones the PIN screen is a separate activity: leaving for it is not leaving the app.
         if (!authShowing) stoppedAt = android.os.SystemClock.elapsedRealtime()
         val app = applicationContext
-        Thread { ZeluWidget.refresh(app) }.start()
+        lifecycleScope.launch(Dispatchers.IO) {
+            try { ZeluWidget.refresh(app) } catch (e: Exception) { CrashLog.warn("Widget", e) }
+        }
     }
 
     override fun onDestroy() {
@@ -246,7 +250,7 @@ fun ZeluApp() {
                     checkNotif()
                     smsOk = hasPerm()
                     // Catch up on anything the phone held back while Zelu was closed.
-                    if (stage == Stage.APP && hasPerm() && System.currentTimeMillis() - lastScan > 60_000L) rescan()
+                    if (stage == Stage.APP && hasPerm() && System.currentTimeMillis() - lastScan > 60_000L) rescan(quick = true)
                 }
             }
             lifecycleOwner.lifecycle.addObserver(obs)
@@ -269,7 +273,7 @@ fun ZeluApp() {
             // Coming back after Android closed the app in the background (or the theme changed): stay on the screen you were on.
             if (stage == Stage.APP || stage == Stage.ACCOUNTS) {
                 smsOk = hasPerm()
-                if (smsOk && System.currentTimeMillis() - lastScan > 60_000L) rescan()
+                if (smsOk && System.currentTimeMillis() - lastScan > 60_000L) rescan(quick = true)
                 return@LaunchedEffect
             }
             stage = Stage.SPLASH
