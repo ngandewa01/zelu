@@ -1,6 +1,7 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
@@ -156,10 +157,10 @@ import androidx.compose.ui.semantics.semantics
 }
 
 // A small ⓘ: tap it to read what a number means. Explanations live here instead of under every card.
-@Composable internal fun InfoDot(text: String, title: String = "") {
+@Composable internal fun InfoDot(text: String, title: String = "", tint: Color = ZColor.Muted) {
     var open by remember { mutableStateOf(false) }
     Box(Modifier.size(28.dp).clip(CircleShape).clickable { open = true }.buttonLabel("What this means"), contentAlignment = Alignment.Center) {
-        Text("ⓘ", color = ZColor.Muted, fontSize = 15.sp, modifier = Unspoken)
+        Text("ⓘ", color = tint, fontSize = 15.sp, modifier = Unspoken)
     }
     if (open) androidx.compose.ui.window.Dialog(onDismissRequest = { open = false }) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(20.dp)) {
@@ -293,7 +294,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
             val on = view == t.key
             val tint = Color(if (ZTheme.dark) t.dark else t.light)
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 2.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.testTag("nav-" + t.key.key).padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.size(32.dp).clip(CircleShape)
@@ -432,8 +433,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     }.padding(horizontal = 18.dp)) { content() }
 }
 
-@Composable internal fun Eyebrow(text: String) {
-    Text(text.uppercase(), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+@Composable internal fun Eyebrow(text: String, color: Color = ZColor.Muted) {
+    Text(text.uppercase(), color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable internal fun MutedText(text: String, size: Int = 13) {

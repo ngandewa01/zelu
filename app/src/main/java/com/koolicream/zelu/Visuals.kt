@@ -32,7 +32,11 @@ object ZTheme {
 class PalSet(
     val paper: Long, val card: Long, val ink: Long, val muted: Long, val line: Long,
     val accent: Long, val accentInk: Long, val income: Long, val warn: Long,
+    val hero: Hero? = null,
 )
+
+// The big "Safe to spend" block of a bolder theme: a two-colour gradient with its own text colour.
+class Hero(val from: Long, val to: Long, val ink: Long)
 
 class Pal(val name: String, val light: PalSet, val dark: PalSet)
 
@@ -40,33 +44,33 @@ val PALETTES: List<Pal> = listOf(
     Pal("Sand",
         PalSet(0xFFF9F8F6, 0xFFEFE9E3, 0xFF2B2622, 0xFF7A6F66, 0xFFD9CFC7, 0xFFA8845A, 0xFFFFFFFF, 0xFF6F8A6E, 0xFFA65D57),
         PalSet(0xFF1E1B18, 0xFF28241F, 0xFFEDE6DE, 0xFF9A8F85, 0xFF3A342E, 0xFFC9B59C, 0xFF2B2622, 0xFF8DAA8C, 0xFFD2807A)),
-    // Each theme follows 60-30-10: a lightly tinted page (60), cards and bars in a deeper tint of the same colour
-    // (30) and one strong accent (10) for the chosen tab, buttons and bars. Money-in green and due red stay.
-    Pal("Lagoon",
-        PalSet(0xFFEDF7F6, 0xFFD3EEEA, 0xFF14211F, 0xFF5B6E6B, 0xFFBFE3DD, 0xFF0D9488, 0xFFFFFFFF, 0xFF15803D, 0xFFC0564B),
-        PalSet(0xFF0F1A1A, 0xFF1A2B2A, 0xFFE6F0EE, 0xFF8FA5A2, 0xFF2A4140, 0xFF2DD4BF, 0xFF0F1A1A, 0xFF4ADE80, 0xFFF07B6E)),
-    Pal("Ocean",
-        PalSet(0xFFEEF3FC, 0xFFDCE6F8, 0xFF16202E, 0xFF5D6B80, 0xFFC9D6EE, 0xFF1F66F2, 0xFFFFFFFF, 0xFF12A06E, 0xFFD9534F),
-        PalSet(0xFF0B1220, 0xFF16233A, 0xFFE8EDF5, 0xFF8A96A8, 0xFF253552, 0xFF6FA0FF, 0xFF0B1220, 0xFF4FD1A1, 0xFFF07F7A)),
-    Pal("Lavender",
-        PalSet(0xFFF3F0FC, 0xFFE4DCF7, 0xFF241F33, 0xFF6C6582, 0xFFD5CBEF, 0xFF7A4DE8, 0xFFFFFFFF, 0xFF2F9E7A, 0xFFCF5A6A),
-        PalSet(0xFF120F1C, 0xFF221B36, 0xFFECE8F5, 0xFF9B93AE, 0xFF342A50, 0xFFB39DFF, 0xFF120F1C, 0xFF6FD3AE, 0xFFF08A9A)),
-    // Coral buttons, so "due" red is kept deeper than the accent.
-    Pal("Peach",
-        PalSet(0xFFFFF3EC, 0xFFFBE0D2, 0xFF2E1F1A, 0xFF86706A, 0xFFF1CDBB, 0xFFF0643F, 0xFFFFFFFF, 0xFF3E9472, 0xFFB3261E),
-        PalSet(0xFF1A110D, 0xFF2E1E17, 0xFFF5E9E3, 0xFFA99189, 0xFF44302A, 0xFFFF8A65, 0xFF1A110D, 0xFF78CFA5, 0xFFF25F5C)),
-    Pal("Mono",
-        PalSet(0xFFF4F4F4, 0xFFE4E4E4, 0xFF111111, 0xFF6E6E6E, 0xFFD4D4D4, 0xFF111111, 0xFFFFFFFF, 0xFF1E9E5A, 0xFFD64545),
-        PalSet(0xFF000000, 0xFF1A1A1A, 0xFFF2F2F2, 0xFF8E8E8E, 0xFF2E2E2E, 0xFFF2F2F2, 0xFF000000, 0xFF4ADE80, 0xFFF87171)),
+    // The bolder themes: a two-colour gradient on the Safe-to-spend block, one strong accent, tinted page and cards.
+    Pal("Aurora",
+        PalSet(0xFFF4F2FF, 0xFFFFFFFF, 0xFF1B1740, 0xFF6C679A, 0xFFE0DCF7, 0xFF5B3DF5, 0xFFFFFFFF, 0xFF0E9F6E, 0xFFD9344F, Hero(0xFF5B3DF5, 0xFF1CC8EE, 0xFFFFFFFF)),
+        PalSet(0xFF0B0A1F, 0xFF16143A, 0xFFEEEBFF, 0xFF9C97CC, 0xFF2A2760, 0xFF8B7BFF, 0xFF0B0A1F, 0xFF3DDC97, 0xFFFF6B81, Hero(0xFF6D4DFF, 0xFF19C3E6, 0xFFFFFFFF))),
+    Pal("Ember",
+        PalSet(0xFFFFF4EE, 0xFFFFFFFF, 0xFF2A0F1E, 0xFF8A5C6B, 0xFFF6D7CC, 0xFFF2452D, 0xFFFFFFFF, 0xFF178F5B, 0xFFB3202A, Hero(0xFFFF8A1F, 0xFFF2288A, 0xFFFFFFFF)),
+        PalSet(0xFF180812, 0xFF2A1020, 0xFFFFEDE6, 0xFFC28C9D, 0xFF4A1D36, 0xFFFF6A3D, 0xFF180812, 0xFF4BDE97, 0xFFFF7A7A, Hero(0xFFFF9A2E, 0xFFF0348F, 0xFFFFFFFF))),
+    Pal("Volt",
+        PalSet(0xFFF7F8EE, 0xFFFFFFFF, 0xFF101208, 0xFF666A4A, 0xFFE4E7CC, 0xFF101208, 0xFFC6FF2E, 0xFF12915A, 0xFFC7342B, Hero(0xFFB6F000, 0xFF2EE6A6, 0xFF101208)),
+        PalSet(0xFF0A0A0A, 0xFF161616, 0xFFF5F5F0, 0xFF9A9A90, 0xFF2A2A26, 0xFFC6FF2E, 0xFF0A0A0A, 0xFF4ADE80, 0xFFFF6B5E, Hero(0xFFC6FF2E, 0xFF2EF2A0, 0xFF0A0A0A))),
+    Pal("Ice",
+        PalSet(0xFFF0FAFF, 0xFFFFFFFF, 0xFF0B2530, 0xFF52798A, 0xFFCBE8F3, 0xFF0891B2, 0xFFFFFFFF, 0xFF0E9F6E, 0xFFD9344F, Hero(0xFF0891B2, 0xFF3B82F6, 0xFFFFFFFF)),
+        PalSet(0xFF06151C, 0xFF0D2733, 0xFFE6F7FD, 0xFF85B4C6, 0xFF17414F, 0xFF38D2F0, 0xFF06151C, 0xFF3DDC97, 0xFFFF6B81, Hero(0xFF0E8FB0, 0xFF3B6FF0, 0xFFFFFFFF))),
+    Pal("Mint",
+        PalSet(0xFFF2FFF8, 0xFFFFFFFF, 0xFF06281A, 0xFF4F8068, 0xFFCFF3E0, 0xFF059669, 0xFFFFFFFF, 0xFF0E8A3E, 0xFFD9344F, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A)),
+        PalSet(0xFF04140D, 0xFF0B281B, 0xFFE4FBEF, 0xFF84BB9F, 0xFF15432F, 0xFF34D399, 0xFF04140D, 0xFF4ADE80, 0xFFFF6B81, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A))),
 )
 
 // The chosen palette is saved by name ("colours"). Older versions saved a position in a longer list ("palette");
 // those palettes are gone, so each maps to the closest one here.
-private val OLD_PALETTES = listOf("Sand", "Ocean", "Lagoon", "Ocean", "Lagoon", "Peach", "Ocean", "Mono")
+private val OLD_PALETTES = listOf("Sand", "Ocean", "Ocean", "Ocean", "Ocean", "Peach", "Ocean", "Mono")
+private val REMOVED_PALETTES = mapOf("Sage" to "Ice", "Lagoon" to "Ice", "Ocean" to "Ice", "Lavender" to "Aurora", "Peach" to "Ember", "Mono" to "Sand", "Rose" to "Ember")
 
 fun paletteIndex(sp: android.content.SharedPreferences): Int {
-    // Sage was replaced by Lagoon; anyone on it moves across.
-    val name = (sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand").let { if (it == "Sage") "Lagoon" else it }
+    // Themes that are gone move to the closest one left; anything unknown opens on Sand.
+    val saved = sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand"
+    val name = REMOVED_PALETTES[saved] ?: saved
     return PALETTES.indexOfFirst { it.name == name }.coerceAtLeast(0)
 }
 
@@ -88,6 +92,8 @@ object ZColor {
     val AccentInk get() = Color(s.accentInk)
     val Income get() = Color(s.income)
     val Warn get() = Color(s.warn)
+    /** The bolder themes' gradient block, or null for the plain themes. */
+    val Hero: Hero? get() = s.hero
     // Soft tints for pills and highlight tiles, blended from the card colour.
     val WarnSoft get() = mix(Color(s.card), Color(s.warn), 0.14f)
     val IncomeSoft get() = mix(Color(s.card), Color(s.income), 0.14f)

@@ -3,6 +3,7 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
@@ -228,35 +229,47 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { emiPill() }
         }
         if (liveMonth && budget > 0) {
+            // The bolder themes draw this block on a two-colour gradient, in the theme's own text colour; the others keep the
+            // plain card. The heat colour (how much room is left) then rides on a dot beside the amount.
+            val hero = ZColor.Hero
+            val onHero = hero != null
+            val heroInk = hero?.let { Color(it.ink) } ?: ZColor.Ink
+            val soft = if (onHero) heroInk.copy(alpha = 0.82f) else ZColor.Muted
+            Column(if (hero == null) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(hero.from), Color(hero.to)))).padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(stringResource(R.string.safe_to_spend))
+                Eyebrow(stringResource(R.string.safe_to_spend), soft)
                 InfoDot(stringResource(R.string.your_monthly_budget_minus_what) +
-                    if (excludeEmi) " EMI is left out." else "", "Safe to spend")
+                    if (excludeEmi) " EMI is left out." else "", "Safe to spend", soft)
                 Spacer(Modifier.weight(1f))
-                Text(stringResource(R.string.budget) + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                Text(stringResource(R.string.budget) + money(budget) + " ›", color = if (onHero) heroInk else ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
             Spacer(Modifier.height(2.dp))
             val heat = if (free > 0) heatColor(free / daysLeft / (budget / Dates.daysInMonth(f.month))) else heatColor(0.0)
             if (free > 0) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(free / daysLeft), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.a_day), color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    if (onHero) Box(Modifier.padding(end = 8.dp, bottom = 14.dp).size(10.dp).clip(CircleShape).background(heat))
+                    Text(money(free / daysLeft), color = if (onHero) heroInk else heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.a_day), color = soft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
             } else {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(-free), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.over), color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    if (onHero) Box(Modifier.padding(end = 8.dp, bottom = 14.dp).size(10.dp).clip(CircleShape).background(heat))
+                    Text(money(-free), color = if (onHero) heroInk else heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.over), color = soft, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
             }
             // The month in one thin bar: spent (in the heat colour), still due, free. Over budget, the budget fills red
             // and the overflow grows as a darker piece at the end.
             Spacer(Modifier.height(10.dp))
-            val parts = if (free > 0) listOf(s.spent to heat, billsLeft to ZColor.AmberInk, free to ZColor.Line)
-                else listOf(budget to heat, -free to HeatOver)
-            Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Paper)) {
+            val spentC = if (onHero) heroInk else heat
+            val parts = if (free > 0) listOf(s.spent to spentC, billsLeft to (if (onHero) heroInk.copy(alpha = 0.55f) else ZColor.AmberInk),
+                    free to (if (onHero) Color.Transparent else ZColor.Line))
+                else listOf(budget to spentC, -free to (if (onHero) heroInk.copy(alpha = 0.55f) else HeatOver))
+            Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (onHero) heroInk.copy(alpha = 0.22f) else ZColor.Paper)) {
                 parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
             }
             // One quiet line for the numbers behind it, with the EMI pill at its end.
@@ -264,8 +277,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val due = if (billsLeft > 0.5) " · " + money(billsLeft) + " due" else ""
                 val tail = if (free > 0) " · " + (if (daysLeft == 1) "today left" else "$daysLeft days left") else ""
-                Text(money(s.spent) + " spent" + due + tail, color = ZColor.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Text(money(s.spent) + " spent" + due + tail, color = soft, fontSize = 12.sp, modifier = Modifier.weight(1f))
                 emiPill()
+            }
             }
         } else {
             // Past months, other periods, or no budget yet: what was spent, against the month before.
@@ -524,7 +538,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.recent))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onAdd() }.padding(horizontal = 12.dp, vertical = 6.dp),
+                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onAdd() }.testTag("add-transaction").padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Icon(Icons.Rounded.Add, null, tint = ZColor.Paper, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
