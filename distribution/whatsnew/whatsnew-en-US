@@ -1,7 +1,6 @@
-• Declined card attempts no longer show up as missed messages
-• Account balances show as soon as Zelu opens
-• A failed ATM withdrawal is matched to its reversal automatically
-• Tab names fit on every phone, small screens included
-• The refund question uses the same round buttons as the others
-• A credit reported by two banks (like an income tax refund) counts once, as Tax refund
-• Dues shows its date strip whenever a bill falls in the next 30 days
+• Faster: changing a category no longer re-reads every payment
+• All your choices are kept in one database on your phone
+• Totals add up exactly, to the paisa
+• Long card histories scroll smoothly
+• Back always closes the page you opened
+• Bill reminders stay on time; the weekly backup runs in the background

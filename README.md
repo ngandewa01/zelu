@@ -25,20 +25,28 @@ Native Android app written in Kotlin with Jetpack Compose.
   - `AccountBook.kt` — the Your accounts screen: which labels are one account, cards, loans.
   - `Analytics.kt` — totals by month, category, day; dates.
 - Storage
-  - `Storage.kt` — settings in SharedPreferences, your decisions as JSON in app-private storage; payments in the
-    database (`Db.kt`, Room/SQLite, amounts in paise). A `transactions.json` found in app storage (from a version before
-    the database, or written by a restored backup) is taken into the database and kept as `transactions.json.imported`.
+  - `Storage.kt` — settings in SharedPreferences; payments and your decisions in the database (`Db.kt`, Room/SQLite):
+    payments in paise, one-value-per-key decisions as rows (`kv`), other small documents whole (`doc`). Any of the
+    files earlier versions kept, found in app storage (from an update, or written by a restored backup), is taken into
+    the database and kept as `<name>.imported`; backups and undo still use those file names and contents. Payments are
+    worked out in three cached stages, each redone only when something it reads changes.
   - `SafeFile.kt` — atomic saves that keep the previous version, and reads that fall back to it.
   - `Backup.kt`, `BackupCrypto.kt` — password-locked backup files in Downloads/Zelu.
 - Screens
   - `MainActivity.kt` — the activity, app lock, and `ZeluApp`: start-up, onboarding, and the home pages.
-  - `AppState.kt` — what the main screen keeps (data read from storage, open pages and dialogs, filters) and the
-    actions that change it; where you are survives Android closing the app in the background.
+  - `AppState.kt` — the main screen's ViewModel: data read from storage, the pages open over Home (a typed back
+    stack), dialogs and filters, and the actions that change them; where you are is in its saved state.
   - `MenuDialog.kt`, `MoneyDialogs.kt`, `MessageDialogs.kt`, `SettingsDialogs.kt`, `Dialogs.kt` — dialogs.
   - `LedgerView.kt`, `SpendViews.kt`, `TrendsScreen.kt`, `PayeesView.kt`, `RemindersView.kt`, `CardScreens.kt`,
     `AccountsScreens.kt`, `Onboarding.kt` — pages; `UiKit.kt`, `Visuals.kt` — shared pieces.
 - Background: `DueReminders.kt`, `DailySummary.kt`, `WeeklySummary.kt` (daily alarms set through `Alarms.kt`),
   `Notifier.kt`, `ZeluWidget.kt`.
+
+## Tests
+
+`app/src/test` runs on the JVM with every build (parser, classifier, reconcile, the 200-message set). `app/src/androidTest`
+runs on an emulator (`.github/workflows/device-tests.yml`, on pull requests to main and by hand): the database migration,
+taking in older files, and a screen. Lint runs weekly (`lint.yml`).
 
 ## Build
 
