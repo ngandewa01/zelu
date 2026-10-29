@@ -125,7 +125,7 @@ object Storage {
             }
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = Kind.of(k), category = c) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
-            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = "ignore")
+            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = Kind.IGNORE)
             row
         }.newestFirst()
         // A payment you split becomes several rows that add up to it, one per category.
@@ -147,7 +147,7 @@ object Storage {
             val pk = (row.counterparty ?: "").lowercase().trim()
             if (pk.isNotEmpty() && rules.containsKey(pk)) { val (k, cat) = rules.getValue(pk); row = row.copy(kind = Kind.of(k), category = cat) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
-            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = "ignore")
+            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = Kind.IGNORE)
             return row
         }
         val canon = Reconcile.dedupCrossBank(Reconcile.canonicalizeAccounts(expanded, apart))
@@ -298,7 +298,7 @@ object Storage {
     // ---- one payment split across categories ----  id -> [(amount, category)]
     private const val SPLIT_FILE = "splits.json"
     fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
-        val f = file(context, SPLIT_FILE)
+        val f = doc(context, SPLIT_FILE)
         if (!f.exists()) emptyMap() else try {
             val obj = f.readWithBackup { JSONObject(it) }; val out = HashMap<String, List<Pair<Double, String>>>()
             for (k in obj.keys()) {
@@ -317,7 +317,7 @@ object Storage {
     private fun writeSplits(context: Context, splits: Map<String, List<Pair<Double, String>>>) {
         val obj = JSONObject()
         for ((k, v) in splits) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
-        file(context, SPLIT_FILE).writeKeepingBackup(obj.toString())
+        doc(context, SPLIT_FILE).writeKeepingBackup(obj.toString())
     }
 
     // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.
@@ -356,6 +356,8 @@ object Storage {
     fun eraseAll(context: Context): Unit = synchronized(lock) {
         context.filesDir.listFiles()?.forEach { if (it.isFile) it.delete() }
         clearTransactions(context)
+        try { store(context).let { it.clearAllKv(); it.clearAllDocs() } } catch (e: Exception) { CrashLog.warn("Erase decisions", e) }
+        SafeFileStats.writes++
         for (n in listOf(PREFS, "zelu_backup", "zelu_recap")) context.getSharedPreferences(n, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
@@ -402,7 +404,7 @@ object Storage {
         o.optLong("since"), o.optLong("last"), o.optString("raw"), o.optString("source"))
 
     fun loadMandates(context: Context): List<Mandate> = synchronized(lock) {
-        val f = file(context, MANDATE_FILE)
+        val f = doc(context, MANDATE_FILE)
         if (!f.exists()) emptyList() else try {
             val obj = f.readWithBackup { JSONObject(it) }; val out = ArrayList<Mandate>()
             for (k in obj.keys()) out.add(mandateFromJson(obj.getJSONObject(k)))
@@ -423,13 +425,13 @@ object Storage {
         if (found.isNotEmpty() || replace) {
             val obj = JSONObject()
             for ((k, v) in cur) obj.put(k, mandateToJson(v))
-            file(context, MANDATE_FILE).writeKeepingBackup(obj.toString())
+            doc(context, MANDATE_FILE).writeKeepingBackup(obj.toString())
         }
     }
 
     // ---- payments you added by hand from a message Zelu couldn't read ----
     fun addManualTxn(context: Context, row: Row, smsKey: String): Unit = synchronized(lock) {
-        val f = file(context, MANUAL_TXN_FILE)
+        val f = doc(context, MANUAL_TXN_FILE)
         val obj = try { if (f.exists()) f.readWithBackup { JSONObject(it) } else JSONObject() } catch (_: Exception) { JSONObject() }
         obj.put(row.id, rowToJson(row))
         f.writeKeepingBackup(obj.toString())
@@ -437,7 +439,7 @@ object Storage {
     }
 
     private fun manualTxns(context: Context): Map<String, Row> {
-        val f = file(context, MANUAL_TXN_FILE)
+        val f = doc(context, MANUAL_TXN_FILE)
         if (!f.exists()) return emptyMap()
         return try {
             val obj = f.readWithBackup { JSONObject(it) }; val out = HashMap<String, Row>()
@@ -499,7 +501,7 @@ object Storage {
     private const val MANUAL_FILE = "manual_reminders.json"
 
     private fun readManual(context: Context): org.json.JSONArray = try {
-        val f = file(context, MANUAL_FILE)
+        val f = doc(context, MANUAL_FILE)
         if (f.exists()) f.readWithBackup { org.json.JSONArray(it) } else org.json.JSONArray()
     } catch (_: Exception) { org.json.JSONArray() }
 
@@ -507,7 +509,7 @@ object Storage {
         val arr = readManual(context)
         arr.put(JSONObject().put("id", System.currentTimeMillis().toString()).put("name", name).put("amount", amount)
             .put("due", dueDate).put("recurring", recurring))
-        file(context, MANUAL_FILE).writeKeepingBackup(arr.toString())
+        doc(context, MANUAL_FILE).writeKeepingBackup(arr.toString())
     }
 
     // id is a reminder id ("man-<id>" or "man-<id>-<yyyy-MM>").
@@ -515,7 +517,7 @@ object Storage {
         val base = reminderId.removePrefix("man-").substringBefore("-")
         val arr = readManual(context); val keep = org.json.JSONArray()
         for (i in 0 until arr.length()) if (arr.getJSONObject(i).getString("id") != base) keep.put(arr.getJSONObject(i))
-        file(context, MANUAL_FILE).writeKeepingBackup(keep.toString())
+        doc(context, MANUAL_FILE).writeKeepingBackup(keep.toString())
     }
 
     private fun manualReminders(context: Context): List<Reminder> {
@@ -545,7 +547,7 @@ object Storage {
 
     // ---- lending repayments ----  person key (lowercased counterparty) -> amount repaid
     fun loadRepaid(context: Context): Map<String, Double> = synchronized(lock) {
-        val f = file(context, REPAID_FILE)
+        val f = doc(context, REPAID_FILE)
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -561,12 +563,12 @@ object Storage {
         if (amount <= 0.0) cur.remove(personKey) else cur[personKey] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, REPAID_FILE).writeKeepingBackup(o.toString())
+        doc(context, REPAID_FILE).writeKeepingBackup(o.toString())
     }
 
     // ---- per-category budgets ----
     fun loadBudgets(context: Context): Map<String, Double> = synchronized(lock) {
-        val f = file(context, BUDGET_FILE)
+        val f = doc(context, BUDGET_FILE)
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -582,14 +584,14 @@ object Storage {
         if (amount <= 0.0) cur.remove(category) else cur[category] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, BUDGET_FILE).writeKeepingBackup(o.toString())
+        doc(context, BUDGET_FILE).writeKeepingBackup(o.toString())
     }
 
     // ---- latest known bank balance per account (account -> amount, receivedMs) ----
     // Source "b" = a balance-only alert (authoritative); "t" = tail of a debit/credit alert,
     // used only for accounts that never send a balance-only alert.
     private fun readBalFile(context: Context): MutableMap<String, Triple<Double, Long, String>> {
-        val f = file(context, "balances.json")
+        val f = doc(context, "balances.json")
         val m = LinkedHashMap<String, Triple<Double, Long, String>>()
         if (!f.exists()) return m
         try {
@@ -716,7 +718,7 @@ object Storage {
         }
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second).put("s", v.third))
-        file(context, "balances.json").writeKeepingBackup(o.toString())
+        doc(context, "balances.json").writeKeepingBackup(o.toString())
     }
 
     // ---- latest available credit limit per card account ----
@@ -725,7 +727,7 @@ object Storage {
     }
 
     private fun loadLimitsRaw(context: Context): Map<String, Pair<Double, Long>> = synchronized(lock) {
-        val f = file(context, "limits.json")
+        val f = doc(context, "limits.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -745,7 +747,7 @@ object Storage {
         cur[account] = amount to System.currentTimeMillis()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeKeepingBackup(o.toString())
+        doc(context, "limits.json").writeKeepingBackup(o.toString())
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", manualLimitKeys(context) + account).apply()
     }
 
@@ -758,12 +760,12 @@ object Storage {
         if (manChanged) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("manual_limits", man).apply()
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("a", v.first).put("d", v.second))
-        file(context, "limits.json").writeKeepingBackup(o.toString())
+        doc(context, "limits.json").writeKeepingBackup(o.toString())
     }
 
     // ---- refund links: refund id -> true (same spend, net it) / false (not related) ----
     fun loadRefundLinks(context: Context): Map<String, Boolean> = synchronized(lock) {
-        val f = file(context, "refund_links.json")
+        val f = doc(context, "refund_links.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, Boolean>()
@@ -779,12 +781,12 @@ object Storage {
 
     private fun writeRefundLinks(context: Context, links: Map<String, Boolean>) {
         val o = JSONObject(); for ((k, v) in links) o.put(k, v)
-        file(context, "refund_links.json").writeKeepingBackup(o.toString())
+        doc(context, "refund_links.json").writeKeepingBackup(o.toString())
     }
 
     // ---- savings plan inputs (SIP, EMI, goal...) ----
     fun loadPlan(context: Context): Map<String, String> = synchronized(lock) {
-        val f = file(context, "plan.json")
+        val f = doc(context, "plan.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, String>()
@@ -795,12 +797,12 @@ object Storage {
 
     fun savePlan(context: Context, m: Map<String, String>): Unit = synchronized(lock) {
         val o = JSONObject(); for ((k, v) in m) o.put(k, v)
-        file(context, "plan.json").writeKeepingBackup(o.toString())
+        doc(context, "plan.json").writeKeepingBackup(o.toString())
     }
 
     // ---- per-card preferences: billing cycle day + monthly budget ----
     fun loadCardPrefs(context: Context): Map<String, Pair<Int, Double>> = synchronized(lock) {
-        val f = file(context, "card_prefs.json")
+        val f = doc(context, "card_prefs.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -816,22 +818,22 @@ object Storage {
         cur[account] = day to budget
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("d", v.first).put("b", v.second))
-        file(context, "card_prefs.json").writeKeepingBackup(o.toString())
+        doc(context, "card_prefs.json").writeKeepingBackup(o.toString())
     }
 
     // ---- overall monthly spending budget ----
     fun loadMonthlyBudget(context: Context): Double = synchronized(lock) {
-        val f = file(context, "monthly_budget.txt")
+        val f = doc(context, "monthly_budget.txt")
         if (!f.exists()) 0.0 else f.readText().trim().toDoubleOrNull()?.takeIf { it >= 0 } ?: 0.0
     }
 
     fun saveMonthlyBudget(context: Context, amount: Double): Unit = synchronized(lock) {
-        file(context, "monthly_budget.txt").writeKeepingBackup(amount.toString())
+        doc(context, "monthly_budget.txt").writeKeepingBackup(amount.toString())
     }
 
     // ---- user-made categories (name -> emoji + colour) ----
     fun loadCustomCats(context: Context): Map<String, Pair<String, Long>> = synchronized(lock) {
-        val f = file(context, "custom_categories.json")
+        val f = doc(context, "custom_categories.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -847,12 +849,12 @@ object Storage {
         cur[name] = emoji to color
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, JSONObject().put("e", v.first).put("c", v.second))
-        file(context, "custom_categories.json").writeKeepingBackup(o.toString())
+        doc(context, "custom_categories.json").writeKeepingBackup(o.toString())
     }
 
     // ---- fixed monthly outflow plan (name -> typical monthly amount) ----
     fun loadFixed(context: Context): Map<String, Double> = synchronized(lock) {
-        val f = file(context, "fixed_outflow.json")
+        val f = doc(context, "fixed_outflow.json")
         if (!f.exists()) return emptyMap()
         try {
             val o = f.readWithBackup { JSONObject(it) }
@@ -868,7 +870,7 @@ object Storage {
         if (amount <= 0.0) cur.remove(name) else cur[name] = amount
         val o = JSONObject()
         for ((k, v) in cur) o.put(k, v)
-        file(context, "fixed_outflow.json").writeKeepingBackup(o.toString())
+        doc(context, "fixed_outflow.json").writeKeepingBackup(o.toString())
     }
 
     // Explicit paid(true)/unpaid(false) override per reminder. An explicit entry always
@@ -878,11 +880,11 @@ object Storage {
         m[id] = done
         val o = JSONObject()
         for ((k, v) in m) o.put(k, v)
-        file(context, REM_DONE_FILE).writeKeepingBackup(o.toString())
+        doc(context, REM_DONE_FILE).writeKeepingBackup(o.toString())
     }
 
     fun loadReminderState(context: Context): Map<String, Boolean> = synchronized(lock) {
-        val f = file(context, REM_DONE_FILE)
+        val f = doc(context, REM_DONE_FILE)
         if (!f.exists()) return emptyMap()
         return try {
             f.readWithBackup { txt ->
@@ -902,7 +904,7 @@ object Storage {
     }
 
     private fun readReminderMap(context: Context): Map<String, Reminder> {
-        val f = file(context, REMINDER_FILE)
+        val f = doc(context, REMINDER_FILE)
         if (!f.exists()) return emptyMap()
         return try {
             val obj = f.readWithBackup { JSONObject(it) }
@@ -916,7 +918,7 @@ object Storage {
     private fun writeReminderMap(context: Context, map: Map<String, Reminder>) {
         val obj = JSONObject()
         for ((k, r) in map) obj.put(k, reminderToJson(r))
-        file(context, REMINDER_FILE).writeKeepingBackup(obj.toString())
+        doc(context, REMINDER_FILE).writeKeepingBackup(obj.toString())
     }
 
     private fun reminderToJson(r: Reminder): JSONObject = JSONObject().apply {
@@ -940,9 +942,7 @@ object Storage {
     )
 
     fun setOverride(context: Context, id: String, kind: Kind, category: String) = synchronized(lock) {
-        val kv = readKv(context, OVERRIDE_FILE).toMutableMap()
-        kv[id] = kind.key to category
-        writeKv(context, OVERRIDE_FILE, kv)
+        putKv(context, OVERRIDE_FILE, id, kind.key to category)
     }
 
     // Rename a payee, or merge it into another by giving it that payee's name. Rules follow the new name.
@@ -965,25 +965,21 @@ object Storage {
     private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE)
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
-        UNDO_FILES.associateWith { n -> val f = file(context, n); if (f.exists()) f.readText() else null }
+        UNDO_FILES.associateWith { n -> exportText(context, n) }
     }
 
     fun restoreSnapshot(context: Context, snap: Map<String, String?>): Unit = synchronized(lock) {
-        for ((n, t) in snap) { val f = file(context, n); if (t == null) f.delete() else f.writeKeepingBackup(t) }
+        for ((n, t) in snap) importText(context, n, t)
     }
 
     fun setTitle(context: Context, id: String, title: String): Unit = synchronized(lock) {
-        val kv = readKv(context, TITLE_FILE).toMutableMap()
-        if (title.isBlank()) kv.remove(id) else kv[id] = title.trim() to ""
-        writeKv(context, TITLE_FILE, kv)
+        putKv(context, TITLE_FILE, id, if (title.isBlank()) null else title.trim() to "")
     }
 
     fun setPayeeRule(context: Context, payee: String, kind: Kind, category: String) = synchronized(lock) {
         val key = payee.lowercase().trim()
         if (key.isEmpty()) return@synchronized
-        val kv = readKv(context, RULE_FILE).toMutableMap()
-        kv[key] = kind.key to category
-        writeKv(context, RULE_FILE, kv)
+        putKv(context, RULE_FILE, key, kind.key to category)
     }
 
     fun splitList(s: String): List<String> =
@@ -1037,27 +1033,123 @@ object Storage {
 
     private fun readMap(context: Context): Map<String, Row> = readMapOrNull(context) ?: emptyMap()
 
-    // ---- key/value files (id -> "kind|category") ----
-    private fun readKv(context: Context, name: String): Map<String, Pair<String, String>> {
-        val f = file(context, name)
-        if (!f.exists()) return emptyMap()
-        return try {
-            val obj = f.readWithBackup { JSONObject(it) }
-            val out = HashMap<String, Pair<String, String>>()
-            val keys = obj.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                val parts = obj.getString(k).split("|", limit = 2)
-                if (parts.size == 2) out[k] = parts[0] to parts[1]
+    // ---- your decisions, in the database (kv and doc tables, see Db.kt) ----
+    // Files whose every entry is "key -> a|b": one row per key in the kv table.
+    private val KV_FILES = setOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, "card_networks.json",
+        "dup_ok.json", SENDER_FILE, SENDER_BANK_FILE, CLOSEDLOAN_FILE, CATOFF_FILE, HANDLED_FILE)
+    // Every other file Zelu keeps, as its whole text in the doc table.
+    private val DOC_FILES = setOf(SPLIT_FILE, MANDATE_FILE, MANUAL_TXN_FILE, MANUAL_FILE, REPAID_FILE, BUDGET_FILE, REM_DONE_FILE,
+        REMINDER_FILE, "balances.json", "limits.json", "refund_links.json", "plan.json", "card_prefs.json", "monthly_budget.txt",
+        "custom_categories.json", "fixed_outflow.json", "income_categories.json", "taught.json")
+
+    // Files folders already checked for old files to take in; a restored backup clears it (see filesWritten).
+    private val checkedDirs = HashSet<String>()
+
+    /** A backup was just restored into the app's files: they are taken into the database on the next read. */
+    fun filesWritten(context: Context): Unit = synchronized(lock) { checkedDirs.remove(context.filesDir.absolutePath) }
+
+    // The database's decision tables, after taking in any of the files above found among the app's files: what an
+    // earlier version kept (taken in once, on the first open after the update) or what a restored backup wrote. Each
+    // replaces what the table holds for it, in one step, and is kept as "<name>.imported". A file that can't be read
+    // (nor its .bak) is left where it is and its decisions in the database stay as they were.
+    private fun store(context: Context): StoreDao = synchronized(lock) {
+        val db = ZeluDb.get(context)
+        val dir = context.filesDir.absolutePath
+        if (dir !in checkedDirs) {
+            val present = context.filesDir.list()?.toSet() ?: emptySet()
+            for (name in present.filter { it in KV_FILES || it in DOC_FILES }) {
+                val f = file(context, name)
+                try {
+                    val text = f.readWithBackup { t -> if (name in KV_FILES) JSONObject(t); t }
+                    db.runInTransaction(Runnable { writeText(db.store(), name, text) })
+                    val done = file(context, "$name.imported")
+                    done.delete()
+                    if (!f.renameTo(done)) f.delete()
+                    file(context, "$name.bak").delete()
+                } catch (e: Exception) { CrashLog.warn("Take in $name", e) }
             }
-            out
-        } catch (_: Exception) { emptyMap() }
+            SafeFileStats.writes++
+            checkedDirs.add(dir)
+        }
+        db.store()
     }
 
-    private fun writeKv(context: Context, name: String, kv: Map<String, Pair<String, String>>) {
+    // A file's text into its table: a key/value file's JSON object becomes its rows; any other file is kept as it is.
+    private fun writeText(dao: StoreDao, name: String, text: String?) {
+        if (name in KV_FILES) {
+            dao.clearKv(name)
+            if (text == null) return
+            val obj = JSONObject(text)
+            val rows = ArrayList<KvEntity>()
+            for (k in obj.keys()) {
+                val parts = obj.getString(k).split("|", limit = 2)
+                if (parts.size == 2) rows.add(KvEntity(name, k, parts[0], parts[1]))
+            }
+            dao.putKv(rows)
+        } else if (text == null) dao.removeDoc(name) else dao.putDoc(DocEntity(name, text))
+    }
+
+    /** A saved file's text as the file held it (a key/value file as its JSON object), or null when there is none. */
+    private fun exportText(context: Context, name: String): String? {
+        val dao = store(context)
+        if (name !in KV_FILES) return dao.doc(name)
+        val rows = dao.kv(name)
+        if (rows.isEmpty()) return null
         val obj = JSONObject()
-        for ((k, v) in kv) obj.put(k, v.first + "|" + v.second)
-        file(context, name).writeKeepingBackup(obj.toString())
+        for (r in rows) obj.put(r.k, r.a + "|" + r.b)
+        return obj.toString()
+    }
+
+    /** Replaces a saved file's content with [text] (null deletes it), as restoring an undo snapshot does. */
+    private fun importText(context: Context, name: String, text: String?) {
+        val db = ZeluDb.get(context)
+        val dao = store(context)
+        db.runInTransaction(Runnable { writeText(dao, name, text) })
+        SafeFileStats.writes++
+    }
+
+    /** Every saved file's text by its name, for a backup: the files older versions kept, so any version restores it. */
+    fun backupFiles(context: Context): Map<String, String> = synchronized(lock) {
+        val out = LinkedHashMap<String, String>()
+        for (n in KV_FILES + DOC_FILES) exportText(context, n)?.let { out[n] = it }
+        out
+    }
+
+    /** The text of one of Zelu's small saved files (income categories, taught messages...), or null. */
+    fun docText(context: Context, name: String): String? = synchronized(lock) { store(context).doc(name) }
+
+    /** Saves one of Zelu's small files' text. */
+    fun putDocText(context: Context, name: String, text: String): Unit = synchronized(lock) {
+        store(context).putDoc(DocEntity(name, text)); SafeFileStats.writes++
+    }
+
+    // A saved document, read and written like the file it was (exists / readWithBackup / writeKeepingBackup), so each
+    // reader below kept its parsing as it was.
+    private class Doc(val context: Context, val name: String) {
+        private val text: String? by lazy { Storage.store(context).doc(name) }
+        fun exists(): Boolean = text != null
+        fun readText(): String = text ?: throw java.io.FileNotFoundException(name)
+        fun <T> readWithBackup(parse: (String) -> T): T = parse(readText())
+        fun writeKeepingBackup(body: String) { Storage.store(context).putDoc(DocEntity(name, body)); SafeFileStats.writes++ }
+    }
+    private fun doc(context: Context, name: String) = Doc(context, name)
+
+    private fun readKv(context: Context, name: String): Map<String, Pair<String, String>> = try {
+        store(context).kv(name).associate { it.k to (it.a to it.b) }
+    } catch (e: Exception) { CrashLog.warn("Read $name", e); emptyMap() }
+
+    private fun writeKv(context: Context, name: String, kv: Map<String, Pair<String, String>>) {
+        val db = ZeluDb.get(context)
+        val dao = store(context)
+        db.runInTransaction(Runnable { dao.clearKv(name); dao.putKv(kv.map { (k, v) -> KvEntity(name, k, v.first, v.second) }) })
+        SafeFileStats.writes++
+    }
+
+    // One decision: writes (or, with null, removes) a single row.
+    private fun putKv(context: Context, name: String, key: String, value: Pair<String, String>?) {
+        val dao = store(context)
+        if (value == null) dao.removeKv(name, key) else dao.putKv(listOf(KvEntity(name, key, value.first, value.second)))
+        SafeFileStats.writes++
     }
 
     private fun rowToJson(r: Row): JSONObject = JSONObject().apply {

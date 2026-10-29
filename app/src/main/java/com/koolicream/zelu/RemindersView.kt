@@ -182,7 +182,7 @@ import java.util.Calendar
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
                 .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp)).clickable { mandateOpen = md }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(md.merchant, "Bills", 38.dp, "expense")
+                MerchantTile(md.merchant, "Bills", 38.dp, Kind.EXPENSE)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(md.merchant, color = if (live) ZColor.Ink else ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,

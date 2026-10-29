@@ -649,12 +649,12 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 @Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
     val (icon, light, dark) = when (kind) {
         "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
-        Kind.INCOME -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
-        Kind.TRANSFER -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
-        Kind.LENT -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
-        Kind.BORROWED -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
+        "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
+        "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
+        "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
+        "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
         "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
-        Kind.REFUND -> Triple(Icons.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
+        "refund" -> Triple(Icons.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
     }

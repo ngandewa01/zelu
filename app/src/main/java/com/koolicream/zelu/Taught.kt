@@ -22,23 +22,22 @@ object Taught {
     private fun norm(s: String): String = DIGITS.replace(s.lowercase(), "#")
 
     fun load(context: Context): List<Pattern> {
-        val f = java.io.File(context.filesDir, FILE)
-        if (!f.exists()) return emptyList()
+        val text = Storage.docText(context, FILE) ?: return emptyList()
         return try {
-            val arr = f.readWithBackup { JSONArray(it) }
+            val arr = JSONArray(text)
             val out = ArrayList<Pattern>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 out.add(Pattern(o.getString("s"), o.getString("sig"), o.getString("dir"), o.optString("l"), o.optString("r")))
             }
             out
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) { CrashLog.warn("Read taught messages", e); emptyList() }
     }
 
     private fun save(context: Context, list: List<Pattern>) {
         val arr = JSONArray()
         for (p in list) arr.put(JSONObject().put("s", p.sender).put("sig", p.sig).put("dir", p.direction).put("l", p.left).put("r", p.right))
-        java.io.File(context.filesDir, FILE).writeKeepingBackup(arr.toString())
+        Storage.putDocText(context, FILE, arr.toString())
     }
 
     @Synchronized
