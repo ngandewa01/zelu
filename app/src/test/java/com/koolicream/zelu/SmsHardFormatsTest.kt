@@ -148,6 +148,11 @@ class SmsHardFormatsTest {
             Exp("debit", 3000.0, "HDFC 5997", "suresh", "2026-10-19", "629311112222", "expense", "Unknown")),
         c("fd-booking", "AX-HDFCBK-S", "Rs.50,000.00 debited from A/c XX5997 on 19-10-26 towards Fixed Deposit No XX9988 booked via NetBanking.",
             Exp("debit", 50000.0, "HDFC 5997", date = "2026-10-19", kind = "invest")),
+        // Banks write FDs short: "AMT TRF TO FD A.C NO...", and "Term Deposit". Both are investments, not spending or income.
+        c("fd-trf-short", "VM-SHANBK-S", "Dear Customer, Chq No.000000 of Rs.500000.00 has been Debited from A/c.xxxx2653 on 24-Dec-2024. Thru AMT TRF TO FD A.C NO200440631000296 L CHEQ NO 347450 @ [200440631000296] Bal: Rs.4110.71 - SHANBK",
+            Exp("debit", 500000.0, "2653", date = "2024-12-24", kind = "invest")),
+        c("term-deposit-booking", "AX-HDFCBK-S", "Rs.25,000.00 debited from A/c XX5997 on 19-10-26 for Term Deposit booking via NetBanking.",
+            Exp("debit", 25000.0, "HDFC 5997", date = "2026-10-19", kind = "invest")),
         // ===== Must be ignored =====
         c("pre-debit-notice", "AX-HDFCBK-S", "Pre-debit notification: Rs.649.00 will be debited on 22-10-26 for NETFLIX via e-mandate from HDFC Bank Card x1291.", null),
         c("zero-verification", "AX-HDFCBK-S", "Your HDFC Bank Card x1291 was used for a txn of Rs.0.00 for card verification at GOOGLE on 18-10-26", null),

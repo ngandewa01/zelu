@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
@@ -589,6 +590,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     val acctNames = (balances.keys + spentBy.keys).distinct().filter { !(it.contains(" CC ") || it.startsWith("CC ") || it.endsWith(" CC")) }
         // A debit card is not an account of its own: it counts under the savings account you link it to.
         .filter { !it.contains(" DC ") }
+        .filter { a -> a.split(' ').none { it == "FD" || it == "RD" } }   // fixed and recurring deposits have their own tab
         .filter { it !in hiddenAccts }
         .sortedByDescending { balances[it]?.first ?: -1.0 }
     var allAccountsOpen by remember { mutableStateOf(false) }
@@ -598,22 +600,26 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         .groupBy { it.counterparty!! }
     var moneyTab by remember { mutableStateOf("accounts") }
     var closedLoans by remember { mutableStateOf(Storage.closedLoans(acctCtx)) }
-    val hasAcc = acctNames.isNotEmpty(); val hasCard = cardAccounts.isNotEmpty(); val hasLoan = loanGroups.isNotEmpty()
+    // Accounts marked (or recognised) as a fixed or recurring deposit: "HDFC FD 0025", "2653 FD".
+    val depositNames = accounts.filter { a -> a != "All" && a !in hiddenAccts && a.split(' ').any { it == "FD" || it == "RD" } }
+    val hasAcc = acctNames.isNotEmpty(); val hasCard = cardAccounts.isNotEmpty(); val hasLoan = loanGroups.isNotEmpty(); val hasDep = depositNames.isNotEmpty()
     val moneyTabNow = when {
         moneyTab == "accounts" && hasAcc -> "accounts"
         moneyTab == "cards" && hasCard -> "cards"
         moneyTab == "loans" && hasLoan -> "loans"
-        hasAcc -> "accounts"; hasCard -> "cards"; else -> "loans"
+        moneyTab == "deposits" && hasDep -> "deposits"
+        hasAcc -> "accounts"; hasCard -> "cards"; hasLoan -> "loans"; else -> "deposits"
     }
     @Composable fun MoneyTabs() {
-        val shown = listOf(hasAcc, hasCard, hasLoan).count { it }
+        val shown = listOf(hasAcc, hasCard, hasLoan, hasDep).count { it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
+            if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> stringResource(R.string.accounts); "cards" -> "Cards"; "deposits" -> stringResource(R.string.deposits); else -> "Loans" })
             // The tabs share the row equally, so they stay on one line next to the eye button.
             else Box(Modifier.weight(1f)) { TabRowWrap {
                 if (hasAcc) IconTab(Icons.Rounded.AccountBalance, stringResource(R.string.accounts), 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
                 if (hasCard) IconTab(Icons.Rounded.CreditCard, stringResource(R.string.cards), 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
                 if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, stringResource(R.string.loans), 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
+                if (hasDep) IconTab(Icons.Rounded.Savings, stringResource(R.string.deposits), 0xFF14B8A6, 0xFF2DD4BF, moneyTabNow == "deposits", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "deposits" }
             } }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
@@ -722,6 +728,38 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     ClosableFrame(a in closedLoans, 18.dp, onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
                     }) { CardTile(a, spent, limits[a], limits["$a#total"], due, usedSince = Analytics.cardUsedSince(allRows, a, limits[a])) { onOpenCard(a) } }
+                }
+            }
+        }
+    }
+
+    // Fixed and recurring deposits: accounts marked (or recognised) as one. A deposit has no balance of its own, so each card
+    // shows its latest payment and how many there are; tap one for its payments.
+    if (hasDep && moneyTabNow == "deposits") {
+        Panel {
+            MoneyTabs()
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                depositNames.forEach { a ->
+                    val rs = allRows.filter { it.account == a }.newestFirst()
+                    val last = rs.firstOrNull()
+                    Column(Modifier.width(260.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper)
+                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { onDrill(a, rs) }.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AcctLogo(a)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(AccountBook.displayName(a), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(acctTypeLabel(AccountBook.guessType(a)), color = ZColor.Muted, fontSize = 12.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        if (last != null) {
+                            Text(privateMoney(last.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            MutedText(plural(rs.size, "payment", "payments") + " · " + stringResource(R.string.last) + prettyDay(last.date), 12)
+                        } else MutedText(stringResource(R.string.no_payments_in_this_view), 12)
+                    }
                 }
             }
         }

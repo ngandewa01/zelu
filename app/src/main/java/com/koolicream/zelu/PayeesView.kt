@@ -434,15 +434,23 @@ import androidx.compose.ui.window.Dialog
         Panel { MutedText(stringResource(R.string.pf_nps_and_fund_contributions)) }
         return
     }
+    // What you put in is what left your account; a maturity or withdrawal coming back is shown apart, not added to it.
+    val putIn = inv.filter { it.direction == Dir.DEBIT }
+    val cameBack = inv.filter { it.direction == Dir.CREDIT }
     Panel {
         Eyebrow(stringResource(R.string.contributed))
         Spacer(Modifier.height(4.dp))
-        Text(money(inv.sumOf { it.amount }), color = ZColor.Income, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(money(putIn.sumOf { it.amount }), color = ZColor.Income, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        if (cameBack.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(R.string.came_back_to_you, money(cameBack.sumOf { it.amount })), color = ZColor.Muted, fontSize = 13.sp,
+                modifier = Modifier.clickable { onDrill("Came back to you", cameBack) })
+        }
         Spacer(Modifier.height(4.dp))
         MutedText(stringResource(R.string.kept_out_of_spending_and), 11)
     }
     fun typeOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: "Investment"
-    val byType = inv.groupBy { typeOf(it) }
+    val byType = putIn.groupBy { typeOf(it) }
         .map { (name, rows) -> Triple(name, rows.sumOf { it.amount }, rows.size) }
         .sortedByDescending { it.second }
     val top = byType.firstOrNull()?.second ?: 1.0
@@ -451,7 +459,7 @@ import androidx.compose.ui.window.Dialog
         byType.forEachIndexed { i, (name, amt, cnt) ->
             Spacer(Modifier.height(if (i == 0) 8.dp else 14.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                .clickable { onDrill(name, inv.filter { typeOf(it) == name }) }) {
+                .clickable { onDrill(name, putIn.filter { typeOf(it) == name }) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile(name, "Investment", 32.dp)
                     Spacer(Modifier.width(10.dp))
