@@ -59,7 +59,7 @@ internal fun EraseDialog(s: AppState) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Erase everything?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                MutedText("This deletes every payment, rule, account choice and setting Zelu keeps on this phone. Your messages are not touched. Backup files already saved in Downloads/Zelu stay there: delete them in your Files app if you don't want them.", 13)
+                MutedText("Deletes all Zelu data on this phone. Your SMS and saved backup files stay.", 13)
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { eraseOpen = false }.padding(12.dp))
@@ -263,7 +263,7 @@ internal fun CrashDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text("Zelu closed unexpectedly", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Sorry about that. Sending the error details helps fix it. They hold only technical text, no payments or messages, and you see the email before sending.", 13)
+                    MutedText("Sorry. Sending the error details (no payments or messages) helps fix it.", 13)
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.align(Alignment.End)) {
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).clickable { seen() }.padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -295,7 +295,7 @@ internal fun ReportDialog(s: AppState) {
                     .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                     Text("Report a problem", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Opens an email to $to. Nothing is sent until you press Send in your mail app.", 12)
+                    MutedText("Opens an email to $to; you press Send.", 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(value = what, onValueChange = { what = it }, placeholder = { Text("What went wrong?") },
                         minLines = 3, modifier = Modifier.fillMaxWidth())
@@ -360,7 +360,7 @@ internal fun BackupPasswordDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text(if (Backup.hasPassword(context)) "Change backup password" else "Set a backup password", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Backups are locked with this password, so nobody who finds the file can read your payments. Zelu cannot recover it: if you forget it, old backups cannot be opened.", 12)
+                    MutedText("Locks your backups. If you forget it, they can't be opened.", 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(value = pw, onValueChange = { pw = it }, singleLine = true, label = { Text("Password") },
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -403,7 +403,7 @@ internal fun RestoreDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text("Restore this backup?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    MutedText("It replaces your current transactions, categories, budgets and settings with the ones in the file.", 13)
+                    MutedText("Replaces everything on this phone with the file's data.", 13)
                     if (needPw) {
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(value = pw, onValueChange = { pw = it; wrong = false }, singleLine = true, label = { Text("Backup password") },

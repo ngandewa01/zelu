@@ -51,13 +51,13 @@ internal fun SendersDialog(s: AppState) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
                 Text("Unrecognised senders", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Senders Zelu doesn't recognise, whose messages read like payments. Say what each is, or tap Tell Zelu to ask for it to be added for everyone (only the sender id is sent). Bank: read as an account. Wallet: its spends are not counted again, since the top-up already was. Other: read as payments with no account. Ignore: skip it. Only add senders you trust.", 12)
+                MutedText("Senders that look like payments. Say what each one is; add only ones you trust.", 12)
                 Spacer(Modifier.height(10.dp))
                 val sl = senderList
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     when {
                         sl == null -> MutedText("Looking through your messages…", 13)
-                        sl.isEmpty() -> MutedText("None. Every sender that sends payment messages is already read.", 13)
+                        sl.isEmpty() -> MutedText("None. Every payment sender is already read.", 13)
                         else -> sl.forEach { u ->
                             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
                                 Text(u.address, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -110,7 +110,7 @@ internal fun ReadAgainDialog(s: AppState) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                 Text("Read everything again?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                MutedText("Zelu reads all your messages from scratch. Renames, categories, accounts, budgets, payments you added by hand and payments whose messages are no longer on the phone are kept.", 13)
+                MutedText("Reads every message again. Your edits and added payments stay.", 13)
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { fullConfirm = false }.padding(12.dp))
@@ -147,9 +147,9 @@ internal fun DataCheckDialog(s: AppState) {
                         Spacer(Modifier.height(14.dp))
                         Eyebrow("Do balances add up?")
                         Spacer(Modifier.height(6.dp))
-                        if (c.gaps.isEmpty()) MutedText("Yes. On every account, each alert's balance matches the one before it plus or minus the amount.", 13)
+                        if (c.gaps.isEmpty()) MutedText("Yes. Every account's balances add up.", 13)
                         else {
-                            MutedText("Where a balance jumps by more than the amount, a message is missing in between (deleted, or never sent).", 12)
+                            MutedText("A jump means a message is missing in between.", 12)
                             Spacer(Modifier.height(6.dp))
                             c.gaps.forEach { (a, n) ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -182,7 +182,7 @@ internal fun MissedDialog(s: AppState) {
                 .heightIn(max = 620.dp)) {
                 Text("Missed messages", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Bank messages that mention money but Zelu couldn't turn into a payment. If one is a real payment, tap Add as payment and it joins your list. Not a payment hides it.", 12)
+                MutedText("Money messages Zelu couldn't read. Add the real ones as payments.", 12)
                 Spacer(Modifier.height(10.dp))
                 val list = unreadList
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {

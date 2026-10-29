@@ -144,6 +144,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     onRefundAnswer: (String, Boolean) -> Unit = { _, _ -> },
     budgets: Map<String, Double> = emptyMap(),
     onOpenSpend: () -> Unit = {},
+    onSetBudget: (Double, Boolean) -> Unit = { _, _ -> },
 ) {
     val s = Analytics.summarize(list)
 
@@ -291,6 +292,58 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         }
 
+        // A budget far below what you really spend keeps this card red every month. Once, Zelu suggests one that fits
+        // your last 3 months, leaving EMI out when EMI is a big part of it. "Keep" hides it for good.
+        if (liveMonth && budget > 0) {
+            val hintCtx = LocalContext.current
+            val hints = remember { hintCtx.getSharedPreferences("zelu_hints", android.content.Context.MODE_PRIVATE) }
+            var fitSeen by remember { mutableStateOf(hints.getBoolean("budget_fit", false)) }
+            val fit = remember(allRows, budget, excludeEmi) {
+                val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
+                val spends = months.map { m -> allRows.filter { it.kind == "expense" && it.date.startsWith(m) } }.filter { it.isNotEmpty() }
+                if (spends.isEmpty()) null else {
+                    val all = spends.map { rs -> rs.sumOf { it.amount } }.average()
+                    val emi = spends.map { rs -> rs.filter { it.category == "EMI" }.sumOf { it.amount } }.average()
+                    val everyday = all - emi
+                    // EMI is a big part of it: the budget should cover everyday spending with EMI left out.
+                    val leaveEmi = emi > all * 0.2
+                    val base = if (leaveEmi || excludeEmi) everyday else all
+                    val pick = Math.ceil(base * 1.05 / 5000.0) * 5000.0
+                    // Too low: well under what a usual month costs, or EMI dwarfs the budget and isn't left out yet.
+                    val tooLow = budget < base * 0.75 || (leaveEmi && !excludeEmi && budget < all * 0.75)
+                    if (tooLow && pick > 0) Triple(pick, leaveEmi, everyday to emi) else null
+                }
+            }
+            if (!fitSeen && fit != null) {
+                val (pick, leaveEmi, parts) = fit
+                Spacer(Modifier.height(12.dp))
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Tile).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
+                    .padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Your budget looks too low", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    MutedText(if (leaveEmi) "You usually spend " + money(parts.first) + " a month on everyday things. EMIs (" +
+                        money(parts.second) + ") are fixed, so leave them out." else "You usually spend " + money(parts.first + parts.second) + " a month.", 13)
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                            .clickable { onSetBudget(pick, leaveEmi); hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
+                            .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                            Text("Budget " + money(pick) + if (leaveEmi) ", no EMI" else "", color = ZColor.Paper, fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                        Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                            .clickable { hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
+                            .padding(horizontal = 20.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                            Text("Keep", color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
         // A bill that is overdue or due in the next 3 days shows here as one line; the full list lives on Dues.
         run {
             val soonEnd = Dates.shiftDays(today, 3)
@@ -557,7 +610,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                MutedText("Tap an account to see the SMS it came from. You can keep it or hide it.", 12)
+                MutedText("Tap one to see its messages, or hide it.", 12)
                 acctNames.sortedBy { it in closedLoans }.forEach { a ->
                     ClosableFrame(a in closedLoans, 16.dp, Modifier.fillMaxWidth(), onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
@@ -586,7 +639,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
                 Text(a, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Zelu made this account from these messages. If they aren't about an account of yours, hide it.", 12)
+                MutedText("Made from these messages. Not yours? Hide it.", 12)
                 Spacer(Modifier.height(10.dp))
                 val refs = sourceRefs
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {

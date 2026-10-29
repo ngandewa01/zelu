@@ -84,7 +84,7 @@ import androidx.compose.ui.window.Dialog
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
             Text("Budgets", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            MutedText("Monthly amount per category; blank for none. Tap Fixed on costs that are the same every month (maid, milk, electricity).", 12)
+            MutedText("A monthly limit per category. Mark same-every-month costs as Fixed.", 12)
             Spacer(Modifier.height(12.dp))
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                 names.forEach { c ->
@@ -209,7 +209,7 @@ import androidx.compose.ui.window.Dialog
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    MutedText("Average of your last 3 full months. Spending already includes your EMIs.", 12)
+                    MutedText("Average of your last 3 months, EMIs included.", 12)
                 }
 
                 // 2. SIP
@@ -236,7 +236,7 @@ import androidx.compose.ui.window.Dialog
                     } else {
                         field("New EMI to plan for (₹ / month)", emi) { emi = it }
                         Spacer(Modifier.height(4.dp))
-                        MutedText("Only add a new loan. Your current EMIs are already in your spending.", 12)
+                        MutedText("Only for a new loan; current EMIs are already counted.", 12)
                     }
                 }
 
@@ -297,7 +297,7 @@ import androidx.compose.ui.window.Dialog
                         }
                         if (needed > left - emiN) {
                             Spacer(Modifier.height(4.dp))
-                            MutedText("That is more than you have left each month. Raise the years or lower the goal.", 12)
+                            MutedText("More than you have left each month. Add years or lower the goal.", 12)
                         }
                     }
                 }

@@ -259,7 +259,7 @@ import java.util.Locale
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)) {
                 Text("Billing cycle starts on", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("For a cycle 1 Apr – 30 Apr choose 1. Check your card bill for the exact day.", 12)
+                MutedText("The day your card's cycle starts (see your bill).", 12)
                 Spacer(Modifier.height(12.dp))
                 (1..31).chunked(7).forEach { weekDays ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -367,12 +367,16 @@ internal object LimitAsk {
                         fontSize = if (shown != null) 26.sp else 18.sp, fontWeight = FontWeight.Bold,
                         modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(privateMoney(spent), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(" spent this cycle", color = soft, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (due != null) "Due " + prettyDay(due.dueDate) + " · " + privateMoney(due.amount) else "No bill due",
-                        color = if (due != null) Color.White else soft, fontSize = 13.sp, fontWeight = if (due != null) FontWeight.Bold else FontWeight.Normal)
-                }
+                // Only what has something to say: this cycle's spend and the bill, each when there is one.
+                if (spent >= 0.5 || due != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (spent >= 0.5) {
+                        Text(privateMoney(spent), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(" spent this cycle", color = soft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (due != null) Text("Due " + prettyDay(due.dueDate) + " · " + privateMoney(due.amount),
+                        color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                } else Spacer(Modifier.height(1.dp))
             }
         }
     }
