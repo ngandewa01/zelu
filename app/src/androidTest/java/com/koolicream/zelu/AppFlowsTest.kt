@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -39,7 +40,7 @@ class AppFlowsTest {
         Ingest.rebuild(demo, Demo.messages())
         Storage.setDataVersion(demo, Storage.PARSER_VERSION)
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor { compose.onAllNodesWithText("Recent").fetchSemanticsNodes().isNotEmpty() }   // past the start screen
+        waitFor { onHome() }   // past the start screen
     }
 
     @After fun back() {
@@ -49,10 +50,10 @@ class AppFlowsTest {
 
     private fun waitFor(timeoutMs: Long = 30_000, cond: () -> Boolean) = compose.waitUntil(timeoutMs) { cond() }
 
-    private fun onHome() = compose.onAllNodesWithText("Recent").fetchSemanticsNodes().isNotEmpty()
+    // Home is the screen with the Add button (its words are drawn in capitals, so a tag is the steadier handle).
+    private fun onHome() = compose.onAllNodesWithTag("add-transaction").fetchSemanticsNodes().isNotEmpty()
 
     @Test fun opensOnHomeWithSamplePayments() {
-        compose.onNodeWithText("Recent").assertIsDisplayed()
         compose.onNodeWithTag("add-transaction").assertIsDisplayed()
         compose.onNodeWithTag("nav-ledger").assertIsDisplayed()
     }
@@ -64,7 +65,7 @@ class AppFlowsTest {
         }
         compose.onNodeWithTag("nav-ledger").performClick()
         waitFor { onHome() }
-        compose.onNodeWithText("Recent").assertIsDisplayed()
+        compose.onNodeWithTag("add-transaction").assertIsDisplayed()
     }
 
     @Test fun aPaymentAddedByHandAppearsOnHome() {
@@ -103,6 +104,6 @@ class AppFlowsTest {
         compose.onNodeWithText("Add a transaction").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         waitFor { compose.onAllNodesWithText("Add a transaction").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("Recent").assertIsDisplayed()
+        compose.onNodeWithTag("add-transaction").assertIsDisplayed()
     }
 }
