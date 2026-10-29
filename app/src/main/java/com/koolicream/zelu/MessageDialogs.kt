@@ -409,20 +409,23 @@ internal fun AddTransactionDialog(s: AppState) {
                 Eyebrow(stringResource(R.string.category))
                 Spacer(Modifier.height(6.dp))
                 val cats = if (isIn) IncomeCats.all else Classifier.CATEGORIES.keys.toList() + CustomCats.names
-                ChipScroll { cats.forEach { c -> Chip(c, category == c) { category = if (category == c) null else c } } }
+                // Its own scroll position per kind, so switching from Spent to Received doesn't open the income list part-way along.
+                androidx.compose.runtime.key(isIn) {
+                    ChipScroll { cats.forEach { c -> CatTab(c, category == c) { category = if (category == c) null else c } } }
+                }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = note, onValueChange = { note = it }, singleLine = true,
                     placeholder = { Text(stringResource(R.string.note_optional)) }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                // Cancel and Save share one row; "Save & add another" has its own line, so no button is squeezed on a narrow phone.
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { addNew = false }.padding(12.dp))
-                    Text(stringResource(R.string.save_and_add_another), color = ZColor.Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                        modifier = Modifier.clickable { save(true) }.padding(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save(false) }.testTag("add-save").padding(horizontal = 22.dp, vertical = 10.dp)) {
-                        Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save(false) }.testTag("add-save").padding(horizontal = 28.dp, vertical = 10.dp)) {
+                        Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                     }
                 }
+                Text(stringResource(R.string.save_and_add_another), color = ZColor.Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).clickable { save(true) }.padding(12.dp))
             }
         }
     }
