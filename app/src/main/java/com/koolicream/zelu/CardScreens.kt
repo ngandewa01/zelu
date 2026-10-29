@@ -173,7 +173,7 @@ import java.util.Locale
                         InfoDot(stringResource(R.string.card_spends_count_in_your))
                     }
                     Text(money(spent), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    if (budget > 0) MutedText(stringResource(R.string.of) + money(budget), 12)
+                    if (budget > 0) MutedText(stringResource(R.string.of, money(budget)), 12)
                 }
             }
             Spacer(Modifier.height(18.dp))
@@ -378,7 +378,7 @@ import java.util.Locale
                         Text(stringResource(R.string.spent_this_cycle), color = soft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.weight(1f))
-                    if (due != null) Text(stringResource(R.string.due) + prettyDay(due.dueDate) + " · " + privateMoney(due.amount),
+                    if (due != null) Text(stringResource(R.string.due, prettyDay(due.dueDate)) + " · " + privateMoney(due.amount),
                         color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 } else Spacer(Modifier.height(1.dp))
             }

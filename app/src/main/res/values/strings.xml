@@ -308,7 +308,6 @@
     <string name="add_a_bill">Add a bill</string>
     <string name="for_bills_with_no_sms">For bills with no SMS, like rent or school fees.</string>
     <string name="what_is_it_rent">What is it? (Rent)</string>
-    <string name="due">"Due "</string>
     <string name="due">Due %1$s</string>
     <string name="minimum_due">Minimum due: %1$s</string>
     <string name="remove_bill">Remove bill</string>
@@ -316,7 +315,6 @@
     <string name="back">Back</string>
     <string name="credit_card">%1$s Credit Card</string>
     <string name="card_spends_count_in_your">Card spends count in your totals as they happen. Paying the card bill later is a transfer, so it isn\'t counted again.</string>
-    <string name="of">"of "</string>
     <string name="available_credit">Available credit</string>
     <string name="transactions">Transactions</string>
     <string name="merchants">Merchants</string>

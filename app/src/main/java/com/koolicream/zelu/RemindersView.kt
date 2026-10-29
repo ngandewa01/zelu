@@ -255,7 +255,7 @@ import java.util.Calendar
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                         .clickable { pickDate(ctxAdd, due) { due = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                        Text(stringResource(R.string.due) + prettyDate(due), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.due, prettyDate(due)), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.width(10.dp))
                     Chip(stringResource(R.string.every_month), monthly, true) { monthly = !monthly }
