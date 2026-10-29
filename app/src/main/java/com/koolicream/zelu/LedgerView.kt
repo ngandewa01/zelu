@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
@@ -148,6 +149,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     onRefundAnswer: (String, Boolean) -> Unit = { _, _ -> },
     budgets: Map<String, Double> = emptyMap(),
     onOpenSpend: () -> Unit = {},
+    onAdd: () -> Unit = {},
     onSetBudget: (Double, Boolean) -> Unit = { _, _ -> },
     monthlyBudget: Double = 0.0,
 ) {
@@ -518,10 +520,20 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     // Recent — horizontal strip
     Panel {
         val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
-        Row(Modifier.fillMaxWidth().clickable { onDrill("All transactions", recent) },
+        Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.recent))
-            Text(stringResource(R.string.see_all), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onAdd() }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Add, null, tint = ZColor.Paper, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.add), color = ZColor.Paper, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.see_all), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onDrill("All transactions", recent) })
+            }
         }
         Spacer(Modifier.height(8.dp))
         if (recent.isEmpty()) MutedText(stringResource(R.string.no_transactions_here))
