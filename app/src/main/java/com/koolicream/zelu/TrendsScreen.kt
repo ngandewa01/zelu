@@ -56,7 +56,7 @@ import kotlinx.coroutines.delay
 
 @Composable internal fun PaceView(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
-    excludeEmi: Boolean = false, leave: Set<String> = emptySet(),
+    excludeEmi: Boolean = false, leave: Set<String> = emptySet(), budget: Double = 0.0,
 ) {
     // The budget is for flexible spending: EMI and costs marked Fixed are left out here.
     val baseRows = allRows.filter { it.category !in leave && !(excludeEmi && it.category == "EMI") }
@@ -68,7 +68,7 @@ import kotlinx.coroutines.delay
             InfoDot("Your spending so far against an even share of the monthly budget for the days gone." +
                 if (leave.isNotEmpty()) " EMI and fixed costs are left out." else "", "Budget pace")
         }
-        if (Analytics.BUDGET <= 0) {
+        if (budget <= 0) {
             Spacer(Modifier.height(4.dp))
             MutedText("Set a monthly budget to see your pace.", 13)
         } else if (f.period != "month") {
@@ -80,20 +80,20 @@ import kotlinx.coroutines.delay
             val upto = if (isCur) Dates.dayOfMonth() else dim
             val run = Analytics.runningTotals(baseRows, month, account, upto)
             val total = if (upto > 0) run[upto] else 0.0
-            val pace = Analytics.BUDGET * upto / dim
+            val pace = budget * upto / dim
             val diff = total - pace
             Text(if (diff > 0) money(diff) + " over pace" else money(-diff) + " under pace",
                 color = if (diff > 0) ZColor.AmberInk else ZColor.Income, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            MutedText(money(total) + " of " + money(Analytics.BUDGET) + (if (isCur) " · day $upto of $dim" else ""), 12)
+            MutedText(money(total) + " of " + money(budget) + (if (isCur) " · day $upto of $dim" else ""), 12)
             if (isCur && upto > 0) {
                 val projected = total / upto * dim
                 Spacer(Modifier.height(4.dp))
                 Text("≈ ${money(projected)} by ${Dates.monthLabel(month).take(3)}-end",
-                    color = if (projected > Analytics.BUDGET) ZColor.AmberInk else ZColor.Income,
+                    color = if (projected > budget) ZColor.AmberInk else ZColor.Income,
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(12.dp))
-            PaceChart(run, upto, dim, Analytics.BUDGET)
+            PaceChart(run, upto, dim, budget)
         }
     }
 }

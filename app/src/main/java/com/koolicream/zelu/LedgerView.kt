@@ -145,6 +145,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     budgets: Map<String, Double> = emptyMap(),
     onOpenSpend: () -> Unit = {},
     onSetBudget: (Double, Boolean) -> Unit = { _, _ -> },
+    monthlyBudget: Double = 0.0,
 ) {
     val s = Analytics.summarize(list)
 
@@ -195,7 +196,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     Panel {
         val isMonth = f.period == "month"
         val liveMonth = isMonth && f.month == Dates.todayMonth()
-        val budget = Analytics.BUDGET
+        val budget = monthlyBudget
         val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         val today = Dates.today()
         // Bills still to pay this month, overdue ones included, settled the same way as on Dues. A card bill pays for

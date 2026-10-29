@@ -135,7 +135,7 @@ internal fun CategoriesDialog(s: AppState) {
                             scope.launch {
                                 withContext(Dispatchers.IO) { Storage.setCategoryCounts(context, c, !counts) }
                                 catOff = withContext(Dispatchers.IO) { Storage.categoriesOff(context) }
-                                rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                                refreshRows()
                             }
                         }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                             CatDot(c, 30.dp)
@@ -193,7 +193,7 @@ internal fun SplitDialog(s: AppState) {
                                     val parts = amts.indices.map { (amts[it].toDoubleOrNull() ?: 0.0) to cats[it] }
                                     scope.launch {
                                         withContext(Dispatchers.IO) { Storage.setSplit(context, t.id, parts) }
-                                        rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                                        refreshRows()
                                         splitFor = null
                                         Toast.makeText(context, "Split into ${parts.size} parts", Toast.LENGTH_SHORT).show()
                                     }
@@ -312,7 +312,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                     if (r.id.contains('#')) {
                         scope.launch {
                             withContext(Dispatchers.IO) { Storage.setSplit(context, r.id.substringBefore('#'), null) }
-                            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+                            refreshRows()
                             Toast.makeText(context, "Split removed", Toast.LENGTH_SHORT).show()
                         }
                     } else splitFor = r

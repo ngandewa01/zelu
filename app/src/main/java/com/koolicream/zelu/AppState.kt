@@ -24,6 +24,8 @@ import kotlinx.coroutines.withContext
 @Stable
 class AppState(val context: Context, val scope: CoroutineScope) {
     var rows by mutableStateOf<List<Row>>(emptyList())
+    // Refunds that look like they belong to an earlier spend, waiting for a Yes/No: (refund, spend).
+    var refundSuggestions by mutableStateOf<List<Pair<Row, Row>>>(emptyList())
     var reminders by mutableStateOf<List<Reminder>>(emptyList())
     var reminderState by mutableStateOf<Map<String, Boolean>>(emptyMap())
     var repaid by mutableStateOf<Map<String, Double>>(emptyMap())
@@ -106,28 +108,46 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     // Registered by the screen each time it is drawn (Android ties them to the activity).
     var notifLauncher: ActivityResultLauncher<String>? = null
     var restoreLauncher: ActivityResultLauncher<Array<String>>? = null
+    var storageLauncher: ActivityResultLauncher<String>? = null
+    // What to save once storage access is given (Android 7-9 only; see Exporter.needsPermission).
+    var afterStorage: (() -> Unit)? = null
+
+    /** Runs [save] now, or first asks for storage access on Android 7-9 and runs it once given. */
+    fun withStorage(save: () -> Unit) {
+        val launcher = storageLauncher
+        if (!Exporter.needsPermission(context) || launcher == null) { save(); return }
+        afterStorage = save
+        launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    }
 
     fun noteMissed(n: Int) { missedCount = n; missedSeen = n; Storage.setMissedSeen(context, n) }
 
-    fun backupNow() {
+    fun backupNow() = withStorage {
         scope.launch {
             val body = withContext(Dispatchers.IO) { Backup.exportEncrypted(context) }
             val ok = body != null && withContext(Dispatchers.IO) {
                 Exporter.exportText(context, "zelu-backup-${Dates.today()}.json", "application/json", body)
             }
             if (ok) { Backup.markManual(context); withContext(Dispatchers.IO) { Exporter.pruneBackups(context) } }
-            Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Backup needs Android 10+", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, if (ok) "Backup saved to Downloads/Zelu" else "Couldn't save the backup to Downloads", Toast.LENGTH_LONG).show()
         }
     }
 
     fun hasPerm() = context is DemoContext || ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
 
+    /** Reads the payments again (and the refund questions that go with them) after something changed. */
+    suspend fun refreshRows() {
+        val (r, refunds) = withContext(Dispatchers.IO) { Storage.loadRowsAndRefunds(context) }
+        refundSuggestions = refunds
+        rows = r
+    }
+
     fun reload() {
         scope.launch {
             // Read everything first, then show it in one go, so balances never trail behind the payments.
             class Loaded(
-                val rows: List<Row>, val reminders: List<Reminder>, val reminderState: Map<String, Boolean>,
+                val rows: Pair<List<Row>, List<Pair<Row, Row>>>, val reminders: List<Reminder>, val reminderState: Map<String, Boolean>,
                 val repaid: Map<String, Double>, val budgets: Map<String, Double>, val monthlyBudget: Double,
                 val fixed: Map<String, Double>, val balances: Map<String, Pair<Double, Long>>,
                 val limits: Map<String, Pair<Double, Long>>, val manual: Set<String>,
@@ -137,7 +157,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             val l = withContext(Dispatchers.IO) {
                 IncomeCats.load(context)
                 Loaded(
-                    Storage.loadRows(context), Storage.loadReminders(context), Storage.loadReminderState(context),
+                    Storage.loadRowsAndRefunds(context), Storage.loadReminders(context), Storage.loadReminderState(context),
                     Storage.loadRepaid(context), Storage.loadBudgets(context), Storage.loadMonthlyBudget(context),
                     Storage.loadFixed(context), Storage.loadBalances(context), Storage.loadLimits(context),
                     Storage.manualLimitKeys(context), Storage.loadCardPrefs(context), Storage.loadCustomCats(context),
@@ -152,7 +172,8 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             reminders = l.reminders; reminderState = l.reminderState; repaid = l.repaid
             budgets = l.budgets; monthlyBudget = l.monthlyBudget; fixed = l.fixed
             balances = l.balances; limits = l.limits
-            rows = l.rows
+            refundSuggestions = l.rows.second
+            rows = l.rows.first
         }
     }
 
@@ -178,7 +199,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) { Storage.setRefundLink(context, refundId, yes) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             undo = (if (yes) "Refund matched to the spend" else "Refund kept separate") to snap
         }
     }
@@ -275,7 +296,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
                 Storage.setOverride(context, id, kind, category)
                 if (remember && !payee.isNullOrBlank()) Storage.setPayeeRule(context, payee, kind, category)
             }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             askOpen = false
             undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category" else "Moved to $category") to snap
         }
@@ -285,7 +306,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) { Storage.setAlias(context, from, to) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             undo = (if (to.isBlank()) "Name reset" else "Renamed to ${to.trim()}") to snap
         }
     }
@@ -294,7 +315,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) { Storage.setTitle(context, id, title) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             undo = "Title changed" to snap
         }
     }
@@ -305,7 +326,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.restoreSnapshot(context, u.second) }
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
         }
@@ -316,7 +337,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) { change() }
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             balances = withContext(Dispatchers.IO) { Storage.loadBalances(context) }
             limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
             undo = msg to snap

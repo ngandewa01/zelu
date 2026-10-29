@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import java.util.Calendar
 
 // Nightly (10 PM IST unless you pick another time) "₹8,091 spent today · ₹62,279 in October" notification.
 // Quiet days with no spending post nothing.
@@ -22,13 +21,9 @@ object DailySummary {
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!NotifyPrefs.dailyOn(context)) { am.cancel(pending(context)); return }
-            val mins = NotifyPrefs.dailyAt(context)
-            val at = Calendar.getInstance(Dates.IST).apply {
-                set(Calendar.HOUR_OF_DAY, mins / 60); set(Calendar.MINUTE, mins % 60); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
-            }
-            am.setInexactRepeating(AlarmManager.RTC, at.timeInMillis, AlarmManager.INTERVAL_DAY, pending(context))
-        } catch (_: Exception) {
+            Alarms.setDaily(context, NotifyPrefs.dailyAt(context), pending(context))
+        } catch (e: Exception) {
+            CrashLog.warn("Schedule daily summary", e)
         }
     }
 
@@ -80,5 +75,8 @@ object DailySummary {
 }
 
 class DailyReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = inBackground { DailySummary.notifyToday(context) }
+    override fun onReceive(context: Context, intent: Intent) = inBackground {
+        DailySummary.schedule(context)  // tomorrow's
+        DailySummary.notifyToday(context)
+    }
 }

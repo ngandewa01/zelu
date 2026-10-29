@@ -21,14 +21,10 @@ object WeeklySummary {
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!NotifyPrefs.weeklyOn(context)) { am.cancel(pending(context)); return }
-            val mins = NotifyPrefs.weeklyAt(context)
-            val at = Calendar.getInstance(Dates.IST).apply {
-                set(Calendar.HOUR_OF_DAY, mins / 60); set(Calendar.MINUTE, mins % 60); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
-            }
             // Fires daily; it only posts on Sundays.
-            am.setInexactRepeating(AlarmManager.RTC, at.timeInMillis, AlarmManager.INTERVAL_DAY, pending(context))
-        } catch (_: Exception) {
+            Alarms.setDaily(context, NotifyPrefs.weeklyAt(context), pending(context))
+        } catch (e: Exception) {
+            CrashLog.warn("Schedule weekly summary", e)
         }
     }
 
@@ -88,5 +84,8 @@ object WeeklySummary {
 }
 
 class WeeklyReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = inBackground { WeeklySummary.notifyWeek(context) }
+    override fun onReceive(context: Context, intent: Intent) = inBackground {
+        WeeklySummary.schedule(context)  // tomorrow's
+        WeeklySummary.notifyWeek(context)
+    }
 }

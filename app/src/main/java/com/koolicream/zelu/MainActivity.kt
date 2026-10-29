@@ -7,7 +7,10 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,47 +78,89 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
-    // App lock: asks for the phone's own PIN / pattern / fingerprint when opening, and again after the app
+class MainActivity : FragmentActivity() {
+    // App lock: asks for fingerprint, face or the phone's own PIN / pattern when opening, and again after the app
     // has been away for over 30 seconds. Off by default; switched on from the menu.
     private var locked by mutableStateOf(false)
     private var authShowing = false
     private var stoppedAt = 0L
-    private var skipNextAsk = false
-    private lateinit var authLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
 
-    private fun lockEnabled() = getSharedPreferences("zelu_security", MODE_PRIVATE).getBoolean("lock", false)
+    private fun securityPrefs() = getSharedPreferences("zelu_security", MODE_PRIVATE)
+    private fun lockEnabled() = securityPrefs().getBoolean("lock", false)
+
+    // With the lock on, the Recents screen shows a blank card instead of your balances. Android 13+ can blank just
+    // that card; older phones need FLAG_SECURE, which also blocks screenshots.
+    private val lockPrefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "lock") applyRecentsPrivacy()
+    }
+
+    private fun applyRecentsPrivacy() {
+        val hide = lockEnabled()
+        if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!hide)
+        else if (hide) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    // Made once in onCreate, as the library asks. Android 9+ draws the prompt itself; older phones get the system's
+    // PIN / pattern screen, so the library's own fingerprint dialog (which wants an AppCompat theme) is never used.
+    private lateinit var prompt: BiometricPrompt
+    private lateinit var credentialLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
+
+    private fun unlocked() { authShowing = false; locked = false; stoppedAt = 0L }
 
     private fun askUnlock() {
         if (authShowing) return
         val km = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
-        val i = if (km.isDeviceSecure) km.createConfirmDeviceCredentialIntent("Unlock Zelu", "Confirm it's you") else null
-        if (i == null) { locked = false; return }
-        try { authShowing = true; authLauncher.launch(i) } catch (_: Exception) { authShowing = false; locked = false }
+        // No screen lock on the phone: there is nothing to check against, so the app opens (as before).
+        if (!km.isDeviceSecure) { locked = false; return }
+        if (Build.VERSION.SDK_INT < 28) {
+            @Suppress("DEPRECATION")
+            val i = km.createConfirmDeviceCredentialIntent("Unlock Zelu", "Confirm it's you")
+            if (i == null) { locked = false; return }
+            try { authShowing = true; credentialLauncher.launch(i) } catch (_: Exception) { authShowing = false; locked = false }
+            return
+        }
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock Zelu")
+            .setSubtitle("Confirm it's you")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .build()
+        try { authShowing = true; prompt.authenticate(info) } catch (_: Exception) { authShowing = false; locked = false }
     }
 
     override fun onStart() {
         super.onStart()
         if (lockEnabled() && !locked && stoppedAt != 0L &&
             android.os.SystemClock.elapsedRealtime() - stoppedAt > 30_000L) locked = true
-        if (locked) { if (skipNextAsk) skipNextAsk = false else askUnlock() }
+        if (locked) askUnlock()
     }
 
     override fun onStop() {
         super.onStop()
-        stoppedAt = android.os.SystemClock.elapsedRealtime()
+        // On older phones the PIN screen is a separate activity: leaving for it is not leaving the app.
+        if (!authShowing) stoppedAt = android.os.SystemClock.elapsedRealtime()
         val app = applicationContext
         Thread { ZeluWidget.refresh(app) }.start()
     }
 
+    override fun onDestroy() {
+        securityPrefs().unregisterOnSharedPreferenceChangeListener(lockPrefListener)
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        authLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-            authShowing = false
-            skipNextAsk = true
-            if (res.resultCode == RESULT_OK) { locked = false; stoppedAt = 0L }
+        prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = unlocked()
+            // Cancelled or failed for good: stay on the lock screen, whose Unlock button asks again.
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { authShowing = false }
+        })
+        credentialLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+            if (res.resultCode == RESULT_OK) unlocked() else authShowing = false
         }
         locked = lockEnabled()
+        applyRecentsPrivacy()
+        securityPrefs().registerOnSharedPreferenceChangeListener(lockPrefListener)
         val sp = getSharedPreferences("zelu_theme", MODE_PRIVATE)
         val sysDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -165,7 +210,6 @@ fun ZeluApp() {
     with(s) {
         LaunchedEffect(Unit) { crashAsk = withContext(Dispatchers.IO) { CrashLog.isNew(context) } }
         LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
-        Analytics.BUDGET = monthlyBudget
         restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
@@ -177,6 +221,12 @@ fun ZeluApp() {
             if (smsOk) scope.launch { delay(900); stage = "scan"; rescan() } else { permDenied = true }
         }
 
+        storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+            val save = afterStorage
+            afterStorage = null
+            if (ok) save?.invoke()
+            else android.widget.Toast.makeText(context, "Allow storage access to save to Downloads/Zelu", android.widget.Toast.LENGTH_LONG).show()
+        }
         notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             checkNotif()
             if (!ok) Notifier.openSettings(context)
@@ -205,7 +255,7 @@ fun ZeluApp() {
         }
 
         LaunchedEffect(Unit) {
-            rows = withContext(Dispatchers.IO) { Storage.loadRows(context) }
+            refreshRows()
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
             reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
@@ -524,12 +574,12 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, Refunds.suggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, refundSuggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
                         onSetBudget = { amt, noEmi ->
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true
                         },
-                        onOpenSpend = { view = "spend" })
+                        onOpenSpend = { view = "spend" }, monthlyBudget = monthlyBudget)
                     "spend" -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
                         // when this month's view leaves it out. (Comparing part of this month with all of last month showed
@@ -583,7 +633,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
                             RecurringPanel(recurring)
                         }
-                        if (spendTab == 2) PaceView(rows, shown, f, month, account, excludeEmi)
+                        if (spendTab == 2) PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                             { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                     }
@@ -597,7 +647,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         s::renamePayee,
                         remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows)
                     "invest" -> InvestView(rows) { title, r -> drill = title to r }
-                    "pace" -> PaceView(rows, shown, f, month, account, excludeEmi)
+                    "pace" -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                     "dues" -> RemindersView(reminders, rows, reminderState, s::markReminder,
                         onAdd = { n, a, d, r -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.addManualReminder(context, n, a, d, r) }

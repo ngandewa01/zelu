@@ -302,8 +302,11 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(BACKUP, "Export to Excel (CSV)", "What's on screen now, to Downloads/Zelu", Icons.Rounded.FileDownload, ZColor.Muted,
                 "csv excel spreadsheet download") {
                 shut()
-                val ok = Exporter.exportCsv(context, v.shown, "zelu-${Dates.today()}.csv")
-                Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Export needs Android 10+", Toast.LENGTH_SHORT).show()
+                val shown = v.shown
+                withStorage {
+                    val ok = Exporter.exportCsv(context, shown, "zelu-${Dates.today()}.csv")
+                    Toast.makeText(context, if (ok) "Saved to Downloads/Zelu" else "Couldn't save to Downloads", Toast.LENGTH_SHORT).show()
+                }
             })
             add(Entry(BACKUP, "Erase everything", "Delete all Zelu data from this phone", Icons.Rounded.DeleteForever, ZColor.Warn,
                 "delete wipe reset") { shut(); eraseOpen = true })

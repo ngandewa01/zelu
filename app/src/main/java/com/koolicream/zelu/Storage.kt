@@ -61,13 +61,19 @@ object Storage {
         return sb.toString()
     }
 
-    fun loadRows(context: Context): List<Row> = synchronized(lock) {
+    fun loadRows(context: Context): List<Row> = loadRowsAndRefunds(context).first
+
+    /** The payments, and the refunds that look like they belong to an earlier spend (refund, spend), read together. */
+    fun loadRowsAndRefunds(context: Context): Pair<List<Row>, List<Pair<Row, Row>>> = synchronized(lock) {
         val key = dataKey(context)
-        if (key == cacheKey) { Refunds.suggestions = cacheRefunds; return@synchronized cacheRows }
-        val rows = computeRows(context)
-        cacheRows = rows; cacheRefunds = Refunds.suggestions; cacheKey = key
-        rows
+        if (key != cacheKey) {
+            cacheRows = computeRows(context)
+            cacheRefunds = lastRefunds
+            cacheKey = key
+        }
+        cacheRows to cacheRefunds
     }
+    private var lastRefunds: List<Pair<Row, Row>> = emptyList()
 
     private fun computeRows(context: Context): List<Row> {
         val base = readMap(context) + manualTxns(context)
@@ -157,7 +163,7 @@ object Storage {
         val paired = Reconcile.pairRefunds(
             Reconcile.detectSelfTransfers(Reconcile.dedupBillers(Reconcile.inferEmiSeries(joined, userSet)), userSet),
             loadRefundLinks(context))
-        Refunds.suggestions = paired.suggestions
+        lastRefunds = paired.suggestions
         val processed = paired.rows
         loanStatsCache = AccountBook.loanStats(processed) + loansFromNotices(context, processed)
         return (if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }).newestFirst()
