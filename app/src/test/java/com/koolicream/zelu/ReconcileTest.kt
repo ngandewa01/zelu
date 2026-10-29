@@ -22,6 +22,36 @@ class ReconcileTest {
         assertEquals("Refund", no.rows.first { it.id == "ref-1-cr" }.category)
     }
 
+    // One income tax refund, told by SBI (the refund banker) and by HDFC (where the money landed).
+    @Test
+    fun aCreditToldByTwoBanksCountsOnce() {
+        val sbi = row("s", "2026-10-29", 20990.0, "credit", "income", "Tax refund", account = "SBI 5997", source = "JM-SBIBNK-S",
+            raw = "Dear Customer, For PAN XXXXXX066M, An IT Refund amount of Rs 20990 for AY-2026-27 has been credited to your " +
+                "account XXXXXXXXXX5997 on 2026-10-29. -SBI").copy(ms = 1792821540000L)
+        val hdfc = row("h", "2026-10-29", 20990.0, "credit", "income", "Tax refund", account = "HDFC 5997", source = "BP-HDFCBK-S",
+            raw = "Update! INR 20,990.00 deposited in HDFC Bank A/c XX5997 on 29-OCT-26 for NEFT Cr-SBIN0000TBU-ITDTAX REFUND " +
+                "2026-27. Avl bal INR 44,050.68.").copy(ms = 1792822020000L)
+        val other = row("o", "2026-10-20", 500.0, "debit", "expense", "Food", account = "HDFC 5997")
+        // The account labels are joined first (HDFC 5997 is where 5997 mostly appears), then the SBI notice drops out.
+        val out = Reconcile.dedupCrossBank(Reconcile.canonicalizeAccounts(listOf(sbi, hdfc, other)))
+        assertEquals(listOf("h", "o"), out.map { it.id }.sorted())
+        // Two equal credits from your own bank on one day are two payments.
+        val twice = hdfc.copy(id = "h2", ms = hdfc.ms + 3600_000L)
+        assertEquals(2, Reconcile.dedupCrossBank(listOf(hdfc, twice)).size)
+        // Days apart, the other bank's message is not an echo.
+        val late = sbi.copy(account = "HDFC 5997", date = "2026-10-25", ms = sbi.ms - 4 * 86_400_000L)
+        assertEquals(2, Reconcile.dedupCrossBank(listOf(late, hdfc)).size)
+    }
+
+    @Test
+    fun aTaxRefundIsIncome() {
+        fun cls(raw: String) = Classifier.classify(Txn("t", "2026-10-29", 20990.0, "credit", null, null, raw, "BP-HDFCBK-S", "HDFC 5997"), emptyList())
+        val r = cls("Update! INR 20,990.00 deposited in HDFC Bank A/c XX5997 on 29-OCT-26 for NEFT Cr-SBIN0000TBU-ITDTAX REFUND 2026-27")
+        assertEquals("income" to "Tax refund", r.kind to r.category)
+        val s = cls("An IT Refund amount of Rs 20990 for AY-2026-27 has been credited to your account XXXXXXXXXX5997")
+        assertEquals("income" to "Tax refund", s.kind to s.category)
+    }
+
     // A failed ATM withdrawal: the reversal arrives seconds after the withdrawal, for the same amount on the same card.
     @Test
     fun aReversalWithinMinutesNetsWithoutAsking() {

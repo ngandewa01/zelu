@@ -256,6 +256,35 @@ object Reconcile {
     //  - Billers (e.g. Jio) send two confirmation SMS for one payment: same
     //    date + amount + known merchant + direction.
     //  - Loan EMIs arrive as repeated NACH notices: keep one per month per loan.
+    /**
+     * One credit reported by two banks: the bank that sent the money (SBI, as the income tax refund banker: "An IT Refund
+     * amount of Rs 20990 ... credited to your account XXXXXXXXXX5997") and your own bank ("INR 20,990.00 deposited in HDFC
+     * Bank A/c XX5997"). Once the account labels are joined (canonicalizeAccounts puts both on HDFC 5997), two credits
+     * of the same amount on one account within a day, from senders of different banks, are one payment: the message from
+     * the account's own bank stays. Two credits from the account's own bank are left alone.
+     */
+    fun dedupCrossBank(rows: List<Row>): List<Row> {
+        fun bankOf(acct: String) = acct.trim().split(" ").firstOrNull()?.uppercase().orEmpty()
+        fun fromOwnBank(r: Row): Boolean {
+            val b = bankOf(r.account)
+            return b.length >= 2 && Parser.senderCore(r.source).uppercase().contains(b)
+        }
+        val drop = HashSet<String>()
+        val credits = rows.filter { it.direction == "credit" && it.account.isNotBlank() && it.source.isNotBlank() }
+        for ((_, group) in credits.groupBy { it.account + "|" + Math.round(it.amount * 100) }) {
+            if (group.size < 2) continue
+            val own = group.filter { fromOwnBank(it) }
+            for (other in group) {
+                if (fromOwnBank(other) || other.id in drop) continue
+                val match = own.any { o ->
+                    if (o.ms > 0 && other.ms > 0) kotlin.math.abs(o.ms - other.ms) <= 36 * 3600_000L else nearDay(o.date, other.date)
+                }
+                if (match) drop.add(other.id)
+            }
+        }
+        return if (drop.isEmpty()) rows else rows.filter { it.id !in drop }
+    }
+
     fun dedupBillers(rows: List<Row>): List<Row> {
         val seenBrand = HashSet<String>()
         // One EMI per (month, amount) — the real bank debit and the lender's "payment
