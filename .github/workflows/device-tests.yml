@@ -22,6 +22,9 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      # The emulator's data partition needs several GB; the runner's toolchains Zelu doesn't use take that room.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /usr/local/.ghcup /usr/share/swift && df -h /
       # The emulator needs hardware acceleration.
       - name: Enable KVM
         run: |
@@ -35,6 +38,8 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
+          # A small data partition: the tests write a few databases, not apps and media.
+          disk-size: 2048M
           script: ./gradlew connectedDebugAndroidTest --no-daemon
       - name: Test report
         if: always()
