@@ -360,6 +360,7 @@ private fun AppScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Ac
         DataCheckDialog(s)
         MissedDialog(s)
         AddPaymentDialog(s)
+        AddTransactionDialog(s)
         BackupPasswordDialog(s)
         RestoreDialog(s)
         if (rescanRangeOpen) RescanRangeDialog(onRun = { a, b -> rescanRangeOpen = false; rescanRange(a, b) }, onDismiss = { rescanRangeOpen = false })
@@ -591,7 +592,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true
                         },
-                        onOpenSpend = { view = Tab.SPEND }, monthlyBudget = monthlyBudget)
+                        onOpenSpend = { view = Tab.SPEND }, monthlyBudget = monthlyBudget, onAdd = { addNew = true })
                     Tab.SPEND -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
                         // when this month's view leaves it out. (Comparing part of this month with all of last month showed

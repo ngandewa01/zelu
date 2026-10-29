@@ -386,4 +386,11 @@
     <string name="mark_as_closed">Mark as closed</string>
     <string name="ok">OK</string>
     <string name="got_it">Got it</string>
+    <string name="add_a_transaction">Add a transaction</string>
+    <string name="cash_label">Cash</string>
+    <string name="account_label">Account</string>
+    <string name="note_optional">Note (optional)</string>
+    <string name="save_and_add_another">Save &amp; add another</string>
+    <string name="added_one">Added</string>
+    <string name="added_by_you_note">Added by you</string>
 </resources>

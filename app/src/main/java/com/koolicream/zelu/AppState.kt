@@ -73,6 +73,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var autoBackup by mutableStateOf(Backup.autoOn(context))
     var unreadList by mutableStateOf<List<RawSms>?>(null)
     var addFor by mutableStateOf<RawSms?>(null)
+    var addNew by mutableStateOf(false)   // the "Add a transaction" form (cash and anything Zelu never saw a message for)
     var missedCount by mutableStateOf(0)
     var missedSeen by mutableStateOf(Storage.missedSeen(context))
     var eraseOpen by mutableStateOf(false)

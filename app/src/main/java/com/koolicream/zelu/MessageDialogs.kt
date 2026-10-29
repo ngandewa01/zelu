@@ -312,3 +312,99 @@ internal fun AddPaymentDialog(s: AppState) {
         }
     }
 }
+
+// A payment with no message behind it: cash, or anything Zelu never saw. It is kept like a payment added from a missed message.
+@Composable
+internal fun AddTransactionDialog(s: AppState) {
+    with(s) {
+        if (!addNew) return
+        val screen = androidx.compose.ui.platform.LocalContext.current
+        val cash = stringResource(R.string.cash_label)
+        var isIn by remember { mutableStateOf(false) }
+        var amtText by remember { mutableStateOf("") }
+        var payee by remember { mutableStateOf("") }
+        var day by remember { mutableStateOf(Dates.today()) }
+        var account by remember { mutableStateOf(cash) }
+        var category by remember { mutableStateOf<String?>(null) }
+        var note by remember { mutableStateOf("") }
+        val accountNames = remember(rows) { listOf(cash) + rows.map { it.account }.filter { it.isNotBlank() }.distinct().sorted() }
+
+        fun save(another: Boolean) {
+            val amount = amtText.toDoubleOrNull() ?: 0.0
+            if (amount <= 0) return
+            val dir = if (isIn) Dir.CREDIT else Dir.DEBIT
+            val name = payee.trim().ifBlank { null }
+            val id = "cash-" + java.util.UUID.randomUUID().toString().take(12)
+            // The chosen day at the time of day it is now, so the row sorts and shows a time like any other.
+            val cal = Dates.parse(day).apply {
+                val now = java.util.GregorianCalendar(Dates.IST)
+                set(java.util.Calendar.HOUR_OF_DAY, now.get(java.util.Calendar.HOUR_OF_DAY))
+                set(java.util.Calendar.MINUTE, now.get(java.util.Calendar.MINUTE))
+            }
+            val ms = cal.timeInMillis
+            val acct = if (account == cash) cash else account
+            val text = note.trim().ifBlank { context.getString(R.string.added_by_you_note) }
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    val own = Storage.splitList(Storage.loadSettings(context).ownAccounts)
+                    val guess = Classifier.classify(Txn(id, day, paiseOf(amount), dir, name, null, text, "manual", acct, ms), own)
+                    val kind = when {
+                        isIn -> Kind.INCOME
+                        category == "Investment" -> Kind.INVEST
+                        else -> Kind.EXPENSE
+                    }
+                    val cat = category ?: if (isIn) "Income" else guess.category
+                    Storage.addManualTxn(context, Row(id, day, paiseOf(amount), dir, name, null, text, "manual", acct, kind, cat, ms), null)
+                }
+                reload()
+                Toast.makeText(context, context.getString(R.string.added_one), Toast.LENGTH_SHORT).show()
+                if (another) { amtText = ""; payee = ""; note = ""; category = null } else addNew = false
+            }
+        }
+
+        Dialog(onDismissRequest = { addNew = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
+                .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.add_a_transaction), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KindTab("spending", stringResource(R.string.spent_3), !isIn) { isIn = false; category = null }
+                    KindTab("income", stringResource(R.string.received), isIn) { isIn = true; category = null }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = amtText, onValueChange = { v -> amtText = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
+                    placeholder = { Text(stringResource(R.string.amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = payee, onValueChange = { payee = it }, singleLine = true,
+                    placeholder = { Text(stringResource(R.string.paid_to_from)) }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
+                    .clickable { pickDate(screen, day) { day = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                    Text(prettyDate(day), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(12.dp))
+                Eyebrow(stringResource(R.string.account_label))
+                Spacer(Modifier.height(6.dp))
+                ChipScroll { accountNames.forEach { a -> Chip(a, account == a) { account = a } } }
+                Spacer(Modifier.height(12.dp))
+                Eyebrow(stringResource(R.string.category))
+                Spacer(Modifier.height(6.dp))
+                val cats = if (isIn) IncomeCats.all else Classifier.CATEGORIES.keys.toList() + CustomCats.names
+                ChipScroll { cats.forEach { c -> Chip(c, category == c) { category = if (category == c) null else c } } }
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = note, onValueChange = { note = it }, singleLine = true,
+                    placeholder = { Text(stringResource(R.string.note_optional)) }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { addNew = false }.padding(12.dp))
+                    Text(stringResource(R.string.save_and_add_another), color = ZColor.Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                        modifier = Modifier.clickable { save(true) }.padding(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save(false) }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                        Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}

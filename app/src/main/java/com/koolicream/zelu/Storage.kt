@@ -449,12 +449,12 @@ object Storage {
     }
 
     // ---- payments you added by hand from a message Zelu couldn't read ----
-    fun addManualTxn(context: Context, row: Row, smsKey: String): Unit = synchronized(lock) {
+    fun addManualTxn(context: Context, row: Row, smsKey: String?): Unit = synchronized(lock) {
         val f = doc(context, MANUAL_TXN_FILE)
         val obj = try { if (f.exists()) f.readWithBackup { JSONObject(it) } else JSONObject() } catch (e: Exception) { CrashLog.warn("Storage.addManualTxn", e); JSONObject() }
         obj.put(row.id, rowToJson(row))
         f.writeKeepingBackup(obj.toString())
-        markSmsHandled(context, smsKey)
+        if (smsKey != null) markSmsHandled(context, smsKey)
     }
 
     private fun manualTxns(context: Context): Map<String, Row> {
