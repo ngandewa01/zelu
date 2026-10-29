@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SouthWest
 
-// ---- Zelu themes: pick a palette (9 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (10 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -57,6 +57,9 @@ val PALETTES: List<Pal> = listOf(
     Pal("Ice",
         PalSet(0xFFF0FAFF, 0xFFFFFFFF, 0xFF0B2530, 0xFF52798A, 0xFFCBE8F3, 0xFF0891B2, 0xFFFFFFFF, 0xFF0E9F6E, 0xFFD9344F, Hero(0xFF0891B2, 0xFF3B82F6, 0xFFFFFFFF)),
         PalSet(0xFF06151C, 0xFF0D2733, 0xFFE6F7FD, 0xFF85B4C6, 0xFF17414F, 0xFF38D2F0, 0xFF06151C, 0xFF3DDC97, 0xFFFF6B81, Hero(0xFF0E8FB0, 0xFF3B6FF0, 0xFFFFFFFF))),
+    Pal("Mint",
+        PalSet(0xFFF2FFF8, 0xFFFFFFFF, 0xFF06281A, 0xFF4F8068, 0xFFCFF3E0, 0xFF059669, 0xFFFFFFFF, 0xFF0E8A3E, 0xFFD9344F, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A)),
+        PalSet(0xFF04140D, 0xFF0B281B, 0xFFE4FBEF, 0xFF84BB9F, 0xFF15432F, 0xFF34D399, 0xFF04140D, 0xFF4ADE80, 0xFFFF6B81, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A))),
     // Each theme follows 60-30-10: a lightly tinted page (60), cards and bars in a deeper tint of the same colour
     // (30) and one strong accent (10) for the chosen tab, buttons and bars. Money-in green and due red stay.
     Pal("Ocean",
