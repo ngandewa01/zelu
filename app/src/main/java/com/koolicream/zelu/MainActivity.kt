@@ -255,12 +255,9 @@ fun ZeluApp() {
         }
 
         LaunchedEffect(Unit) {
-            refreshRows()
-            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
-            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
-            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
-            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
-            monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
+            // Everything saved, balances and card limits included, shows at once; the inbox check below only adds
+            // what is new.
+            loadAll()
             // Coming back after Android closed the app in the background (or the theme changed): stay on the screen you were on.
             if (stage == "app" || stage == "accounts") {
                 smsOk = hasPerm()
@@ -520,9 +517,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                     "expense" -> Icons.Rounded.ArrowUpward to ZColor.Accent
                                     "income" -> Icons.Rounded.ArrowDownward to ZColor.Income
                                     "ignore" -> Icons.Rounded.VisibilityOff to ZColor.Muted
-                                    else -> Icons.Rounded.Category to ZColor.Ink
+                                    else -> null
                                 }
-                                PickChip(l, type == k, { IconDot(ic.first, ic.second, 20.dp) }) { type = k; daySel = 0 }
+                                // "All" is drawn like the Category row's "All" (icon on a solid tile): an ink icon on an
+                                // ink wash vanished on the chosen (ink) chip.
+                                PickChip(l, type == k, { if (ic == null) CatDot("All", 20.dp) else IconDot(ic.first, ic.second, 20.dp) }) { type = k; daySel = 0 }
                             }
                         }
                         Spacer(Modifier.height(12.dp))

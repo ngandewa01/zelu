@@ -24,7 +24,7 @@ object Storage {
     private const val BUDGET_FILE = "category_budgets.json" // category -> monthly budget cap
 
     // Bump when parser/classifier changes so history rebuilds on next open.
-    const val PARSER_VERSION = 74
+    const val PARSER_VERSION = 75
 
     data class Settings(val bankSenders: String, val ownAccounts: String)
 
@@ -149,7 +149,7 @@ object Storage {
             if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
             return row
         }
-        val canon = Reconcile.canonicalizeAccounts(expanded, apart)
+        val canon = Reconcile.dedupCrossBank(Reconcile.canonicalizeAccounts(expanded, apart))
         val retyped = if (retype.isEmpty()) canon else canon.map { r ->
             val n = retype[r.account]
             if (n == null) r else reapply(r.copy(account = n))

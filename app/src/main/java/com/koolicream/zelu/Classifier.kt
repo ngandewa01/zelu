@@ -261,6 +261,9 @@ object Classifier {
     private val REFUND_CATEGORIES = setOf("Food", "Groceries", "Shopping", "Travel", "Transport", "Entertainment")
     private val SELF_TRANSFER = Regex("""\bto (?:your )?own (?:a/?c|acct|account)\b|\((?:self)\)|\bself (?:transfer|a/?c)\b""", RegexOption.IGNORE_CASE)
     private val ACCOUNT_CHECK = Regex("""\b(?:a/?c|account) verification\b|\bpenny drop\b|\bverify your (?:bank )?(?:a/?c|account)\b""", RegexOption.IGNORE_CASE)
+    // An income tax refund ("NEFT Cr-SBIN0000TBU-ITDTAX REFUND", SBI's "An IT Refund amount of Rs 20990"): money in,
+    // not a purchase coming back.
+    private val TAX_REFUND = Regex("""\bitdtax\b|\bit refund\b|\bincome[- ]tax refund\b|\btax refund\b""", RegexOption.IGNORE_CASE)
     private val REFUND_WORD = Regex("""\brefund(?:ed)?\b""", RegexOption.IGNORE_CASE)
     private val WALLET_LOAD = Regex("""\badd(?:ed)? money\b|\bwallet (?:top-?up|load|recharge)\b|\b(?:top-?up|load(?:ed)?) (?:your |to )?wallet\b""", RegexOption.IGNORE_CASE)
     // "chargeback credit", "UPI/REV/": money given back for a disputed or reversed payment.
@@ -291,6 +294,7 @@ object Classifier {
 
         // Sent to your own account ("to your own a/c X8890 (SELF)") is a transfer between your accounts.
         if (SELF_TRANSFER.containsMatchIn(t.raw) || cp == "self") return Result("transfer", "Transfer")
+        if (t.direction == "credit" && TAX_REFUND.containsMatchIn(t.raw)) return Result("income", "Tax refund")
         // A tiny broker or bank deposit to check your account is not an investment.
         val verify = t.direction == "credit" && ACCOUNT_CHECK.containsMatchIn(t.raw)
         // Retirement / market contributions are tracked on their own, not spend or income.

@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -460,10 +462,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(6.dp)).clickable { showSms = !showSms })
             if (showSms) { smsBox("Refund message", rf); smsBox("Spend it may match", sp) }
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Yes", false, filled = true) { onRefundAnswer(rf.id, true) }
-                Chip("No", false) { onRefundAnswer(rf.id, false) }
-                Chip("Tomorrow", false) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
+            // The same round answer buttons as the other Needs-you questions.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                ActionCircle(Icons.Rounded.Check, "Same payment", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, true) }
+                ActionCircle(Icons.Rounded.Close, "Not related", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, false) }
+                ActionCircle(Icons.Rounded.Schedule, "Ask tomorrow", 0xFFD97706, 0xFFFBBF24, false, Modifier.weight(1f)) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
             }
         }
     }

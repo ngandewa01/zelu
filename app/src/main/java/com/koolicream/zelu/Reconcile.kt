@@ -55,6 +55,23 @@ object Reconcile {
     // without asking.
     class Paired(val rows: List<Row>, val suggestions: List<Pair<Row, Row>>)
 
+    // How soon money must come back to count as the same payment undone (a failed ATM withdrawal or card payment), with
+    // a little leeway for two banks' clocks; and how far apart one credit's messages from two banks may arrive.
+    private const val REVERSAL_WINDOW_S = 15 * 60
+    private const val CLOCK_LEEWAY_S = 60
+    private const val ECHO_WINDOW_MS = 36 * 3600_000L
+
+    /**
+     * True when [back] came within [REVERSAL_WINDOW_S] after [spend] ([CLOCK_LEEWAY_S] of leeway for clocks): by when the two messages
+     * arrived, or, for payments stored without that, by the times written in them.
+     */
+    internal fun isQuickReversal(spend: Row, back: Row): Boolean {
+        if (spend.ms > 0 && back.ms > 0) return (back.ms - spend.ms) / 1000 in -CLOCK_LEEWAY_S.toLong()..REVERSAL_WINDOW_S.toLong()
+        val a = TxnTime.fromText(spend.raw) ?: return false
+        val b = TxnTime.fromText(back.raw) ?: return false
+        return b - a in -CLOCK_LEEWAY_S..REVERSAL_WINDOW_S
+    }
+
     fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): Paired {
         fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
         val expenses = rows.filter { it.kind == "expense" }
@@ -69,6 +86,18 @@ object Reconcile {
             if (sameRef != null) {
                 remaining[sameRef.id] = (remaining[sameRef.id] ?: 0.0) - r.amount
                 paired[r.id] = sameRef.category
+                continue
+            }
+            // The same amount back on the same account within minutes of the spend: a failed ATM withdrawal or card
+            // payment ("ATM Txn Reversed: Rs.10000" two seconds after "Withdrawn Rs.10000"). The money never left, so it
+            // nets without asking.
+            val quick = expenses.firstOrNull { e ->
+                e.account.isNotBlank() && e.account == r.account && e.date == r.date && kotlin.math.abs(e.amount - r.amount) < 0.5 &&
+                    (remaining[e.id] ?: 0.0) >= r.amount - 0.5 && isQuickReversal(e, r)
+            }
+            if (quick != null) {
+                remaining[quick.id] = (remaining[quick.id] ?: 0.0) - r.amount
+                paired[r.id] = quick.category
                 continue
             }
             // Only suggest a pairing that is clearly the same purchase: the same amount (within 60 days),
@@ -233,6 +262,35 @@ object Reconcile {
     //  - Billers (e.g. Jio) send two confirmation SMS for one payment: same
     //    date + amount + known merchant + direction.
     //  - Loan EMIs arrive as repeated NACH notices: keep one per month per loan.
+    /**
+     * One credit reported by two banks: the bank that sent the money (SBI, as the income tax refund banker: "An IT Refund
+     * amount of Rs 20990 ... credited to your account XXXXXXXXXX5997") and your own bank ("INR 20,990.00 deposited in HDFC
+     * Bank A/c XX5997"). Once the account labels are joined (canonicalizeAccounts puts both on HDFC 5997), two credits
+     * of the same amount on one account within a day, from senders of different banks, are one payment: the message from
+     * the account's own bank stays. Two credits from the account's own bank are left alone.
+     */
+    fun dedupCrossBank(rows: List<Row>): List<Row> {
+        fun bankOf(acct: String) = acct.trim().split(" ").firstOrNull()?.uppercase().orEmpty()
+        fun fromOwnBank(r: Row): Boolean {
+            val b = bankOf(r.account)
+            return b.length >= 2 && Parser.senderCore(r.source).uppercase().contains(b)
+        }
+        val drop = HashSet<String>()
+        val credits = rows.filter { it.direction == "credit" && it.account.isNotBlank() && it.source.isNotBlank() }
+        for ((_, group) in credits.groupBy { it.account + "|" + Math.round(it.amount * 100) }) {
+            if (group.size < 2) continue
+            val own = group.filter { fromOwnBank(it) }
+            for (other in group) {
+                if (fromOwnBank(other) || other.id in drop) continue
+                val match = own.any { o ->
+                    if (o.ms > 0 && other.ms > 0) kotlin.math.abs(o.ms - other.ms) <= ECHO_WINDOW_MS else nearDay(o.date, other.date)
+                }
+                if (match) drop.add(other.id)
+            }
+        }
+        return if (drop.isEmpty()) rows else rows.filter { it.id !in drop }
+    }
+
     fun dedupBillers(rows: List<Row>): List<Row> {
         val seenBrand = HashSet<String>()
         // One EMI per (month, amount) — the real bank debit and the lender's "payment

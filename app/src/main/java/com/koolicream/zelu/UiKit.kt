@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -551,25 +552,63 @@ internal fun treemap(values: List<Double>): List<TmCell> {
     val bg = if (selected) tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card
     val border = if (selected) tint else ZColor.Line
     val tileSize = if (compact) 24.dp else 28.dp
-    Row(
+    val gap = if (compact) 6.dp else 7.dp
+    val endPad = if (compact) 10.dp else 12.dp
+    val fit = LocalTabFit.current
+    // Outside a tab row (a scrolling list of choices) there is room for the whole name.
+    if (fit == null) {
+        Row(
+            modifier.clip(RoundedCornerShape(22.dp)).background(bg)
+                .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(22.dp))
+                .clickable { onClick() }.padding(start = 4.dp, end = endPad, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(tileSize).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
+            }
+            Spacer(Modifier.width(gap))
+            Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
+        }
+        return
+    }
+    // In a tab row the name is measured before it is drawn (in bold, so choosing a tab never makes it longer), at
+    // the tab's real width: the row then picks one text size, and drops the round icons if a name can't otherwise fit.
+    androidx.compose.foundation.layout.BoxWithConstraints(
         modifier.clip(RoundedCornerShape(22.dp)).background(bg)
             .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(22.dp))
-            .clickable { onClick() }.padding(start = 4.dp, end = if (compact) 10.dp else 12.dp, top = 4.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            .clickable { onClick() },
     ) {
-        Box(Modifier.size(tileSize).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val tabWidth = constraints.maxWidth
+        val sizes = remember(label, tabWidth, density) {
+            fun widthAt(sp: Float) = measurer.measure(androidx.compose.ui.text.AnnotatedString(label),
+                style = androidx.compose.ui.text.TextStyle(fontSize = sp.sp, fontWeight = FontWeight.Bold),
+                softWrap = false, maxLines = 1).size.width
+            with(density) {
+                val withIcon = tabWidth - (4.dp + tileSize + gap + endPad).roundToPx()
+                val plain = tabWidth - (endPad * 2).roundToPx()
+                TabFit.largestFitting(TabFit.WITH_ICON, withIcon, ::widthAt) to TabFit.largestFitting(TabFit.PLAIN, plain, ::widthAt)
+            }
         }
-        Spacer(Modifier.width(if (compact) 6.dp else 7.dp))
-        val fit = LocalTabFit.current
-        if (fit != null) Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = fit.size.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
-            modifier = Modifier.weight(1f, fill = false).drawWithContent { if (fit.settled) drawContent() },
-            onTextLayout = { r -> if (r.hasVisualOverflow && fit.size > 9f) fit.size -= 0.5f else fit.settled = true },
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        // Outside a tab row (a scrolling list of choices) there is room for the whole name.
-        else Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
+        androidx.compose.runtime.SideEffect { fit.report(label, sizes.first, sizes.second) }
+        val showIcon = fit.iconsOn
+        Row(
+            Modifier.fillMaxWidth().padding(start = if (showIcon) 4.dp else endPad, end = endPad, top = 4.dp, bottom = 4.dp)
+                .heightIn(min = tileSize),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showIcon) {
+                Box(Modifier.size(tileSize).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(if (compact) 16.dp else 18.dp))
+                }
+                Spacer(Modifier.width(gap))
+            }
+            Text(label, color = if (selected) ZColor.Ink else ZColor.Muted, fontSize = fit.size.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -589,6 +628,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
         "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
         "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
+        "refund" -> Triple(Icons.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
     }
@@ -604,7 +644,24 @@ internal fun treemap(values: List<Double>): List<TmCell> {
     }
 }
 
-internal class TabFit { var size by mutableStateOf(13f); var settled by mutableStateOf(false) }
+// What every tab in one row can fit: the largest text size with its round icon (null when even the smallest is too
+// big) and without it. The row keeps the icons only if every name fits with them, and uses the smallest size of the
+// chosen layout for all its tabs, so the row stays even.
+internal class TabFit {
+    private val fits = androidx.compose.runtime.mutableStateMapOf<String, Pair<Float?, Float?>>()
+    fun report(label: String, withIcon: Float?, plain: Float?) { if (fits[label] != (withIcon to plain)) fits[label] = withIcon to plain }
+    val iconsOn: Boolean get() = fits.values.all { it.first != null }
+    val size: Float get() = (if (iconsOn) fits.values.mapNotNull { it.first } else fits.values.map { it.second ?: MIN }).minOrNull() ?: MAX
+
+    companion object {
+        const val MAX = 13f
+        const val MIN = 9f
+        val WITH_ICON = listOf(13f, 12.5f, 12f, 11.5f, 11f)
+        val PLAIN = listOf(13f, 12.5f, 12f, 11.5f, 11f, 10.5f, 10f, 9.5f, 9f)
+        /** The largest of [sizes] whose text width ([widthAt], in pixels) fits in [room] pixels, or null. */
+        fun largestFitting(sizes: List<Float>, room: Int, widthAt: (Float) -> Int): Float? = sizes.firstOrNull { widthAt(it) <= room }
+    }
+}
 internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> { null }
 
 // A round answer button: a bright icon in a circle with its word underneath (used for the Needs-you answers,

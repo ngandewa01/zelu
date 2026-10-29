@@ -10,7 +10,7 @@ import java.io.File
 
 // Categories for money coming in (salary, interest...). The built-in ones stay; you can add your own and delete those.
 object IncomeCats {
-    val defaults = listOf("Salary", "Interest", "Dividend", "Reimbursement", "Rewards", "Business", "Gift", "Rent received")
+    val defaults = listOf("Salary", "Interest", "Dividend", "Reimbursement", "Rewards", "Business", "Gift", "Rent received", "Tax refund")
     var custom by mutableStateOf<List<String>>(emptyList())
     val all: List<String> get() = defaults + custom
 

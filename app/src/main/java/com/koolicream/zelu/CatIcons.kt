@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Toll
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.rounded.Percent
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Wifi
@@ -100,7 +101,7 @@ object CatIcons {
         "FASTag" to Icons.Rounded.Toll,
         "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.Paid, "Dividend" to Icons.Rounded.TrendingUp,
         "Reimbursement" to Icons.Rounded.RequestQuote, "Rewards" to Icons.Rounded.Star, "Business" to Icons.Rounded.BusinessCenter,
-        "Gift" to Icons.Rounded.CardGiftcard, "Rent received" to Icons.Rounded.HomeWork,
+        "Gift" to Icons.Rounded.CardGiftcard, "Rent received" to Icons.Rounded.HomeWork, "Tax refund" to Icons.Rounded.Percent,
     )
 
     // Icon for a category (standard or custom), or null to fall back to a letter.

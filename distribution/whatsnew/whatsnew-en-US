@@ -1,8 +1,7 @@
-• Safe to spend turns from green to red as your budget runs low
-• App lock now unlocks with your fingerprint or face
-• With the lock on, Zelu stays hidden in your recent apps
-• Bill reminders and daily summaries arrive on time, even when your phone is idle
-• Backups and Excel export now work on Android 7, 8 and 9
-• Faster saving: payments are kept in a database on your phone
-• Exported spreadsheets are safer to open
-• Long lists scroll more smoothly
+• Declined card attempts no longer show up as missed messages
+• Account balances show as soon as Zelu opens
+• A failed ATM withdrawal is matched to its reversal automatically
+• Tab names fit on every phone, small screens included
+• The refund question uses the same round buttons as the others
+• A credit reported by two banks (like an income tax refund) counts once, as Tax refund
+• Dues shows its date strip whenever a bill falls in the next 30 days
