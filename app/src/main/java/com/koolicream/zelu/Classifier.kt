@@ -199,6 +199,8 @@ object Classifier {
         """[^.]*\b(?:convert\w*|conversion)\b[^.]*\bemi\b[^.]*|[^.]*\bemi\b[^.]*\b(?:convert\w*|conversion)\b[^.]*""",
         RegexOption.IGNORE_CASE,
     )
+    // "Not you? Call toll free 1800...": the bank's helpline, not a toll paid.
+    private val HELPLINE = Regex("""\btoll[\s-]*free\b""", RegexOption.IGNORE_CASE)
 
     // Short keywords ("emi", "ola", "ccd", "vi") must stand alone as words, or "chemist" becomes EMI and
     // "Mohola" becomes Ola. Longer ones may sit inside a word ("kimshospital" still finds "hospital").
@@ -343,7 +345,7 @@ object Classifier {
         // Names often arrive run together ("KimsHospital", "SriLakshmiMedicals"): also match on the
         // words split at each lower->UPPER change, so "hospital", "medical"... are found.
         // The bank the money left from ("Airtel Payments Bank") says nothing about what it paid for.
-        val raw = EMI_OFFER.replace(Parser.withoutPaymentsBank(t.raw), " ")
+        val raw = HELPLINE.replace(EMI_OFFER.replace(Parser.withoutPaymentsBank(t.raw), " "), " ")
         val spaced = ((t.counterparty ?: "") + " " + raw).replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
         val hay = ("$cp $raw $spaced").lowercase()
         val joined = hay.replace("*", " ")

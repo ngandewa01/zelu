@@ -359,6 +359,7 @@
     <string name="is_it_the_same_account">Is it the same account as any of these?</string>
     <string name="not_my_account">Not my account</string>
     <string name="zelu_is_locked">Zelu is locked</string>
+    <string name="notif_locked_text">New activity. Unlock to see it.</string>
     <string name="use_your_phone_s_pin">Use your phone\'s PIN, pattern or fingerprint.</string>
     <string name="unlock">Unlock</string>
     <string name="hdfcbk">HDFCBK</string>

@@ -69,7 +69,7 @@ object DueReminders {
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .addAction(Notification.Action.Builder(null, "Mark paid", pay).build())
-            try { nm.notify(nid, b.build()) } catch (e: Exception) { CrashLog.warn("DueReminders.check", e) }
+            try { nm.notify(nid, Notifier.hideOnLockScreen(context, b, CHANNEL).build()) } catch (e: Exception) { CrashLog.warn("DueReminders.check", e) }
         }
     }
 }
@@ -90,10 +90,13 @@ class DueReceiver : BroadcastReceiver() {
 class DailyWork(context: Context, params: androidx.work.WorkerParameters) : androidx.work.CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val c = applicationContext
-        try { Recap.maybe(c) } catch (e: Exception) { CrashLog.warn("Recap", e) }
-        try { Backup.maybeAuto(c) } catch (e: Exception) { CrashLog.warn("Weekly backup", e) }
+        var failed = false
+        try { Recap.maybe(c) } catch (e: Exception) { CrashLog.warn("Recap", e); failed = true }
+        try { Backup.maybeAuto(c) } catch (e: Exception) { CrashLog.warn("Weekly backup", e); failed = true }
         try { ZeluWidget.refresh(c) } catch (e: Exception) { CrashLog.warn("Widget", e) }
-        return Result.success()
+        // The recap and the backup each remember when they last ran, so a retry does only what did not finish.
+        // Three tries, then tomorrow's check takes over.
+        return if (failed && runAttemptCount < 3) Result.retry() else Result.success()
     }
 
     companion object {
@@ -115,10 +118,12 @@ class MarkPaidReceiver : BroadcastReceiver() {
     }
 }
 
-// Alarms are cleared on reboot — put the daily check back.
+// Alarms are cleared on reboot and on an app update, and a changed clock or time zone moves when they should ring:
+// put the daily checks back.
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        if (intent.action in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED,
+                Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) {
             DueReminders.schedule(context)
             DailySummary.schedule(context)
             WeeklySummary.schedule(context)

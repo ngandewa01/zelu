@@ -5,6 +5,10 @@ name: Device tests
 on:
   workflow_dispatch:
 
+# Reads the code only.
+permissions:
+  contents: read
+
 concurrency:
   group: device-tests-${{ github.ref }}
   cancel-in-progress: true

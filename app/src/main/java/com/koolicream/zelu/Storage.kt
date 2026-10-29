@@ -359,9 +359,11 @@ object Storage {
     fun missedSeen(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("missed_seen", 0)
     fun setMissedSeen(context: Context, n: Int) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("missed_seen", n).apply() }
 
-    // When messages were last read, and the date of the newest bank message found.
+    // When messages were last read, and the date of the newest bank message found. A quick read sees only recent
+    // messages, so the newest date seen before is kept when this read found nothing newer.
     fun setReadStamp(context: Context, readAt: Long, newestBank: Long) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("last_read", readAt).putLong("newest_bank", newestBank).apply()
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        sp.edit().putLong("last_read", readAt).putLong("newest_bank", maxOf(newestBank, sp.getLong("newest_bank", 0L))).apply()
     }
     // A bank message arrived (even with the app closed): remember its time, for the "last SMS" line on Home.
     fun noteBankSms(context: Context, ms: Long) {

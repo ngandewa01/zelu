@@ -101,6 +101,7 @@ object Ingest {
                 Parser.parseReminder(msg.body, msg.date, msg.address)?.let { reminders.add(it) }
                 continue
             }
+            Parser.nextReminder(msg.body, msg.date, msg.address)?.let { reminders.add(it) }
             if (txn.account.isNotBlank() && !txn.account.contains(" CC") && !Parser.isLoanAccountText(msg.body)) {
                 Parser.balanceFromTxn(msg.body)?.let { b ->
                     val cur = txnBalances[txn.account]

@@ -66,7 +66,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var undo by mutableStateOf<Pair<String, Map<String, String?>>?>(null)
     var unreadOpen by mutableStateOf(false)
     var checkOpen by mutableStateOf(false)
-    var registry by mutableStateOf(Storage.accountRegistry(context))
+    // Read from the database by loadAll (not here, on the main thread, as the screen opens).
+    var registry by mutableStateOf<Map<String, Pair<String, String>>>(emptyMap())
     var acctConfirmed by mutableStateOf(Storage.accountsConfirmed(context))
     var rescanRangeOpen by mutableStateOf(false)
     var check by mutableStateOf<Ingest.Check?>(null)
@@ -77,12 +78,12 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var missedCount by mutableStateOf(0)
     var missedSeen by mutableStateOf(Storage.missedSeen(context))
     var eraseOpen by mutableStateOf(false)
-    var dupOk by mutableStateOf(Storage.dupOk(context))
+    var dupOk by mutableStateOf<Set<String>>(emptySet())
     var dupOpen by mutableStateOf(false)
     var sendersOpen by mutableStateOf(false)
     var senderList by mutableStateOf<List<Ingest.UnknownSender>?>(null)
     var catsOpen by mutableStateOf(false)
-    var catOff by mutableStateOf(Storage.categoriesOff(context))
+    var catOff by mutableStateOf<Set<String>>(emptySet())
     var splitFor by mutableStateOf<Row?>(null)
     var smsOk by mutableStateOf(true)
     var lastScan by saved("lastScan", 0L)
@@ -207,6 +208,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             }
             manualLimits = l.manual
             cardNetworks = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
+            dupOk = withContext(Dispatchers.IO) { Storage.dupOk(context) }
+            catOff = withContext(Dispatchers.IO) { Storage.categoriesOff(context) }
             cardPrefs = l.cardPrefs
             CustomCats.map = l.customCats
             registry = l.registry
@@ -275,15 +278,23 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         }
     }
 
-    fun rescan(full: Boolean = false, notify: Boolean = false, depth: Int = 5000) {
+    /**
+     * Reads the inbox again. [quick] (coming back to the app) reads only what arrived since the last read, with two days'
+     * overlap for messages the phone delivered late, and leaves the Missed count as it was.
+     */
+    fun rescan(full: Boolean = false, notify: Boolean = false, depth: Int = 5000, quick: Boolean = false) {
         scope.launch {
             loading = true
             lastScan = System.currentTimeMillis()
             var added = 0
             var missed = 0
+            var fresh = false
             withContext(Dispatchers.IO) {
-                val fresh = full || Storage.dataVersion(context) < Storage.PARSER_VERSION
-                val inbox = SmsReader.readInbox(context, if (fresh) maxOf(depth, 20_000) else depth)
+                fresh = full || Storage.dataVersion(context) < Storage.PARSER_VERSION
+                val since = Storage.lastRead(context)
+                val inbox = if (quick && !fresh && since > 0L)
+                    SmsReader.readInboxBetween(context, since - 2L * 86_400_000L, System.currentTimeMillis()).take(depth)
+                else SmsReader.readInbox(context, if (fresh) maxOf(depth, 20_000) else depth)
                 added = (if (fresh) Ingest.rebuild(context, inbox) else Ingest.ingest(context, inbox)).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
                 Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
@@ -292,8 +303,10 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             // missed-message count below, which reads the inbox a second time.
             loadAll()
             loading = false
-            missed = withContext(Dispatchers.IO) { Ingest.unreadable(context).size }
-            missedCount = missed
+            if (!quick || fresh || added > 0) {
+                missed = withContext(Dispatchers.IO) { Ingest.unreadable(context).size }
+                missedCount = missed
+            }
             if (stage == Stage.SCAN) stage = Stage.DONE
             if (notify) Toast.makeText(context, if (full) "Read everything again" else if (added == 0) "Nothing new in your messages" else plural(added, "new payment", "new payments") + " found", Toast.LENGTH_LONG).show()
         }

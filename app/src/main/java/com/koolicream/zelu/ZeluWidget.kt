@@ -45,6 +45,18 @@ class ZeluWidget : AppWidgetProvider() {
             val pal = PALETTES[paletteIndex(theme)]
             val set = if (theme.getBoolean("dark", false)) pal.dark else pal.light
 
+            // With the app lock on, the home screen shows no amounts, payees or bills: only that Zelu is locked.
+            if (context.getSharedPreferences("zelu_security", Context.MODE_PRIVATE).getBoolean("lock", false)) {
+                val v = RemoteViews(context.packageName, R.layout.widget_zelu)
+                v.setInt(R.id.w_root, "setBackgroundColor", set.card.toInt())
+                v.setImageViewBitmap(R.id.w_logo, ZeluMark.bitmap(60))
+                v.setTextViewText(R.id.w_label, context.getString(R.string.zelu_is_locked))
+                v.setTextColor(R.id.w_label, set.muted.toInt())
+                for (id in listOf(R.id.w_delta, R.id.w_amount, R.id.w_chart, R.id.w_line1, R.id.w_line2)) v.setViewVisibility(id, View.GONE)
+                openOnTap(context, v)
+                return v
+            }
+
             val month = Dates.todayMonth()
             val prevMonth = Dates.shiftMonth(month, -1)
             val today = Dates.today()
@@ -104,12 +116,14 @@ class ZeluWidget : AppWidgetProvider() {
                 v.setViewVisibility(R.id.w_line2, View.VISIBLE)
             } else v.setViewVisibility(R.id.w_line2, View.GONE)
 
-            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            if (launch != null) {
-                val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
-                v.setOnClickPendingIntent(R.id.w_root, PendingIntent.getActivity(context, 3, launch, flags))
-            }
+            openOnTap(context, v)
             return v
+        }
+
+        private fun openOnTap(context: Context, v: RemoteViews) {
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+            v.setOnClickPendingIntent(R.id.w_root, PendingIntent.getActivity(context, 3, launch, flags))
         }
 
         /** The earliest unpaid bill due today or later, judged the same way as the Dues screen. */

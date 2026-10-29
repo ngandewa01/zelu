@@ -177,6 +177,22 @@ class SmsHardFormatsTest {
         c("debit-card-blocked", "AX-HDFCBK-S", "Your HDFC Bank Debit Card XX5555 has been blocked as requested. To issue a new card, call 18002586161.", null),
         c("min-balance-warning", "VM-SBIINB-S", "Your A/c X1234 balance is below the minimum required Rs.3,000. Maintain it to avoid charges. -SBI", null),
         c("regional-promo", "VM-MGBBNK-S", "Maharashtra Gramin Bank: Gold loan at 8.9% p.a. up to Rs.10,00,000. Visit your nearest branch.", null),
+        // ===== Real payments whose last line reads like an OTP warning, an offer or a reminder =====
+        c("debit-card-details-footer", "AX-HDFCBK-S", "Rs.500.00 debited from A/c XX5997 on 18-10-26 to VPA abc@ybl. Do not share your card details or OTP with anyone.",
+            Exp("debit", 500.0, "HDFC 5997", date = "2026-10-18", kind = "expense")),
+        c("spend-cashback-later", "AX-ICICIB-S", "Rs.1,200 spent on ICICI Bank Card XX1234 at AMAZON on 18-Oct-26. Cashback of Rs.60 will be credited within 3 days.",
+            Exp("debit", 1200.0, "ICICI*1234", "amazon", "2026-10-18", kind = "expense", cat = "Shopping")),
+        c("debit-next-due-date", "AX-HDFCBK-S", "Rs.899 debited from A/c XX5997 for NETFLIX on 18-10-26. Next due date 18-11-26.",
+            Exp("debit", 899.0, "HDFC 5997", "netflix", "2026-10-18", kind = "expense", cat = "Entertainment")),
+        c("emi-paid-next-emi", "VM-HDFCBK-S", "EMI of Rs.10,000 for Loan A/c XX4488 has been debited from A/c XX5997 on 05-10-26. Next EMI of Rs.10,000 will be debited on 05-11-26.",
+            Exp("debit", 10000.0, "HDFC 5997", date = "2026-10-05")),
+        c("refund-to-debit-card", "AX-HDFCBK-S", "Your HDFC Bank Debit Card XX3308 has been credited with Rs.1,200.00 towards refund from AMAZON on 18-10-26.",
+            Exp("credit", 1200.0, date = "2026-10-18")),
+        c("debit-toll-free-footer", "AX-HDFCBK-S", "Rs.2,499 debited from A/c XX5997 to MYNTRA on 18-10-26. Not you? Call toll free 18002586161.",
+            Exp("debit", 2499.0, "HDFC 5997", "myntra", "2026-10-18", kind = "expense", cat = "Shopping")),
+        // Still not payments: the debit has not happened yet.
+        c("emi-only-upcoming", "VM-HDFCBK-S", "Your EMI of Rs.10,000 for Loan A/c XX4488 will be debited from A/c XX5997 on 05-11-26. Please keep sufficient balance.", null),
+        c("otp-for-debit", "AX-HDFCBK-S", "OTP for txn of Rs.2,000.00 at AMAZON on HDFC Bank Card XX1234 is 482913. Do not share it with anyone.", null),
         // ===== Not scored: there is no single right answer; the outcome is just recorded =====
         // ===== Foreign currency and loans =====
         c("foreign-currency", "AX-HDFCBK-S", "USD 25.00 spent on HDFC Bank Card x1291 at NETFLIX.COM on 18-10-26. Avl Lmt: Rs.1,35,000.00",
