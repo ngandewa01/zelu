@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -105,11 +108,16 @@ import kotlinx.coroutines.delay
                     Box(Modifier.graphicsLayer { alpha = go }) { Cta(stringResource(R.string.get_started), onNext) }
                 }
                 Stage.PRIVACY -> {
-                    Text(stringResource(R.string.nothing_leaves_your_phone), color = ZColor.Ink, fontSize = 24.sp,
+                    // Three short lines with an icon each: nobody reads a list. The headline carries the promise.
+                    Text(stringResource(R.string.nothing_leaves_your_phone), color = ZColor.Ink, fontSize = 28.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    PromiseCard("Zelu reads", true, listOf("Bank and card alerts", "UPI payment messages", "Bill and EMI reminders"))
-                    PromiseCard("Zelu skips", false, listOf("OTPs and passwords", "Personal chats", "Messages from people"))
-                    Text(stringResource(R.string.no_account_no_login_no), color = ZColor.Muted, fontSize = 14.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        PrivacyPoint(Icons.Rounded.Sms, stringResource(R.string.privacy_reads_alerts))
+                        PrivacyPoint(Icons.Rounded.Block, stringResource(R.string.privacy_skips_otps))
+                        PrivacyPoint(Icons.Rounded.PersonOff, stringResource(R.string.privacy_no_login))
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Cta(stringResource(R.string.continue_label), onNext)
                 }
                 Stage.PERM -> {
@@ -197,13 +205,16 @@ import kotlinx.coroutines.delay
     }
 }
 
-// What Zelu reads, or skips. Both cards are full width with three lines each, so they match.
-@Composable private fun PromiseCard(title: String, yes: Boolean, items: List<String>) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+// One privacy point: a round icon and a few words, large enough to read at a glance.
+@Composable private fun PrivacyPoint(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
         .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(title, color = if (yes) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        items.forEach { PromiseRow(it, yes) }
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(text, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
     }
 }
 
