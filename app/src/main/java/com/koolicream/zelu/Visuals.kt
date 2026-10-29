@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SouthWest
 
-// ---- Zelu themes: pick a palette (10 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -60,30 +60,17 @@ val PALETTES: List<Pal> = listOf(
     Pal("Mint",
         PalSet(0xFFF2FFF8, 0xFFFFFFFF, 0xFF06281A, 0xFF4F8068, 0xFFCFF3E0, 0xFF059669, 0xFFFFFFFF, 0xFF0E8A3E, 0xFFD9344F, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A)),
         PalSet(0xFF04140D, 0xFF0B281B, 0xFFE4FBEF, 0xFF84BB9F, 0xFF15432F, 0xFF34D399, 0xFF04140D, 0xFF4ADE80, 0xFFFF6B81, Hero(0xFF34D399, 0xFFFDE047, 0xFF06281A))),
-    // Each theme follows 60-30-10: a lightly tinted page (60), cards and bars in a deeper tint of the same colour
-    // (30) and one strong accent (10) for the chosen tab, buttons and bars. Money-in green and due red stay.
-    Pal("Ocean",
-        PalSet(0xFFEEF3FC, 0xFFDCE6F8, 0xFF16202E, 0xFF5D6B80, 0xFFC9D6EE, 0xFF1F66F2, 0xFFFFFFFF, 0xFF12A06E, 0xFFD9534F),
-        PalSet(0xFF0B1220, 0xFF16233A, 0xFFE8EDF5, 0xFF8A96A8, 0xFF253552, 0xFF6FA0FF, 0xFF0B1220, 0xFF4FD1A1, 0xFFF07F7A)),
-    Pal("Lavender",
-        PalSet(0xFFF3F0FC, 0xFFE4DCF7, 0xFF241F33, 0xFF6C6582, 0xFFD5CBEF, 0xFF7A4DE8, 0xFFFFFFFF, 0xFF2F9E7A, 0xFFCF5A6A),
-        PalSet(0xFF120F1C, 0xFF221B36, 0xFFECE8F5, 0xFF9B93AE, 0xFF342A50, 0xFFB39DFF, 0xFF120F1C, 0xFF6FD3AE, 0xFFF08A9A)),
-    // Coral buttons, so "due" red is kept deeper than the accent.
-    Pal("Peach",
-        PalSet(0xFFFFF3EC, 0xFFFBE0D2, 0xFF2E1F1A, 0xFF86706A, 0xFFF1CDBB, 0xFFF0643F, 0xFFFFFFFF, 0xFF3E9472, 0xFFB3261E),
-        PalSet(0xFF1A110D, 0xFF2E1E17, 0xFFF5E9E3, 0xFFA99189, 0xFF44302A, 0xFFFF8A65, 0xFF1A110D, 0xFF78CFA5, 0xFFF25F5C)),
-    Pal("Mono",
-        PalSet(0xFFF4F4F4, 0xFFE4E4E4, 0xFF111111, 0xFF6E6E6E, 0xFFD4D4D4, 0xFF111111, 0xFFFFFFFF, 0xFF1E9E5A, 0xFFD64545),
-        PalSet(0xFF000000, 0xFF1A1A1A, 0xFFF2F2F2, 0xFF8E8E8E, 0xFF2E2E2E, 0xFFF2F2F2, 0xFF000000, 0xFF4ADE80, 0xFFF87171)),
 )
 
 // The chosen palette is saved by name ("colours"). Older versions saved a position in a longer list ("palette");
 // those palettes are gone, so each maps to the closest one here.
 private val OLD_PALETTES = listOf("Sand", "Ocean", "Ocean", "Ocean", "Ocean", "Peach", "Ocean", "Mono")
+private val REMOVED_PALETTES = mapOf("Sage" to "Ice", "Lagoon" to "Ice", "Ocean" to "Ice", "Lavender" to "Aurora", "Peach" to "Ember", "Mono" to "Sand", "Rose" to "Ember")
 
 fun paletteIndex(sp: android.content.SharedPreferences): Int {
-    // Sage and Lagoon are gone; anyone on them moves to Ocean.
-    val name = (sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand").let { if (it == "Sage" || it == "Lagoon") "Ocean" else it }
+    // Themes that are gone move to the closest one left; anything unknown opens on Sand.
+    val saved = sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand"
+    val name = REMOVED_PALETTES[saved] ?: saved
     return PALETTES.indexOfFirst { it.name == name }.coerceAtLeast(0)
 }
 
