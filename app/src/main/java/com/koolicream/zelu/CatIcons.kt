@@ -6,7 +6,7 @@ import androidx.compose.material.icons.rounded.RequestQuote
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.MoneyOff
 import androidx.compose.material.icons.rounded.LocalAtm
-import androidx.compose.material.icons.rounded.ShowChart
+import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.material.icons.rounded.RealEstateAgent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -33,7 +33,7 @@ import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.LocalDrink
 import androidx.compose.material.icons.rounded.LocalGasStation
 import androidx.compose.material.icons.rounded.LocalLaundryService
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Payments
@@ -48,8 +48,8 @@ import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Toll
-import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Percent
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material.icons.rounded.WaterDrop
@@ -71,13 +71,13 @@ object CatIcons {
         "movie" to Icons.Rounded.Movie, "music" to Icons.Rounded.MusicNote,
         "game" to Icons.Rounded.SportsEsports, "coffee" to Icons.Rounded.LocalCafe,
         "heart" to Icons.Rounded.Favorite, "fitness" to Icons.Rounded.FitnessCenter,
-        "school" to Icons.Rounded.School, "book" to Icons.Rounded.MenuBook,
+        "school" to Icons.Rounded.School, "book" to Icons.AutoMirrored.Rounded.MenuBook,
         "child" to Icons.Rounded.ChildCare, "pets" to Icons.Rounded.Pets,
         "cut" to Icons.Rounded.ContentCut, "laundry" to Icons.Rounded.LocalLaundryService,
         "clean" to Icons.Rounded.CleaningServices, "tools" to Icons.Rounded.Handyman,
         "gift" to Icons.Rounded.CardGiftcard, "work" to Icons.Rounded.Work,
         "cash" to Icons.Rounded.Payments, "wallet" to Icons.Rounded.AccountBalanceWallet,
-        "bank" to Icons.Rounded.AccountBalance, "trend" to Icons.Rounded.TrendingUp,
+        "bank" to Icons.Rounded.AccountBalance, "trend" to Icons.AutoMirrored.Rounded.TrendingUp,
         "repeat" to Icons.Rounded.Autorenew, "star" to Icons.Rounded.Star,
     )
 
@@ -89,17 +89,17 @@ object CatIcons {
         "Bills" to Icons.Rounded.Receipt, "Entertainment" to Icons.Rounded.Movie,
         "Health" to Icons.Rounded.Favorite, "Education" to Icons.Rounded.School,
         "Rent" to Icons.Rounded.Home, "EMI" to Icons.Rounded.RealEstateAgent,
-        "Investment" to Icons.Rounded.ShowChart, "Subscriptions" to Icons.Rounded.Autorenew,
+        "Investment" to Icons.AutoMirrored.Rounded.ShowChart, "Subscriptions" to Icons.Rounded.Autorenew,
         "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.LocalAtm,
         "Wallet" to Icons.Rounded.AccountBalanceWallet, "Home services" to Icons.Rounded.Handyman,
         "Donation" to Icons.Rounded.VolunteerActivism, "Transfer" to Icons.Rounded.SwapHoriz,
         "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.MoneyOff, "Income" to Icons.Rounded.ArrowDownward,
-        "Refund" to Icons.Rounded.Undo, "Milk & Dairy" to Icons.Rounded.LocalDrink,
+        "Refund" to Icons.AutoMirrored.Rounded.Undo, "Milk & Dairy" to Icons.Rounded.LocalDrink,
         "Internet" to Icons.Rounded.Wifi, "Mobile" to Icons.Rounded.PhoneAndroid,
         "Laundry" to Icons.Rounded.LocalLaundryService, "Maid" to Icons.Rounded.CleaningServices,
         "Domestic help" to Icons.Rounded.CleaningServices, "Gym" to Icons.Rounded.FitnessCenter,
         "FASTag" to Icons.Rounded.Toll,
-        "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.Paid, "Dividend" to Icons.Rounded.TrendingUp,
+        "Salary" to Icons.Rounded.Payments, "Interest" to Icons.Rounded.Paid, "Dividend" to Icons.AutoMirrored.Rounded.TrendingUp,
         "Reimbursement" to Icons.Rounded.RequestQuote, "Rewards" to Icons.Rounded.Star, "Business" to Icons.Rounded.BusinessCenter,
         "Gift" to Icons.Rounded.CardGiftcard, "Rent received" to Icons.Rounded.HomeWork, "Tax refund" to Icons.Rounded.Percent,
     )

@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material.icons.rounded.ViewWeek
 import androidx.compose.material.icons.rounded.Today
@@ -8,7 +10,7 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Sms
-import androidx.compose.material.icons.rounded.ShowChart
+import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Schedule
@@ -20,7 +22,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.MarkEmailUnread
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Fingerprint
-import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.CloudDownload
@@ -78,7 +80,7 @@ import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
@@ -189,7 +191,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 Icons.Rounded.VpnKey, ZColor.Warn, button = "Set") { shut(); backupAfterPw = false; backupPwOpen = true })
             if (Demo.on) add(Entry(ATTENTION, "Sample data is on", "Made-up payments. Tap to go back to yours", Icons.Rounded.Science, ZColor.Warn, button = "Turn off") {
                 shut(); Demo.set(context, false)
-                Toast.makeText(context, "Back to your own payments", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.back_to_your_own_payments), Toast.LENGTH_SHORT).show()
             })
 
             add(Entry(MONEY, "Monthly budget", "", Icons.Rounded.Speed, ZColor.Accent, "limit spending",
@@ -200,7 +202,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 "counted ignore income") { shut(); catsOpen = true })
             add(Entry(MONEY, "Savings plan", "What's left after SIPs, EMIs and goals", Icons.Rounded.Savings, ZColor.Income,
                 "sip emi goal") { shut(); savingsOpen = true })
-            add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.Rounded.ShowChart, ZColor.Income,
+            add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.AutoMirrored.Rounded.ShowChart, ZColor.Income,
                 "epf nps mutual fund stocks") { shut(); view = Tab.INVEST; daySel = 0 })
 
             add(Entry(ACCOUNTS, "Your accounts", "Join duplicates, say what each one is, remove what isn't yours",
@@ -215,7 +217,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     }
                     registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
                     reload()
-                    Toast.makeText(context, "Zelu will ask about them again", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.zelu_will_ask_about_them), Toast.LENGTH_LONG).show()
                 }
             })
 
@@ -237,7 +239,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 "rescan between dates period", more = true) { shut(); rescanRangeOpen = true })
             add(Entry(MESSAGES, "Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.History,
                 ZColor.Muted, "history old", more = true) { shut(); rescan(notify = true, depth = 100_000) })
-            add(Entry(MESSAGES, "Data check", "What was read, and whether balances add up", Icons.Rounded.FactCheck, ZColor.Muted,
+            add(Entry(MESSAGES, "Data check", "What was read, and whether balances add up", Icons.AutoMirrored.Rounded.FactCheck, ZColor.Muted,
                 "diagnose balance gaps missing", more = true) {
                 shut(); checkOpen = true; check = null
                 scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
@@ -295,7 +297,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 "pin fingerprint password security", on = lockOn) {
                 val km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                 if (!lockOn && !km.isDeviceSecure) {
-                    Toast.makeText(context, "Set a screen lock (PIN, pattern or fingerprint) in your phone settings first", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.set_a_screen_lock_pin), Toast.LENGTH_LONG).show()
                 } else {
                     lockOn = !lockOn
                     context.getSharedPreferences("zelu_security", android.content.Context.MODE_PRIVATE).edit().putBoolean("lock", lockOn).apply()
@@ -336,7 +338,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
             if (!Demo.on) add(Entry(HELP, "Show sample data", "Made-up payments for screenshots and demos. Yours stay safe",
                 Icons.Rounded.Science, ZColor.Muted, "demo", more = true) {
                 shut(); Demo.set(context, true)
-                Toast.makeText(context, "Showing sample data. Menu, Help to go back", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.showing_sample_data_menu_help), Toast.LENGTH_LONG).show()
             })
         }
 
@@ -366,7 +368,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
             }
             OutlinedTextField(
                 value = find, onValueChange = { find = it }, singleLine = true,
-                placeholder = { Text("Search or ask: \"remind me\", \"pin\"…") },
+                placeholder = { Text(stringResource(R.string.search_or_ask_remind_me)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = ZColor.Muted) },
                 trailingIcon = if (find.isEmpty()) null else ({
                     Box(Modifier.size(40.dp).clip(CircleShape).clickable { find = "" }.buttonLabel("Clear search"), contentAlignment = Alignment.Center) {
@@ -383,7 +385,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     val hits = scored.filter { it.second == tokens.size }.map { it.first }
                         .ifEmpty { scored.filter { it.second > 0 }.sortedByDescending { it.second }.map { it.first } }
                     Spacer(Modifier.height(8.dp))
-                    if (hits.isEmpty()) MutedText("Nothing found. Try another word.", 14)
+                    if (hits.isEmpty()) MutedText(stringResource(R.string.nothing_found_try_another_word), 14)
                     else MenuGroup(null, hits, showSection = true, onRun = { runEntry(it) })
                 } else if (page != null) {
                     // One topic's own short page; rarely used rows wait under "More options".
@@ -399,7 +401,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     if (fixes.isNotEmpty()) {
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
                             .border(1.dp, ZColor.Warn.copy(alpha = 0.45f), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 10.dp)) {
-                            Text("FIX IN ONE TAP · ${fixes.size}", color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.fix_in_one_tap, fixes.size), color = ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             fixes.forEach { e ->
                                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(e.title, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -419,7 +421,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                             Icon(Icons.Rounded.CheckCircle, null, tint = ZColor.Income, modifier = Modifier.size(22.dp))
                             Spacer(Modifier.width(10.dp))
                             Column {
-                                Text("All good", color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.all_good), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Text(facts.joinToString(" · "), color = ZColor.InkSoft, fontSize = 12.sp)
                             }
                         }
@@ -441,7 +443,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                                     withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, pick) }
                                     monthlyBudget = pick
                                 }
-                                Toast.makeText(context, "Budget set to " + money(pick) + " a month", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.budget_set_to) + money(pick) + " a month", Toast.LENGTH_SHORT).show()
                             })
                         }
                         if (!duesOn && reminders.any { r -> !(reminderState[r.id] ?: r.done) && r.dueDate >= today }) {
@@ -464,7 +466,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     suggestions.firstOrNull { !MenuUse.dismissed(context, it.id) }?.let { sg ->
                         Spacer(Modifier.height(10.dp))
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.OrangeSoft).padding(14.dp)) {
-                            Text("SUGGESTED FOR YOU", color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.suggested_for_you), color = ZColor.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text(sg.title, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(10.dp))
@@ -484,7 +486,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     val backupDue = hasPw && (lastBackup == 0L || System.currentTimeMillis() - lastBackup > 7L * 86_400_000L)
                     val shortcuts = ((if (backupDue) pool.filter { it.title == "Back up now" } else emptyList()) + used + defaults)
                         .distinctBy { it.title }.take(4)
-                    Text("YOUR SHORTCUTS", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.your_shortcuts), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 6.dp, top = 16.dp, bottom = 8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         shortcuts.forEach { e ->
@@ -544,7 +546,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     }
                 }
                 val version = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName } catch (_: Exception) { null }
-                if (version != null) Text("Zelu $version · nothing leaves your phone", color = ZColor.Muted, fontSize = 12.sp,
+                if (version != null) Text(stringResource(R.string.zelu_nothing_leaves_your_phone, version), color = ZColor.Muted, fontSize = 12.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 18.dp))
             }
         }
@@ -555,7 +557,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 Row(Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
                     .background(ZColor.Ink).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(title + if (nowOn) " turned on" else " turned off", color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("UNDO", color = ZColor.AmberInk, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    Text(stringResource(R.string.undo), color = ZColor.AmberInk, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                             all.firstOrNull { it.title == title && it.on != null }?.act()
                             undo = null
@@ -567,7 +569,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
         if (leadPick) Dialog(onDismissRequest = { leadPick = false }) {
             val cur = NotifyPrefs.leadIndex(context)
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
-                Text("Remind me", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.remind_me), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 NotifyPrefs.LEAD_PRESETS.forEachIndexed { i, (label, _) ->
                     Row(Modifier.fillMaxWidth().choice(i == cur) { NotifyPrefs.setLeadIndex(context, i); leadPick = false; tick++ }
@@ -582,7 +584,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
 
         if (startPick) Dialog(onDismissRequest = { startPick = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
-                Text("Open Zelu on", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.open_zelu_on), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 START_PAGES.forEach { (key, label) ->
                     Row(Modifier.fillMaxWidth().choice(key == startNow) {
@@ -694,9 +696,9 @@ private fun iconTint(icon: androidx.compose.ui.graphics.vector.ImageVector): Col
     val (light, dark) = when (icon) {
         Icons.Rounded.AccountBalanceWallet, Icons.Rounded.Category -> violet
         Icons.Rounded.AccountBalance, Icons.Rounded.Restore, Icons.Rounded.Email, Icons.Rounded.Sync -> blue
-        Icons.Rounded.Sms, Icons.Rounded.FactCheck, Icons.Rounded.FileDownload -> teal
+        Icons.Rounded.Sms, Icons.AutoMirrored.Rounded.FactCheck, Icons.Rounded.FileDownload -> teal
         Icons.Rounded.Notifications, Icons.Rounded.NotificationsActive, Icons.Rounded.Alarm -> yellow
-        Icons.Rounded.Security, Icons.Rounded.Savings, Icons.Rounded.ShowChart, Icons.Rounded.Fingerprint, Icons.Rounded.PrivacyTip -> green
+        Icons.Rounded.Security, Icons.Rounded.Savings, Icons.AutoMirrored.Rounded.ShowChart, Icons.Rounded.Fingerprint, Icons.Rounded.PrivacyTip -> green
         Icons.Rounded.Palette, Icons.Rounded.PieChart -> pink
         Icons.Rounded.Lightbulb, Icons.Rounded.SupportAgent, Icons.Rounded.VpnKey, Icons.Rounded.Speed -> amber
         Icons.Rounded.Today, Icons.Rounded.ViewWeek, Icons.Rounded.Assessment -> cyan

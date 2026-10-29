@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.SwapVert
@@ -64,16 +66,16 @@ import kotlinx.coroutines.delay
     // Overview), what that leads to by month-end, and the chart.
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow("Budget pace")
-            InfoDot("Your spending so far against an even share of the monthly budget for the days gone." +
+            Eyebrow(stringResource(R.string.budget_pace))
+            InfoDot(stringResource(R.string.your_spending_so_far_against) +
                 if (leave.isNotEmpty()) " EMI and fixed costs are left out." else "", "Budget pace")
         }
         if (budget <= 0) {
             Spacer(Modifier.height(4.dp))
-            MutedText("Set a monthly budget to see your pace.", 13)
+            MutedText(stringResource(R.string.set_a_monthly_budget_to), 13)
         } else if (f.period != "month") {
             Spacer(Modifier.height(4.dp))
-            MutedText("Pick a single month to see your pace.", 13)
+            MutedText(stringResource(R.string.pick_a_single_month_to), 13)
         } else {
             val dim = Dates.daysInMonth(month)
             val isCur = month == Dates.todayMonth()
@@ -88,7 +90,7 @@ import kotlinx.coroutines.delay
             if (isCur && upto > 0) {
                 val projected = total / upto * dim
                 Spacer(Modifier.height(4.dp))
-                Text("≈ ${money(projected)} by ${Dates.monthLabel(month).take(3)}-end",
+                Text(stringResource(R.string.by_end, money(projected), Dates.monthLabel(month).take(3)),
                     color = if (projected > budget) ZColor.AmberInk else ZColor.Income,
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -126,7 +128,7 @@ import kotlinx.coroutines.delay
             drawCircle(ZColor.Accent, 9f, Offset(x(upto), y(run[upto])))
         }
     }
-    MutedText("Day 1 to $dim · Budget ${money(budget)}", 11)
+    MutedText(stringResource(R.string.day_1_to_budget, dim, money(budget)), 11)
 }
 
 
@@ -212,25 +214,25 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                     Text("‹", color = ZColor.Ink, fontSize = 24.sp, modifier = Unspoken)
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("Trends", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TopIcon("Filters", onClick = { filterOpen = true }, dot = acct != "All" || cat != "All", dotLabel = "some are on") { FunnelIcon() }
+                Text(stringResource(R.string.trends), color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TopIcon(stringResource(R.string.filters), onClick = { filterOpen = true }, dot = acct != "All" || cat != "All", dotLabel = "some are on") { FunnelIcon() }
             }
             Spacer(Modifier.height(14.dp))
             TabRowWrap {
-                IconTab(Icons.Rounded.Today, "Day", 0xFFFF6B1A, 0xFFFF8A3D, period == "day", compact = true, modifier = Modifier.weight(1f)) { period = "day"; sel = -1 }
-                IconTab(Icons.Rounded.DateRange, "Week", 0xFF3B82F6, 0xFF60A5FA, period == "week", compact = true, modifier = Modifier.weight(1f)) { period = "week"; sel = -1 }
-                IconTab(Icons.Rounded.CalendarMonth, "Month", 0xFF22B455, 0xFF3DD171, period == "month", compact = true, modifier = Modifier.weight(1f)) { period = "month"; sel = -1 }
-                IconTab(Icons.Rounded.Event, "Quarter", 0xFF8B5CF6, 0xFFA78BFA, period == "quarter", compact = true, modifier = Modifier.weight(1f)) { period = "quarter"; sel = -1 }
+                IconTab(Icons.Rounded.Today, stringResource(R.string.day), 0xFFFF6B1A, 0xFFFF8A3D, period == "day", compact = true, modifier = Modifier.weight(1f)) { period = "day"; sel = -1 }
+                IconTab(Icons.Rounded.DateRange, stringResource(R.string.week), 0xFF3B82F6, 0xFF60A5FA, period == "week", compact = true, modifier = Modifier.weight(1f)) { period = "week"; sel = -1 }
+                IconTab(Icons.Rounded.CalendarMonth, stringResource(R.string.month), 0xFF22B455, 0xFF3DD171, period == "month", compact = true, modifier = Modifier.weight(1f)) { period = "month"; sel = -1 }
+                IconTab(Icons.Rounded.Event, stringResource(R.string.quarter), 0xFF8B5CF6, 0xFFA78BFA, period == "quarter", compact = true, modifier = Modifier.weight(1f)) { period = "quarter"; sel = -1 }
             }
             Spacer(Modifier.height(8.dp))
             TabRowWrap {
-                IconTab(Icons.Rounded.SwapVert, "Spend & income", 0xFF0D9488, 0xFF2DD4BF, mode == "both", modifier = Modifier.weight(1f)) { mode = "both" }
-                IconTab(Icons.Rounded.Savings, "Saved", 0xFF22B455, 0xFF3DD171, mode == "saved", modifier = Modifier.weight(1f)) { mode = "saved" }
-                IconTab(Icons.Rounded.Category, "By category", 0xFF8B5CF6, 0xFFA78BFA, mode == "cat", modifier = Modifier.weight(1f)) { mode = "cat" }
+                IconTab(Icons.Rounded.SwapVert, stringResource(R.string.spend_income), 0xFF0D9488, 0xFF2DD4BF, mode == "both", modifier = Modifier.weight(1f)) { mode = "both" }
+                IconTab(Icons.Rounded.Savings, stringResource(R.string.saved), 0xFF22B455, 0xFF3DD171, mode == "saved", modifier = Modifier.weight(1f)) { mode = "saved" }
+                IconTab(Icons.Rounded.Category, stringResource(R.string.by_category), 0xFF8B5CF6, 0xFFA78BFA, mode == "cat", modifier = Modifier.weight(1f)) { mode = "cat" }
             }
             Spacer(Modifier.height(14.dp))
             if (n == 0) {
-                Panel { MutedText("No transactions for this filter.") }
+                Panel { MutedText(stringResource(R.string.no_transactions_for_this_filter)) }
             } else {
                 Panel {
                     Row(Modifier.fillMaxWidth()) {
@@ -313,15 +315,15 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFB8C0BB)))
-                                Spacer(Modifier.width(5.dp)); MutedText("Other", 11)
+                                Spacer(Modifier.width(5.dp)); MutedText(stringResource(R.string.other), 11)
                             }
                         }
                     } else if (mode == "both") {
                         Spacer(Modifier.height(10.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Accent)); Spacer(Modifier.width(5.dp)); MutedText("Spent", 11)
+                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Accent)); Spacer(Modifier.width(5.dp)); MutedText(stringResource(R.string.spent_3), 11)
                             Spacer(Modifier.width(14.dp))
-                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Income)); Spacer(Modifier.width(5.dp)); MutedText("Money in", 11)
+                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Income)); Spacer(Modifier.width(5.dp)); MutedText(stringResource(R.string.money_in), 11)
                         }
                     }
                 }
@@ -334,10 +336,10 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Fact("Spent", money(b.spent), ZColor.Accent)
-                        Fact("Money in", money(b.income), ZColor.Income)
+                        Fact(stringResource(R.string.spent_3), money(b.spent), ZColor.Accent)
+                        Fact(stringResource(R.string.money_in), money(b.income), ZColor.Income)
                         val sv = b.income - b.spent
-                        Fact("Saved", (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
+                        Fact(stringResource(R.string.saved), (if (sv < 0) "−" else "") + money(kotlin.math.abs(sv)), if (sv >= 0) ZColor.Income else ZColor.Warn)
                     }
                     val top = Analytics.byCategory(b.rows).take(3)
                     if (top.isNotEmpty()) {
@@ -356,7 +358,7 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(ZColor.Ink)
                             .clickable { onReview(b.title, b.rows.newestFirst()) }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
-                    ) { Text("Review " + b.label, color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    ) { Text(stringResource(R.string.review_2) + b.label, color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -367,13 +369,13 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
             Dialog(onDismissRequest = { filterOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Paper).padding(18.dp)
                     .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-                    Text("Filter trends", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.filter_trends), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(14.dp))
-                    MutedText("Source account", 12)
+                    MutedText(stringResource(R.string.source_account), 12)
                     Spacer(Modifier.height(6.dp))
                     AccountChips(accounts, dAcct) { dAcct = it }
                     Spacer(Modifier.height(16.dp))
-                    MutedText("Category", 12)
+                    MutedText(stringResource(R.string.category), 12)
                     Spacer(Modifier.height(6.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         cats.forEach { c ->
@@ -395,13 +397,13 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Clear filter", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.clear_filter), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { acct = "All"; cat = "All"; sel = -1; filterOpen = false }.padding(8.dp))
                         Box(
                             Modifier.clip(RoundedCornerShape(24.dp)).background(ZColor.Ink)
                                 .clickable { acct = dAcct; cat = dCat; sel = -1; filterOpen = false }
                                 .padding(horizontal = 26.dp, vertical = 11.dp),
-                        ) { Text("Apply filter", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        ) { Text(stringResource(R.string.apply_filter), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }

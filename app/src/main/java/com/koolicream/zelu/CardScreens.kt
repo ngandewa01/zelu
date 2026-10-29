@@ -1,11 +1,13 @@
 package com.koolicream.zelu
 
-import androidx.compose.material.icons.rounded.FormatListBulleted
+import androidx.compose.ui.res.stringResource
+
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,7 +89,7 @@ import java.util.Locale
                 tint = Color(if (ZTheme.dark) 0xFFFF8A3D else 0xFFFF6B1A), modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(4.dp))
             Text(privateMoney(spent), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(" spent", color = ZColor.Muted, fontSize = 13.sp)
+            Text(stringResource(R.string.spent_4), color = ZColor.Muted, fontSize = 13.sp)
         }
     }
 }
@@ -127,7 +129,7 @@ import java.util.Locale
             start = 18.dp, end = 18.dp, top = 46.dp, bottom = if (due != null) 130.dp else 40.dp)) {
           item { Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TopIcon("Back", onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
+                TopIcon(stringResource(R.string.back), onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(Color.White), contentAlignment = Alignment.Center) {
                     if (logo != null) androidx.compose.foundation.Image(
@@ -136,7 +138,7 @@ import java.util.Locale
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("$bank Credit Card", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.credit_card, bank), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     MutedText("•••• $last4", 12)
                 }
             }
@@ -167,29 +169,29 @@ import java.util.Locale
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        MutedText("Spent", 12)
-                        InfoDot("Card spends count in your totals as they happen. Paying the card bill later is a transfer, so it isn't counted again.")
+                        MutedText(stringResource(R.string.spent_3), 12)
+                        InfoDot(stringResource(R.string.card_spends_count_in_your))
                     }
                     Text(money(spent), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    if (budget > 0) MutedText("of " + money(budget), 12)
+                    if (budget > 0) MutedText(stringResource(R.string.of) + money(budget), 12)
                 }
             }
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f).clickable { budgetDialog = true }) {
-                    MutedText("Monthly budget", 12)
+                    MutedText(stringResource(R.string.monthly_budget), 12)
                     Text(if (budget > 0) money(budget) else "Set budget ›", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                    MutedText("Available credit", 12)
+                    MutedText(stringResource(R.string.available_credit), 12)
                     Text(if (limit != null) (if (Privacy.hideBalance) Privacy.MASK else money(limit)) else "—", color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(16.dp))
             TabRowWrap {
-                IconTab(Icons.Rounded.FormatListBulleted, "Transactions", 0xFF3B82F6, 0xFF60A5FA, tab == 0, modifier = Modifier.weight(1f)) { tab = 0 }
-                IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, tab == 1, modifier = Modifier.weight(1f)) { tab = 1 }
-                IconTab(Icons.Rounded.Storefront, "Merchants", 0xFFFF6B1A, 0xFFFF8A3D, tab == 2, modifier = Modifier.weight(1f)) { tab = 2 }
+                IconTab(Icons.AutoMirrored.Rounded.FormatListBulleted, stringResource(R.string.transactions), 0xFF3B82F6, 0xFF60A5FA, tab == 0, modifier = Modifier.weight(1f)) { tab = 0 }
+                IconTab(Icons.Rounded.Category, stringResource(R.string.categories), 0xFF8B5CF6, 0xFFA78BFA, tab == 1, modifier = Modifier.weight(1f)) { tab = 1 }
+                IconTab(Icons.Rounded.Storefront, stringResource(R.string.merchants), 0xFFFF6B1A, 0xFFFF8A3D, tab == 2, modifier = Modifier.weight(1f)) { tab = 2 }
             }
             Spacer(Modifier.height(6.dp))
           } }
@@ -199,10 +201,10 @@ import java.util.Locale
             item { PanelEnd(top = false) }
           } else item { Column(Modifier.fillMaxWidth()) {
             when (tab) {
-                0 -> Panel { MutedText("No transactions in this cycle.") }
+                0 -> Panel { MutedText(stringResource(R.string.no_transactions_in_this_cycle)) }
                 1 -> Panel {
                     val items = Analytics.byCategory(spendRows)
-                    if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
+                    if (items.isEmpty()) MutedText(stringResource(R.string.nothing_spent_in_this_cycle))
                     val mx = items.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
                     items.forEach { (c, v) ->
                         Spacer(Modifier.height(8.dp))
@@ -221,7 +223,7 @@ import java.util.Locale
                 else -> Panel {
                     val items = spendRows.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Unknown" }
                         .map { (k, v) -> Triple(k, v.rupees(), v.first().category) }.sortedByDescending { it.second }
-                    if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
+                    if (items.isEmpty()) MutedText(stringResource(R.string.nothing_spent_in_this_cycle))
                     val mx = items.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
                     items.forEach { (k, v, c) ->
                         Spacer(Modifier.height(8.dp))
@@ -248,14 +250,14 @@ import java.util.Locale
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text("Pending bill · due " + prettyDay(due.dueDate), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.pending_bill_due) + prettyDay(due.dueDate), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(money(due.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    due.minAmount?.let { MutedText("Min payable " + money(it), 12) }
+                    due.minAmount?.let { MutedText(stringResource(R.string.min_payable) + money(it), 12) }
                 }
                 Box(
                     Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable { onMarkPaid(due.id) }.padding(horizontal = 18.dp, vertical = 12.dp),
-                ) { Text("Mark as paid", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(R.string.mark_as_paid), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -263,9 +265,9 @@ import java.util.Locale
     if (dayDialog) {
         Dialog(onDismissRequest = { dayDialog = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)) {
-                Text("Billing cycle starts on", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.billing_cycle_starts_on), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("The day your card's cycle starts (see your bill).", 12)
+                MutedText(stringResource(R.string.the_day_your_card_s), 12)
                 Spacer(Modifier.height(12.dp))
                 (1..31).chunked(7).forEach { weekDays ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -288,11 +290,11 @@ import java.util.Locale
         var text by remember { mutableStateOf(if (budget > 0) fmtPlain(budget) else "") }
         Dialog(onDismissRequest = { budgetDialog = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                Text("Monthly card budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.monthly_card_budget), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
-                    singleLine = true, placeholder = { Text("₹ per cycle") },
+                    singleLine = true, placeholder = { Text(stringResource(R.string.per_cycle)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(14.dp))
@@ -300,7 +302,7 @@ import java.util.Locale
                     Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable { onSavePref(day, text.toDoubleOrNull() ?: 0.0); budgetDialog = false }
                         .padding(horizontal = 22.dp, vertical = 10.dp),
-                ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -361,7 +363,7 @@ import java.util.Locale
                                 try {
                                     ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_SENDTO,
                                         android.net.Uri.parse("smsto:${enquiry.first}")).putExtra("sms_body", enquiry.second))
-                                } catch (_: Exception) {}
+                                } catch (e: Exception) { CrashLog.warn("CardScreens.CardTile", e) }
                             }.buttonLabel("Ask the bank for the latest limit"))
                         if (asOf != null) Text("  · $asOf", color = soft, fontSize = 12.sp)
                     }
@@ -373,10 +375,10 @@ import java.util.Locale
                 if (spent >= 0.5 || due != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     if (spent >= 0.5) {
                         Text(privateMoney(spent), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(" spent this cycle", color = soft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.spent_this_cycle), color = soft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.weight(1f))
-                    if (due != null) Text("Due " + prettyDay(due.dueDate) + " · " + privateMoney(due.amount),
+                    if (due != null) Text(stringResource(R.string.due) + prettyDay(due.dueDate) + " · " + privateMoney(due.amount),
                         color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 } else Spacer(Modifier.height(1.dp))
             }

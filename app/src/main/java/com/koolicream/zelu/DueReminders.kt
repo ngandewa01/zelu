@@ -69,7 +69,7 @@ object DueReminders {
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .addAction(Notification.Action.Builder(null, "Mark paid", pay).build())
-            try { nm.notify(nid, b.build()) } catch (_: Exception) {}
+            try { nm.notify(nid, b.build()) } catch (e: Exception) { CrashLog.warn("DueReminders.check", e) }
         }
     }
 }

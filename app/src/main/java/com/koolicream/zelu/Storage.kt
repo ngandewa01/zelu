@@ -325,7 +325,7 @@ object Storage {
                 out[k] = (0 until arr.length()).map { i -> arr.getJSONObject(i).let { it.getDouble("a") to it.getString("c") } }
             }
             out
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadSplits", e); emptyMap() }
     }
     fun setSplit(context: Context, id: String, parts: List<Pair<Double, String>>?): Unit = synchronized(lock) {
         val cur = loadSplits(context).toMutableMap()
@@ -428,7 +428,7 @@ object Storage {
             val obj = f.readWithBackup { JSONObject(it) }; val out = ArrayList<Mandate>()
             for (k in obj.keys()) out.add(mandateFromJson(obj.getJSONObject(k)))
             out.sortedByDescending { it.lastMs }
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadMandates", e); emptyList() }
     }
 
     // The newest message about a mandate decides its status; older ones only fill in what is missing.
@@ -451,7 +451,7 @@ object Storage {
     // ---- payments you added by hand from a message Zelu couldn't read ----
     fun addManualTxn(context: Context, row: Row, smsKey: String): Unit = synchronized(lock) {
         val f = doc(context, MANUAL_TXN_FILE)
-        val obj = try { if (f.exists()) f.readWithBackup { JSONObject(it) } else JSONObject() } catch (_: Exception) { JSONObject() }
+        val obj = try { if (f.exists()) f.readWithBackup { JSONObject(it) } else JSONObject() } catch (e: Exception) { CrashLog.warn("Storage.addManualTxn", e); JSONObject() }
         obj.put(row.id, rowToJson(row))
         f.writeKeepingBackup(obj.toString())
         markSmsHandled(context, smsKey)
@@ -464,7 +464,7 @@ object Storage {
             val obj = f.readWithBackup { JSONObject(it) }; val out = HashMap<String, Row>()
             for (k in obj.keys()) out[k] = rowFromJson(obj.getJSONObject(k))
             out
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.manualTxns", e); emptyMap() }
     }
 
     // A message you added as a payment, or told Zelu to stop listing.
@@ -522,7 +522,7 @@ object Storage {
     private fun readManual(context: Context): org.json.JSONArray = try {
         val f = doc(context, MANUAL_FILE)
         if (f.exists()) f.readWithBackup { org.json.JSONArray(it) } else org.json.JSONArray()
-    } catch (_: Exception) { org.json.JSONArray() }
+    } catch (e: Exception) { CrashLog.warn("Storage.readManual", e); org.json.JSONArray() }
 
     fun addManualReminder(context: Context, name: String, amount: Double, dueDate: String, recurring: Boolean) = synchronized(lock) {
         val arr = readManual(context)
@@ -574,7 +574,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadRepaid", e); emptyMap() }
     }
 
     fun setRepaid(context: Context, personKey: String, amount: Double) = synchronized(lock) {
@@ -595,7 +595,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadBudgets", e); emptyMap() }
     }
 
     fun setBudget(context: Context, category: String, amount: Double) = synchronized(lock) {
@@ -620,7 +620,7 @@ object Storage {
                 val k = ks.next(); val e = o.getJSONObject(k)
                 m[k] = Triple(e.getDouble("a"), e.getLong("d"), e.optString("s", "b"))
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("Storage.readBalFile", e) }
         return m
     }
 
@@ -754,7 +754,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getDouble("a") to e.getLong("d") }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadLimitsRaw", e); emptyMap() }
     }
 
     // A limit you typed in because no SMS states it. A later SMS that does state it replaces it.
@@ -790,7 +790,7 @@ object Storage {
             val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, Boolean>()
             val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getBoolean(k) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadRefundLinks", e); emptyMap() }
     }
 
     fun setRefundLink(context: Context, refundId: String, yes: Boolean): Unit = synchronized(lock) {
@@ -811,7 +811,7 @@ object Storage {
             val o = f.readWithBackup { JSONObject(it) }; val m = HashMap<String, String>()
             val ks = o.keys(); while (ks.hasNext()) { val k = ks.next(); m[k] = o.getString(k) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadPlan", e); emptyMap() }
     }
 
     fun savePlan(context: Context, m: Map<String, String>): Unit = synchronized(lock) {
@@ -829,7 +829,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.optInt("d", 1) to e.optDouble("b", 0.0) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadCardPrefs", e); emptyMap() }
     }
 
     fun setCardPref(context: Context, account: String, day: Int, budget: Double): Unit = synchronized(lock) {
@@ -860,7 +860,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); val e = o.getJSONObject(k); m[k] = e.getString("e") to e.getLong("c") }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadCustomCats", e); emptyMap() }
     }
 
     fun addCustomCat(context: Context, name: String, emoji: String, color: Long): Unit = synchronized(lock) {
@@ -881,7 +881,7 @@ object Storage {
             val ks = o.keys()
             while (ks.hasNext()) { val k = ks.next(); m[k] = o.getDouble(k) }
             m
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadFixed", e); emptyMap() }
     }
 
     fun setFixed(context: Context, name: String, amount: Double) = synchronized(lock) {
@@ -919,7 +919,7 @@ object Storage {
                     m
                 }
             }
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.loadReminderState", e); emptyMap() }
     }
 
     private fun readReminderMap(context: Context): Map<String, Reminder> {
@@ -931,7 +931,7 @@ object Storage {
             val keys = obj.keys()
             while (keys.hasNext()) { val k = keys.next(); out[k] = reminderFromJson(obj.getJSONObject(k)) }
             out
-        } catch (_: Exception) { emptyMap() }
+        } catch (e: Exception) { CrashLog.warn("Storage.readReminderMap", e); emptyMap() }
     }
 
     private fun writeReminderMap(context: Context, map: Map<String, Reminder>) {

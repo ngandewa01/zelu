@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.Icons
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -49,15 +51,15 @@ internal fun SendersDialog(s: AppState) {
     with(s) {
         if (sendersOpen) Dialog(onDismissRequest = { sendersOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-                Text("Unrecognised senders", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.unrecognised_senders), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Senders that look like payments. Say what each one is; add only ones you trust.", 12)
+                MutedText(stringResource(R.string.senders_that_look_like_payments), 12)
                 Spacer(Modifier.height(10.dp))
                 val sl = senderList
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     when {
-                        sl == null -> MutedText("Looking through your messages…", 13)
-                        sl.isEmpty() -> MutedText("None. Every payment sender is already read.", 13)
+                        sl == null -> MutedText(stringResource(R.string.looking_through_your_messages), 13)
+                        sl.isEmpty() -> MutedText(stringResource(R.string.none_every_payment_sender_is), 13)
                         else -> sl.forEach { u ->
                             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
                                 Text(u.address, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -75,18 +77,18 @@ internal fun SendersDialog(s: AppState) {
                                             }
                                         })
                                     }
-                                    Text("Ignore", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    Text(stringResource(R.string.ignore), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                         scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, "sender|" + u.address.uppercase()) }
                                         senderList = senderList?.filter { it.address != u.address }
                                     })
                                     // Opens an email draft with only the sender id, so the bank can be added for everyone. The user sends it.
-                                    Text("Tell Zelu", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    Text(stringResource(R.string.tell_zelu), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                         val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
                                             .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(Storage.reportEmail(context)))
                                             .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu: please add this bank")
                                             .putExtra(android.content.Intent.EXTRA_TEXT, "Sender id: " + u.address + "\nBank name: (please type it here)\n\nNo message text is included.")
                                         try { context.startScreen(android.content.Intent.createChooser(mail, "Tell Zelu")) }
-                                        catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
+                                        catch (_: Exception) { Toast.makeText(context, context.getString(R.string.no_email_app_found_on), Toast.LENGTH_LONG).show() }
                                     })
                                 }
                             }
@@ -96,7 +98,7 @@ internal fun SendersDialog(s: AppState) {
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { sendersOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -108,15 +110,15 @@ internal fun ReadAgainDialog(s: AppState) {
     with(s) {
         if (fullConfirm) Dialog(onDismissRequest = { fullConfirm = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                Text("Read everything again?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.read_everything_again), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                MutedText("Reads every message again. Your edits and added payments stay.", 13)
+                MutedText(stringResource(R.string.reads_every_message_again_your), 13)
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { fullConfirm = false }.padding(12.dp))
+                    Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { fullConfirm = false }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { fullConfirm = false; rescan(full = true, notify = true) }
-                        .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Read again", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        .padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.read_again), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -128,28 +130,28 @@ internal fun DataCheckDialog(s: AppState) {
     with(s) {
         if (checkOpen) Dialog(onDismissRequest = { checkOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-                Text("Data check", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.data_check), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Parser version ${Storage.PARSER_VERSION} · ${rows.size} transactions stored", 12)
+                MutedText(stringResource(R.string.parser_version_transactions_stored, Storage.PARSER_VERSION, rows.size), 12)
                 Spacer(Modifier.height(10.dp))
                 val c = check
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                    if (c == null) MutedText("Checking your bank alerts…", 13) else {
+                    if (c == null) MutedText(stringResource(R.string.checking_your_bank_alerts), 13) else {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Fact("Bank SMS", c.bankSms.toString()); Fact("Payments", c.txns.toString()); Fact("Balances", c.balanceAlerts.toString())
+                            Fact(stringResource(R.string.bank_sms), c.bankSms.toString()); Fact(stringResource(R.string.payments), c.txns.toString()); Fact(stringResource(R.string.balances), c.balanceAlerts.toString())
                         }
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Fact("Reminders", c.reminders.toString())
-                            Fact("Missed", c.unread.toString(), if (c.unread > 0) ZColor.Warn else ZColor.Income)
-                            Fact("Hidden accts", Storage.hiddenAccounts(context).size.toString())
+                            Fact(stringResource(R.string.reminders), c.reminders.toString())
+                            Fact(stringResource(R.string.missed), c.unread.toString(), if (c.unread > 0) ZColor.Warn else ZColor.Income)
+                            Fact(stringResource(R.string.hidden_accts), Storage.hiddenAccounts(context).size.toString())
                         }
                         Spacer(Modifier.height(14.dp))
-                        Eyebrow("Do balances add up?")
+                        Eyebrow(stringResource(R.string.do_balances_add_up))
                         Spacer(Modifier.height(6.dp))
-                        if (c.gaps.isEmpty()) MutedText("Yes. Every account's balances add up.", 13)
+                        if (c.gaps.isEmpty()) MutedText(stringResource(R.string.yes_every_account_s_balances), 13)
                         else {
-                            MutedText("A jump means a message is missing in between.", 12)
+                            MutedText(stringResource(R.string.a_jump_means_a_message), 12)
                             Spacer(Modifier.height(6.dp))
                             c.gaps.forEach { (a, n) ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -167,7 +169,7 @@ internal fun DataCheckDialog(s: AppState) {
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { checkOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -180,15 +182,15 @@ internal fun MissedDialog(s: AppState) {
         if (unreadOpen) Dialog(onDismissRequest = { unreadOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                 .heightIn(max = 620.dp)) {
-                Text("Missed messages", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.missed_messages), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Money messages Zelu couldn't read. Add the real ones as payments.", 12)
+                MutedText(stringResource(R.string.money_messages_zelu_couldn_t), 12)
                 Spacer(Modifier.height(10.dp))
                 val list = unreadList
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     when {
-                        list == null -> MutedText("Looking through your messages…", 13)
-                        list.isEmpty() -> MutedText("Nothing missed. Every money message was understood.", 13)
+                        list == null -> MutedText(stringResource(R.string.looking_through_your_messages), 13)
+                        list.isEmpty() -> MutedText(stringResource(R.string.nothing_missed_every_money_message), 13)
                         else -> list.forEach { m ->
                             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp))
                                 .background(ZColor.Paper).padding(12.dp)) {
@@ -197,19 +199,19 @@ internal fun MissedDialog(s: AppState) {
                                 Text(m.body, color = ZColor.Ink, fontSize = 12.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
                                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Text("Add as payment", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    Text(stringResource(R.string.add_as_payment), color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                         modifier = Modifier.clickable { addFor = m })
-                                    Text("Not a payment", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    Text(stringResource(R.string.not_a_payment), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.clickable {
                                             scope.launch(Dispatchers.IO) { Storage.markSmsHandled(context, Ingest.smsKey(m)) }
                                             unreadList = unreadList?.filter { it !== m }
                                             noteMissed(unreadList?.size ?: 0)
                                         })
-                                    Text("Share", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    Text(stringResource(R.string.share), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.clickable {
                                             val send = android.content.Intent(android.content.Intent.ACTION_SEND)
                                                 .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, m.body)
-                                            try { context.startScreen(android.content.Intent.createChooser(send, "Share message")) } catch (_: Exception) {}
+                                            try { context.startScreen(android.content.Intent.createChooser(send, "Share message")) } catch (e: Exception) { CrashLog.warn("MessageDialogs.MissedDialog", e) }
                                         })
                                 }
                             }
@@ -219,7 +221,7 @@ internal fun MissedDialog(s: AppState) {
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { unreadOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -242,20 +244,20 @@ internal fun AddPaymentDialog(s: AppState) {
             Dialog(onDismissRequest = { addFor = null }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                     .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
-                    Text("Add as payment", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.add_as_payment), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     MutedText(sms.body.take(160) + if (sms.body.length > 160) "…" else "", 11)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        KindTab("spending", "Spent", !isIn) { isIn = false }
-                        KindTab("income", "Received", isIn) { isIn = true }
+                        KindTab("spending", stringResource(R.string.spent_3), !isIn) { isIn = false }
+                        KindTab("income", stringResource(R.string.received), isIn) { isIn = true }
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = amtText, onValueChange = { v -> amtText = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
-                        placeholder = { Text("Amount ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                        placeholder = { Text(stringResource(R.string.amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = payee, onValueChange = { payee = it }, singleLine = true,
-                        placeholder = { Text("Paid to / from") }, modifier = Modifier.fillMaxWidth())
+                        placeholder = { Text(stringResource(R.string.paid_to_from)) }, modifier = Modifier.fillMaxWidth())
                     if (sugg.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
                         ChipScroll { sugg.take(6).forEach { sName -> Chip(sName, payee == sName) { payee = sName } } }
@@ -273,13 +275,13 @@ internal fun AddPaymentDialog(s: AppState) {
                         }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Do the same for similar messages", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Zelu learns this message's form and reads the next ones itself", color = ZColor.Muted, fontSize = 12.sp)
+                            Text(stringResource(R.string.do_the_same_for_similar), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.zelu_learns_this_message_s), color = ZColor.Muted, fontSize = 12.sp)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { addFor = null }.padding(12.dp))
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { addFor = null }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             val amount = amtText.toDoubleOrNull() ?: 0.0
@@ -300,10 +302,10 @@ internal fun AddPaymentDialog(s: AppState) {
                                     val l = withContext(Dispatchers.IO) { Ingest.unreadable(context) }
                                     unreadList = l; noteMissed(l.size)
                                     reload()
-                                    Toast.makeText(context, "Added to your payments", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.added_to_your_payments), Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Add", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.add), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }

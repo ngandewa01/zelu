@@ -2,10 +2,12 @@
 
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.RealEstateAgent
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.foundation.Canvas
@@ -21,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Check
@@ -104,7 +106,7 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
 
 @Composable internal fun AmountText(t: Row, highlight: Boolean) {
     when (t.kind) {
-        Kind.TRANSFER -> Text("Transfer", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Kind.TRANSFER -> Text(stringResource(R.string.transfer), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Kind.INVEST -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Kind.IGNORE -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
         Kind.INCOME, Kind.REFUND, Kind.BORROWED ->
@@ -225,11 +227,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }
         if (liveMonth && budget > 0) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Safe to spend")
-                InfoDot("Your monthly budget, minus what you've spent and bills still due this month, shared over the days left." +
+                Eyebrow(stringResource(R.string.safe_to_spend))
+                InfoDot(stringResource(R.string.your_monthly_budget_minus_what) +
                     if (excludeEmi) " EMI is left out." else "", "Safe to spend")
                 Spacer(Modifier.weight(1f))
-                Text("Budget " + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                Text(stringResource(R.string.budget) + money(budget) + " ›", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
             Spacer(Modifier.height(2.dp))
@@ -237,13 +239,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             if (free > 0) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(money(free / daysLeft), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                    Text(" a day", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.a_day), color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
             } else {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(money(-free), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                    Text(" over", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.over), color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
             }
@@ -265,7 +267,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             }
         } else {
             // Past months, other periods, or no budget yet: what was spent, against the month before.
-            Eyebrow("Spent in " + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
+            Eyebrow(stringResource(R.string.spent_in) + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "")
             val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
             val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
             val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
@@ -295,9 +297,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         .filter { it.kind == Kind.EXPENSE && !(excludeEmi && it.category == "EMI") }.rupees()
                 }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
                 Spacer(Modifier.height(8.dp))
-                Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.set_a_monthly_budget), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { onEditBudget() })
-                if (usual > 0) MutedText("You usually spend " + money(usual) + " a month. Zelu then shows what you can spend each day.", 12)
+                if (usual > 0) MutedText(stringResource(R.string.you_usually_spend) + money(usual) + " a month. Zelu then shows what you can spend each day.", 12)
             }
         }
 
@@ -331,7 +333,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Your budget looks too low", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.your_budget_looks_too_low), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(4.dp))
                     MutedText(if (leaveEmi) "You usually spend " + money(parts.first) + " a month on everyday things. EMIs (" +
@@ -341,13 +343,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         Box(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                             .clickable { onSetBudget(pick, leaveEmi); hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
                             .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text("Budget " + money(pick) + if (leaveEmi) ", no EMI" else "", color = ZColor.Paper, fontSize = 13.sp,
+                            Text(stringResource(R.string.budget) + money(pick) + if (leaveEmi) ", no EMI" else "", color = ZColor.Paper, fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                             .clickable { hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
                             .padding(horizontal = 20.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text("Keep", color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.keep), color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -406,7 +408,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 forecast > budget -> " · " + money(forecast - budget) + " over"
                 else -> " · on track"
             }
-            noteRow(Icons.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
+            noteRow(Icons.AutoMirrored.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
                 "≈ " + money(forecast) + " by $end" + verdict, null, onOpenDues)
         }
         // Running hot: name the category that grew most against the same days last month; the why is on Spend.
@@ -441,10 +443,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     val refundAsk = if (snoozeTick >= 0 && Storage.refundSnoozed(snoozeCtx)) null else refundSuggestions.firstOrNull()
     refundAsk?.let { (rf, sp) ->
         Panel {
-            Eyebrow("Needs you · refund")
+            Eyebrow(stringResource(R.string.needs_you_refund))
             Spacer(Modifier.height(6.dp))
             Text(money(rf.amount) + " refund · " + prettyDate(rf.date), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            MutedText("For " + rowTitle(sp) + " " + money(sp.amount) + " on " + prettyDate(sp.date) + "?", 13)
+            MutedText(stringResource(R.string.for_label) + rowTitle(sp) + " " + money(sp.amount) + " on " + prettyDate(sp.date) + "?", 13)
             // The actual SMS for both, behind a link, so you can check the match yourself without a tall card.
             var showSms by remember(rf.id) { mutableStateOf(false) }
             @Composable fun smsBox(label: String, r: Row) {
@@ -464,9 +466,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Spacer(Modifier.height(12.dp))
             // The same round answer buttons as the other Needs-you questions.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ActionCircle(Icons.Rounded.Check, "Same payment", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, true) }
-                ActionCircle(Icons.Rounded.Close, "Not related", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, false) }
-                ActionCircle(Icons.Rounded.Schedule, "Ask tomorrow", 0xFFD97706, 0xFFFBBF24, false, Modifier.weight(1f)) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
+                ActionCircle(Icons.Rounded.Check, stringResource(R.string.same_payment), 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, true) }
+                ActionCircle(Icons.Rounded.Close, stringResource(R.string.not_related), 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, false) }
+                ActionCircle(Icons.Rounded.Schedule, stringResource(R.string.ask_tomorrow), 0xFFD97706, 0xFFFBBF24, false, Modifier.weight(1f)) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
             }
         }
     }
@@ -479,8 +481,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Panel {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("Needs you · ${pending.size} to go")
-                if (pending.size > 1) Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Eyebrow(stringResource(R.string.needs_you_to_go, pending.size))
+                if (pending.size > 1) Text(stringResource(R.string.see_all), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(6.dp))
             Text(rowTitle(next), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
@@ -490,15 +492,15 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             // Five round answers in one row: the icon in a circle, the word under it.
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth()) {
-                ActionCircle(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
-                ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, Kind.INCOME, "Income", next.counterparty, false) }
-                ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, Kind.LENT, "Lent", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.MoveToInbox, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, Kind.BORROWED, "Borrowed", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, Kind.IGNORE, "Ignore", null, false) }
+                ActionCircle(Icons.Rounded.NorthEast, stringResource(R.string.spending), 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
+                ActionCircle(Icons.Rounded.SouthWest, stringResource(R.string.money_in), 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, Kind.INCOME, "Income", next.counterparty, false) }
+                ActionCircle(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.lent), 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, Kind.LENT, "Lent", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.MoveToInbox, stringResource(R.string.borrowed), 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, Kind.BORROWED, "Borrowed", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.Block, stringResource(R.string.ignore), 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, Kind.IGNORE, "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
-                MutedText("Category", 12)
+                MutedText(stringResource(R.string.category), 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
@@ -507,7 +509,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     CustomCats.names.forEach { c ->
                         CatTab(c, false) { decide(next.id, Kind.EXPENSE, c, next.counterparty, true) }
                     }
-                    KindTab("new", "New", false) { onNewCat { c -> decide(next.id, Kind.EXPENSE, c, next.counterparty, true) } }
+                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> decide(next.id, Kind.EXPENSE, c, next.counterparty, true) } }
                 }
             }
         }
@@ -518,11 +520,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
         Row(Modifier.fillMaxWidth().clickable { onDrill("All transactions", recent) },
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow("Recent")
-            Text("see all ›", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Eyebrow(stringResource(R.string.recent))
+            Text(stringResource(R.string.see_all), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(8.dp))
-        if (recent.isEmpty()) MutedText("No transactions here.")
+        if (recent.isEmpty()) MutedText(stringResource(R.string.no_transactions_here))
         else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             recent.take(10).forEach { t ->
                 Column(
@@ -583,9 +585,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             if (shown < 2) Eyebrow(when (moneyTabNow) { "accounts" -> "Accounts"; "cards" -> "Cards"; else -> "Loans" })
             // The tabs share the row equally, so they stay on one line next to the eye button.
             else Box(Modifier.weight(1f)) { TabRowWrap {
-                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, "Accounts", 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
-                if (hasCard) IconTab(Icons.Rounded.CreditCard, "Cards", 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
-                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, "Loans", 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
+                if (hasAcc) IconTab(Icons.Rounded.AccountBalance, stringResource(R.string.accounts), 0xFF3B82F6, 0xFF60A5FA, moneyTabNow == "accounts", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "accounts" }
+                if (hasCard) IconTab(Icons.Rounded.CreditCard, stringResource(R.string.cards), 0xFFFF6B1A, 0xFFFF8A3D, moneyTabNow == "cards", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "cards" }
+                if (hasLoan) IconTab(Icons.Rounded.RealEstateAgent, stringResource(R.string.loans), 0xFF64748B, 0xFF94A3B8, moneyTabNow == "loans", compact = true, modifier = Modifier.weight(1f)) { moneyTab = "loans" }
             } }
             // One switch for every balance and available limit on accounts and cards.
             androidx.compose.material3.Icon(
@@ -609,7 +611,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 Box(Modifier.align(Alignment.CenterVertically).clip(RoundedCornerShape(16.dp))
                     .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).clickable { allAccountsOpen = true }
                     .padding(horizontal = 18.dp, vertical = 14.dp)) {
-                    Text("See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.see_all_2), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -619,8 +621,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Paper).padding(16.dp)
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("All accounts", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                MutedText("Tap one to see its messages, or hide it.", 12)
+                Text(stringResource(R.string.all_accounts), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                MutedText(stringResource(R.string.tap_one_to_see_its), 12)
                 acctNames.sortedBy { it in closedLoans }.forEach { a ->
                     ClosableFrame(a in closedLoans, 16.dp, Modifier.fillMaxWidth(), onToggle = {
                         Storage.setLoanClosed(acctCtx, a, a !in closedLoans); closedLoans = Storage.closedLoans(acctCtx)
@@ -632,11 +634,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     }
                 }
                 if (hiddenAccts.isNotEmpty()) {
-                    Eyebrow("Hidden")
+                    Eyebrow(stringResource(R.string.hidden))
                     hiddenAccts.forEach { h ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(h, color = ZColor.Muted, fontSize = 14.sp)
-                            Text("Show again", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            Text(stringResource(R.string.show_again), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.clickable { Storage.setAccountHidden(acctCtx, h, false); hiddenAccts = Storage.hiddenAccounts(acctCtx) }.padding(8.dp))
                         }
                     }
@@ -649,13 +651,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
                 Text(a, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Made from these messages. Not yours? Hide it.", 12)
+                MutedText(stringResource(R.string.made_from_these_messages_not), 12)
                 Spacer(Modifier.height(10.dp))
                 val refs = sourceRefs
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     when {
-                        refs == null -> MutedText("Looking for the messages…", 13)
-                        refs.isEmpty() -> MutedText("No message found for it any more.", 13)
+                        refs == null -> MutedText(stringResource(R.string.looking_for_the_messages), 13)
+                        refs.isEmpty() -> MutedText(stringResource(R.string.no_message_found_for_it), 13)
                         else -> refs.forEach { r ->
                             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
                                 MutedText(r.why + " · " + r.sender + " · " + (if (r.date.length == 10) prettyDate(r.date) else r.date), 11)
@@ -667,11 +669,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Hide account", color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.hide_account), color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { Storage.setAccountHidden(acctCtx, a, true); hiddenAccts = Storage.hiddenAccounts(acctCtx); sourceFor = null }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { sourceFor = null }
-                        .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Keep", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        .padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.keep), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -735,13 +737,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
-                            Text("EMI every month", color = ZColor.Muted, fontSize = 12.sp)
+                            Text(stringResource(R.string.emi_every_month), color = ZColor.Muted, fontSize = 12.sp)
                             Text(privateMoney(last.amount), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(6.dp))
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Text("${rs.size} paid", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.paid, rs.size), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Text(" · " + privateMoney(rs.rupees()), color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Text("last " + prettyDay(last.date), color = ZColor.Muted, fontSize = 12.sp)
+                                Text(stringResource(R.string.last) + prettyDay(last.date), color = ZColor.Muted, fontSize = 12.sp)
                             }
                         }
                     }
@@ -758,7 +760,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Spacer(Modifier.width(8.dp))
                     Text("$title $sub · closed · ${plural(rs.size, "EMI", "EMIs")}", color = ZColor.Muted, fontSize = 13.sp,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text("Reopen", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.reopen), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { Storage.setLoanClosed(acctCtx, name, false); closedLoans = Storage.closedLoans(acctCtx) }
                             .padding(horizontal = 4.dp, vertical = 2.dp))
                 }
@@ -790,13 +792,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         var peopleAll by remember { mutableStateOf(false) }
         Panel {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow("People")
+                Eyebrow(stringResource(R.string.people))
                 Spacer(Modifier.weight(1f))
                 if (owedToYou > 0) Text(money(owedToYou), color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (owedToYou > 0) Text(" to get", color = ZColor.Muted, fontSize = 13.sp)
+                if (owedToYou > 0) Text(stringResource(R.string.to_get), color = ZColor.Muted, fontSize = 13.sp)
                 if (owedToYou > 0 && owe > 0) Text(" · ", color = ZColor.Muted, fontSize = 13.sp)
                 if (owe > 0) Text(money(owe), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (owe > 0) Text(" to pay", color = ZColor.Muted, fontSize = 13.sp)
+                if (owe > 0) Text(stringResource(R.string.to_pay), color = ZColor.Muted, fontSize = 13.sp)
             }
             val shown = if (peopleAll) people.sortedBy { it.third } else open.take(3)
             shown.forEach { (p, theyOwe, settled) ->
@@ -854,8 +856,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     val daily = Analytics.dailyTotals(allRows, month, account)
     if (showCal) Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow("Daily spend")
-            InfoDot("Darker days cost more. Tap a date to see only that day.")
+            Eyebrow(stringResource(R.string.daily_spend))
+            InfoDot(stringResource(R.string.darker_days_cost_more_tap))
         }
         Spacer(Modifier.height(8.dp))
         Calendar(month, daily, daySel, onDay)
@@ -865,8 +867,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
         val dtot = dayRows.filter { it.kind == Kind.EXPENSE }.rupees()
         Panel {
-            Eyebrow("$daySel ${Dates.monthLong(month)} · ${money(dtot)} spent")
-            if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions on this day.") }
+            Eyebrow(stringResource(R.string.spent, daySel, Dates.monthLong(month), money(dtot)))
+            if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText(stringResource(R.string.no_transactions_on_this_day)) }
             else dayRows.forEach { TxnRow(it, bigIds.contains(it.id), onRowClick) }
         }
     }

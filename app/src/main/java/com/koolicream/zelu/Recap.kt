@@ -48,6 +48,6 @@ object Recap {
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setAutoCancel(true)
         if (launch != null) b.setContentIntent(PendingIntent.getActivity(context, 4, launch, flags))
-        try { nm.notify(9100, b.build()) } catch (_: Exception) {}
+        try { nm.notify(9100, b.build()) } catch (e: Exception) { CrashLog.warn("Recap.inr", e) }
     }
 }

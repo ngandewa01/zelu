@@ -100,7 +100,7 @@ object BackupVault {
             val enc = c.doFinal(password.toByteArray(Charsets.UTF_8))
             val v = Base64.encodeToString(c.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(enc, Base64.NO_WRAP)
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pw", v).apply()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("BackupCrypto.save", e) }
     }
 
     fun load(context: Context): String? = try {

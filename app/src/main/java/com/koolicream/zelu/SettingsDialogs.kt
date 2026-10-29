@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
@@ -57,21 +59,21 @@ internal fun EraseDialog(s: AppState) {
     with(s) {
         if (eraseOpen) Dialog(onDismissRequest = { eraseOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                Text("Erase everything?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.erase_everything), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                MutedText("Deletes all Zelu data on this phone. Your SMS and saved backup files stay.", 13)
+                MutedText(stringResource(R.string.deletes_all_zelu_data_on), 13)
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { eraseOpen = false }.padding(12.dp))
+                    Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { eraseOpen = false }.padding(12.dp))
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Warn).clickable {
                         eraseOpen = false
                         scope.launch {
                             withContext(Dispatchers.IO) { Storage.eraseAll(context); ZeluWidget.refresh(context) }
-                            Toast.makeText(context, "Erased. Open Zelu again to start fresh.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.erased_open_zelu_again_to), Toast.LENGTH_LONG).show()
                             (context as? android.app.Activity)?.finishAffinity()
                         }
-                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Erase", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.erase), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -111,9 +113,9 @@ internal fun HelpDialog(s: AppState) {
             val fx = fixes.filter { q.isEmpty() || (it.title + " " + it.steps.joinToString(" ")).lowercase().contains(q) }
             val tp = topics.filter { q.isEmpty() || (it.first + " " + it.second).lowercase().contains(q) }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 640.dp)) {
-                Text("Help", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.help), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = hq, onValueChange = { hq = it }, singleLine = true, placeholder = { Text("Search help") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = hq, onValueChange = { hq = it }, singleLine = true, placeholder = { Text(stringResource(R.string.search_help)) }, modifier = Modifier.fillMaxWidth())
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     Spacer(Modifier.height(12.dp))
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Paper).padding(14.dp)) {
@@ -135,10 +137,10 @@ internal fun HelpDialog(s: AppState) {
                             Text(t.first, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(6.dp))
                             Text(t.second, color = ZColor.InkSoft, fontSize = 14.sp, lineHeight = 20.sp)
-                        } else MutedText("Pick a problem or a topic. The answer shows here.", 13)
+                        } else MutedText(stringResource(R.string.pick_a_problem_or_a), 13)
                     }
                     if (fx.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp)); Eyebrow("Fix something"); Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(16.dp)); Eyebrow(stringResource(R.string.fix_something)); Spacer(Modifier.height(8.dp))
                         fx.chunked(2).forEach { pair ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 pair.forEach { f ->
@@ -158,21 +160,21 @@ internal fun HelpDialog(s: AppState) {
                         }
                     }
                     if (tp.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp)); Eyebrow("Good to know"); Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(6.dp)); Eyebrow(stringResource(R.string.good_to_know)); Spacer(Modifier.height(8.dp))
                         tp.chunked(2).forEach { pair ->
                             Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { (k, _) -> Chip(k, hsel == "topic:" + k) { hsel = "topic:" + k } }
                             }
                         }
                     }
-                    if (fx.isEmpty() && tp.isEmpty()) MutedText("Nothing matches that. Try another word, or report it.", 13)
+                    if (fx.isEmpty() && tp.isEmpty()) MutedText(stringResource(R.string.nothing_matches_that_try_another), 13)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Still stuck? Report a problem", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.still_stuck_report_a_problem), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { helpOpen = false; reportOpen = true }.padding(vertical = 8.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { helpOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                        Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -187,20 +189,20 @@ internal fun ReportAddressDialog(s: AppState) {
             var addr by remember { mutableStateOf(Storage.reportEmail(context)) }
             Dialog(onDismissRequest = { emailOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                    Text("Report address", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.report_address), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Problem reports are emailed here.", 12)
+                    MutedText(stringResource(R.string.problem_reports_are_emailed_here), 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(value = addr, onValueChange = { addr = it.trim() }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { emailOpen = false }.padding(12.dp))
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { emailOpen = false }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             if (addr.contains("@") && addr.contains(".")) { Storage.setReportEmail(context, addr); emailOpen = false }
-                            else Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                            else Toast.makeText(context, context.getString(R.string.enter_a_valid_email_address), Toast.LENGTH_SHORT).show()
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -213,9 +215,9 @@ internal fun PrivacyDialog(s: AppState) {
     with(s) {
         if (privacyOpen) Dialog(onDismissRequest = { privacyOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-                Text("Privacy policy", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.privacy_policy), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
-                MutedText("Last updated " + PrivacyText.UPDATED, 12)
+                MutedText(stringResource(R.string.last_updated) + PrivacyText.UPDATED, 12)
                 Spacer(Modifier.height(10.dp))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     Text(PrivacyText.SUMMARY, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -246,7 +248,7 @@ internal fun PrivacyDialog(s: AppState) {
                 Spacer(Modifier.height(12.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { privacyOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -261,17 +263,17 @@ internal fun CrashDialog(s: AppState) {
             fun seen() { crashAsk = false; scope.launch(Dispatchers.IO) { CrashLog.markSeen(context) } }
             Dialog(onDismissRequest = { seen() }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                    Text("Zelu closed unexpectedly", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.zelu_closed_unexpectedly), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Sorry. Sending the error details (no payments or messages) helps fix it.", 13)
+                    MutedText(stringResource(R.string.sorry_sending_the_error_details), 13)
                     Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.align(Alignment.End)) {
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).clickable { seen() }.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                            Text("Not now", color = ZColor.Muted, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.not_now), color = ZColor.Muted, fontWeight = FontWeight.SemiBold)
                         }
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                             .clickable { seen(); reportOpen = true }.padding(horizontal = 18.dp, vertical = 10.dp)) {
-                            Text("Send report", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.send_report), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -293,11 +295,11 @@ internal fun ReportDialog(s: AppState) {
             Dialog(onDismissRequest = { reportOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                     .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
-                    Text("Report a problem", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.report_a_problem), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Opens an email to $to; you press Send.", 12)
+                    MutedText(stringResource(R.string.opens_an_email_to_you, to), 12)
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(value = what, onValueChange = { what = it }, placeholder = { Text("What went wrong?") },
+                    OutlinedTextField(value = what, onValueChange = { what = it }, placeholder = { Text(stringResource(R.string.what_went_wrong)) },
                         minLines = 3, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(10.dp))
                     @Composable fun tick(on: Boolean, title: String, sub: String, flip: () -> Unit) {
@@ -318,7 +320,7 @@ internal fun ReportDialog(s: AppState) {
                     if (crash != null) tick(withCrash, "Details of the last crash", "Technical error text only. No payments.") { withCrash = !withCrash }
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { reportOpen = false }.padding(12.dp))
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { reportOpen = false }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             scope.launch {
@@ -340,9 +342,9 @@ internal fun ReportDialog(s: AppState) {
                                     .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu problem report")
                                     .putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
                                 try { context.startScreen(android.content.Intent.createChooser(mail, "Send report")); reportOpen = false }
-                                catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
+                                catch (_: Exception) { Toast.makeText(context, context.getString(R.string.no_email_app_found_on), Toast.LENGTH_LONG).show() }
                             }
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Write email", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.write_email), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -360,31 +362,31 @@ internal fun BackupPasswordDialog(s: AppState) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text(if (Backup.hasPassword(context)) "Change backup password" else "Set a backup password", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Locks your backups. If you forget it, they can't be opened.", 12)
+                    MutedText(stringResource(R.string.locks_your_backups_if_you), 12)
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(value = pw, onValueChange = { pw = it }, singleLine = true, label = { Text("Password") },
+                    OutlinedTextField(value = pw, onValueChange = { pw = it }, singleLine = true, label = { Text(stringResource(R.string.password)) },
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = pw2, onValueChange = { pw2 = it }, singleLine = true, label = { Text("Type it again") },
+                    OutlinedTextField(value = pw2, onValueChange = { pw2 = it }, singleLine = true, label = { Text(stringResource(R.string.type_it_again)) },
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { backupPwOpen = false }.padding(12.dp))
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { backupPwOpen = false }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             when {
-                                pw.length < BackupCrypto.MIN_PASSWORD -> Toast.makeText(context, "Use at least ${BackupCrypto.MIN_PASSWORD} characters", Toast.LENGTH_SHORT).show()
-                                pw != pw2 -> Toast.makeText(context, "The two passwords don't match", Toast.LENGTH_SHORT).show()
+                                pw.length < BackupCrypto.MIN_PASSWORD -> Toast.makeText(context, context.getString(R.string.use_at_least_characters, BackupCrypto.MIN_PASSWORD), Toast.LENGTH_SHORT).show()
+                                pw != pw2 -> Toast.makeText(context, context.getString(R.string.the_two_passwords_don_t), Toast.LENGTH_SHORT).show()
                                 else -> {
                                     Backup.setPassword(context, pw)
                                     backupPwOpen = false
                                     if (backupAfterPw) { backupAfterPw = false; backupNow() }
-                                    else Toast.makeText(context, "Backup password saved", Toast.LENGTH_SHORT).show()
+                                    else Toast.makeText(context, context.getString(R.string.backup_password_saved), Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -401,19 +403,19 @@ internal fun RestoreDialog(s: AppState) {
             var wrong by remember(uri) { mutableStateOf(false) }
             Dialog(onDismissRequest = { restoreUri = null }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                    Text("Restore this backup?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.restore_this_backup), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    MutedText("Replaces everything on this phone with the file's data.", 13)
+                    MutedText(stringResource(R.string.replaces_everything_on_this_phone), 13)
                     if (needPw) {
                         Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(value = pw, onValueChange = { pw = it; wrong = false }, singleLine = true, label = { Text("Backup password") },
-                            isError = wrong, supportingText = { if (wrong) Text("That password doesn't open this backup") },
+                        OutlinedTextField(value = pw, onValueChange = { pw = it; wrong = false }, singleLine = true, label = { Text(stringResource(R.string.backup_password)) },
+                            isError = wrong, supportingText = { if (wrong) Text(stringResource(R.string.that_password_doesn_t_open)) },
                             visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             modifier = Modifier.fillMaxWidth())
                     }
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { restoreUri = null }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
@@ -440,7 +442,7 @@ internal fun RestoreDialog(s: AppState) {
                                     }
                                 }
                             }
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Restore", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.restore), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -454,7 +456,7 @@ internal fun ThemeDialog(s: AppState) {
         if (themeOpen) Dialog(onDismissRequest = { themeOpen = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)
                 .heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
-                Text("Theme", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.theme), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                 PALETTES.forEachIndexed { i, p ->
                     val set = if (ZTheme.dark) p.dark else p.light
@@ -477,7 +479,7 @@ internal fun ThemeDialog(s: AppState) {
                         if (sel) Text("✓", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Unspoken)
                     }
                 }
-                Text("Use the sun / moon button for light or dark.", color = ZColor.Muted, fontSize = 12.sp,
+                Text(stringResource(R.string.use_the_sun_moon_button), color = ZColor.Muted, fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
             }
         }

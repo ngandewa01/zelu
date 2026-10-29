@@ -17,6 +17,12 @@ android {
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = run
         versionName = "0.3.$run"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Tests on a phone or emulator check database migrations against the layouts kept in app/schemas.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 
     // Release builds are signed with the upload key kept in the repository secrets (ZELU_KEYSTORE_B64,
@@ -76,22 +82,31 @@ ksp {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    // Tests that run on a phone or emulator (app/src/androidTest; .github/workflows/device-tests.yml).
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.01"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     // The activity-result code in MainActivity needs Fragment 1.3.0 or newer.
-    implementation("androidx.fragment:fragment:1.8.3")
-    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.fragment:fragment:1.8.5")
+    implementation("androidx.core:core-ktx:1.15.0")
     // Payments are stored in an SQLite database (Db.kt).
     implementation("androidx.room:room-runtime:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     // The app lock's fingerprint / face / PIN prompt.
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("androidx.activity:activity-compose:1.9.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    implementation("androidx.activity:activity-compose:1.10.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     // The screen's state holder (AppState) is a ViewModel.
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // LocalLifecycleOwner moved here from Compose UI.
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     // The daily check's slow parts (weekly backup, recap, widget) run as background work.
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation(platform("androidx.compose:compose-bom:2024.09.03"))
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation(platform("androidx.compose:compose-bom:2025.01.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")

@@ -43,7 +43,8 @@ object Notifier {
                 .setAutoCancel(true)
                 .setContentIntent(pi)
             nm.notify(ID, builder.build())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            CrashLog.warn("Notifier.notifyDueSoon", e)
             // notifications are best-effort
         }
     }
@@ -57,14 +58,14 @@ object Notifier {
             context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("Notifier.openSettings", e) }
     }
 
     fun openBatterySettings(context: Context) {
         try {
             context.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("Notifier.openBatterySettings", e) }
     }
 
     // A sample payment alert, so you can check alerts reach you without waiting for a real one.
@@ -157,7 +158,8 @@ object Notifier {
                 .setContentIntent(pi)
             if (logo != null) builder.setLargeIcon(logo)
             nm.notify(60000 + (account.hashCode() and 0x7fffffff) % 1000, builder.build())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            CrashLog.warn("Notifier.notifyBalance", e)
             // best-effort
         }
     }
@@ -218,7 +220,8 @@ object Notifier {
                 .setContentIntent(pi)
             if (acct.isNotEmpty()) builder.setSubText(acct)
             nm.notify(nid, builder.build())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            CrashLog.warn("Notifier.notifyTxn", e)
             // best-effort
         }
     }

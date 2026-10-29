@@ -153,7 +153,7 @@ object Ingest {
         Storage.loadTrust(context)
         val handled = Storage.handledSms(context)
         val taught = Taught.load(context)
-        val all = try { SmsReader.readInbox(context, 3000) } catch (_: Exception) { return emptyList() }
+        val all = try { SmsReader.readInbox(context, 3000) } catch (e: Exception) { CrashLog.warn("Ingest.unreadable", e); return emptyList() }
         val out = ArrayList<RawSms>()
         for (m in all) {
             if (out.size >= limit) break
@@ -176,7 +176,7 @@ object Ingest {
     fun unrecognisedSenders(context: Context): List<UnknownSender> {
         Storage.loadTrust(context)
         val skipped = Storage.handledSms(context)
-        val all = try { SmsReader.readInbox(context, 5000) } catch (_: Exception) { return emptyList() }
+        val all = try { SmsReader.readInbox(context, 5000) } catch (e: Exception) { CrashLog.warn("Ingest.unrecognisedSenders", e); return emptyList() }
         val by = LinkedHashMap<String, MutableList<String>>()
         for (m in all) {
             if (m.address.isBlank() || Parser.isFinancialSender(m.address)) continue
@@ -206,7 +206,7 @@ object Ingest {
                 if (acct == account && hasBal) out.add(Ref(m.address, fmt.format(java.util.Date(m.date)), m.body,
                     if (txn == null) "Balance alert" else "Balance in a transaction alert"))
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("Ingest.referencesFor", e) }
         rows.filter { it.account == account }.sortedByDescending { it.date }.take(2).forEach {
             out.add(Ref(it.source, it.date, it.raw, "Transaction on this account"))
         }
@@ -225,7 +225,7 @@ object Ingest {
         Storage.loadTrust(context)
         var bank = 0; var txns = 0; var bal = 0; var rem = 0; var unread = 0
         val points = HashMap<String, ArrayList<Triple<Long, Double, Double>>>() // account -> (time, balance, signed amount)
-        val all = try { SmsReader.readInbox(context, 5000) } catch (_: Exception) { emptyList() }
+        val all = try { SmsReader.readInbox(context, 5000) } catch (e: Exception) { CrashLog.warn("Ingest.diagnose", e); emptyList() }
         for (m in all) {
             if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body, m.address)) continue
             bank++

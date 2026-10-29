@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.DonutLarge
@@ -231,13 +233,13 @@ fun ZeluApp() {
             val save = afterStorage
             afterStorage = null
             if (ok) save?.invoke()
-            else android.widget.Toast.makeText(context, "Allow storage access to save to Downloads/Zelu", android.widget.Toast.LENGTH_LONG).show()
+            else android.widget.Toast.makeText(context, context.getString(R.string.allow_storage_access_to_save), android.widget.Toast.LENGTH_LONG).show()
         }
         notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             checkNotif()
             if (!ok) Notifier.openSettings(context)
         }
-        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
             val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
                 if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -400,8 +402,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
                                 null, tint = Color(if (ZTheme.dark) 0xFF818CF8 else 0xFFF59E0B), modifier = Modifier.size(21.dp))
                         }
-                        TopIcon("Filters", onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
-                        TopIcon("Menu", onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
+                        TopIcon(stringResource(R.string.filters), onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
+                        TopIcon(stringResource(R.string.menu), onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -418,7 +420,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             Text(if (pendingAccts.size == 1) "New account found" else "${pendingAccts.size} new accounts found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text(AccountBook.displayName(c.key) + " · " + plural(c.count, "payment", "payments"), color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("Review", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
+                        Text(stringResource(R.string.review), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
                 if (!smsOk) {
@@ -427,14 +429,14 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             try {
                                 context.startScreen(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                     android.net.Uri.fromParts("package", context.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) { CrashLog.warn("MainActivity.HomeScreen", e) }
                         }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Zelu can't read your messages", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Android may have switched off SMS permission for an app you open rarely. Tap, then Permissions › SMS › Allow.",
+                            Text(stringResource(R.string.zelu_can_t_read_your), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.android_may_have_switched_off),
                                 color = ZColor.InkSoft, fontSize = 12.sp)
                         }
-                        Text("Fix", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
+                        Text(stringResource(R.string.fix), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
                 val dupPairs = remember(rows, dupOk) { Analytics.possibleDuplicates(rows, dupOk) }
@@ -443,9 +445,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         .clickable { dupOpen = true }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(plural(dupPairs.size, "possible duplicate", "possible duplicates"), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Same amount, account and day. Tap to check.", color = ZColor.InkSoft, fontSize = 12.sp)
+                            Text(stringResource(R.string.same_amount_account_and_day), color = ZColor.InkSoft, fontSize = 12.sp)
                         }
-                        Text("Review", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
+                        Text(stringResource(R.string.review), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
                 // filter bar: arrows + summary pill + collapsible dropdowns
@@ -480,7 +482,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 }
                 if (rangeOpen) Dialog(onDismissRequest = { rangeOpen = false }) {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 10.dp)) {
-                        Text("Date range", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        Text(stringResource(R.string.date_range), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
                         RANGE_OPTS.forEach { (k, label) ->
                             Row(
@@ -501,26 +503,26 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             Box(
                                 Modifier.align(Alignment.End).padding(end = 20.dp, top = 4.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                                     .clickable { rangeOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
-                            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                            ) { Text(stringResource(R.string.done), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                         }
                     }
                 }
                 if (controlsOpen) Dialog(onDismissRequest = { controlsOpen = false }) {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)
                         .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-                        Text("Filters", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.filters), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
                             value = query, onValueChange = { query = it }, singleLine = true,
-                            placeholder = { Text("Search payee or amount") },
+                            placeholder = { Text(stringResource(R.string.search_payee_or_amount)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Account", 12)
+                        MutedText(stringResource(R.string.account), 12)
                         Spacer(Modifier.height(6.dp))
                         AccountChips(bankAccounts, account) { account = it; daySel = 0 }
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Show", 12)
+                        MutedText(stringResource(R.string.show), 12)
                         Spacer(Modifier.height(6.dp))
                         ChipScroll {
                             listOf("all" to "All", "expense" to "Spent", "income" to "Received", "ignore" to "Ignored").forEach { (k, l) ->
@@ -536,7 +538,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Category", 12)
+                        MutedText(stringResource(R.string.category), 12)
                         Spacer(Modifier.height(6.dp))
                         ChipScroll {
                             CAT_OPTS.forEach { (k, l) ->
@@ -545,7 +547,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }
                         Spacer(Modifier.height(16.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Clear all", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            Text(stringResource(R.string.clear_all), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
                                     query = ""; account = "All"; type = "all"; cat = "All"; daySel = 0
                                 }.padding(horizontal = 14.dp, vertical = 10.dp))
@@ -553,13 +555,13 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             Box(
                                 Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                                     .clickable { controlsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp),
-                            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                            ) { Text(stringResource(R.string.done), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                         }
                     }
                 }
 
                 if (loading) {
-                    Spacer(Modifier.height(10.dp)); MutedText("Checking for new payments…")
+                    Spacer(Modifier.height(10.dp)); MutedText(stringResource(R.string.checking_for_new_payments))
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -571,11 +573,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     androidx.compose.material3.Icon(Icons.Rounded.Warning, null, tint = ZColor.Accent, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Alerts are off", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Allow notifications to get instant payment and balance alerts.", color = ZColor.InkSoft, fontSize = 12.sp)
+                        Text(stringResource(R.string.alerts_are_off), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.allow_notifications_to_get_instant), color = ZColor.InkSoft, fontSize = 12.sp)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text("Turn on", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.turn_on), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 // Only the new page is drawn, fading in. A Column (not a Box) so the page's parts stack top to bottom.
                 Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value }) {
@@ -616,9 +618,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             tabs = {
                                 Spacer(Modifier.height(12.dp))
                                 TabRowWrap {
-                                    IconTab(Icons.Rounded.DonutLarge, "Overview", 0xFFFF6B1A, 0xFFFF8A3D, spendTab == 0, modifier = Modifier.weight(1f)) { spendTab = 0 }
-                                    IconTab(Icons.Rounded.Category, "Categories", 0xFF8B5CF6, 0xFFA78BFA, spendTab == 1, modifier = Modifier.weight(1f)) { spendTab = 1 }
-                                    IconTab(Icons.Rounded.Insights, "Patterns", 0xFF06B6D4, 0xFF22D3EE, spendTab == 2, modifier = Modifier.weight(1f)) { spendTab = 2 }
+                                    IconTab(Icons.Rounded.DonutLarge, stringResource(R.string.overview), 0xFFFF6B1A, 0xFFFF8A3D, spendTab == 0, modifier = Modifier.weight(1f)) { spendTab = 0 }
+                                    IconTab(Icons.Rounded.Category, stringResource(R.string.categories), 0xFF8B5CF6, 0xFFA78BFA, spendTab == 1, modifier = Modifier.weight(1f)) { spendTab = 1 }
+                                    IconTab(Icons.Rounded.Insights, stringResource(R.string.patterns), 0xFF06B6D4, 0xFF22D3EE, spendTab == 2, modifier = Modifier.weight(1f)) { spendTab = 2 }
                                 }
                             },
                             showSummary = spendTab == 0,
@@ -682,7 +684,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     .clip(RoundedCornerShape(14.dp)).background(ZColor.Ink).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(u.first, color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("UNDO", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    Text(stringResource(R.string.undo), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { undoLast() }.padding(horizontal = 14.dp, vertical = 12.dp))
                 }
             }

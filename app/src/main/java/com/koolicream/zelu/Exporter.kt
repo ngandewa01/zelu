@@ -55,7 +55,7 @@ object Exporter {
             try {
                 legacyDir().listFiles { f -> f.name.startsWith("zelu-backup-") }?.sortedByDescending { it.lastModified() }
                     ?.drop(keep)?.forEach { it.delete() }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { CrashLog.warn("Exporter.pruneBackups", e) }
             return
         }
         try {
@@ -68,9 +68,9 @@ object Exporter {
                 while (c.moveToNext()) ids.add(c.getLong(col))
             }
             for (id in ids.drop(keep)) {
-                try { context.contentResolver.delete(ContentUris.withAppendedId(uri, id), null, null) } catch (_: Exception) {}
+                try { context.contentResolver.delete(ContentUris.withAppendedId(uri, id), null, null) } catch (e: Exception) { CrashLog.warn("Exporter.pruneBackups", e) }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { CrashLog.warn("Exporter.pruneBackups", e) }
     }
 
     private fun writeToDownloads(context: Context, filename: String, mime: String, content: String): Boolean {
@@ -85,7 +85,8 @@ object Exporter {
                 ?: return false
             context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            CrashLog.warn("Exporter.writeToDownloads", e)
             false
         }
     }
@@ -99,7 +100,8 @@ object Exporter {
             // Shows the new file in the Files app and to a computer over USB straight away.
             MediaScannerConnection.scanFile(context, arrayOf(f.absolutePath), arrayOf(mime), null)
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            CrashLog.warn("Exporter.writeLegacy", e)
             false
         }
     }

@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.Icons
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -51,13 +53,13 @@ internal fun MonthlyBudgetDialog(s: AppState) {
             var text by remember { mutableStateOf(fmtPlain(monthlyBudget)) }
             Dialog(onDismissRequest = { budgetDlg = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                    Text("Monthly budget", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.monthly_budget), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Your monthly limit. 0 for none.", 12)
+                    MutedText(stringResource(R.string.your_monthly_limit_0_for), 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
-                        singleLine = true, placeholder = { Text("₹ per month (0 = none)") },
+                        singleLine = true, placeholder = { Text(stringResource(R.string.per_month_0_none)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(14.dp))
@@ -71,7 +73,7 @@ internal fun MonthlyBudgetDialog(s: AppState) {
                                 }
                                 budgetDlg = false
                             }.padding(horizontal = 22.dp, vertical = 10.dp),
-                    ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    ) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -85,15 +87,15 @@ internal fun CardLimitDialog(s: AppState) {
             var txt by remember(acct) { mutableStateOf("") }
             Dialog(onDismissRequest = { limitAskFor = null }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-                    Text("Card limit", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.card_limit), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Your bank's messages for " + acct + " don't state the available limit. Enter what your bank app shows now. If a later message states it, Zelu uses that instead.", 12)
+                    MutedText(stringResource(R.string.your_bank_s_messages_for) + acct + " don't state the available limit. Enter what your bank app shows now. If a later message states it, Zelu uses that instead.", 12)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(value = txt, onValueChange = { v -> txt = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
-                        placeholder = { Text("Available limit ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                        placeholder = { Text(stringResource(R.string.available_limit)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { limitAskFor = null }.padding(12.dp))
+                        Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { limitAskFor = null }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             val v = txt.toDoubleOrNull() ?: 0.0
@@ -103,7 +105,7 @@ internal fun CardLimitDialog(s: AppState) {
                                 manualLimits = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
                                 limitAskFor = null
                             }
-                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                        }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -118,15 +120,15 @@ internal fun CategoriesDialog(s: AppState) {
             val names = (rows.filter { it.kind == Kind.EXPENSE || it.category in catOff }.map { it.category } + catOff).distinct().filter { it.isNotBlank() }.sorted()
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
                 var catTab by remember { mutableStateOf(0) }
-                Text("Categories", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.categories), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KindTab("spending", "Spending", catTab == 0) { catTab = 0 }
-                    KindTab("income", "Income", catTab == 1) { catTab = 1 }
+                    KindTab("spending", stringResource(R.string.spending), catTab == 0) { catTab = 0 }
+                    KindTab("income", stringResource(R.string.income), catTab == 1) { catTab = 1 }
                 }
                 Spacer(Modifier.height(10.dp))
                 if (catTab == 1) IncomeCategoriesBody() else {
-                MutedText("Tap to count a category as spending or leave it out of totals.", 12)
+                MutedText(stringResource(R.string.tap_to_count_a_category), 12)
                 Spacer(Modifier.height(10.dp))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     names.forEach { c ->
@@ -149,7 +151,7 @@ internal fun CategoriesDialog(s: AppState) {
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { catsOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -168,25 +170,25 @@ internal fun SplitDialog(s: AppState) {
             Dialog(onDismissRequest = { splitFor = null }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                     .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-                    Text("Split payment", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.split_payment), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     MutedText((t.counterparty ?: t.category) + " · " + money(t.amount) + ". Give each part an amount and a category.", 12)
                     Spacer(Modifier.height(10.dp))
                     for (i in amts.indices) {
                         DropdownField("Part ${i + 1}", cats[i], CAT_OPTS.drop(1), catIcons = true, valueKey = cats[i]) { cats[i] = it }
                         OutlinedTextField(value = amts[i], onValueChange = { v -> amts[i] = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
-                            placeholder = { Text("Amount ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                            placeholder = { Text(stringResource(R.string.amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(10.dp))
                     }
                     Text(if (Math.abs(left) < 0.5) "All assigned" else if (left > 0) money(left) + " left to assign" else money(-left) + " too much",
                         color = if (Math.abs(left) < 0.5) ZColor.Income else ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        if (amts.size < 5) Text("＋ Add part", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        if (amts.size < 5) Text(stringResource(R.string.add_part), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable { amts.add(if (left > 0) fmtPlain(left) else ""); cats.add(t.category) }.padding(vertical = 8.dp))
                         else Spacer(Modifier.width(1.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { splitFor = null }.padding(12.dp))
+                            Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { splitFor = null }.padding(12.dp))
                             Spacer(Modifier.width(6.dp))
                             Box(Modifier.clip(RoundedCornerShape(20.dp)).background(if (ok) ZColor.Ink else ZColor.Line).clickable {
                                 if (ok) {
@@ -195,10 +197,10 @@ internal fun SplitDialog(s: AppState) {
                                         withContext(Dispatchers.IO) { Storage.setSplit(context, t.id, parts) }
                                         refreshRows()
                                         splitFor = null
-                                        Toast.makeText(context, "Split into ${parts.size} parts", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.split_into_parts, parts.size), Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = if (ok) ZColor.Paper else ZColor.Muted, fontWeight = FontWeight.SemiBold) }
+                            }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.save), color = if (ok) ZColor.Paper else ZColor.Muted, fontWeight = FontWeight.SemiBold) }
                         }
                     }
                 }
@@ -214,9 +216,9 @@ internal fun DuplicatesDialog(s: AppState) {
             val pairs = Analytics.possibleDuplicates(rows, dupOk)
             if (pairs.isNotEmpty()) Dialog(onDismissRequest = { dupOpen = false }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-                    Text("Possible duplicates", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.possible_duplicates), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    MutedText("Same amount, account and day. Hide the extra if it's one payment.", 12)
+                    MutedText(stringResource(R.string.same_amount_account_and_day_2), 12)
                     Spacer(Modifier.height(10.dp))
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         pairs.forEach { (a, b) ->
@@ -231,12 +233,12 @@ internal fun DuplicatesDialog(s: AppState) {
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                                    Text("Hide the extra one", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+                                    Text(stringResource(R.string.hide_the_extra_one), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
                                         fun info(r: Row) = (if (!r.counterparty.isNullOrBlank()) 1 else 0) + (if (!r.ref.isNullOrBlank()) 1 else 0)
                                         val drop = if (info(b) > info(a)) a else b
                                         decide(drop.id, Kind.IGNORE, "Duplicate", null, false)
                                     })
-                                    Text("Keep both", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
+                                    Text(stringResource(R.string.keep_both), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                         scope.launch {
                                             withContext(Dispatchers.IO) { Storage.markDupOk(context, a.id + "|" + b.id) }
                                             dupOk = withContext(Dispatchers.IO) { Storage.dupOk(context) }
@@ -249,7 +251,7 @@ internal fun DuplicatesDialog(s: AppState) {
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable { dupOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                        Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -313,7 +315,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                         scope.launch {
                             withContext(Dispatchers.IO) { Storage.setSplit(context, r.id.substringBefore('#'), null) }
                             refreshRows()
-                            Toast.makeText(context, "Split removed", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.split_removed), Toast.LENGTH_SHORT).show()
                         }
                     } else splitFor = r
                 }) else null,

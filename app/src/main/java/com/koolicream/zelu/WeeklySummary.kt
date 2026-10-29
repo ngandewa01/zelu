@@ -79,7 +79,7 @@ object WeeklySummary {
             val open = PendingIntent.getActivity(context, 6, launch, flags)
             b.setContentIntent(open).addAction(Notification.Action.Builder(null, "Review", open).build())
         }
-        try { nm.notify(ID, b.build()) } catch (_: Exception) {}
+        try { nm.notify(ID, b.build()) } catch (e: Exception) { CrashLog.warn("WeeklySummary.inr", e) }
     }
 }
 

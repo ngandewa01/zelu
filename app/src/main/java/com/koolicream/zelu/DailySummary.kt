@@ -70,7 +70,7 @@ object DailySummary {
             val open = PendingIntent.getActivity(context, 5, launch, flags)
             b.setContentIntent(open).addAction(Notification.Action.Builder(null, "Review", open).build())
         }
-        try { nm.notify(ID, b.build()) } catch (_: Exception) {}
+        try { nm.notify(ID, b.build()) } catch (e: Exception) { CrashLog.warn("DailySummary.inr", e) }
     }
 }
 
