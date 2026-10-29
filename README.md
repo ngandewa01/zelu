@@ -25,7 +25,9 @@ Native Android app written in Kotlin with Jetpack Compose.
   - `AccountBook.kt` — the Your accounts screen: which labels are one account, cards, loans.
   - `Analytics.kt` — totals by month, category, day; dates.
 - Storage
-  - `Storage.kt` — settings in SharedPreferences, transactions and your decisions as JSON in app-private storage.
+  - `Storage.kt` — settings in SharedPreferences, your decisions as JSON in app-private storage; payments in the
+    database (`Db.kt`, Room/SQLite, amounts in paise). A `transactions.json` found in app storage (from a version before
+    the database, or written by a restored backup) is taken into the database and kept as `transactions.json.imported`.
   - `SafeFile.kt` — atomic saves that keep the previous version, and reads that fall back to it.
   - `Backup.kt`, `BackupCrypto.kt` — password-locked backup files in Downloads/Zelu.
 - Screens
@@ -35,9 +37,12 @@ Native Android app written in Kotlin with Jetpack Compose.
   - `MenuDialog.kt`, `MoneyDialogs.kt`, `MessageDialogs.kt`, `SettingsDialogs.kt`, `Dialogs.kt` — dialogs.
   - `LedgerView.kt`, `SpendViews.kt`, `TrendsScreen.kt`, `PayeesView.kt`, `RemindersView.kt`, `CardScreens.kt`,
     `AccountsScreens.kt`, `Onboarding.kt` — pages; `UiKit.kt`, `Visuals.kt` — shared pieces.
-- Background: `DueReminders.kt`, `DailySummary.kt`, `WeeklySummary.kt`, `Notifier.kt`, `ZeluWidget.kt`.
+- Background: `DueReminders.kt`, `DailySummary.kt`, `WeeklySummary.kt` (daily alarms set through `Alarms.kt`),
+  `Notifier.kt`, `ZeluWidget.kt`.
 
 ## Build
+
+`./gradlew testReleaseUnitTest assembleRelease` with the Android SDK installed; the wrapper pins the Gradle version CI uses.
 
 GitHub Actions builds, runs the unit tests and checks the APK asks for no internet access on every push
 (`.github/workflows/build-apk.yml`). Release builds are signed with the upload key kept in the repository secrets;
@@ -47,4 +52,6 @@ ticked: internal testing (any branch, no review) or closed testing (main only); 
 ## Permissions
 
 `READ_SMS` and `RECEIVE_SMS`, used only on-device to read transaction alerts. `POST_NOTIFICATIONS` for payment and
-bill alerts, `RECEIVE_BOOT_COMPLETED` to put the daily checks back after a restart. No internet permission.
+bill alerts, `RECEIVE_BOOT_COMPLETED` to put the daily checks back after a restart. `USE_BIOMETRIC` (added by the
+biometric library) for the app lock's fingerprint / face prompt. `WRITE_EXTERNAL_STORAGE` on Android 7-9 only, asked for
+when you save a backup or CSV to Downloads/Zelu. No internet permission.

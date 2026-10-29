@@ -1,19 +1,30 @@
 package com.koolicream.zelu
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.content.ContentUris
+import androidx.core.content.ContextCompat
+import java.io.File
 
-// Writes a CSV of transactions to the public Downloads/Zelu folder. Uses MediaStore so
-// no storage permission is needed on Android 10+ (minSdk-24 devices below that return false).
+// Writes a CSV of transactions (or a backup) to the public Downloads/Zelu folder. Android 10+ uses MediaStore, which
+// needs no permission; Android 7-9 writes the file directly, which needs storage access (asked for when you save).
 object Exporter {
+
+    /** True on Android 7-9 while storage access has not been given; ask for it before saving. */
+    fun needsPermission(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+
+    @Suppress("DEPRECATION")
+    private fun legacyDir(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Zelu")
 
     fun exportCsv(context: Context, rows: List<Row>, filename: String): Boolean {
         val sb = StringBuilder("Date,Amount,Direction,Kind,Category,Payee,Account\n")
-        fun esc(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
         rows.sortedBy { it.date }.forEach { r ->
             sb.append(r.date).append(',')
                 .append(r.amount).append(',')
@@ -26,13 +37,27 @@ object Exporter {
         return writeToDownloads(context, filename, "text/csv", sb.toString())
     }
 
+    // A payee comes from the text of an SMS, so a spoofed message could carry "=HYPERLINK(...)"; a spreadsheet would run
+    // a cell starting with = + - @ (or a tab / return) as a formula. A leading apostrophe keeps it plain text.
+    internal fun esc(s: String): String {
+        val safe = if (s.isNotEmpty() && s[0] in "=+-@\t\r") "'$s" else s
+        return "\"" + safe.replace("\"", "\"\"") + "\""
+    }
+
     fun exportText(context: Context, filename: String, mime: String, content: String): Boolean =
         writeToDownloads(context, filename, mime, content)
 
     // Backups would pile up in Downloads/Zelu week after week; only the newest few are kept. Android lets an app remove
     // only files it saved itself, so backups from before a reinstall stay until you delete them.
     fun pruneBackups(context: Context, keep: Int = 4) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (needsPermission(context)) return
+            try {
+                legacyDir().listFiles { f -> f.name.startsWith("zelu-backup-") }?.sortedByDescending { it.lastModified() }
+                    ?.drop(keep)?.forEach { it.delete() }
+            } catch (_: Exception) {}
+            return
+        }
         try {
             val uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI
             val sel = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
@@ -49,7 +74,7 @@ object Exporter {
     }
 
     private fun writeToDownloads(context: Context, filename: String, mime: String, content: String): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return writeLegacy(context, filename, mime, content)
         return try {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, filename)
@@ -59,6 +84,20 @@ object Exporter {
             val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: return false
             context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun writeLegacy(context: Context, filename: String, mime: String, content: String): Boolean {
+        if (needsPermission(context)) return false
+        return try {
+            val dir = legacyDir().apply { mkdirs() }
+            val f = File(dir, filename)
+            f.writeAtomic(content)
+            // Shows the new file in the Files app and to a computer over USB straight away.
+            MediaScannerConnection.scanFile(context, arrayOf(f.absolutePath), arrayOf(mime), null)
             true
         } catch (_: Exception) {
             false

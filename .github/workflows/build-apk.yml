@@ -42,10 +42,10 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # The Gradle version comes from the wrapper in the repository (gradle/wrapper), the same one a local build uses;
+      # this step also checks the wrapper jar against Gradle's published checksums.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.11.1
 
       # The upload key lives only in the repository secrets. Without them the build stops: no APK or bundle
       # is ever signed with anything else.
@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle testReleaseUnitTest assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log
+          ./gradlew testReleaseUnitTest assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log
 
       # When the build breaks, show the compiler errors as annotations (readable without downloading logs).
       - name: Show compiler errors

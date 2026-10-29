@@ -145,6 +145,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     budgets: Map<String, Double> = emptyMap(),
     onOpenSpend: () -> Unit = {},
     onSetBudget: (Double, Boolean) -> Unit = { _, _ -> },
+    monthlyBudget: Double = 0.0,
 ) {
     val s = Analytics.summarize(list)
 
@@ -195,7 +196,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     Panel {
         val isMonth = f.period == "month"
         val liveMonth = isMonth && f.month == Dates.todayMonth()
-        val budget = Analytics.BUDGET
+        val budget = monthlyBudget
         val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
         val today = Dates.today()
         // Bills still to pay this month, overdue ones included, settled the same way as on Dues. A card bill pays for
@@ -230,19 +231,25 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditBudget() })
             }
             Spacer(Modifier.height(2.dp))
+            val heat = if (free > 0) heatColor(free / daysLeft / (budget / Dates.daysInMonth(f.month))) else heatColor(0.0)
             if (free > 0) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(money(free / daysLeft), color = ZColor.Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Text(money(free / daysLeft), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
                     Text(" a day", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 7.dp))
                 }
             } else {
-                Text(money(-free) + " over", color = ZColor.Warn, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(money(-free), color = heat, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Text(" over", color = ZColor.Muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 7.dp))
+                }
             }
-            // The month in one thin bar: spent, still due, free.
+            // The month in one thin bar: spent (in the heat colour), still due, free. Over budget, the budget fills red
+            // and the overflow grows as a darker piece at the end.
             Spacer(Modifier.height(10.dp))
-            val parts = listOf(s.spent to (if (free > 0) ZColor.Accent else ZColor.Warn), billsLeft to ZColor.AmberInk,
-                free.coerceAtLeast(0.0) to ZColor.Income.copy(alpha = 0.35f))
+            val parts = if (free > 0) listOf(s.spent to heat, billsLeft to ZColor.AmberInk, free to ZColor.Line)
+                else listOf(budget to heat, -free to HeatOver)
             Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Paper)) {
                 parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
             }

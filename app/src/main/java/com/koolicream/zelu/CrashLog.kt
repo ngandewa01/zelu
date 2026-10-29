@@ -35,6 +35,17 @@ object CrashLog {
         newFlag(c).writeText("1")
     }
 
+    /**
+     * A failure Zelu got past (a message it couldn't store, an alarm whose work failed): written to the system log so it
+     * shows up while debugging, instead of vanishing. The message is redacted like a crash report, since it may quote an SMS.
+     */
+    fun warn(where: String, e: Throwable) {
+        try {
+            val top = e.stackTrace.take(4).joinToString(" < ")
+            android.util.Log.w("Zelu", where + ": " + e.javaClass.name + ": " + Redact.message(e.message ?: "") + " at " + top)
+        } catch (_: Throwable) {}
+    }
+
     /** True once after a crash, so the next launch can offer to send a report. */
     fun isNew(c: Context): Boolean = newFlag(c).exists()
     fun markSeen(c: Context) { newFlag(c).delete() }

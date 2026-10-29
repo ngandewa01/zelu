@@ -108,6 +108,7 @@ class DemoContext(base: Context) : ContextWrapper(base) {
     /** A fresh sample: no old demo data, accounts already confirmed so the app opens straight on Home. */
     fun prepare() {
         dir.listFiles()?.forEach { it.deleteRecursively() }
+        Storage.clearTransactions(this)
         for (n in listOf("zelu_prefs", "zelu_backup", "zelu_recap", "zelu_ui")) getSharedPreferences(n, MODE_PRIVATE).edit().clear().apply()
         Storage.setAccountsConfirmed(this)
     }

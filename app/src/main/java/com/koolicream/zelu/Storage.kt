@@ -61,13 +61,19 @@ object Storage {
         return sb.toString()
     }
 
-    fun loadRows(context: Context): List<Row> = synchronized(lock) {
+    fun loadRows(context: Context): List<Row> = loadRowsAndRefunds(context).first
+
+    /** The payments, and the refunds that look like they belong to an earlier spend (refund, spend), read together. */
+    fun loadRowsAndRefunds(context: Context): Pair<List<Row>, List<Pair<Row, Row>>> = synchronized(lock) {
         val key = dataKey(context)
-        if (key == cacheKey) { Refunds.suggestions = cacheRefunds; return@synchronized cacheRows }
-        val rows = computeRows(context)
-        cacheRows = rows; cacheRefunds = Refunds.suggestions; cacheKey = key
-        rows
+        if (key != cacheKey) {
+            cacheRows = computeRows(context)
+            cacheRefunds = lastRefunds
+            cacheKey = key
+        }
+        cacheRows to cacheRefunds
     }
+    private var lastRefunds: List<Pair<Row, Row>> = emptyList()
 
     private fun computeRows(context: Context): List<Row> {
         val base = readMap(context) + manualTxns(context)
@@ -157,7 +163,7 @@ object Storage {
         val paired = Reconcile.pairRefunds(
             Reconcile.detectSelfTransfers(Reconcile.dedupBillers(Reconcile.inferEmiSeries(joined, userSet)), userSet),
             loadRefundLinks(context))
-        Refunds.suggestions = paired.suggestions
+        lastRefunds = paired.suggestions
         val processed = paired.rows
         loanStatsCache = AccountBook.loanStats(processed) + loansFromNotices(context, processed)
         return (if (declined.isEmpty()) processed else processed.filter { it.account !in declined && (it.counterparty ?: "") !in declined }).newestFirst()
@@ -199,15 +205,32 @@ object Storage {
     }
 
     // Adds payments not stored yet; with replace (a rebuild) the stored list becomes exactly these. Returns how many
-    // were not stored before. A transaction file that can't be read is never overwritten by an ordinary save.
+    // were not stored before. Payments that can't be read are never overwritten by an ordinary save.
     fun saveRows(context: Context, newRows: List<Row>, replace: Boolean = false): Int = synchronized(lock) {
-        val old = readMapOrNull(context)
-        if (old == null && !replace) return@synchronized 0
-        val map = if (replace || old == null) LinkedHashMap<String, Row>() else old.toMutableMap()
+        val dao = try { txnDao(context) } catch (e: Exception) {
+            CrashLog.warn("Read payments before saving", e)
+            if (!replace) return@synchronized 0
+            // A rebuild replaces every payment anyway; the file it could not read was kept aside as .corrupt.
+            file(context, TXN_FILE).delete()
+            ZeluDb.get(context).txns()
+        }
         var added = 0
-        for (r in newRows) if (!map.containsKey(r.id)) { map[r.id] = r; if (old?.containsKey(r.id) != true) added++ }
-        writeMap(context, map)
+        ZeluDb.get(context).runInTransaction(Runnable {
+            val before = dao.ids().toHashSet()
+            if (replace) dao.deleteAll()
+            val inserted = dao.insertNew(newRows.map(TxnEntity::of))
+            newRows.forEachIndexed { i, r -> if (inserted[i] != -1L && r.id !in before) added++ }
+        })
+        SafeFileStats.writes++
         added
+    }
+
+    /** Every stored payment as one JSON object (id -> payment), the transactions.json a backup carries; null if unreadable. */
+    fun transactionsJson(context: Context): String? = synchronized(lock) {
+        val map = readMapOrNull(context) ?: return@synchronized null
+        val obj = JSONObject()
+        for ((k, r) in map) obj.put(k, rowToJson(r))
+        obj.toString()
     }
 
     /** The payments as stored, before any of your decisions are applied (what a rebuild reads again). */
@@ -331,7 +354,14 @@ object Storage {
     // Deletes everything Zelu keeps on this phone (files and saved settings). Theme and app lock are left alone.
     fun eraseAll(context: Context): Unit = synchronized(lock) {
         context.filesDir.listFiles()?.forEach { if (it.isFile) it.delete() }
+        clearTransactions(context)
         for (n in listOf(PREFS, "zelu_backup", "zelu_recap")) context.getSharedPreferences(n, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    /** Deletes every stored payment (Erase everything, and a fresh sample). */
+    fun clearTransactions(context: Context): Unit = synchronized(lock) {
+        try { ZeluDb.get(context).txns().deleteAll() } catch (e: Exception) { CrashLog.warn("Erase payments", e) }
+        SafeFileStats.writes++
     }
 
     // Where "Report a problem" emails go; change it from Menu > Help.
@@ -968,32 +998,43 @@ object Storage {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("hidden_accounts", cur.joinToString(",")).apply()
     }
 
-    // ---- transaction file ----
+    // ---- payments (in the database, see Db.kt) ----
     private fun file(context: Context, name: String) = File(context.filesDir, name)
 
-    // The transaction file, or null when neither it nor the copy kept from the previous save can be read (see
-    // readWithBackup). A missing file is an empty list.
-    private fun readMapOrNull(context: Context): Map<String, Row>? {
+    // A transactions.json among the app's files holds payments to take in: the file every version before the database
+    // kept (taken in once, on the first open after the update), or one a restored backup just wrote. Its payments
+    // replace what the database holds, in one step, and the file is kept as transactions.json.imported.
+    // Throws when neither the file nor its .bak can be read, so the payments already stored are never replaced by nothing.
+    private fun txnDao(context: Context): TxnDao {
+        val db = ZeluDb.get(context)
         val f = file(context, TXN_FILE)
-        if (!f.exists()) return emptyMap()
-        return try {
-            f.readWithBackup { text ->
+        if (f.exists()) {
+            val rows = f.readWithBackup { text ->
                 val obj = JSONObject(text)
-                val out = HashMap<String, Row>()
+                val out = ArrayList<Row>()
                 val keys = obj.keys()
-                while (keys.hasNext()) { val k = keys.next(); out[k] = rowFromJson(obj.getJSONObject(k)) }
+                while (keys.hasNext()) out.add(rowFromJson(obj.getJSONObject(keys.next())))
                 out
             }
-        } catch (_: Exception) { null }
+            db.runInTransaction(Runnable { db.txns().deleteAll(); db.txns().insertNew(rows.map(TxnEntity::of)) })
+            SafeFileStats.writes++
+            val done = file(context, "$TXN_FILE.imported")
+            done.delete()
+            if (!f.renameTo(done)) f.delete()
+            file(context, "$TXN_FILE.bak").delete()
+        }
+        return db.txns()
+    }
+
+    // Every stored payment by id, or null when they can't be read (see txnDao).
+    private fun readMapOrNull(context: Context): Map<String, Row>? = try {
+        txnDao(context).all().associate { it.id to it.toRow() }
+    } catch (e: Exception) {
+        CrashLog.warn("Read payments", e)
+        null
     }
 
     private fun readMap(context: Context): Map<String, Row> = readMapOrNull(context) ?: emptyMap()
-
-    private fun writeMap(context: Context, map: Map<String, Row>) {
-        val obj = JSONObject()
-        for ((k, r) in map) obj.put(k, rowToJson(r))
-        file(context, TXN_FILE).writeKeepingBackup(obj.toString())
-    }
 
     // ---- key/value files (id -> "kind|category") ----
     private fun readKv(context: Context, name: String): Map<String, Pair<String, String>> {

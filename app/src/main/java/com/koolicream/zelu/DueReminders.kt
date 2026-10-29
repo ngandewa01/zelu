@@ -1,6 +1,5 @@
 package com.koolicream.zelu
 
-import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import java.util.Calendar
 
 // Daily 9 AM (IST) background check: notifies 3 days before, 1 day before and on the
 // due day of every unpaid bill / card due, with a "Mark paid" button.
@@ -19,13 +17,9 @@ object DueReminders {
     fun schedule(context: Context) {
         if (context is DemoContext) return  // sample data never changes the real reminders
         try {
-            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val at = Calendar.getInstance(Dates.IST).apply {
-                set(Calendar.HOUR_OF_DAY, 9); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
-            }
-            am.setInexactRepeating(AlarmManager.RTC, at.timeInMillis, AlarmManager.INTERVAL_DAY, pending(context))
-        } catch (_: Exception) {
+            Alarms.setDaily(context, 9 * 60, pending(context))
+        } catch (e: Exception) {
+            CrashLog.warn("Schedule due reminders", e)
         }
     }
 
@@ -82,10 +76,11 @@ object DueReminders {
 
 class DueReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) = inBackground {
-        try { Recap.maybe(context) } catch (_: Exception) {}
-        try { Backup.maybeAuto(context) } catch (_: Exception) {}
-        try { ZeluWidget.refresh(context) } catch (_: Exception) {}
-        try { DueReminders.check(context) } catch (_: Exception) {}
+        DueReminders.schedule(context)  // tomorrow's
+        try { Recap.maybe(context) } catch (e: Exception) { CrashLog.warn("Recap", e) }
+        try { Backup.maybeAuto(context) } catch (e: Exception) { CrashLog.warn("Weekly backup", e) }
+        try { ZeluWidget.refresh(context) } catch (e: Exception) { CrashLog.warn("Widget", e) }
+        try { DueReminders.check(context) } catch (e: Exception) { CrashLog.warn("Due reminders", e) }
     }
 }
 

@@ -102,6 +102,21 @@ object ZColor {
     }
 }
 
+// Safe-to-spend heat map: 20 steps from green (plenty of room) through yellow and orange to red (nearly out).
+// [room] is today's daily allowance against a normal day (budget / days in month); 2x or more is full green.
+// Light mode uses deeper tones so pale yellow stays readable on a light card.
+fun heatColor(room: Double): Color {
+    val stops = if (ZTheme.dark) listOf(0xFF34C759, 0xFF86D678, 0xFFD6E28C, 0xFFF5D246, 0xFFFAB46E, 0xFFF58232, 0xFFEB483C)
+        else listOf(0xFF1E9E48, 0xFF5AA83C, 0xFF9A9E1E, 0xFFC99A06, 0xFFD9822A, 0xFFD9621C, 0xFFD23A2E)
+    val at = listOf(0f, 0.2f, 0.35f, 0.5f, 0.65f, 0.8f, 1f)
+    val step = Math.round((1 - room.coerceIn(0.0, 2.0) / 2) * 19).toInt()
+    val t = step / 19f
+    val i = (1 until at.size).first { t <= at[it] }
+    return mix(Color(stops[i - 1]), Color(stops[i]), (t - at[i - 1]) / (at[i] - at[i - 1]))
+}
+// The bar's piece beyond the budget, a darker red than the last heat step.
+val HeatOver get() = if (ZTheme.dark) Color(0xFFA8231B) else Color(0xFF8E1B14)
+
 data class Brand(val key: String, val name: String, val bg: Color, val fg: Color, val mark: String)
 
 val BRANDS = listOf(

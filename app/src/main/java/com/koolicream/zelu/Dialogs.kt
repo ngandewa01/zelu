@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,8 +60,10 @@ import androidx.compose.ui.window.Dialog
             val total = rows.sumOf { it.amount }
             MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
             Spacer(Modifier.height(10.dp))
-            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                rows.newestFirst().forEach { TxnRow(it, false, onRowClick) }
+            // A category or a search can hold hundreds of payments: only the ones on screen are drawn.
+            val sorted = remember(rows) { rows.newestFirst() }
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                items(sorted) { TxnRow(it, false, onRowClick) }
             }
             Spacer(Modifier.height(14.dp))
             Box(
@@ -451,8 +455,9 @@ import androidx.compose.ui.window.Dialog
                 Spacer(Modifier.height(14.dp))
                 Eyebrow("Transfers")
                 Spacer(Modifier.height(4.dp))
-                Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
-                    lentRows.newestFirst().forEach { TxnRow(it, false, onRowClick) }
+                val sortedLent = remember(lentRows) { lentRows.newestFirst() }
+                LazyColumn(Modifier.heightIn(max = 220.dp)) {
+                    items(sortedLent) { TxnRow(it, false, onRowClick) }
                 }
                 MutedText("Not a loan? Tap the transfer to change it.", 11)
             }
