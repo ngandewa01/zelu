@@ -122,8 +122,10 @@ import java.util.Locale
     }.sortedBy { it.dueDate }.firstOrNull { it.dueDate >= today }
 
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = if (due != null) 130.dp else 40.dp)) {
+        // A lazy list, so a long cycle draws only the payments on screen.
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp, end = 18.dp, top = 46.dp, bottom = if (due != null) 130.dp else 40.dp)) {
+          item { Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TopIcon("Back", onClick = onBack) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
                 Spacer(Modifier.width(12.dp))
@@ -190,11 +192,14 @@ import java.util.Locale
                 IconTab(Icons.Rounded.Storefront, "Merchants", 0xFFFF6B1A, 0xFFFF8A3D, tab == 2, modifier = Modifier.weight(1f)) { tab = 2 }
             }
             Spacer(Modifier.height(6.dp))
+          } }
+          if (tab == 0 && rows.isNotEmpty()) {
+            item { PanelEnd(top = true) }
+            items(rows.size) { i -> PanelSlice { TxnRow(rows[i], false, onRowClick) } }
+            item { PanelEnd(top = false) }
+          } else item { Column(Modifier.fillMaxWidth()) {
             when (tab) {
-                0 -> Panel {
-                    if (rows.isEmpty()) MutedText("No transactions in this cycle.")
-                    else rows.forEach { TxnRow(it, false, onRowClick) }
-                }
+                0 -> Panel { MutedText("No transactions in this cycle.") }
                 1 -> Panel {
                     val items = Analytics.byCategory(spendRows)
                     if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
@@ -233,6 +238,7 @@ import java.util.Locale
                     }
                 }
             }
+          } }
         }
         if (due != null) {
             Row(

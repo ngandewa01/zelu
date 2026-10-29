@@ -1,6 +1,8 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
@@ -404,6 +406,30 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     )
 }
 
+// A Panel drawn in slices for a long list inside a LazyColumn: its rounded top and bottom ends (with the same 14dp gap
+// above and 18dp padding inside), and the rows between them on the same card colour and outline.
+@Composable internal fun PanelEnd(top: Boolean) {
+    if (top) Spacer(Modifier.height(14.dp))
+    Box(Modifier.fillMaxWidth().height(18.dp).clipToBounds().drawBehind {
+            val r = androidx.compose.ui.geometry.CornerRadius(18.dp.toPx())
+            val stroke = 1.dp.toPx()
+            val y = if (top) 0f else -size.height
+            drawRoundRect(ZColor.Card, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, size.height * 2), r)
+            drawRoundRect(ZColor.Line, androidx.compose.ui.geometry.Offset(stroke / 2, y + stroke / 2),
+                androidx.compose.ui.geometry.Size(size.width - stroke, size.height * 2 - stroke), r,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        })
+}
+
+@Composable internal fun PanelSlice(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxWidth().drawBehind {
+        drawRect(ZColor.Card)
+        val s = 1.dp.toPx()
+        drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(s / 2, 0f), androidx.compose.ui.geometry.Offset(s / 2, size.height), s)
+        drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(size.width - s / 2, 0f), androidx.compose.ui.geometry.Offset(size.width - s / 2, size.height), s)
+    }.padding(horizontal = 18.dp)) { content() }
+}
+
 @Composable internal fun Eyebrow(text: String) {
     Text(text.uppercase(), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 }
@@ -688,4 +714,13 @@ internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> 
         modifier = modifier.drawWithContent { if (ready) drawContent() },
         onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true },
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+}
+
+// The phone's own date picker, opened on [current] (YYYY-MM-DD).
+internal fun pickDate(context: android.content.Context, current: String, onPick: (String) -> Unit) {
+    val p = current.split("-")
+    val c = java.util.Calendar.getInstance()
+    try { c.set(p[0].toInt(), p[1].toInt() - 1, p[2].toInt()) } catch (_: Exception) {}
+    android.app.DatePickerDialog(context, { _, y, m, d -> onPick("%04d-%02d-%02d".format(y, m + 1, d)) },
+        c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
 }

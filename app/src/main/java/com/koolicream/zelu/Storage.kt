@@ -54,7 +54,8 @@ object Storage {
     private var cacheRefunds: List<Pair<Row, Row>> = emptyList()
 
     private fun dataKey(context: Context): String {
-        val sb = StringBuilder().append(SafeFileStats.writes).append('|')
+        // The folder is part of the key, so sample data (its own folder) and your data never share a cached result.
+        val sb = StringBuilder().append(context.filesDir.absolutePath).append('|').append(SafeFileStats.writes).append('|')
         context.filesDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".txt")) }
             ?.sortedBy { it.name }?.forEach { sb.append(it.name).append(':').append(it.length()).append(':').append(it.lastModified()).append(';') }
         sb.append(loadSettings(context).ownAccounts)

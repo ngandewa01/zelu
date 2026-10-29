@@ -68,6 +68,12 @@ android {
     }
 }
 
+// Room writes each database version's layout to app/schemas, kept in the repository, so a later version's migration
+// is checked against the real earlier layout.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     testImplementation("junit:junit:4.13.2")
     // The activity-result code in MainActivity needs Fragment 1.3.0 or newer.

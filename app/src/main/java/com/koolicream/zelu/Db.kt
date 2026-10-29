@@ -55,7 +55,7 @@ interface TxnDao {
     fun deleteAll()
 }
 
-@Database(entities = [TxnEntity::class], version = 1, exportSchema = false)
+@Database(entities = [TxnEntity::class], version = 1, exportSchema = true)
 abstract class ZeluDb : RoomDatabase() {
     abstract fun txns(): TxnDao
 
