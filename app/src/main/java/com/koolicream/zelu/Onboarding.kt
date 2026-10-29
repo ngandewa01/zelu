@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -84,32 +85,24 @@ import kotlinx.coroutines.delay
         Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (stage) {
                 Stage.WELCOME -> {
-                    var shown by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) { delay(600); shown = true }
-                    val a by animateFloatAsState(if (shown) 1f else 0f, tween(1000), label = "sms")
-                    Box(Modifier.fillMaxWidth().graphicsLayer { alpha = 1f - 0.55f * a }.clip(RoundedCornerShape(16.dp))
-                        .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
-                        Column {
-                            Text(stringResource(R.string.hdfcbk), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(stringResource(R.string.rs_450_spent_on_card), color = ZColor.Ink, fontSize = 13.sp)
-                        }
-                    }
-                    Text("↓", color = ZColor.Accent, fontSize = 24.sp, modifier = Modifier.graphicsLayer { alpha = a })
-                    Row(Modifier.fillMaxWidth().graphicsLayer { alpha = a; translationY = (1f - a) * 30f }.clip(RoundedCornerShape(16.dp))
-                        .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        MerchantTile("Swiggy", "Food", 40.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.swiggy), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            MutedText(stringResource(R.string.s_16_oct_food), 11)
-                        }
-                        Text("−₹450", color = ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(stringResource(R.string.your_bank_texts_already_know), color = ZColor.Ink,
-                        fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Cta(stringResource(R.string.get_started), onNext)
+                    // The Zelu icon draws itself, then a short message and the button fade in. No sample message or card:
+                    // the first screen says one thing.
+                    val t = remember { androidx.compose.animation.core.Animatable(0f) }
+                    LaunchedEffect(Unit) { t.animateTo(2000f, tween(2000, easing = androidx.compose.animation.core.LinearEasing)) }
+                    val ms = t.value
+                    fun part(start: Float, length: Float) =
+                        androidx.compose.animation.core.FastOutSlowInEasing.transform(((ms - start) / length).coerceIn(0f, 1f))
+                    WelcomeMark(ms)
+                    Spacer(Modifier.height(10.dp))
+                    val head = part(1000f, 500f)
+                    Text(stringResource(R.string.welcome_headline), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center, modifier = Modifier.graphicsLayer { alpha = head; translationY = (1f - head) * 16.dp.toPx() })
+                    val sub = part(1300f, 500f)
+                    Text(stringResource(R.string.welcome_sub), color = ZColor.Muted, fontSize = 16.sp, textAlign = TextAlign.Center,
+                        modifier = Modifier.graphicsLayer { alpha = sub; translationY = (1f - sub) * 16.dp.toPx() })
+                    Spacer(Modifier.height(10.dp))
+                    val go = part(1600f, 400f)
+                    Box(Modifier.graphicsLayer { alpha = go }) { Cta(stringResource(R.string.get_started), onNext) }
                 }
                 Stage.PRIVACY -> {
                     Text(stringResource(R.string.nothing_leaves_your_phone), color = ZColor.Ink, fontSize = 24.sp,
@@ -221,5 +214,30 @@ import kotlinx.coroutines.delay
         horizontalAlignment = Alignment.CenterHorizontally) {
         Text(n.toString(), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(label, color = ZColor.Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+}
+
+// The Zelu icon on the welcome screen: it pops in and draws itself, then two soft rings spread out from it, over and over.
+@Composable private fun WelcomeMark(ms: Float) {
+    fun part(start: Float, length: Float, ease: androidx.compose.animation.core.Easing = androidx.compose.animation.core.FastOutSlowInEasing) =
+        ease.transform(((ms - start) / length).coerceIn(0f, 1f))
+    val pop = part(0f, 450f, androidx.compose.animation.core.CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.25f))
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "rings")
+    val spread by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(tween(2600, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "spread")
+    val ring = ZColor.Accent
+    Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            if (ms > 900f) for (i in 0..1) {
+                val p = (spread + i * 0.5f) % 1f
+                drawCircle(ring.copy(alpha = 0.28f * (1f - p)), radius = size.minDimension * (0.29f + 0.21f * p),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+            }
+        }
+        Box(Modifier.graphicsLayer { alpha = part(0f, 450f); scaleX = 0.6f + 0.4f * pop; scaleY = 0.6f + 0.4f * pop }) {
+            LogoMark(108f, floatArrayOf(part(300f, 520f), part(700f, 280f), part(840f, 220f)))
+        }
     }
 }

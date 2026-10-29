@@ -362,11 +362,6 @@
     <string name="notif_locked_text">New activity. Unlock to see it.</string>
     <string name="use_your_phone_s_pin">Use your phone\'s PIN, pattern or fingerprint.</string>
     <string name="unlock">Unlock</string>
-    <string name="hdfcbk">HDFCBK</string>
-    <string name="rs_450_spent_on_card">Rs.450 spent on card 9065 at SWIGGY on 16-10-26</string>
-    <string name="swiggy">Swiggy</string>
-    <string name="s_16_oct_food">16 Oct · Food</string>
-    <string name="your_bank_texts_already_know">Your bank texts already know where your money went.</string>
     <string name="get_started">Get started</string>
     <string name="nothing_leaves_your_phone">Nothing leaves your phone.</string>
     <string name="no_account_no_login_no">No account. No login. No upload.</string>
@@ -397,4 +392,6 @@
     <string name="select_source_account">Select source account</string>
     <string name="came_back_to_you">Came back to you: %1$s</string>
     <string name="deposits">Deposits</string>
+    <string name="welcome_headline">Know where your money goes</string>
+    <string name="welcome_sub">Automatic. Private. On your phone.</string>
 </resources>
