@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SouthWest
 
-// ---- Zelu themes: pick a palette (5 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -52,6 +52,10 @@ val PALETTES: List<Pal> = listOf(
     Pal("Peach",
         PalSet(0xFFFFF3EC, 0xFFFBE0D2, 0xFF2E1F1A, 0xFF86706A, 0xFFF1CDBB, 0xFFF0643F, 0xFFFFFFFF, 0xFF3E9472, 0xFFB3261E),
         PalSet(0xFF1A110D, 0xFF2E1E17, 0xFFF5E9E3, 0xFFA99189, 0xFF44302A, 0xFFFF8A65, 0xFF1A110D, 0xFF78CFA5, 0xFFF25F5C)),
+    // Pink accent, kept apart from Peach's coral; due red is a deeper brick so it never reads as the accent.
+    Pal("Rose",
+        PalSet(0xFFFDF2F6, 0xFFF9DDE8, 0xFF2B1620, 0xFF85606F, 0xFFF0C6D8, 0xFFDB2777, 0xFFFFFFFF, 0xFF1E8E5A, 0xFFB42318),
+        PalSet(0xFF1A0E14, 0xFF2E1A24, 0xFFF6E8EE, 0xFFA98C99, 0xFF45283A, 0xFFF472B6, 0xFF1A0E14, 0xFF6FD3A0, 0xFFF87171)),
     Pal("Mono",
         PalSet(0xFFF4F4F4, 0xFFE4E4E4, 0xFF111111, 0xFF6E6E6E, 0xFFD4D4D4, 0xFF111111, 0xFFFFFFFF, 0xFF1E9E5A, 0xFFD64545),
         PalSet(0xFF000000, 0xFF1A1A1A, 0xFFF2F2F2, 0xFF8E8E8E, 0xFF2E2E2E, 0xFFF2F2F2, 0xFF000000, 0xFF4ADE80, 0xFFF87171)),
