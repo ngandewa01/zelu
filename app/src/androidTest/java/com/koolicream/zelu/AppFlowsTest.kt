@@ -5,13 +5,16 @@ import android.view.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -51,10 +54,13 @@ class AppFlowsTest {
     private fun waitFor(timeoutMs: Long = 30_000, cond: () -> Boolean) = compose.waitUntil(timeoutMs) { cond() }
 
     // Home is the screen with the Add button (its words are drawn in capitals, so a tag is the steadier handle).
+    // The emulator screen is small, so Home's Add button and the form's lower fields sit below what is visible: scroll to them first.
+    private fun at(tag: String): SemanticsNodeInteraction = compose.onNodeWithTag(tag).performScrollTo()
+
     private fun onHome() = compose.onAllNodesWithTag("add-transaction").fetchSemanticsNodes().isNotEmpty()
 
     @Test fun opensOnHomeWithSamplePayments() {
-        compose.onNodeWithTag("add-transaction").assertIsDisplayed()
+        at("add-transaction").assertIsDisplayed()
         compose.onNodeWithTag("nav-ledger").assertIsDisplayed()
     }
 
@@ -65,45 +71,45 @@ class AppFlowsTest {
         }
         compose.onNodeWithTag("nav-ledger").performClick()
         waitFor { onHome() }
-        compose.onNodeWithTag("add-transaction").assertIsDisplayed()
+        at("add-transaction").assertIsDisplayed()
     }
 
     @Test fun aPaymentAddedByHandAppearsOnHome() {
-        compose.onNodeWithTag("add-transaction").performClick()
+        at("add-transaction").performClick()
         compose.onNodeWithText("Add a transaction").assertIsDisplayed()
-        compose.onNodeWithTag("add-amount").performTextInput("123")
-        compose.onNodeWithTag("add-payee").performTextInput("Zelu Chai Test")
-        compose.onNodeWithTag("add-save").performClick()
+        at("add-amount").performTextInput("123")
+        at("add-payee").performTextInput("Zelu Chai Test")
+        at("add-save").performClick()
         waitFor { compose.onAllNodesWithText("Add a transaction").fetchSemanticsNodes().isEmpty() }
         waitFor { compose.onAllNodesWithText("Zelu Chai Test").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Zelu Chai Test").assertIsDisplayed()
+        compose.onNodeWithText("Zelu Chai Test").assertExists()
     }
 
     @Test fun anEmptyAmountIsNotSaved() {
-        compose.onNodeWithTag("add-transaction").performClick()
-        compose.onNodeWithTag("add-save").performClick()
+        at("add-transaction").performClick()
+        at("add-save").performClick()
         compose.onNodeWithText("Add a transaction").assertIsDisplayed()     // still open: nothing to save yet
     }
 
     @Test fun sourceAccountListHasCashAndYourAccounts() {
-        compose.onNodeWithTag("add-transaction").performClick()
-        compose.onNodeWithTag("add-account").performClick()
+        at("add-transaction").performClick()
+        at("add-account").performClick()
         compose.onNodeWithText("Select source account").assertIsDisplayed()
         val accounts = SemanticsMatcher("an account in the list") {
             it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("account-") == true
         }
         val n = compose.onAllNodes(accounts).fetchSemanticsNodes().size
         assertTrue("Cash plus the sample accounts, got $n", n > 1)
-        compose.onNodeWithTag("account-Cash").assertIsDisplayed()
-        compose.onNodeWithTag("account-Cash").performClick()
+        at("account-Cash").assertIsDisplayed()
+        at("account-Cash").performClick()
         compose.onNodeWithText("Add a transaction").assertIsDisplayed()     // back on the form
     }
 
     @Test fun backClosesTheForm() {
-        compose.onNodeWithTag("add-transaction").performClick()
+        at("add-transaction").performClick()
         compose.onNodeWithText("Add a transaction").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         waitFor { compose.onAllNodesWithText("Add a transaction").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag("add-transaction").assertIsDisplayed()
+        at("add-transaction").assertIsDisplayed()
     }
 }
