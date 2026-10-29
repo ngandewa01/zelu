@@ -3,6 +3,8 @@ package com.koolicream.zelu
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Payments
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -327,7 +329,11 @@ internal fun AddTransactionDialog(s: AppState) {
         var account by remember { mutableStateOf(cash) }
         var category by remember { mutableStateOf<String?>(null) }
         var note by remember { mutableStateOf("") }
-        val accountNames = remember(rows) { listOf(cash) + rows.map { it.account }.filter { it.isNotBlank() }.distinct().sorted() }
+        var pickAccount by remember { mutableStateOf(false) }
+        // Every account and card Zelu knows (from payments and balances), as on the Accounts screen; cash first.
+        val accountNames = remember(rows, balances) {
+            listOf(cash) + (rows.map { it.account } + balances.keys).filter { it.isNotBlank() && it != cash }.distinct().sorted()
+        }
 
         fun save(another: Boolean) {
             val amount = amtText.toDoubleOrNull() ?: 0.0
@@ -362,6 +368,16 @@ internal fun AddTransactionDialog(s: AppState) {
             }
         }
 
+        if (pickAccount) Dialog(onDismissRequest = { pickAccount = false }) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(vertical = 16.dp)
+                .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.select_source_account), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                accountNames.forEach { a ->
+                    AccountRow(a, cash, Modifier.fillMaxWidth().clickable { account = a; pickAccount = false }.padding(horizontal = 20.dp, vertical = 10.dp))
+                }
+            }
+        }
         Dialog(onDismissRequest = { addNew = false }) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
                 .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
@@ -385,7 +401,8 @@ internal fun AddTransactionDialog(s: AppState) {
                 Spacer(Modifier.height(12.dp))
                 Eyebrow(stringResource(R.string.account_label))
                 Spacer(Modifier.height(6.dp))
-                ChipScroll { accountNames.forEach { a -> Chip(a, account == a) { account = a } } }
+                AccountRow(account, cash, Modifier.clip(RoundedCornerShape(14.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
+                    .clickable { pickAccount = true }.padding(10.dp), arrow = true)
                 Spacer(Modifier.height(12.dp))
                 Eyebrow(stringResource(R.string.category))
                 Spacer(Modifier.height(6.dp))
@@ -406,5 +423,27 @@ internal fun AddTransactionDialog(s: AppState) {
                 }
             }
         }
+    }
+}
+
+// An account as the app shows it elsewhere: its bank's logo, the bank and the number (or "Cash").
+@Composable
+private fun AccountRow(account: String, cash: String, modifier: Modifier, arrow: Boolean = false) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (account == cash) Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.Accent), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(Icons.Rounded.Payments, null, tint = ZColor.AccentInk, modifier = Modifier.size(22.dp))
+        } else AcctLogo(account)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            if (account == cash) Text(cash, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            else {
+                val p = account.trim().split(" ")
+                val number = p.last().takeIf { p.size > 1 && it.any { c -> c.isDigit() } }
+                val bank = if (number != null) p.dropLast(1).joinToString(" ") else account
+                Text(bank, color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (number != null) MutedText(number, 13)
+            }
+        }
+        if (arrow) androidx.compose.material3.Icon(Icons.Rounded.ArrowDropDown, null, tint = ZColor.Muted)
     }
 }
