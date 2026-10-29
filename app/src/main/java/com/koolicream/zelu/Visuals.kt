@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SouthWest
 
-// ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (8 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -32,7 +32,11 @@ object ZTheme {
 class PalSet(
     val paper: Long, val card: Long, val ink: Long, val muted: Long, val line: Long,
     val accent: Long, val accentInk: Long, val income: Long, val warn: Long,
+    val hero: Hero? = null,
 )
+
+// The big "Safe to spend" block of a bolder theme: a two-colour gradient with its own text colour.
+class Hero(val from: Long, val to: Long, val ink: Long)
 
 class Pal(val name: String, val light: PalSet, val dark: PalSet)
 
@@ -40,6 +44,16 @@ val PALETTES: List<Pal> = listOf(
     Pal("Sand",
         PalSet(0xFFF9F8F6, 0xFFEFE9E3, 0xFF2B2622, 0xFF7A6F66, 0xFFD9CFC7, 0xFFA8845A, 0xFFFFFFFF, 0xFF6F8A6E, 0xFFA65D57),
         PalSet(0xFF1E1B18, 0xFF28241F, 0xFFEDE6DE, 0xFF9A8F85, 0xFF3A342E, 0xFFC9B59C, 0xFF2B2622, 0xFF8DAA8C, 0xFFD2807A)),
+    // The bolder themes: a two-colour gradient on the Safe-to-spend block, one strong accent, tinted page and cards.
+    Pal("Aurora",
+        PalSet(0xFFF4F2FF, 0xFFFFFFFF, 0xFF1B1740, 0xFF6C679A, 0xFFE0DCF7, 0xFF5B3DF5, 0xFFFFFFFF, 0xFF0E9F6E, 0xFFD9344F, Hero(0xFF5B3DF5, 0xFF1CC8EE, 0xFFFFFFFF)),
+        PalSet(0xFF0B0A1F, 0xFF16143A, 0xFFEEEBFF, 0xFF9C97CC, 0xFF2A2760, 0xFF8B7BFF, 0xFF0B0A1F, 0xFF3DDC97, 0xFFFF6B81, Hero(0xFF6D4DFF, 0xFF19C3E6, 0xFFFFFFFF))),
+    Pal("Ember",
+        PalSet(0xFFFFF4EE, 0xFFFFFFFF, 0xFF2A0F1E, 0xFF8A5C6B, 0xFFF6D7CC, 0xFFF2452D, 0xFFFFFFFF, 0xFF178F5B, 0xFFB3202A, Hero(0xFFFF8A1F, 0xFFF2288A, 0xFFFFFFFF)),
+        PalSet(0xFF180812, 0xFF2A1020, 0xFFFFEDE6, 0xFFC28C9D, 0xFF4A1D36, 0xFFFF6A3D, 0xFF180812, 0xFF4BDE97, 0xFFFF7A7A, Hero(0xFFFF9A2E, 0xFFF0348F, 0xFFFFFFFF))),
+    Pal("Volt",
+        PalSet(0xFFF7F8EE, 0xFFFFFFFF, 0xFF101208, 0xFF666A4A, 0xFFE4E7CC, 0xFF101208, 0xFFC6FF2E, 0xFF12915A, 0xFFC7342B, Hero(0xFFB6F000, 0xFF2EE6A6, 0xFF101208)),
+        PalSet(0xFF0A0A0A, 0xFF161616, 0xFFF5F5F0, 0xFF9A9A90, 0xFF2A2A26, 0xFFC6FF2E, 0xFF0A0A0A, 0xFF4ADE80, 0xFFFF6B5E, Hero(0xFFC6FF2E, 0xFF2EF2A0, 0xFF0A0A0A))),
     // Each theme follows 60-30-10: a lightly tinted page (60), cards and bars in a deeper tint of the same colour
     // (30) and one strong accent (10) for the chosen tab, buttons and bars. Money-in green and due red stay.
     Pal("Ocean",
@@ -52,10 +66,6 @@ val PALETTES: List<Pal> = listOf(
     Pal("Peach",
         PalSet(0xFFFFF3EC, 0xFFFBE0D2, 0xFF2E1F1A, 0xFF86706A, 0xFFF1CDBB, 0xFFF0643F, 0xFFFFFFFF, 0xFF3E9472, 0xFFB3261E),
         PalSet(0xFF1A110D, 0xFF2E1E17, 0xFFF5E9E3, 0xFFA99189, 0xFF44302A, 0xFFFF8A65, 0xFF1A110D, 0xFF78CFA5, 0xFFF25F5C)),
-    // Pink accent, kept apart from Peach's coral; due red is a deeper brick so it never reads as the accent.
-    Pal("Rose",
-        PalSet(0xFFFDF2F6, 0xFFF9DDE8, 0xFF2B1620, 0xFF85606F, 0xFFF0C6D8, 0xFFDB2777, 0xFFFFFFFF, 0xFF1E8E5A, 0xFFB42318),
-        PalSet(0xFF1A0E14, 0xFF2E1A24, 0xFFF6E8EE, 0xFFA98C99, 0xFF45283A, 0xFFF472B6, 0xFF1A0E14, 0xFF6FD3A0, 0xFFF87171)),
     Pal("Mono",
         PalSet(0xFFF4F4F4, 0xFFE4E4E4, 0xFF111111, 0xFF6E6E6E, 0xFFD4D4D4, 0xFF111111, 0xFFFFFFFF, 0xFF1E9E5A, 0xFFD64545),
         PalSet(0xFF000000, 0xFF1A1A1A, 0xFFF2F2F2, 0xFF8E8E8E, 0xFF2E2E2E, 0xFFF2F2F2, 0xFF000000, 0xFF4ADE80, 0xFFF87171)),
@@ -89,6 +99,8 @@ object ZColor {
     val AccentInk get() = Color(s.accentInk)
     val Income get() = Color(s.income)
     val Warn get() = Color(s.warn)
+    /** The bolder themes' gradient block, or null for the plain themes. */
+    val Hero: Hero? get() = s.hero
     // Soft tints for pills and highlight tiles, blended from the card colour.
     val WarnSoft get() = mix(Color(s.card), Color(s.warn), 0.14f)
     val IncomeSoft get() = mix(Color(s.card), Color(s.income), 0.14f)
