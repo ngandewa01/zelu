@@ -100,9 +100,10 @@ import java.util.Calendar
             if (wk > 0) Fact("Next 7 days", money(wk))
             if (lt > 0) Fact("Later", money(lt))
         }
-        // The day strip only when a bill falls in the next 7 days, so it never shows a row of empty days.
+        // The 30-day strip shows whenever a bill falls inside it, so it never shows only empty days.
         // Today has an outline; a day with a bill is gold and opens it; swipe for later days.
-        if (weekList.isNotEmpty()) {
+        val stripEnd = Dates.shiftDays(today, 29)
+        if (pending.any { it.dueDate >= today && it.dueDate <= stripEnd }) {
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in 0..29) {
