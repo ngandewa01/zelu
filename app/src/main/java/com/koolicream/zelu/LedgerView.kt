@@ -3,6 +3,7 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
@@ -524,7 +525,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.recent))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onAdd() }.padding(horizontal = 12.dp, vertical = 6.dp),
+                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onAdd() }.testTag("add-transaction").padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Icon(Icons.Rounded.Add, null, tint = ZColor.Paper, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))

@@ -1,6 +1,7 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -374,7 +375,7 @@ internal fun AddTransactionDialog(s: AppState) {
                 Text(stringResource(R.string.select_source_account), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
                 accountNames.forEach { a ->
-                    AccountRow(a, cash, Modifier.fillMaxWidth().clickable { account = a; pickAccount = false }.padding(horizontal = 20.dp, vertical = 10.dp))
+                    AccountRow(a, cash, Modifier.fillMaxWidth().clickable { account = a; pickAccount = false }.testTag("account-" + a).padding(horizontal = 20.dp, vertical = 10.dp))
                 }
             }
         }
@@ -389,10 +390,11 @@ internal fun AddTransactionDialog(s: AppState) {
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = amtText, onValueChange = { v -> amtText = v.filter { it.isDigit() || it == '.' } }, singleLine = true,
-                    placeholder = { Text(stringResource(R.string.amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    placeholder = { Text(stringResource(R.string.amount)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth().testTag("add-amount"))
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = payee, onValueChange = { payee = it }, singleLine = true,
-                    placeholder = { Text(stringResource(R.string.paid_to_from)) }, modifier = Modifier.fillMaxWidth())
+                    placeholder = { Text(stringResource(R.string.paid_to_from)) }, modifier = Modifier.fillMaxWidth().testTag("add-payee"))
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                     .clickable { pickDate(screen, day) { day = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
@@ -402,7 +404,7 @@ internal fun AddTransactionDialog(s: AppState) {
                 Eyebrow(stringResource(R.string.account_label))
                 Spacer(Modifier.height(6.dp))
                 AccountRow(account, cash, Modifier.clip(RoundedCornerShape(14.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
-                    .clickable { pickAccount = true }.padding(10.dp), arrow = true)
+                    .clickable { pickAccount = true }.testTag("add-account").padding(10.dp), arrow = true)
                 Spacer(Modifier.height(12.dp))
                 Eyebrow(stringResource(R.string.category))
                 Spacer(Modifier.height(6.dp))
@@ -417,7 +419,7 @@ internal fun AddTransactionDialog(s: AppState) {
                     Text(stringResource(R.string.save_and_add_another), color = ZColor.Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
                         modifier = Modifier.clickable { save(true) }.padding(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save(false) }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save(false) }.testTag("add-save").padding(horizontal = 22.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                     }
                 }

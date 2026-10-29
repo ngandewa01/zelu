@@ -22,7 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SouthWest
 
-// ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
+// ---- Zelu themes: pick a palette (5 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
 object ZTheme {
     var dark by mutableStateOf(false)
     var palette by mutableStateOf(0)
@@ -42,9 +42,6 @@ val PALETTES: List<Pal> = listOf(
         PalSet(0xFF1E1B18, 0xFF28241F, 0xFFEDE6DE, 0xFF9A8F85, 0xFF3A342E, 0xFFC9B59C, 0xFF2B2622, 0xFF8DAA8C, 0xFFD2807A)),
     // Each theme follows 60-30-10: a lightly tinted page (60), cards and bars in a deeper tint of the same colour
     // (30) and one strong accent (10) for the chosen tab, buttons and bars. Money-in green and due red stay.
-    Pal("Lagoon",
-        PalSet(0xFFEDF7F6, 0xFFD3EEEA, 0xFF14211F, 0xFF5B6E6B, 0xFFBFE3DD, 0xFF0D9488, 0xFFFFFFFF, 0xFF15803D, 0xFFC0564B),
-        PalSet(0xFF0F1A1A, 0xFF1A2B2A, 0xFFE6F0EE, 0xFF8FA5A2, 0xFF2A4140, 0xFF2DD4BF, 0xFF0F1A1A, 0xFF4ADE80, 0xFFF07B6E)),
     Pal("Ocean",
         PalSet(0xFFEEF3FC, 0xFFDCE6F8, 0xFF16202E, 0xFF5D6B80, 0xFFC9D6EE, 0xFF1F66F2, 0xFFFFFFFF, 0xFF12A06E, 0xFFD9534F),
         PalSet(0xFF0B1220, 0xFF16233A, 0xFFE8EDF5, 0xFF8A96A8, 0xFF253552, 0xFF6FA0FF, 0xFF0B1220, 0xFF4FD1A1, 0xFFF07F7A)),
@@ -62,11 +59,11 @@ val PALETTES: List<Pal> = listOf(
 
 // The chosen palette is saved by name ("colours"). Older versions saved a position in a longer list ("palette");
 // those palettes are gone, so each maps to the closest one here.
-private val OLD_PALETTES = listOf("Sand", "Ocean", "Lagoon", "Ocean", "Lagoon", "Peach", "Ocean", "Mono")
+private val OLD_PALETTES = listOf("Sand", "Ocean", "Ocean", "Ocean", "Ocean", "Peach", "Ocean", "Mono")
 
 fun paletteIndex(sp: android.content.SharedPreferences): Int {
-    // Sage was replaced by Lagoon; anyone on it moves across.
-    val name = (sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand").let { if (it == "Sage") "Lagoon" else it }
+    // Sage and Lagoon are gone; anyone on them moves to Ocean.
+    val name = (sp.getString("colours", null) ?: OLD_PALETTES.getOrNull(sp.getInt("palette", 0)) ?: "Sand").let { if (it == "Sage" || it == "Lagoon") "Ocean" else it }
     return PALETTES.indexOfFirst { it.name == name }.coerceAtLeast(0)
 }
 

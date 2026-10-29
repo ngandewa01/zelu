@@ -1,6 +1,7 @@
 package com.koolicream.zelu
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
@@ -293,7 +294,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
             val on = view == t.key
             val tint = Color(if (ZTheme.dark) t.dark else t.light)
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.padding(vertical = 2.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.testTag("nav-" + t.key.key).padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.size(32.dp).clip(CircleShape)
