@@ -576,6 +576,8 @@ import androidx.compose.ui.window.Dialog
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     KindTab("income", "Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
+                    // Money back for something you bought: it nets against that spend once matched.
+                    if (t.direction == "credit") KindTab("refund", "Refund", t.kind == "refund") { pick("refund", "Refund") }
                     KindTab("transfer", "Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
                     KindTab("lent", "Lent", t.kind == "lent") { pick("lent", "Lent") }
                     KindTab("borrowed", "Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }

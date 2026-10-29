@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -627,6 +628,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
         "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
         "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
+        "refund" -> Triple(Icons.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
     }
