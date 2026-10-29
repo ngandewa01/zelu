@@ -55,15 +55,21 @@ object Reconcile {
     // without asking.
     class Paired(val rows: List<Row>, val suggestions: List<Pair<Row, Row>>)
 
+    // How soon money must come back to count as the same payment undone (a failed ATM withdrawal or card payment), with
+    // a little leeway for two banks' clocks; and how far apart one credit's messages from two banks may arrive.
+    private const val REVERSAL_WINDOW_S = 15 * 60
+    private const val CLOCK_LEEWAY_S = 60
+    private const val ECHO_WINDOW_MS = 36 * 3600_000L
+
     /**
-     * True when [back] came within 15 minutes after [spend] (a minute's leeway for clocks): by when the two messages
+     * True when [back] came within [REVERSAL_WINDOW_S] after [spend] ([CLOCK_LEEWAY_S] of leeway for clocks): by when the two messages
      * arrived, or, for payments stored without that, by the times written in them.
      */
     internal fun isQuickReversal(spend: Row, back: Row): Boolean {
-        if (spend.ms > 0 && back.ms > 0) return (back.ms - spend.ms) / 1000 in -60L..15L * 60
+        if (spend.ms > 0 && back.ms > 0) return (back.ms - spend.ms) / 1000 in -CLOCK_LEEWAY_S.toLong()..REVERSAL_WINDOW_S.toLong()
         val a = TxnTime.fromText(spend.raw) ?: return false
         val b = TxnTime.fromText(back.raw) ?: return false
-        return b - a in -60..15 * 60
+        return b - a in -CLOCK_LEEWAY_S..REVERSAL_WINDOW_S
     }
 
     fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): Paired {
@@ -277,7 +283,7 @@ object Reconcile {
             for (other in group) {
                 if (fromOwnBank(other) || other.id in drop) continue
                 val match = own.any { o ->
-                    if (o.ms > 0 && other.ms > 0) kotlin.math.abs(o.ms - other.ms) <= 36 * 3600_000L else nearDay(o.date, other.date)
+                    if (o.ms > 0 && other.ms > 0) kotlin.math.abs(o.ms - other.ms) <= ECHO_WINDOW_MS else nearDay(o.date, other.date)
                 }
                 if (match) drop.add(other.id)
             }

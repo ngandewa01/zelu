@@ -517,9 +517,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                     "expense" -> Icons.Rounded.ArrowUpward to ZColor.Accent
                                     "income" -> Icons.Rounded.ArrowDownward to ZColor.Income
                                     "ignore" -> Icons.Rounded.VisibilityOff to ZColor.Muted
-                                    else -> Icons.Rounded.Category to ZColor.Ink
+                                    else -> null
                                 }
-                                PickChip(l, type == k, { IconDot(ic.first, ic.second, 20.dp) }) { type = k; daySel = 0 }
+                                // "All" is drawn like the Category row's "All" (icon on a solid tile): an ink icon on an
+                                // ink wash vanished on the chosen (ink) chip.
+                                PickChip(l, type == k, { if (ic == null) CatDot("All", 20.dp) else IconDot(ic.first, ic.second, 20.dp) }) { type = k; daySel = 0 }
                             }
                         }
                         Spacer(Modifier.height(12.dp))

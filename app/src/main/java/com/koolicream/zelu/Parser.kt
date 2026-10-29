@@ -514,8 +514,11 @@ object Parser {
     /** The message as a payment stores it: on one line, and "Rs.2000.00debited" spaced (some banks leave out the space). */
     fun normalize(body: String): String = WS.replace(body, " ").trim().replace(GLUED, "$1 $2")
 
-    fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
-        val text = normalize(body)
+    // What the first checks of a message found: null when it is set aside on purpose (a declined or failed attempt, an
+    // OTP or offer, a debit still to come, a bill reminder...), otherwise what reading it needs.
+    private class Screen(val billerOnly: Boolean, val feeDone: Boolean, val loanCredit: Boolean, val isEmiDebit: Boolean, val fee: MatchResult?)
+
+    private fun screen(text: String, source: String): Screen? {
         if (INSURER_ACK.containsMatchIn(text)) return null
         // Your bank's debit already records a bill payment; the biller's "payment received" would count it twice.
         // A biller's own sender (ACT, BESCOM...) is read only when it confirms a payment you made. The ledger drops that
@@ -544,6 +547,23 @@ object Parser {
         val anyFee = feeDone || fee != null
         if (text.isEmpty() || (SKIP.containsMatchIn(check) && !isEmiDebit && !anyFee)) return null
         if (future || (duesOnly && !anyFee)) return null
+        return Screen(billerOnly, feeDone, loanCredit, isEmiDebit, fee)
+    }
+
+    /**
+     * True when the message is not a payment by Zelu's own rules (the checks parseSms starts with), as opposed to a
+     * payment it could not read. Only the second kind belongs under Missed messages.
+     */
+    fun isNotAPayment(body: String, source: String): Boolean = screen(normalize(body), source) == null
+
+    fun parseSms(body: String, receivedMs: Long?, source: String): Txn? {
+        val text = normalize(body)
+        val sc = screen(text, source) ?: return null
+        val billerOnly = sc.billerOnly
+        val feeDone = sc.feeDone
+        val loanCredit = sc.loanCredit
+        val isEmiDebit = sc.isEmiDebit
+        val fee = sc.fee
 
         // Direction, from the earliest transaction keyword present.
         val d = listOfNotNull(DEBIT.find(text), DR_ABBR.find(text), DR_AC.find(text), LOCAL_DEBIT.find(text)).minByOrNull { it.range.first }
