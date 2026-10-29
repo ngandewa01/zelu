@@ -1,10 +1,8 @@
 name: Device tests
 
 # The tests in app/src/androidTest, on an Android emulator: database migrations, taking in older files, and screens.
-# On pull requests to main, and by hand from Actions; ordinary pushes don't wait for an emulator.
+# By hand from Actions only (an emulator run is about 9 minutes of the free Actions allowance); run it before a release.
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
