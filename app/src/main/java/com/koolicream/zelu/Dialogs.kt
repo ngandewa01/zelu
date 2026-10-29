@@ -482,9 +482,12 @@ import androidx.compose.ui.window.Dialog
 @Composable internal fun TxnDetailDialog(t: Row, onReclassify: (Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
+    // With the category picker open this is taller than a phone screen: it scrolls instead of squashing its last row.
+    val maxHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.9f).dp
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
+                .heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(20.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
