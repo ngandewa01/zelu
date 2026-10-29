@@ -1,6 +1,7 @@
 package com.koolicream.zelu
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
@@ -31,11 +32,11 @@ data class TxnEntity(
     val category: String,
     val ms: Long,
 ) {
-    fun toRow() = Row(id, date, amountPaise / 100.0, direction, counterparty, ref, raw, source, account, kind, category, ms)
+    fun toRow() = Row(id, date, amountPaise, Dir.of(direction), counterparty, ref, raw, source, account, Kind.of(kind), category, ms)
 
     companion object {
-        fun of(r: Row) = TxnEntity(r.id, r.date, Math.round(r.amount * 100), r.direction, r.counterparty, r.ref, r.raw,
-            r.source, r.account, r.kind, r.category, r.ms)
+        fun of(r: Row) = TxnEntity(r.id, r.date, r.paise, r.direction.key, r.counterparty, r.ref, r.raw,
+            r.source, r.account, r.kind.key, r.category, r.ms)
     }
 }
 
@@ -55,9 +56,52 @@ interface TxnDao {
     fun deleteAll()
 }
 
-@Database(entities = [TxnEntity::class], version = 1, exportSchema = false)
+// Your decisions that are one value per key, as the key/value files kept them (overrides, payee rules, renames,
+// titles, accounts...): one row per key, so changing one decision writes one row. [file] is the file's old name.
+@Entity(tableName = "kv", primaryKeys = ["file", "k"])
+data class KvEntity(val file: String, val k: String, val a: String, val b: String)
+
+// Everything else Zelu saved as a small file (reminders, splits, budgets, balances, plan...), under the file's old name
+// and with the same text, so backups and older versions read it unchanged.
+@Entity(tableName = "doc")
+data class DocEntity(@PrimaryKey val name: String, val body: String)
+
+@Dao
+interface StoreDao {
+    @Query("SELECT * FROM kv WHERE file = :file")
+    fun kv(file: String): List<KvEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun putKv(rows: List<KvEntity>)
+
+    @Query("DELETE FROM kv WHERE file = :file AND k = :k")
+    fun removeKv(file: String, k: String)
+
+    @Query("DELETE FROM kv WHERE file = :file")
+    fun clearKv(file: String)
+
+    @Query("SELECT body FROM doc WHERE name = :name")
+    fun doc(name: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun putDoc(doc: DocEntity)
+
+    @Query("DELETE FROM doc WHERE name = :name")
+    fun removeDoc(name: String)
+
+    @Query("DELETE FROM kv")
+    fun clearAllKv()
+
+    @Query("DELETE FROM doc")
+    fun clearAllDocs()
+}
+
+// Version 2 adds the kv and doc tables; payments are untouched.
+@Database(entities = [TxnEntity::class, KvEntity::class, DocEntity::class], version = 2, exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)])
 abstract class ZeluDb : RoomDatabase() {
     abstract fun txns(): TxnDao
+    abstract fun store(): StoreDao
 
     companion object {
         @Volatile private var real: ZeluDb? = null

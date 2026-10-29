@@ -199,7 +199,7 @@ class SmsHardFormatsTest {
             }
             val r = t?.let { Classifier.classify(it, emptyList()) }
             val got = if (t == null) stage else
-                "${t.direction} ${t.amount} acct=[${t.account}] payee=[${t.counterparty ?: ""}] date=${t.date} ref=${t.ref ?: ""} ${r!!.kind}/${r.category}"
+                "${t.direction.key} ${t.amount} acct=[${t.account}] payee=[${t.counterparty ?: ""}] date=${t.date} ref=${t.ref ?: ""} ${r!!.kind.key}/${r.category}"
             if (c.info) { sb.append("INFO ").append(c.id).append(" | got: ").append(got).append('\n'); continue }
             scored++
             val misses = ArrayList<String>()
@@ -209,7 +209,7 @@ class SmsHardFormatsTest {
             } else if (t == null) {
                 misses.add("missed ($stage)")
             } else {
-                if (t.direction != e.dir) misses.add("dir")
+                if (t.direction.key != e.dir) misses.add("dir")
                 if (kotlin.math.abs(t.amount - e.amt) > 0.001) misses.add("amount")
                 if (e.acct != null && !acctOk(e.acct, t.account)) misses.add("account")
                 if (e.payee != null) {
@@ -218,7 +218,7 @@ class SmsHardFormatsTest {
                 }
                 if (e.date != null && t.date != e.date) misses.add("date")
                 if (e.ref != null && t.ref != e.ref) misses.add("ref")
-                if (e.kind != null && r!!.kind != e.kind) misses.add("kind")
+                if (e.kind != null && r!!.kind.key != e.kind) misses.add("kind")
                 if (e.cat != null && r!!.category != e.cat) misses.add("category")
             }
             misses.forEach { fieldMiss[it.substringBefore(" (")] = (fieldMiss[it.substringBefore(" (")] ?: 0) + 1 }

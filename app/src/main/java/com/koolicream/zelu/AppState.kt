@@ -1,6 +1,12 @@
 package com.koolicream.zelu
 
 import android.Manifest
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,8 +15,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +26,22 @@ import kotlinx.coroutines.withContext
 // filters, and the actions that change them. One holder, so the screen's parts (home, menu, dialogs) are separate
 // functions that read it rather than one long function.
 @Stable
-class AppState(val context: Context, val scope: CoroutineScope) {
+class AppState(app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
+    // Sample data runs on its own storage; the screen keeps a separate AppState for it (see ZeluApp). Never the
+    // activity: this outlives it.
+    val context: Context = if (Demo.on) DemoContext(app) else app
+    val scope: CoroutineScope get() = viewModelScope
+
+    // A value kept in the saved state, so it survives Android closing the app in the background, and observed by the
+    // screen like any other state.
+    private fun <T> saved(key: String, initial: T): ReadWriteProperty<Any?, T> {
+        val state = mutableStateOf(handle.get<T>(key) ?: initial)
+        return object : ReadWriteProperty<Any?, T> {
+            override fun getValue(thisRef: Any?, property: KProperty<*>): T = state.value
+            override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) { state.value = value; handle[key] = value }
+        }
+    }
+
     var rows by mutableStateOf<List<Row>>(emptyList())
     // Refunds that look like they belong to an earlier spend, waiting for a Yes/No: (refund, spend).
     var refundSuggestions by mutableStateOf<List<Pair<Row, Row>>>(emptyList())
@@ -30,9 +49,8 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var reminderState by mutableStateOf<Map<String, Boolean>>(emptyMap())
     var repaid by mutableStateOf<Map<String, Double>>(emptyMap())
     var budgets by mutableStateOf<Map<String, Double>>(emptyMap())
-    var budgetsOpen by mutableStateOf(false)
-    var savingsOpen by mutableStateOf(false)
-    var trendsOpen by mutableStateOf(false)
+    var budgetsOpen by saved("budgetsOpen", false)
+    var savingsOpen by saved("savingsOpen", false)
     var addingBill by mutableStateOf(false)
     var fixed by mutableStateOf<Map<String, Double>>(emptyMap())
     var menuOpen by mutableStateOf(false)
@@ -66,7 +84,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var catOff by mutableStateOf(Storage.categoriesOff(context))
     var splitFor by mutableStateOf<Row?>(null)
     var smsOk by mutableStateOf(true)
-    var lastScan = 0L
+    var lastScan by saved("lastScan", 0L)
     var restoreUri by mutableStateOf<android.net.Uri?>(null)
     var backupPwOpen by mutableStateOf(false)
     var backupAfterPw by mutableStateOf(false)
@@ -75,29 +93,46 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     var balances by mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap())
     var limits by mutableStateOf<Map<String, Pair<Double, Long>>>(emptyMap())
     var cardPrefs by mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap())
-    var cardOpen by mutableStateOf<String?>(null)
     var monthlyBudget by mutableStateOf(0.0)
     var budgetDlg by mutableStateOf(false)
-    var lendPerson by mutableStateOf<String?>(null)
-    var borrowPerson by mutableStateOf<String?>(null)
-    var view by mutableStateOf(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", "ledger") ?: "ledger")
-    var period by mutableStateOf("month")
-    var month by mutableStateOf(Dates.todayMonth())
-    var account by mutableStateOf("All")
-    var daySel by mutableStateOf(0)
+    var lendPerson by saved<String?>("lendPerson", null)
+    var borrowPerson by saved<String?>("borrowPerson", null)
+    var view by saved("view", Tab.of(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", Tab.LEDGER.key)))
+    var period by saved("period", "month")
+    var month by saved("month", Dates.todayMonth())
+    var account by saved("account", "All")
+    var daySel by saved("daySel", 0)
     var calOpen by mutableStateOf(false)
     // Spend page sub-tab: 0 Overview, 1 Categories, 2 Patterns.
-    var spendTab by mutableStateOf(0)
+    var spendTab by saved("spendTab", 0)
     var askOpen by mutableStateOf(false) // category picker open for ask
     var loading by mutableStateOf(false)
-    var type by mutableStateOf("all")
-    var cat by mutableStateOf("All")
-    var excludeEmi by mutableStateOf(false)
-    var query by mutableStateOf("")
-    var controlsOpen by mutableStateOf(false)
-    var customFrom by mutableStateOf(Dates.shiftMonth(Dates.todayMonth(), -2) + "-01")
-    var customTo by mutableStateOf(Dates.today())
-    var stage by mutableStateOf("splash") // splash, welcome, perm, scan, app
+    var type by saved("type", "all")
+    var cat by saved("cat", "All")
+    var excludeEmi by saved("excludeEmi", false)
+    var query by saved("query", "")
+    var controlsOpen by saved("controlsOpen", false)
+    var customFrom by saved("customFrom", Dates.shiftMonth(Dates.todayMonth(), -2) + "-01")
+    var customTo by saved("customTo", Dates.today())
+    var stage by saved("stage", Stage.SPLASH)
+
+    // Pages opened over Home (Trends, a card), newest last; Back closes the top one. Saved as their routes.
+    private var pageRoutes by saved("pages", "")
+    val page: Page? get() = pageRoutes.lines().lastOrNull { it.isNotEmpty() }?.let { Page.of(it) }
+    fun open(p: Page) { pageRoutes = (pageRoutes.lines().filter { it.isNotEmpty() } + p.route).joinToString("\n") }
+    fun back(): Boolean {
+        val open = pageRoutes.lines().filter { it.isNotEmpty() }
+        if (open.isEmpty()) return false
+        pageRoutes = open.dropLast(1).joinToString("\n")
+        return true
+    }
+
+    // What account and card tiles anywhere on screen read (see LocalAccountInfo): card networks, labels joined into
+    // each account, limits you typed, and which card is waiting for one.
+    var cardNetworks by mutableStateOf<Map<String, String>>(emptyMap())
+    var manualLimits by mutableStateOf<Set<String>>(emptySet())
+    var limitAskFor by mutableStateOf<String?>(null)
+    fun refreshCardNetworks() { scope.launch { cardNetworks = withContext(Dispatchers.IO) { Storage.cardNetworks(context) } } }
     var permDenied by mutableStateOf(false)
     var onbSms by mutableStateOf(false)
     var onbNotif by mutableStateOf(false)
@@ -169,8 +204,8 @@ class AppState(val context: Context, val scope: CoroutineScope) {
                     Storage.accountRegistry(context),
                 )
             }
-            LimitAsk.manual = l.manual
-            CardNet.map = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
+            manualLimits = l.manual
+            cardNetworks = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
             cardPrefs = l.cardPrefs
             CustomCats.map = l.customCats
             registry = l.registry
@@ -189,7 +224,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             acctConfirmed = true
             undo = null
             registry = withContext(Dispatchers.IO) { Storage.accountRegistry(context) }
-            stage = "app"
+            stage = Stage.APP
         }
     }
 
@@ -258,7 +293,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
             loading = false
             missed = withContext(Dispatchers.IO) { Ingest.unreadable(context).size }
             missedCount = missed
-            if (stage == "scan") stage = "done"
+            if (stage == Stage.SCAN) stage = Stage.DONE
             if (notify) Toast.makeText(context, if (full) "Read everything again" else if (added == 0) "Nothing new in your messages" else plural(added, "new payment", "new payments") + " found", Toast.LENGTH_LONG).show()
         }
     }
@@ -295,7 +330,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     }
 
     // decisions
-    fun decide(id: String, kind: String, category: String, payee: String?, remember: Boolean) {
+    fun decide(id: String, kind: Kind, category: String, payee: String?, remember: Boolean) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) {
@@ -354,61 +389,19 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     fun declineAcct(key: String, type: String) = relink("Removed " + AccountBook.displayName(key)) { Storage.declineAccount(context, key, type) }
     fun restoreAcct(key: String) = relink("Brought back " + AccountBook.displayName(key)) { Storage.restoreAccount(context, key) }
 
+}
+
+// A page opened over Home. [route] is how it is kept in the saved state.
+sealed class Page(val route: String) {
+    object Trends : Page("trends")
+    data class Card(val account: String) : Page("card:$account")
+
     companion object {
-        // Where you are and the filters you set, kept when Android closes the app in the background or the theme
-        // changes. What was read from storage is read again.
-        fun saver(context: Context, scope: CoroutineScope): Saver<AppState, Any> = mapSaver(
-            save = { s ->
-                mapOf(
-                    "budgetsOpen" to s.budgetsOpen,
-                    "savingsOpen" to s.savingsOpen,
-                    "trendsOpen" to s.trendsOpen,
-                    "lastScan" to s.lastScan,
-                    "cardOpen" to s.cardOpen,
-                    "lendPerson" to s.lendPerson,
-                    "borrowPerson" to s.borrowPerson,
-                    "view" to s.view,
-                    "period" to s.period,
-                    "month" to s.month,
-                    "account" to s.account,
-                    "daySel" to s.daySel,
-                    "spendTab" to s.spendTab,
-                    "type" to s.type,
-                    "cat" to s.cat,
-                    "excludeEmi" to s.excludeEmi,
-                    "query" to s.query,
-                    "controlsOpen" to s.controlsOpen,
-                    "customFrom" to s.customFrom,
-                    "customTo" to s.customTo,
-                    "stage" to s.stage,
-                )
-            },
-            restore = { m ->
-                AppState(context, scope).apply {
-                    (m["budgetsOpen"] as? Boolean)?.let { budgetsOpen = it }
-                    (m["savingsOpen"] as? Boolean)?.let { savingsOpen = it }
-                    (m["trendsOpen"] as? Boolean)?.let { trendsOpen = it }
-                    (m["lastScan"] as? Long)?.let { lastScan = it }
-                    cardOpen = m["cardOpen"] as? String
-                    lendPerson = m["lendPerson"] as? String
-                    borrowPerson = m["borrowPerson"] as? String
-                    (m["view"] as? String)?.let { view = it }
-                    (m["period"] as? String)?.let { period = it }
-                    (m["month"] as? String)?.let { month = it }
-                    (m["account"] as? String)?.let { account = it }
-                    (m["daySel"] as? Int)?.let { daySel = it }
-                    (m["spendTab"] as? Int)?.let { spendTab = it }
-                    (m["type"] as? String)?.let { type = it }
-                    (m["cat"] as? String)?.let { cat = it }
-                    (m["excludeEmi"] as? Boolean)?.let { excludeEmi = it }
-                    (m["query"] as? String)?.let { query = it }
-                    (m["controlsOpen"] as? Boolean)?.let { controlsOpen = it }
-                    (m["customFrom"] as? String)?.let { customFrom = it }
-                    (m["customTo"] as? String)?.let { customTo = it }
-                    (m["stage"] as? String)?.let { stage = it }
-                }
-            },
-        )
+        fun of(route: String): Page? = when {
+            route == Trends.route -> Trends
+            route.startsWith("card:") -> Card(route.removePrefix("card:"))
+            else -> null
+        }
     }
 }
 

@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import org.json.JSONArray
-import java.io.File
 
 // Categories for money coming in (salary, interest...). The built-in ones stay; you can add your own and delete those.
 object IncomeCats {
@@ -20,13 +19,12 @@ object IncomeCats {
         return if (i < 0) null else Color(shades[i % shades.size])
     }
 
-    private fun file(c: Context) = File(c.filesDir, "income_categories.json")
+    private const val NAME = "income_categories.json"
 
     fun load(c: Context) {
         custom = try {
-            val f = file(c)
-            if (!f.exists()) emptyList() else f.readWithBackup { JSONArray(it) }.let { a -> (0 until a.length()).map { a.getString(it) } }
-        } catch (_: Exception) { emptyList() }
+            Storage.docText(c, NAME)?.let { JSONArray(it) }?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
+        } catch (e: Exception) { CrashLog.warn("Read income categories", e); emptyList() }
     }
 
     // False when the name is empty or already there.
@@ -41,6 +39,6 @@ object IncomeCats {
 
     private fun save(c: Context, list: List<String>) {
         custom = list
-        try { file(c).writeKeepingBackup(JSONArray(list).toString()) } catch (_: Exception) {}
+        try { Storage.putDocText(c, NAME, JSONArray(list).toString()) } catch (e: Exception) { CrashLog.warn("Save income categories", e) }
     }
 }

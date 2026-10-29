@@ -34,17 +34,17 @@ object Reconcile {
     // series that came without the word (and stayed Unknown / Transfer) are the same EMI. Nothing is
     // hard-coded, and a category you set yourself is never touched.
     fun inferEmiSeries(rows: List<Row>, userSet: Set<String>): List<Row> {
-        val known = rows.filter { it.category == "EMI" && it.direction == "debit" && it.account.isNotBlank() }
+        val known = rows.filter { it.category == "EMI" && it.direction == Dir.DEBIT && it.account.isNotBlank() }
         if (known.isEmpty()) return rows
         fun day(d: String) = d.substring(8, 10).toIntOrNull() ?: 0
         return rows.map { c ->
-            if (c.direction != "debit" || c.account.isBlank() || c.id in userSet) return@map c
+            if (c.direction != Dir.DEBIT || c.account.isBlank() || c.id in userSet) return@map c
             if (c.category != "Unknown" && c.category != "Transfer") return@map c
             val series = known.any { e ->
                 e.account == c.account && kotlin.math.abs(e.amount - c.amount) < 0.5 &&
                     e.date.take(7) != c.date.take(7) && kotlin.math.abs(day(e.date) - day(c.date)) <= 3
             }
-            if (series) c.copy(kind = "expense", category = "EMI") else c
+            if (series) c.copy(kind = Kind.EXPENSE, category = "EMI") else c
         }
     }
 
@@ -74,11 +74,11 @@ object Reconcile {
 
     fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): Paired {
         fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
-        val expenses = rows.filter { it.kind == "expense" }
+        val expenses = rows.filter { it.kind == Kind.EXPENSE }
         val remaining = HashMap<String, Double>().apply { expenses.forEach { put(it.id, it.amount) } }
         val paired = HashMap<String, String>()
         val suggest = ArrayList<Pair<Row, Row>>()
-        for (r in rows.filter { it.kind == "refund" && it.category == "Refund" }.sortedBy { it.date }) {
+        for (r in rows.filter { it.kind == Kind.REFUND && it.category == "Refund" }.sortedBy { it.date }) {
             if (answers[r.id] == false) continue
             val sameRef = r.ref?.takeIf { it.isNotBlank() }?.let { ref ->
                 expenses.firstOrNull { e -> e.ref == ref && e.account == r.account && (remaining[e.id] ?: 0.0) >= r.amount - 0.5 }
@@ -132,25 +132,25 @@ object Reconcile {
         val move = HashSet<String>()
         val used = HashSet<String>()
         val creditsByRef = rows.filter {
-            it.direction == "credit" && (it.kind == "income" || (it.kind == "transfer" && it.category == "Transfer")) && it.account.isNotBlank() &&
+            it.direction == Dir.CREDIT && (it.kind == Kind.INCOME || (it.kind == Kind.TRANSFER && it.category == "Transfer")) && it.account.isNotBlank() &&
                 !it.ref.isNullOrBlank() && it.id !in userSet
         }.groupBy { it.ref }
         for (d in rows) {
-            if (d.direction != "debit" || d.kind != "expense" || d.account.isBlank() || d.ref.isNullOrBlank() || d.id in userSet) continue
+            if (d.direction != Dir.DEBIT || d.kind != Kind.EXPENSE || d.account.isBlank() || d.ref.isNullOrBlank() || d.id in userSet) continue
             val match = creditsByRef[d.ref]?.firstOrNull { c ->
                 c.id !in used && kotlin.math.abs(c.amount - d.amount) < 0.5 && c.account != d.account
             } ?: continue
             used.add(match.id); move.add(d.id); move.add(match.id)
         }
-        val credits = rows.filter { it.direction == "credit" && it.kind == "income" && it.account.isNotBlank() && it.id !in userSet }
+        val credits = rows.filter { it.direction == Dir.CREDIT && it.kind == Kind.INCOME && it.account.isNotBlank() && it.id !in userSet }
         for (d in rows) {
-            if (d.direction != "debit" || d.kind != "expense" || d.account.isBlank() || d.id in move || d.id in userSet) continue
+            if (d.direction != Dir.DEBIT || d.kind != Kind.EXPENSE || d.account.isBlank() || d.id in move || d.id in userSet) continue
             val match = credits.firstOrNull { c ->
                 c.id !in used && c.amount == d.amount && c.account != d.account && nearDay(c.date, d.date)
             } ?: continue
             used.add(match.id); move.add(d.id); move.add(match.id)
         }
-        return rows.map { if (it.id in move) it.copy(kind = "transfer", category = "Transfer") else it }
+        return rows.map { if (it.id in move) it.copy(kind = Kind.TRANSFER, category = "Transfer") else it }
     }
 
     private fun within3(a: String, b: String): Boolean = (-3..3).any { a == Dates.shiftDays(b, it) }
@@ -276,7 +276,7 @@ object Reconcile {
             return b.length >= 2 && Parser.senderCore(r.source).uppercase().contains(b)
         }
         val drop = HashSet<String>()
-        val credits = rows.filter { it.direction == "credit" && it.account.isNotBlank() && it.source.isNotBlank() }
+        val credits = rows.filter { it.direction == Dir.CREDIT && it.account.isNotBlank() && it.source.isNotBlank() }
         for ((_, group) in credits.groupBy { it.account + "|" + Math.round(it.amount * 100) }) {
             if (group.size < 2) continue
             val own = group.filter { fromOwnBank(it) }
@@ -304,9 +304,9 @@ object Reconcile {
         val emiKeep = emiBest.values.map { it.id }.toHashSet()
         // A biller's own "payment received" note (no account) is the same payment as your bank's debit of that
         // amount within three days. Keep the bank's row, which has the account.
-        val bankDebits = rows.filter { it.direction == "debit" && it.account.isNotBlank() }
+        val bankDebits = rows.filter { it.direction == Dir.DEBIT && it.account.isNotBlank() }
         val billerEcho = rows.filter { r ->
-            r.direction == "debit" && r.account.isBlank() && Parser.isBillerSender(r.source.uppercase()) &&
+            r.direction == Dir.DEBIT && r.account.isBlank() && Parser.isBillerSender(r.source.uppercase()) &&
                 bankDebits.any { b -> kotlin.math.abs(b.amount - r.amount) < 0.5 && within3(b.date, r.date) }
         }.map { it.id }.toHashSet()
         return rows.filter { r ->
@@ -332,7 +332,7 @@ object Reconcile {
         fun amountFits(a: Double) = kotlin.math.abs(a - bill.amount) <= maxOf(1.0, bill.amount * 0.01) ||
             (bill.minAmount != null && a >= bill.minAmount - 1.0 && a <= bill.amount + 1.0)
         return rows.filter { r ->
-            r.direction == "debit" && (r.kind == "expense" || r.kind == "transfer") && r.date in from..to &&
+            r.direction == Dir.DEBIT && (r.kind == Kind.EXPENSE || r.kind == Kind.TRANSFER) && r.date in from..to &&
                 r.account.trim().substringBefore(' ').uppercase() == bank && amountFits(r.amount)
         }.minByOrNull { kotlin.math.abs(Dates.daysBetween(bill.dueDate, it.date)) }
     }

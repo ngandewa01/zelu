@@ -10,8 +10,10 @@ object Backup {
 
     fun export(context: Context): String {
         val files = JSONObject()
+        // Any file still kept as a file, then everything in the database under the file names older versions used.
         context.filesDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".txt")) }
             ?.forEach { files.put(it.name, it.readText()) }
+        for ((name, text) in Storage.backupFiles(context)) files.put(name, text)
         // Payments live in the database; the backup carries them as transactions.json, the file older versions kept, so
         // a backup still restores on any version (restoring it here takes the file back into the database).
         Storage.transactionsJson(context)?.let { files.put("transactions.json", it) }
@@ -65,6 +67,8 @@ object Backup {
         if (names.any { it.contains('/') || it.contains("..") || !(it.endsWith(".json") || it.endsWith(".txt")) }) return false
         try {
             for (n in names) java.io.File(context.filesDir, n).writeAtomic(files.getString(n))
+            // The restored files replace what the database holds on the next read.
+            Storage.filesWritten(context)
             val prefs = root.optJSONObject("prefs")
             if (prefs != null) for (name in PREF_FILES) {
                 val o = prefs.optJSONObject(name) ?: continue

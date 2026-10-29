@@ -8,7 +8,7 @@ import org.junit.Test
 class ReconcileTest {
     private fun row(id: String, date: String, amount: Double, dir: String, kind: String, cat: String, account: String = "HDFC 5997",
                     payee: String? = null, ref: String? = null, raw: String = "", source: String = "AX-HDFCBK-S") =
-        Row(id, date, amount, dir, payee, ref, raw, source, account, kind, cat)
+        Row(id, date, paiseOf(amount), Dir.of(dir), payee, ref, raw, source, account, Kind.of(kind), cat)
 
     @Test
     fun aReversalWithTheSameReferenceNetsAgainstItsSpend() {
@@ -45,11 +45,11 @@ class ReconcileTest {
 
     @Test
     fun aTaxRefundIsIncome() {
-        fun cls(raw: String) = Classifier.classify(Txn("t", "2026-10-29", 20990.0, "credit", null, null, raw, "BP-HDFCBK-S", "HDFC 5997"), emptyList())
+        fun cls(raw: String) = Classifier.classify(Txn("t", "2026-10-29", 2_099_000, Dir.CREDIT, null, null, raw, "BP-HDFCBK-S", "HDFC 5997"), emptyList())
         val r = cls("Update! INR 20,990.00 deposited in HDFC Bank A/c XX5997 on 29-OCT-26 for NEFT Cr-SBIN0000TBU-ITDTAX REFUND 2026-27")
-        assertEquals("income" to "Tax refund", r.kind to r.category)
+        assertEquals("income" to "Tax refund", r.kind.key to r.category)
         val s = cls("An IT Refund amount of Rs 20990 for AY-2026-27 has been credited to your account XXXXXXXXXX5997")
-        assertEquals("income" to "Tax refund", s.kind to s.category)
+        assertEquals("income" to "Tax refund", s.kind.key to s.category)
     }
 
     // A failed ATM withdrawal: the reversal arrives seconds after the withdrawal, for the same amount on the same card.
@@ -93,22 +93,22 @@ class ReconcileTest {
         val out = row("ref-9", "2026-10-12", 10000.0, "debit", "expense", "Unknown", payee = "RAHUL SHARMA", ref = "628745670000")
         val inn = row("ref-9-cr", "2026-10-12", 10000.0, "credit", "transfer", "Transfer", account = "SBI 1234", payee = "RAHUL SHARMA", ref = "628745670000")
         val r = Reconcile.detectSelfTransfers(listOf(out, inn))
-        assertEquals(listOf("transfer", "transfer"), r.map { it.kind })
+        assertEquals(listOf("transfer", "transfer"), r.map { it.kind.key })
         // A payment you categorised yourself stays as you set it.
         val mine = Reconcile.detectSelfTransfers(listOf(out, inn), setOf("ref-9"))
-        assertEquals("expense", mine.first { it.id == "ref-9" }.kind)
+        assertEquals("expense", mine.first { it.id == "ref-9" }.kind.key)
         // The same reference on the same account (a payment and its reversal) is not a transfer.
-        val same = Reconcile.detectSelfTransfers(listOf(out, inn.copy(account = "HDFC 5997", kind = "refund", category = "Refund")))
-        assertEquals("expense", same.first { it.id == "ref-9" }.kind)
+        val same = Reconcile.detectSelfTransfers(listOf(out, inn.copy(account = "HDFC 5997", kind = Kind.REFUND, category = "Refund")))
+        assertEquals("expense", same.first { it.id == "ref-9" }.kind.key)
     }
 
     @Test
     fun theSameAmountLeavingAndArrivingNextDayIsATransfer() {
         val out = row("o", "2026-10-12", 7000.0, "debit", "expense", "Unknown")
         val inn = row("i", "2026-10-13", 7000.0, "credit", "income", "Income", account = "SBI 1234")
-        assertEquals(listOf("transfer", "transfer"), Reconcile.detectSelfTransfers(listOf(out, inn)).map { it.kind })
+        assertEquals(listOf("transfer", "transfer"), Reconcile.detectSelfTransfers(listOf(out, inn)).map { it.kind.key })
         val far = inn.copy(date = "2026-10-16")
-        assertEquals(listOf("expense", "income"), Reconcile.detectSelfTransfers(listOf(out, far)).map { it.kind })
+        assertEquals(listOf("expense", "income"), Reconcile.detectSelfTransfers(listOf(out, far)).map { it.kind.key })
     }
 
     @Test

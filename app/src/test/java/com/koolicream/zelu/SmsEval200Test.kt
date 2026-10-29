@@ -40,11 +40,11 @@ class SmsEval200Test {
         if (got != c.outcome) return "outcome: want ${c.outcome}, got $got"
         if (rem != null && c.amt != null && abs(rem.amount - c.amt) > 0.01) return "reminder amount: want ${c.amt}, got ${rem.amount}"
         if (t == null) return null
-        if (t.direction != c.dir) return "direction: want ${c.dir}, got ${t.direction}"
+        if (t.direction.key != c.dir) return "direction: want ${c.dir}, got ${t.direction.key}"
         val fxOk = c.fx && c.amt != null && Parser.foreign(c.body)?.let { abs(it.amount - c.amt) < 0.01 } == true
         if (c.amt != null && abs(t.amount - c.amt) > 0.01 && !fxOk) return "amount: want ${c.amt}, got ${t.amount}"
         val r = Classifier.classify(t, emptyList())
-        if (c.cats.isNotEmpty() && r.category !in c.cats) return "category: want ${c.cats}, got ${r.kind}/${r.category}"
+        if (c.cats.isNotEmpty() && r.category !in c.cats) return "category: want ${c.cats}, got ${r.kind.key}/${r.category}"
         return null
     }
 

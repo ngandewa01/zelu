@@ -10,7 +10,7 @@ class DuplicatesTest {
     private fun row(body: String, src: String = "AD-HDFCBK-S"): Row {
         val t = Parser.parseSms(body, received, src)!!
         val c = Classifier.classify(t, emptyList())
-        return Row(t.id, t.date, t.amount, t.direction, t.counterparty, t.ref, t.raw, t.source, t.account, c.kind, c.category, t.ms)
+        return Row(t.id, t.date, t.paise, t.direction, t.counterparty, t.ref, t.raw, t.source, t.account, c.kind, c.category, t.ms)
     }
 
     @Test

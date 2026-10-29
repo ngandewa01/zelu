@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -67,38 +69,38 @@ import java.util.Locale
     }
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-            Text("Rescan between dates", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.rescan_between_dates), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("Reads only this period. Nothing already in changes.", 12)
+            MutedText(stringResource(R.string.reads_only_this_period_nothing), 12)
             Spacer(Modifier.height(12.dp))
             ChipScroll {
                 val cur = Dates.todayMonth()
                 val last = Dates.shiftMonth(cur, -1)
-                Chip("Last 7 days", false) { from = Dates.shiftDays(today, -7); to = today }
-                Chip("Last 30 days", false) { from = Dates.shiftDays(today, -30); to = today }
-                Chip("This month", false) { from = "$cur-01"; to = today }
-                Chip("Last month", false) { from = "$last-01"; to = Dates.shiftDays("$cur-01", -1) }
-                Chip("Last 3 months", false) { from = Dates.shiftDays(today, -90); to = today }
+                Chip(stringResource(R.string.last_7_days), false) { from = Dates.shiftDays(today, -7); to = today }
+                Chip(stringResource(R.string.last_30_days), false) { from = Dates.shiftDays(today, -30); to = today }
+                Chip(stringResource(R.string.this_month), false) { from = "$cur-01"; to = today }
+                Chip(stringResource(R.string.last_month), false) { from = "$last-01"; to = Dates.shiftDays("$cur-01", -1) }
+                Chip(stringResource(R.string.last_3_months), false) { from = Dates.shiftDays(today, -90); to = today }
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
                 .clickable { pick(from) { from = it } }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { MutedText("Start date", 12); Text(prettyDate(from), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+                Column(Modifier.weight(1f)) { MutedText(stringResource(R.string.start_date), 12); Text(prettyDate(from), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                 androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
                 .clickable { pick(to) { to = it } }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { MutedText("End date", 12); Text(prettyDate(to), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+                Column(Modifier.weight(1f)) { MutedText(stringResource(R.string.end_date), 12); Text(prettyDate(to), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                 androidx.compose.material3.Icon(Icons.Rounded.CalendarMonth, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
+                Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onDismiss() }.padding(12.dp))
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { if (from <= to) onRun(from, to) else onRun(to, from) }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                    Text("Rescan", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.rescan), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -109,7 +111,7 @@ import java.util.Locale
 @Composable internal fun ColumnScope.IncomeCategoriesBody() {
     val context = LocalContext.current
     var name by remember { mutableStateOf("") }
-    MutedText("Yours can be deleted; built-in ones stay.", 12)
+    MutedText(stringResource(R.string.yours_can_be_deleted_built), 12)
     Spacer(Modifier.height(10.dp))
     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
         IncomeCats.all.forEach { c ->
@@ -119,7 +121,7 @@ import java.util.Locale
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(c, color = ZColor.Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
-                if (c in IncomeCats.custom) Text("Delete", color = ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                if (c in IncomeCats.custom) Text(stringResource(R.string.delete), color = ZColor.Warn, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { IncomeCats.remove(context, c) }.padding(8.dp))
             }
         }
@@ -127,10 +129,10 @@ import java.util.Locale
     Spacer(Modifier.height(10.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, modifier = Modifier.weight(1f),
-            placeholder = { Text("New income category") })
+            placeholder = { Text(stringResource(R.string.new_income_category)) })
         Spacer(Modifier.width(8.dp))
-        Text("Add", color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
-            if (IncomeCats.add(context, name)) name = "" else Toast.makeText(context, "Type a new name", Toast.LENGTH_SHORT).show()
+        Text(stringResource(R.string.add), color = ZColor.Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
+            if (IncomeCats.add(context, name)) name = "" else Toast.makeText(context, context.getString(R.string.type_a_new_name), Toast.LENGTH_SHORT).show()
         }.padding(12.dp))
     }
 }
@@ -139,9 +141,9 @@ import java.util.Locale
     val mine = remember(rows, key) { rowsOfAccount(rows, key).newestFirst() }
     Dialog(onDismissRequest = onKeep) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-            Text("Remove " + AccountBook.displayName(key) + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.remove) + AccountBook.displayName(key) + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.sumOf { it.amount })}). " +
+            MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.rupees())}). " +
                 "If you remove it, these go from Zelu too: totals, payees, notifications.", 12)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -155,15 +157,15 @@ import java.util.Locale
                         Text(money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
-                if (mine.size > 10) MutedText("and ${mine.size - 10} more", 12)
+                if (mine.size > 10) MutedText(stringResource(R.string.and_more, mine.size - 10), 12)
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                Text("Remove all", color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.remove_all), color = ZColor.Warn, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { onRemove() }.padding(12.dp))
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onKeep() }
-                    .padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Keep it", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                    .padding(horizontal = 22.dp, vertical = 10.dp)) { Text(stringResource(R.string.keep_it), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
@@ -185,7 +187,7 @@ import java.util.Locale
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
-            Text("Your accounts", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.your_accounts), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             MutedText(if (firstRun) "Zelu found these in your bank messages. A quick check, about 30 seconds:"
                 else "Tap an account to see what is joined into it, or to change it.", 13)
@@ -226,14 +228,14 @@ import java.util.Locale
                                 MutedText(acctLine(a.type, a.count) + (if (a.own.lastDate.isNotBlank()) " · last " + money(a.own.lastAmount) + " on " + prettyDate(a.own.lastDate) else ""), 12)
                                 if (a.own.lastRaw.isNotBlank()) Text("“" + a.own.lastRaw.take(90) + "”", color = ZColor.InkSoft, fontSize = 11.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                AccountBook.cardLink(book, a)?.let { Text("Looks like the card of ${it.key}. Tap to link.", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                                AccountBook.cardLink(book, a)?.let { Text(stringResource(R.string.looks_like_the_card_of, it.key), color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             }
                             val bal = if (a.type == "card") a.limit else a.balance
                             if (bal != null && !faded) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                         if (a.parts.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
-                            Text("Includes " + a.parts.joinToString(" · ") { AccountBook.displayName(it.key) }, color = ZColor.Muted, fontSize = 12.sp,
+                            Text(stringResource(R.string.includes) + a.parts.joinToString(" · ") { AccountBook.displayName(it.key) }, color = ZColor.Muted, fontSize = 12.sp,
                                 modifier = Modifier.padding(start = 50.dp))
                         }
                     }
@@ -241,8 +243,8 @@ import java.util.Locale
                 known.forEach { card(it) }
                 if (unknown.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
-                    Eyebrow("Bank not known")
-                    MutedText("Bank not known. Tap one to link it to an account above.", 12)
+                    Eyebrow(stringResource(R.string.bank_not_known))
+                    MutedText(stringResource(R.string.bank_not_known_tap_one), 12)
                     unknown.forEach { card(it) }
                 }
                 if (removed.isNotEmpty()) {
@@ -262,7 +264,7 @@ import java.util.Locale
                 .clip(RoundedCornerShape(14.dp)).background(ZColor.Ink).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(m, color = ZColor.Paper, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("UNDO", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                Text(stringResource(R.string.undo), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onUndo() }.padding(horizontal = 14.dp, vertical = 12.dp))
             }
         }
@@ -292,7 +294,8 @@ import java.util.Locale
     val suggested = remember(a, book) { AccountBook.cardLink(book, a) }
     val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true }; suggested?.let { m[it.key] = true } } }
     var type by remember(a) { mutableStateOf(a.type) }
-    var net by remember(a) { mutableStateOf(CardNet.map[a.key]) }
+    val info = LocalAccountInfo.current
+    var net by remember(a) { mutableStateOf(info.networks[a.key]) }
     val netScope = androidx.compose.runtime.rememberCoroutineScope()
     var showMsg by remember(a) { mutableStateOf(false) }
     androidx.compose.runtime.key(a.key) {
@@ -315,7 +318,7 @@ import java.util.Locale
                     // The newest message is shown straight away: people know an account by what its bank writes, not its number.
                     if (a.own.lastRaw.isNotBlank()) {
                         Spacer(Modifier.height(12.dp))
-                        MutedText("Latest message from this account", 12)
+                        MutedText(stringResource(R.string.latest_message_from_this_account), 12)
                         Spacer(Modifier.height(4.dp))
                         Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = if (showMsg) 20 else 4, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card)
@@ -323,15 +326,15 @@ import java.util.Locale
                     }
                     if (suggested != null && !a.declined) {
                         Spacer(Modifier.height(10.dp))
-                        MutedText("Looks like ${suggested.key}'s debit card. Save to link it.", 13)
+                        MutedText(stringResource(R.string.looks_like_s_debit_card, suggested.key), 13)
                     }
                     if (a.declined) {
                         Spacer(Modifier.height(14.dp))
-                        MutedText("Not your account, so not counted.", 13)
+                        MutedText(stringResource(R.string.not_your_account_so_not), 13)
                     } else {
                         if (a.type != "loan" && a.type != "debit") {
                             Spacer(Modifier.height(12.dp))
-                            MutedText("What is it?", 12)
+                            MutedText(stringResource(R.string.what_is_it), 12)
                             Spacer(Modifier.height(6.dp))
                             ChipScroll {
                                 listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->
@@ -341,7 +344,7 @@ import java.util.Locale
                         }
                         if (a.type == "card" && type == "card") {
                             Spacer(Modifier.height(12.dp))
-                            MutedText("Card network", 12)
+                            MutedText(stringResource(R.string.card_network), 12)
                             Spacer(Modifier.height(6.dp))
                             ChipScroll {
                                 CardNet.names.forEach { n ->
@@ -352,14 +355,14 @@ import java.util.Locale
                                         val pick = net
                                         netScope.launch {
                                             withContext(Dispatchers.IO) { Storage.setCardNetwork(context, a.key, pick) }
-                                            CardNet.map = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
+                                            info.networksChanged()
                                         }
                                     }
                                 }
                             }
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text("Is it the same account as any of these?", color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.is_it_the_same_account), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(2.dp))
                         MutedText(if (options.isEmpty()) "Zelu found no other account like this one. Nothing to join."
                             else "Tick one if it is this account written another way, or its debit card. Leave them unticked if not.", 12)
@@ -406,7 +409,7 @@ import java.util.Locale
                             onSave(plan, msg)
                         }
                     }
-                    Text("Not my account", color = ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    Text(stringResource(R.string.not_my_account), color = ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDecline() }.padding(top = 14.dp, bottom = 4.dp))
                 }
             }

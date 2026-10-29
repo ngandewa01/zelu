@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,7 +52,7 @@ import androidx.compose.ui.unit.sp
 ) {
     val cats = Analytics.byCategory(list)
     val total = cats.sumOf { it.second }.coerceAtLeast(1.0)
-    Text("Where it went", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Text(stringResource(R.string.where_it_went), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
     // Three slim, equal buttons the height of the tabs: a bright icon on a round tile, then the word. White, so they
     // read as buttons next to the tabs below.
@@ -83,15 +85,15 @@ import androidx.compose.ui.unit.sp
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Showing $dayLabel", color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.showing, dayLabel), color = ZColor.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(8.dp))
             Text("✕", color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
         }
     }
     tabs()
     slot()
-    if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
-    fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
+    if (cats.isEmpty()) { Panel { MutedText(stringResource(R.string.no_spending_in_this_view)) }; return }
+    fun rowsFor(c: String) = list.filter { it.kind == Kind.EXPENSE && it.category == c }
 
     // Chart groups: top 6 categories, the rest folded into "Other".
     val topN = cats.take(6)
@@ -116,7 +118,7 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(if (compare) "Vs $prevLabel" else "By category")
-            if (compare) InfoDot("How each category moved against $prevLabel.")
+            if (compare) InfoDot(stringResource(R.string.how_each_category_moved_against, prevLabel))
             Spacer(Modifier.weight(1f))
             val ch = if (compare) ((total - prevTotal) / prevTotal * 100).toInt() else 0
             if (ch != 0) Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "%", color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
@@ -152,7 +154,7 @@ import androidx.compose.ui.unit.sp
     if (!showCategories) return
     val top = cats.first().second
     Panel {
-        Eyebrow("By category")
+        Eyebrow(stringResource(R.string.by_category))
         cats.forEachIndexed { i, (c, v) ->
             Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill(c, rowsFor(c)) }) {
@@ -204,7 +206,7 @@ import androidx.compose.ui.unit.sp
     val letters = listOf("M", "T", "W", "T", "F", "S", "S")
     val top = avg.indices.maxByOrNull { avg[it] } ?: 0
     Panel {
-        Eyebrow("Weekday pattern")
+        Eyebrow(stringResource(R.string.weekday_pattern))
         Spacer(Modifier.height(4.dp))
         Text(names[top] + "s are your heaviest day", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         MutedText(money(avg[top]) + " on average", 12)
@@ -232,7 +234,7 @@ import androidx.compose.ui.unit.sp
     if (list.isEmpty()) return
     val total = list.sumOf { it.amount }
     Panel {
-        Eyebrow("Recurring")
+        Eyebrow(stringResource(R.string.recurring))
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(money(total), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -246,7 +248,7 @@ import androidx.compose.ui.unit.sp
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(r.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText("last on " + r.last.takeLast(5).split("-").let { (mo, dd) -> "$dd/$mo" }, 11)
+                    MutedText(stringResource(R.string.last_on) + r.last.takeLast(5).split("-").let { (mo, dd) -> "$dd/$mo" }, 11)
                 }
                 if (r.prev != null && r.amount > r.prev * 1.05) {
                     TonePill("▲ " + money(r.amount - r.prev), ZColor.Warn, ZColor.WarnSoft)
@@ -255,6 +257,6 @@ import androidx.compose.ui.unit.sp
                 Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
-        if (list.size > 6) { Spacer(Modifier.height(10.dp)); MutedText("+ ${list.size - 6} more", 12) }
+        if (list.size > 6) { Spacer(Modifier.height(10.dp)); MutedText(stringResource(R.string.more, list.size - 6), 12) }
     }
 }

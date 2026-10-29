@@ -12,7 +12,7 @@ class CategorizeReceiver : BroadcastReceiver() {
         val id = intent.getStringExtra("id") ?: return
         val cat = intent.getStringExtra("category") ?: return
         val payee = intent.getStringExtra("payee") ?: ""
-        val kind = intent.getStringExtra("kind") ?: "expense"
+        val kind = Kind.of(intent.getStringExtra("kind") ?: Kind.EXPENSE.key)
         val nid = intent.getIntExtra("nid", 0)
         inBackground {
             Storage.setOverride(context, id, kind, cat)

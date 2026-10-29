@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Repeat
@@ -46,12 +48,12 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
-    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRename: (String, String) -> Unit,
     fixedSet: Analytics.FixedSet,
     allRows: List<Row> = emptyList(),
 ) {
-    val spend = list.filter { it.kind == "expense" }
+    val spend = list.filter { it.kind == Kind.EXPENSE }
     val payees = Analytics.byPayee(list)
     // Loan EMIs are large and fixed, so they would top every ranking. The overview ranks everyday payees and shows
     // the EMIs as one line; the All tab still lists everyone.
@@ -67,16 +69,16 @@ import androidx.compose.ui.window.Dialog
     val total = ranked.sumOf { it.amount }
     val lastDate = spend.groupBy { nameOf(it) }.mapValues { e -> e.value.maxOf { it.date } }
 
-    Text("Who you paid", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-    if (payees.isEmpty()) { Panel { MutedText("No payments in this view.") }; return }
+    Text(stringResource(R.string.who_you_paid), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    if (payees.isEmpty()) { Panel { MutedText(stringResource(R.string.no_payments_in_this_view)) }; return }
 
     // 1. Summary: how concentrated your spending is.
     Panel {
         // One line says it all: how many payees, how much, and how much of it the top few take.
         val top5 = ranked.take(5)
         val share = if (total > 0) top5.sumOf { it.amount } / total else 0.0
-        Text("${ranked.size} payees · ${money(total)}", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        if (ranked.size > top5.size) MutedText("Top ${top5.size} take ${Math.round(share * 100)}%", 13)
+        Text(stringResource(R.string.payees, ranked.size, money(total)), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        if (ranked.size > top5.size) MutedText(stringResource(R.string.top_take, top5.size, Math.round(share * 100)), 13)
         if (total > 0) {
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
@@ -94,14 +96,14 @@ import androidx.compose.ui.window.Dialog
     val freshN = run {
         val thisM = Dates.todayMonth()
         val seen = HashMap<String, String>()
-        allRows.filter { it.kind == "expense" }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
+        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
         if (seen.size <= 6) 0 else payees.count { seen[it.name]?.startsWith(thisM) == true }.coerceAtMost(6)
     }
     Spacer(Modifier.height(12.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Leaderboard, "Overview", 0xFF3B82F6, 0xFF60A5FA, ptab == "overview", modifier = Modifier.weight(1f)) { ptab = "overview" }
-        IconTab(Icons.Rounded.Group, "All", 0xFF22B455, 0xFF3DD171, ptab == "all", modifier = Modifier.weight(1f)) { ptab = "all" }
-        IconTab(Icons.Rounded.FiberNew, "New", 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN, modifier = Modifier.weight(1f)) { ptab = "new" }
+        IconTab(Icons.Rounded.Leaderboard, stringResource(R.string.overview), 0xFF3B82F6, 0xFF60A5FA, ptab == "overview", modifier = Modifier.weight(1f)) { ptab = "overview" }
+        IconTab(Icons.Rounded.Group, stringResource(R.string.all), 0xFF22B455, 0xFF3DD171, ptab == "all", modifier = Modifier.weight(1f)) { ptab = "all" }
+        IconTab(Icons.Rounded.FiberNew, stringResource(R.string.new_label), 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN, modifier = Modifier.weight(1f)) { ptab = "new" }
     }
     if (ptab == "overview") {
         // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
@@ -112,7 +114,7 @@ import androidx.compose.ui.window.Dialog
         val biggest = (top.maxOfOrNull { it.amount } ?: 1.0).coerceAtLeast(1.0)
         fun share(a: Double) = if (total > 0) { val p = a / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else ""
         Panel {
-            Eyebrow("Top payees")
+            Eyebrow(stringResource(R.string.top_payees))
             top.forEachIndexed { i, p ->
                 val cat = p.cats.firstOrNull() ?: "Unknown"
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name }.padding(vertical = 9.dp),
@@ -140,20 +142,20 @@ import androidx.compose.ui.window.Dialog
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { ptab = "all" }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Everyone else", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.everyone_else), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         MutedText(plural(restN, "payee", "payees") + " · " + share(restAmt) + " of spend ›", 11)
                     }
                     Text(money(restAmt), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
             if (loanPayees.isNotEmpty()) {
-                val loanRows = list.filter { r -> r.kind == "expense" && r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
+                val loanRows = list.filter { r -> r.kind == Kind.EXPENSE && r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill("Loan EMIs", loanRows) }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile("", "EMI", 34.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Loan EMIs", color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.loan_emis), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         MutedText(plural(loanPayees.size, "loan", "loans") + " · not ranked ›", 11)
                     }
                     Text(money(loanPayees.sumOf { it.amount }), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -164,7 +166,7 @@ import androidx.compose.ui.window.Dialog
         val freq = ranked.sortedByDescending { it.count }.take(4)
         if (freq.isNotEmpty() && freq.first().count > 1) {
             Spacer(Modifier.height(14.dp))
-            Text("Paid most often", color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.paid_most_often), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 freq.forEach { p ->
@@ -178,20 +180,20 @@ import androidx.compose.ui.window.Dialog
             }
         }
         Spacer(Modifier.height(12.dp))
-        Chip("See all " + payees.size + " payees", false) { ptab = "all" }
+        Chip(stringResource(R.string.see_all_3) + payees.size + " payees", false) { ptab = "all" }
     }
 
     // 2. Search, sort and category filter.
     Spacer(Modifier.height(14.dp))
     if (ptab == "all") OutlinedTextField(
         value = query, onValueChange = { query = it }, singleLine = true,
-        placeholder = { Text("Search payee") }, modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.search_payee)) }, modifier = Modifier.fillMaxWidth(),
     )
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Payments, "Amount", 0xFF22B455, 0xFF3DD171, sort == "amount", modifier = Modifier.weight(1f)) { sort = "amount" }
-        IconTab(Icons.Rounded.Repeat, "Most paid", 0xFF3B82F6, 0xFF60A5FA, sort == "count", modifier = Modifier.weight(1f)) { sort = "count" }
-        IconTab(Icons.Rounded.Schedule, "Recent", 0xFFEAB308, 0xFFFACC15, sort == "recent", modifier = Modifier.weight(1f)) { sort = "recent" }
+        IconTab(Icons.Rounded.Payments, stringResource(R.string.amount_2), 0xFF22B455, 0xFF3DD171, sort == "amount", modifier = Modifier.weight(1f)) { sort = "amount" }
+        IconTab(Icons.Rounded.Repeat, stringResource(R.string.most_paid), 0xFF3B82F6, 0xFF60A5FA, sort == "count", modifier = Modifier.weight(1f)) { sort = "count" }
+        IconTab(Icons.Rounded.Schedule, stringResource(R.string.recent), 0xFFEAB308, 0xFFFACC15, sort == "recent", modifier = Modifier.weight(1f)) { sort = "recent" }
     } }
     val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
         .sortedByDescending { it.value }.map { it.key }
@@ -199,7 +201,7 @@ import androidx.compose.ui.window.Dialog
     androidx.compose.runtime.LaunchedEffect(query, sort, sel) { limit = 10 }
     if (ptab == "all") { Spacer(Modifier.height(8.dp))
     ChipScroll {
-        IconTab(Icons.Rounded.Apps, "All", 0xFF64748B, 0xFF94A3B8, sel == "All") { catSel = "All" }
+        IconTab(Icons.Rounded.Apps, stringResource(R.string.all), 0xFF64748B, 0xFF94A3B8, sel == "All") { catSel = "All" }
         catsPresent.forEach { c -> CatTab(c, sel == c) { catSel = c } }
     } }
 
@@ -252,16 +254,16 @@ import androidx.compose.ui.window.Dialog
     if (ptab == "new") run {
         val thisM = Dates.todayMonth()
         val firstSeen = HashMap<String, String>()
-        allRows.filter { it.kind == "expense" }.forEach { r ->
+        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r ->
             val n = nameOf(r); val cur = firstSeen[n]
             if (cur == null || r.date < cur) firstSeen[n] = r.date
         }
         val fresh = payees.filter { firstSeen[it.name]?.startsWith(thisM) == true }.take(6)
-        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText("No new payees this month.") }
+        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText(stringResource(R.string.no_new_payees_this_month)) }
         else Panel {
-            Eyebrow("New this month")
+            Eyebrow(stringResource(R.string.new_this_month))
             Spacer(Modifier.height(4.dp))
-            MutedText("First time you've paid these. Check they're all yours.", 11)
+            MutedText(stringResource(R.string.first_time_you_ve_paid), 11)
             fresh.forEach { p ->
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name },
@@ -281,7 +283,7 @@ import androidx.compose.ui.window.Dialog
     // 5. Fixed costs (EMI, rent...) are kept apart so they don't bury everyday spending.
     if (ptab == "all") {
         when {
-            ordered.isEmpty() -> Panel { MutedText("No payee matches.") }
+            ordered.isEmpty() -> Panel { MutedText(stringResource(R.string.no_payee_matches)) }
             split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
             else -> section(if (split) "All payees" else "Results", shownList)
         }
@@ -289,8 +291,8 @@ import androidx.compose.ui.window.Dialog
         if (ordered.size > limit || limit > 10) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (ordered.size > limit) Chip("Show 10 more (" + (ordered.size - limit) + " left)", false) { limit += 10 }
-                if (limit > 10) Chip("Show less", false) { limit = 10 }
+                if (ordered.size > limit) Chip(stringResource(R.string.show_10_more) + (ordered.size - limit) + " left)", false) { limit += 10 }
+                if (limit > 10) Chip(stringResource(R.string.show_less), false) { limit = 10 }
             }
         }
     }
@@ -308,7 +310,7 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun PayeeDetailDialog(
     name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
-    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     others: List<String>, onRename: (String) -> Unit, onDismiss: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
@@ -339,14 +341,14 @@ import androidx.compose.ui.window.Dialog
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact("Payments", n.toString())
-                Fact("Average", money(total / n))
-                Fact("Last paid", prettyDate(last))
+                Fact(stringResource(R.string.payments), n.toString())
+                Fact(stringResource(R.string.average), money(total / n))
+                Fact(stringResource(R.string.last_paid), prettyDate(last))
             }
             Spacer(Modifier.height(4.dp))
-            MutedText("First paid " + prettyDate(first), 12)
+            MutedText(stringResource(R.string.first_paid) + prettyDate(first), 12)
             Spacer(Modifier.height(14.dp))
-            Eyebrow("Month by month")
+            Eyebrow(stringResource(R.string.month_by_month))
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 months.forEachIndexed { i, m ->
@@ -367,7 +369,7 @@ import androidx.compose.ui.window.Dialog
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                     .clickable { onSee() }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                    Text("See payments", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.see_payments), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 if (withPayee != null) Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
                     .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp)) {
@@ -381,43 +383,43 @@ import androidx.compose.ui.window.Dialog
             }
             if (renaming) {
                 Spacer(Modifier.height(10.dp))
-                MutedText("Rename it, or type another payee's name to merge them.", 12)
+                MutedText(stringResource(R.string.rename_it_or_type_another), 12)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (others.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Merge into:", 11)
+                    MutedText(stringResource(R.string.merge_into), 11)
                     Spacer(Modifier.height(4.dp))
                     ChipScroll { others.forEach { o -> Chip(o, false) { newName = o } } }
                 }
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { if (newName.isNotBlank()) onRename(newName) }.padding(horizontal = 20.dp, vertical = 9.dp)) {
-                    Text("Save name", color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.save_name), color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             if (editing && withPayee != null) {
-                fun pick(kind: String, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
+                fun pick(kind: Kind, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
                 Spacer(Modifier.height(10.dp))
-                MutedText("Applies to every payment to $name:", 12)
+                MutedText(stringResource(R.string.applies_to_every_payment_to, name), 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
-                    CustomCats.names.forEach { c -> CatTab(c, false) { pick("expense", c) } }
-                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
+                    CustomCats.names.forEach { c -> CatTab(c, false) { pick(Kind.EXPENSE, c) } }
+                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    KindTab("income", "Money in", false) { pick("income", "Income") }
-                    KindTab("lent", "Lent", false) { pick("lent", "Lent") }
-                    KindTab("borrowed", "Borrowed", false) { pick("borrowed", "Borrowed") }
-                    KindTab("ignore", "Ignore", false) { pick("ignore", "Ignore") }
+                    KindTab("income", stringResource(R.string.money_in), false) { pick(Kind.INCOME, "Income") }
+                    KindTab("lent", stringResource(R.string.lent), false) { pick(Kind.LENT, "Lent") }
+                    KindTab("borrowed", stringResource(R.string.borrowed), false) { pick(Kind.BORROWED, "Borrowed") }
+                    KindTab("ignore", stringResource(R.string.ignore), false) { pick(Kind.IGNORE, "Ignore") }
                 }
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                 .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -427,17 +429,17 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun InvestView(allRows: List<Row>, onDrill: (String, List<Row>) -> Unit) {
     val inv = Analytics.investments(allRows)
-    Text("Investments", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    Text(stringResource(R.string.investments), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     if (inv.isEmpty()) {
-        Panel { MutedText("PF, NPS and fund contributions show up here.") }
+        Panel { MutedText(stringResource(R.string.pf_nps_and_fund_contributions)) }
         return
     }
     Panel {
-        Eyebrow("Contributed")
+        Eyebrow(stringResource(R.string.contributed))
         Spacer(Modifier.height(4.dp))
         Text(money(inv.sumOf { it.amount }), color = ZColor.Income, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        MutedText("Kept out of spending and income.", 11)
+        MutedText(stringResource(R.string.kept_out_of_spending_and), 11)
     }
     fun typeOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: "Investment"
     val byType = inv.groupBy { typeOf(it) }
@@ -445,7 +447,7 @@ import androidx.compose.ui.window.Dialog
         .sortedByDescending { it.second }
     val top = byType.firstOrNull()?.second ?: 1.0
     Panel {
-        Eyebrow("By type")
+        Eyebrow(stringResource(R.string.by_type))
         byType.forEachIndexed { i, (name, amt, cnt) ->
             Spacer(Modifier.height(if (i == 0) 8.dp else 14.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))

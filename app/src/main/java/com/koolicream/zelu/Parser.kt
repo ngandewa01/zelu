@@ -568,27 +568,27 @@ object Parser {
         // Direction, from the earliest transaction keyword present.
         val d = listOfNotNull(DEBIT.find(text), DR_ABBR.find(text), DR_AC.find(text), LOCAL_DEBIT.find(text)).minByOrNull { it.range.first }
         val c = listOfNotNull(CREDIT.find(text), CR_ABBR.find(text), CR_AC.find(text), LOCAL_CREDIT.find(text)).minByOrNull { it.range.first }
-        var direction: String
+        var direction: Dir
         val keywordIndex: Int
         when {
             fee != null && c == null -> {
-                direction = "debit"; keywordIndex = fee.range.first
+                direction = Dir.DEBIT; keywordIndex = fee.range.first
             }
             d != null && (c == null || d.range.first < c.range.first) -> {
-                direction = "debit"; keywordIndex = d.range.first
+                direction = Dir.DEBIT; keywordIndex = d.range.first
             }
             c != null -> {
-                direction = "credit"; keywordIndex = c.range.first
+                direction = Dir.CREDIT; keywordIndex = c.range.first
             }
             else -> return null
         }
         // A biller confirming it received your bill payment is money going OUT.
-        if (direction == "credit" && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text) || BENEFICIARY_CREDIT.containsMatchIn(text))) direction = "debit"
-        if (direction == "credit" && (TO_BENEFICIARY.containsMatchIn(text) || DEBITED_AGAIN.containsMatchIn(text))) direction = "debit"
-        if (billerOnly) direction = "debit"
+        if (direction == Dir.CREDIT && (isOutgoingPayment(text) || INVEST_OUT.containsMatchIn(text) || BENEFICIARY_CREDIT.containsMatchIn(text))) direction = Dir.DEBIT
+        if (direction == Dir.CREDIT && (TO_BENEFICIARY.containsMatchIn(text) || DEBITED_AGAIN.containsMatchIn(text))) direction = Dir.DEBIT
+        if (billerOnly) direction = Dir.DEBIT
         // "INR 799.00 debited ... on 12-Oct for AJIO has been refunded and credited back": the message is about the money coming back.
-        if (direction == "debit" && CREDITED_BACK.containsMatchIn(text) && !DEBITED_AGAIN.containsMatchIn(text)) direction = "credit"
-        if (loanCredit) direction = "debit"
+        if (direction == Dir.DEBIT && CREDITED_BACK.containsMatchIn(text) && !DEBITED_AGAIN.containsMatchIn(text)) direction = Dir.CREDIT
+        if (loanCredit) direction = Dir.DEBIT
 
         // Pick the amount nearest the transaction keyword, skipping balance/limit figures.
         var amounts = AMOUNT.findAll(text).toList()
@@ -639,7 +639,7 @@ object Parser {
         if (counterparty == null) counterparty = UPI_SLASH.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }
             ?.let { if (it == it.uppercase()) titleCase(it) else it }
         // "to RAJESH KUMAR A/c XX4450", "credited to beneficiary ANJALI SINGH A/c XXXX7781": the other person, named before their account.
-        if (counterparty == null && direction == "debit") counterparty = NAME_BEFORE_AC.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }?.let { titleCase(it) }
+        if (counterparty == null && direction == Dir.DEBIT) counterparty = NAME_BEFORE_AC.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }?.let { titleCase(it) }
         if (counterparty == null) counterparty = LOCAL_SENDER.find(text)?.groupValues?.get(1)?.trim()?.trimEnd('.')?.takeIf { it.length >= 2 }
         if (counterparty == null) counterparty = PAREN_NAME.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }
         // Scan all "to/from/by/at NAME" matches and take the first real one (skips "by Rs …").
@@ -665,7 +665,7 @@ object Parser {
         }
 
         // Cash from a machine is named for what it is, not the machine's code ("ATM S1BW000123 THANE").
-        if (direction == "debit" && fee == null && CASH_OUT.containsMatchIn(text))
+        if (direction == Dir.DEBIT && fee == null && CASH_OUT.containsMatchIn(text))
             counterparty = if (Regex("""\bATM\b""", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
                 !Regex("""\b(micro\s*atm|aeps)\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) "ATM withdrawal" else "Cash withdrawal"
 
@@ -678,17 +678,17 @@ object Parser {
 
         // A refund or reversal often quotes the reference of the payment it undoes, and a transfer between your own accounts
         // carries one reference on both banks' messages: the money coming in gets its own ID, so neither replaces the other.
-        val id = if (ref != null) "ref-$ref" + (if (direction == "credit") CREDIT_ID_SUFFIX else "")
-        else "sms-" + hash("$date|$amount|$direction|$text")
+        val id = if (ref != null) "ref-$ref" + (if (direction == Dir.CREDIT) CREDIT_ID_SUFFIX else "")
+        else "sms-" + hash("$date|$amount|${direction.key}|$text")   // .key: the same ids as before the enum
 
-        return Txn(id, date, amount, direction, counterparty, ref, text, source, account, receivedMs ?: 0L)
+        return Txn(id, date, paiseOf(amount), direction, counterparty, ref, text, source, account, receivedMs ?: 0L)
     }
 
     // For the "add by hand" screen: the first rupee amount in a message, and the account it names.
     fun firstAmount(body: String): Double? =
         AMOUNT.find(WS.replace(body, " "))?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
 
-    fun accountFor(body: String, source: String, direction: String): String =
+    fun accountFor(body: String, source: String, direction: Dir): String =
         accountOf(WS.replace(body, " ").trim(), source, direction)
 
     // ---- UPI AutoPay / mandates ----
@@ -733,7 +733,7 @@ object Parser {
             } catch (_: Exception) { null }
         } else null
         val ms = receivedMs ?: System.currentTimeMillis()
-        val account = accountOf(text, source, "debit")
+        val account = accountOf(text, source, Dir.DEBIT)
         return Mandate(merchant.lowercase().replace(Regex("[^a-z0-9]"), ""), merchant, amount, account, if (status == "scheduled" && next == null) "active" else status, next, ms, ms, text, source)
     }
 
@@ -764,10 +764,10 @@ object Parser {
             ?: CP.findAll(text).firstNotNullOfOrNull { cleanCp(it.groupValues[1]) }
         // A message about a loan names the loan, never a savings account of yours.
         if (loanNo != null) {
-            val bk = accountOf(text, source, "debit").substringBefore(' ').takeIf { it.isNotBlank() && !it.all { c -> c.isDigit() } } ?: bankInText(text)
+            val bk = accountOf(text, source, Dir.DEBIT).substringBefore(' ').takeIf { it.isNotBlank() && !it.all { c -> c.isDigit() } } ?: bankInText(text)
             cp = (if (bk.isNotEmpty()) "$bk " else "") + "Loan $loanNo"
         }
-        val account = if (loanNo != null) accountOf(text, source, "debit").substringBefore(' ') else accountOf(text, source, "debit")
+        val account = if (loanNo != null) accountOf(text, source, Dir.DEBIT).substringBefore(' ') else accountOf(text, source, Dir.DEBIT)
         val ref = REF.find(text)?.groupValues?.get(1)
         val id = if (ref != null) "rem-$ref" else "rem-" + hash("$dueDate|$amount|$text")
         return Reminder(id, dueDate, amount, minAmount, cp, account, recurring, text, source)
@@ -850,7 +850,7 @@ object Parser {
         if (isLoanAccountText(text) || TELECOM_ALERT.containsMatchIn(text)) return null
         if (!BAL_WORD.containsMatchIn(text) || TXN_WORD.containsMatchIn(text)) return null
         val amt = BAL_AMT.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: return null
-        val acct = accountOf(text, source, "")
+        val acct = accountOf(text, source, null)
         if (acct.isEmpty()) return null
         return Triple(acct, amt, receivedMs ?: 0L)
     }
@@ -863,7 +863,7 @@ object Parser {
     )
 
     // Best-effort account label, e.g. "HDFC 5997" or "HDFC CC 1291".
-    private fun accountOf(rawText: String, source: String, direction: String): String {
+    private fun accountOf(rawText: String, source: String, direction: Dir?): String {
         val text = REF_NOISE.replace(PHONE_NOISE.replace(rawText, " "), " ")
         // The sender id names the bank first; only when it doesn't, the message text does.
         val src = source.uppercase()
@@ -877,9 +877,9 @@ object Parser {
         if (FASTAG.containsMatchIn(text)) return if (bank.isNotEmpty()) "$bank FASTag" else "FASTag"
         // Prefer the YOUR-side account: "from" on a debit, "to" on a credit.
         val directional = when (direction) {
-            "debit" -> FROM_AC.find(text)?.groupValues?.get(1)
-            "credit" -> TO_AC.find(text)?.groupValues?.get(1)
-            else -> null
+            Dir.DEBIT -> FROM_AC.find(text)?.groupValues?.get(1)
+            Dir.CREDIT -> TO_AC.find(text)?.groupValues?.get(1)
+            null -> null
         }
         var last4 = directional
             ?: LAST4_KW.find(text)?.groupValues?.get(1)
@@ -900,7 +900,7 @@ object Parser {
         // withdrawal or a message that reports an available balance belongs to a bank account.
         val explicitCard = EXPLICIT_CARD.containsMatchIn(text) || LIMIT_WORD.containsMatchIn(text)
         val weakOnly = !explicitCard && (BAL_AFTER.containsMatchIn(text) || ATM_WORD.containsMatchIn(text))
-        val cardIsPayee = direction == "debit" && directional != null && CARD_AS_TARGET.containsMatchIn(text)
+        val cardIsPayee = direction == Dir.DEBIT && directional != null && CARD_AS_TARGET.containsMatchIn(text)
         val isCard = IS_CARD.containsMatchIn(text) && !debitCard && !weakOnly && !cardIsPayee
         return when {
             bank.isNotEmpty() && last4.isEmpty() && cardNo.length in 3..4 && !isCard -> "$bank DC $cardNo"

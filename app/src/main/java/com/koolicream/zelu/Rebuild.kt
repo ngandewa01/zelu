@@ -37,7 +37,7 @@ object Rebuild {
 
     /** Stored credits that still carry a reference ID without the credit mark: old ID -> new ID. */
     fun creditRenames(rows: Collection<Row>): Map<String, String> =
-        rows.filter { it.direction == "credit" && OLD_CREDIT_ID.matches(it.id) }.associate { it.id to it.id + Parser.CREDIT_ID_SUFFIX }
+        rows.filter { it.direction == Dir.CREDIT && OLD_CREDIT_ID.matches(it.id) }.associate { it.id to it.id + Parser.CREDIT_ID_SUFFIX }
 
     /** A key naming payments ("id", a split part "id#2", a pair "id1|id2") with the renamed IDs. */
     fun renameKey(key: String, renames: Map<String, String>): String =

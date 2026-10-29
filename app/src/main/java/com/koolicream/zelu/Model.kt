@@ -7,19 +7,44 @@ data class RawSms(
     val date: Long, // epoch milliseconds
 )
 
-// A parsed bank/UPI transaction.
+// Which way money moved. [key] is how it is written in saved files and backups.
+enum class Dir(val key: String) {
+    DEBIT("debit"), CREDIT("credit");
+
+    companion object {
+        fun of(key: String): Dir = if (key == CREDIT.key) CREDIT else DEBIT
+    }
+}
+
+// What a payment is to you. [key] is how it is written in saved files, rules and backups.
+enum class Kind(val key: String) {
+    EXPENSE("expense"), INCOME("income"), REFUND("refund"), TRANSFER("transfer"),
+    LENT("lent"), BORROWED("borrowed"), INVEST("invest"), IGNORE("ignore");
+
+    companion object {
+        /** The kind saved as [key]; one Zelu doesn't know (from a newer version) counts as spending, never dropped. */
+        fun of(key: String): Kind = entries.firstOrNull { it.key == key } ?: EXPENSE
+    }
+}
+
+/** Rupees as whole paise: every amount Zelu reads has at most two decimals, so this is exact. */
+fun paiseOf(rupees: Double): Long = Math.round(rupees * 100)
+
+// A parsed bank/UPI transaction. Amounts are kept in whole paise, so adding them up is exact; [amount] is rupees.
 data class Txn(
     val id: String,
     val date: String, // YYYY-MM-DD (IST)
-    val amount: Double,
-    val direction: String, // "debit" or "credit"
+    val paise: Long,
+    val direction: Dir,
     val counterparty: String?,
     val ref: String?,
     val raw: String,
     val source: String,
     val account: String, // e.g. "HDFC 5997", "HDFC CC 1291", or "" if unknown
     val ms: Long = 0,    // when the message arrived; orders payments within a day
-)
+) {
+    val amount: Double get() = paise / 100.0
+}
 
 // A bill / payment reminder parsed from a "due" or "will be debited" SMS. These are NOT
 // transactions (no money has left the account yet) — they live on the Dues page so you can
@@ -37,8 +62,6 @@ data class Reminder(
     val done: Boolean = false,  // ticked off as paid (applied at load time)
 )
 
-// A stored transaction: a Txn plus its classification.
-// kind is one of: expense, income, refund, transfer, lent, borrowed, invest, ignore
 // A UPI AutoPay / e-mandate you set up (or that was changed), built from the bank's messages.
 // status: "active", "scheduled" (a debit is lined up for nextDate), "paused" or "ended".
 data class Mandate(
@@ -54,20 +77,26 @@ data class Mandate(
     val source: String,
 )
 
+// A stored transaction: a Txn plus its classification. Amounts in whole paise ([amount] is rupees, for showing).
 data class Row(
     val id: String,
     val date: String,
-    val amount: Double,
-    val direction: String,
+    val paise: Long,
+    val direction: Dir,
     val counterparty: String?,
     val ref: String?,
     val raw: String,
     val source: String,
     val account: String,
-    val kind: String,
+    val kind: Kind,
     val category: String,
     val ms: Long = 0,    // when the message arrived; orders payments within a day
-)
+) {
+    val amount: Double get() = paise / 100.0
+}
+
+/** The total of [rows] in rupees, added up exactly in paise. */
+fun Iterable<Row>.rupees(): Double = sumOf { it.paise } / 100.0
 
 /**
  * The time of day a payment happened: the time written in its message ("at 18:27:54", "on 02-05-26 6:05 PM"),
@@ -106,3 +135,14 @@ val NEWEST_FIRST: Comparator<Row> = compareByDescending<Row> { it.date }
     .thenByDescending { TxnTime.secondsOf(it) }.thenByDescending { it.ms }
 fun List<Row>.newestFirst(): List<Row> = sortedWith(NEWEST_FIRST)
 
+// Where the app is: the start screen, the first-run steps, the accounts check, or the app itself.
+enum class Stage { SPLASH, WELCOME, PRIVACY, PERM, SCAN, DONE, ACCOUNTS, APP }
+
+// The Home screen's page. [key] is how the "Open Zelu on" choice is saved.
+enum class Tab(val key: String) {
+    LEDGER("ledger"), SPEND("spend"), BUCKETS("buckets"), PAYEES("payees"), INVEST("invest"), PACE("pace"), DUES("dues");
+
+    companion object {
+        fun of(key: String?): Tab = entries.firstOrNull { it.key == key } ?: LEDGER
+    }
+}

@@ -1,11 +1,5 @@
 package com.koolicream.zelu
 
-import android.app.DatePickerDialog
-import android.content.Context
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.foundation.layout.size
 import java.util.Calendar
 import java.util.Locale
 
@@ -36,14 +30,6 @@ internal val CAT_OPTS: List<Pair<String, String>> =
     listOf("All" to "All categories") +
         Classifier.CATEGORIES.keys.map { it to it } +
         listOf("Domestic help" to "Domestic help", "Unknown" to "Unknown")
-
-internal fun pickDate(context: Context, current: String, onPick: (String) -> Unit) {
-    val p = current.split("-")
-    val c = Calendar.getInstance()
-    try { c.set(p[0].toInt(), p[1].toInt() - 1, p[2].toInt()) } catch (_: Exception) {}
-    DatePickerDialog(context, { _, y, m, d -> onPick("%04d-%02d-%02d".format(y, m + 1, d)) },
-        c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-}
 
 internal fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "debit" -> "Debit card"; "fd" -> "Fixed deposit"; "rd" -> "Recurring deposit"; "other" -> "Wallet"; else -> "Savings account" }
 
@@ -111,14 +97,14 @@ internal fun prettyDay(ymd: String): String {
 }
 
 internal fun subtitleFor(t: Row): String = when (t.kind) {
-    "expense" -> t.category
-    "lent" -> "Lent"
-    "borrowed" -> "Borrowed"
-    "transfer" -> t.category.ifBlank { "Transfer" }
-    "invest" -> "Investment"
-    "ignore" -> "Ignored"
-    "refund" -> if (t.category != "Refund") "Refund · ${t.category}" else "Refund"
-    else -> t.kind.replaceFirstChar { it.uppercase() }
+    Kind.EXPENSE -> t.category
+    Kind.LENT -> "Lent"
+    Kind.BORROWED -> "Borrowed"
+    Kind.TRANSFER -> t.category.ifBlank { "Transfer" }
+    Kind.INVEST -> "Investment"
+    Kind.IGNORE -> "Ignored"
+    Kind.REFUND -> if (t.category != "Refund") "Refund · ${t.category}" else "Refund"
+    Kind.INCOME -> "Income"
 }
 
 internal fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }

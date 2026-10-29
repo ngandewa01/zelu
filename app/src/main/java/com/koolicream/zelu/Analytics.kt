@@ -116,16 +116,16 @@ object Analytics {
     }
 
     private fun typeOk(r: Row, type: String): Boolean = when (type) {
-        "expense" -> r.kind == "expense"
-        "income" -> r.kind == "income" || r.kind == "refund"
-        "ignore" -> r.kind == "ignore"
+        "expense" -> r.kind == Kind.EXPENSE
+        "income" -> r.kind == Kind.INCOME || r.kind == Kind.REFUND
+        "ignore" -> r.kind == Kind.IGNORE
         // "Everything" hides ignored rows — pick "Ignored" to see and un-ignore them.
-        else -> r.kind != "ignore"
+        else -> r.kind != Kind.IGNORE
     }
 
     private fun catOk(r: Row, cat: String): Boolean = when (cat) {
         "All" -> true
-        "Unknown" -> r.kind == "expense" && r.category == "Unknown"
+        "Unknown" -> r.kind == Kind.EXPENSE && r.category == "Unknown"
         else -> r.category == cat
     }
 
@@ -134,26 +134,27 @@ object Analytics {
     fun summarize(list: List<Row>): Summary {
         var spent = 0.0; var income = 0.0; var pending = 0
         for (t in list) when (t.kind) {
-            "expense" -> { spent += t.amount; if (t.category == "Unknown") pending++ }
-            "income" -> income += t.amount
-            "refund" -> if (t.category == "Refund") income += t.amount else spent -= t.amount  // paired refund nets the spend
+            Kind.EXPENSE -> { spent += t.amount; if (t.category == "Unknown") pending++ }
+            Kind.INCOME -> income += t.amount
+            Kind.REFUND -> if (t.category == "Refund") income += t.amount else spent -= t.amount  // paired refund nets the spend
+            else -> {}
         }
         return Summary(spent, income, income - spent, pending)
     }
 
     fun byCategory(list: List<Row>): List<Pair<String, Double>> {
         val m = LinkedHashMap<String, Double>()
-        list.filter { it.kind == "expense" }.forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
-        list.filter { it.kind == "refund" && it.category != "Refund" }.forEach { m[it.category] = (m[it.category] ?: 0.0) - it.amount }
+        list.filter { it.kind == Kind.EXPENSE }.forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
+        list.filter { it.kind == Kind.REFUND && it.category != "Refund" }.forEach { m[it.category] = (m[it.category] ?: 0.0) - it.amount }
         return m.entries.filter { it.value > 0.5 }.sortedByDescending { it.value }.map { it.key to it.value }
     }
 
     // Expense totals by category for one month/account — used for month-over-month deltas.
     fun categoryTotals(rows: List<Row>, month: String, account: String): Map<String, Double> {
         val m = HashMap<String, Double>()
-        rows.filter { it.kind == "expense" && it.date.startsWith(month) && (account == "All" || it.account == account) }
+        rows.filter { it.kind == Kind.EXPENSE && it.date.startsWith(month) && (account == "All" || it.account == account) }
             .forEach { m[it.category] = (m[it.category] ?: 0.0) + it.amount }
-        rows.filter { it.kind == "refund" && it.category != "Refund" && it.date.startsWith(month) && (account == "All" || it.account == account) }
+        rows.filter { it.kind == Kind.REFUND && it.category != "Refund" && it.date.startsWith(month) && (account == "All" || it.account == account) }
             .forEach { m[it.category] = (m[it.category] ?: 0.0) - it.amount }
         return m
     }
@@ -164,7 +165,7 @@ object Analytics {
     // a large purchase), which are judged against your own typical payment, not a fixed number.
     fun typicalDaily(list: List<Row>, today: String): Double {
         val from = Dates.shiftDays(today, -30)
-        val amts = list.filter { it.kind == "expense" && it.date >= from && it.date <= today }.map { it.amount }
+        val amts = list.filter { it.kind == Kind.EXPENSE && it.date >= from && it.date <= today }.map { it.amount }
         if (amts.isEmpty()) return 0.0
         val med = amts.sorted()[amts.size / 2]
         val cap = (med * 3).coerceAtLeast(1.0)
@@ -182,7 +183,7 @@ object Analytics {
         for (r in rows) {
             if (r.account != account || r.date <= anchor) continue
             if (Parser.limitFromTxn(r.raw) != null) continue
-            net += if (r.direction == "debit") r.amount else -r.amount
+            net += if (r.direction == Dir.DEBIT) r.amount else -r.amount
         }
         return net
     }
@@ -222,7 +223,7 @@ object Analytics {
     // or way of paying (UPI, NEFT, IMPS...) says they are two.
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
-        val groups = rows.filter { (it.kind == "expense" || it.kind == "income") && it.category != "EMI" && it.account.isNotBlank() }
+        val groups = rows.filter { (it.kind == Kind.EXPENSE || it.kind == Kind.INCOME) && it.category != "EMI" && it.account.isNotBlank() }
             .groupBy { it.account + "|" + it.date + "|" + it.direction + "|" + Math.round(it.amount * 100) }
         for (g in groups.values) {
             if (g.size < 2) continue
@@ -288,7 +289,7 @@ object Analytics {
         val amt = LinkedHashMap<String, Double>()
         val cnt = LinkedHashMap<String, Int>()
         val cats = LinkedHashMap<String, LinkedHashSet<String>>()
-        list.filter { it.kind == "expense" }.forEach { t ->
+        list.filter { it.kind == Kind.EXPENSE }.forEach { t ->
             val n = t.counterparty?.takeIf { it.isNotBlank() } ?: t.category
             amt[n] = (amt[n] ?: 0.0) + t.amount
             cnt[n] = (cnt[n] ?: 0) + 1
@@ -302,30 +303,30 @@ object Analytics {
     fun dailyTotals(allRows: List<Row>, month: String, account: String): DoubleArray {
         val dim = Dates.daysInMonth(month)
         val arr = DoubleArray(dim + 1)
-        allRows.filter { it.kind == "expense" && it.date.startsWith(month) && (account == "All" || it.account == account) }
+        allRows.filter { it.kind == Kind.EXPENSE && it.date.startsWith(month) && (account == "All" || it.account == account) }
             .forEach { val d = it.date.substring(8, 10).toInt(); if (d in 1..dim) arr[d] += it.amount }
         return arr
     }
 
     fun spentByAccount(list: List<Row>, accounts: List<String>): List<Pair<String, Double>> =
         accounts.filter { it != "All" }.map { a ->
-            a to list.filter { it.account == a && it.kind == "expense" }.sumOf { it.amount }
+            a to list.filter { it.account == a && it.kind == Kind.EXPENSE }.rupees()
         }.filter { it.second > 0 }
 
-    fun lent(list: List<Row>) = list.filter { it.kind == "lent" }
-    fun borrowed(list: List<Row>) = list.filter { it.kind == "borrowed" }
+    fun lent(list: List<Row>) = list.filter { it.kind == Kind.LENT }
+    fun borrowed(list: List<Row>) = list.filter { it.kind == Kind.BORROWED }
     // Investments (PF, NPS, mutual funds) — tracked on their own, not spend or income.
-    fun investments(list: List<Row>) = list.filter { it.kind == "invest" }.newestFirst()
+    fun investments(list: List<Row>) = list.filter { it.kind == Kind.INVEST }.newestFirst()
 
     data class Insight(val topCat: String, val topCatAmt: Double, val topCatPct: Int,
                        val biggestName: String, val biggestAmt: Double,
                        val overBy: Double?)
 
     fun insight(list: List<Row>, f: Filter, budget: Double = 0.0): Insight? {
-        val expenses = list.filter { it.kind == "expense" }
+        val expenses = list.filter { it.kind == Kind.EXPENSE }
         if (expenses.isEmpty()) return null
         val cats = byCategory(list)
-        val spent = expenses.sumOf { it.amount }
+        val spent = expenses.rupees()
         val top = cats.first()
         val biggest = expenses.maxByOrNull { it.amount }!!
         val overBy = if (budget > 0 && f.period == "month" && f.month == Dates.todayMonth()) {
@@ -337,7 +338,7 @@ object Analytics {
 
     // Top N expenses (by amount) in the list — for highlighting big spends.
     fun bigSpendIds(list: List<Row>, n: Int = 3): Set<String> =
-        list.filter { it.kind == "expense" }.sortedByDescending { it.amount }.take(n).map { it.id }.toSet()
+        list.filter { it.kind == Kind.EXPENSE }.sortedByDescending { it.amount }.take(n).map { it.id }.toSet()
 
     // Cumulative spend by day for a month (for the pace chart), up to `upto`.
     fun runningTotals(allRows: List<Row>, month: String, account: String, upto: Int): DoubleArray {
@@ -352,9 +353,9 @@ object Analytics {
     fun monthlySpendIncome(allRows: List<Row>, months: List<String>, account: String): List<Triple<String, Double, Double>> =
         months.map { m ->
             val inM = allRows.filter { it.date.startsWith(m) && (account == "All" || it.account == account) }
-            val spent = inM.filter { it.kind == "expense" }.sumOf { it.amount } -
-                inM.filter { it.kind == "refund" && it.category != "Refund" }.sumOf { it.amount }
-            val income = inM.filter { it.kind == "income" || (it.kind == "refund" && it.category == "Refund") }.sumOf { it.amount }
+            val spent = inM.filter { it.kind == Kind.EXPENSE }.rupees() -
+                inM.filter { it.kind == Kind.REFUND && it.category != "Refund" }.rupees()
+            val income = inM.filter { it.kind == Kind.INCOME || (it.kind == Kind.REFUND && it.category == "Refund") }.rupees()
             Triple(m, spent, income)
         }
 
@@ -377,8 +378,8 @@ object Analytics {
         }
         // One-off big spend: > 3x the typical single spend in that category over the last 90 days.
         val from = Dates.shiftDays(Dates.today(), -90)
-        for (e in all.filter { it.kind == "expense" && it.date.startsWith(month) && it.amount >= 5000 && it.category !in skip }) {
-            val past = all.filter { it.kind == "expense" && it.category == e.category && it.date >= from && it.date < month + "-01" }
+        for (e in all.filter { it.kind == Kind.EXPENSE && it.date.startsWith(month) && it.amount >= 5000 && it.category !in skip }) {
+            val past = all.filter { it.kind == Kind.EXPENSE && it.category == e.category && it.date >= from && it.date < month + "-01" }
                 .map { it.amount }.sorted()
             if (past.size < 3) continue
             val median = past[past.size / 2]
@@ -397,7 +398,7 @@ object Analytics {
     fun recurring(all: List<Row>, todayMonth: String): List<Recurring> {
         val months = (0..3).map { Dates.shiftMonth(todayMonth, -it) } // newest first
         val out = ArrayList<Recurring>()
-        val ex = all.filter { it.kind == "expense" && it.date.take(7) in months && !it.counterparty.isNullOrBlank() }
+        val ex = all.filter { it.kind == Kind.EXPENSE && it.date.take(7) in months && !it.counterparty.isNullOrBlank() }
         ex.groupBy { it.counterparty!!.trim().lowercase() }.forEach { (_, rs) ->
             val byMonth = rs.groupBy { it.date.take(7) }
             val present = months.filter { byMonth[it]?.size == 1 }
@@ -419,10 +420,10 @@ object Analytics {
     fun fixedSet(all: List<Row>, todayMonth: String, plan: Map<String, Double>): FixedSet {
         val payees = recurring(all, todayMonth).map { it.name.trim().lowercase() }.toSet()
         val months = (0..3).map { Dates.shiftMonth(todayMonth, -it) }
-        val recent = all.filter { it.kind == "expense" && it.date.take(7) in months }
+        val recent = all.filter { it.kind == Kind.EXPENSE && it.date.take(7) in months }
         val derived = recent.groupBy { it.category }.filter { (_, rs) ->
-            val tot = rs.sumOf { it.amount }
-            tot > 0 && rs.filter { (it.counterparty ?: "").trim().lowercase() in payees }.sumOf { it.amount } >= 0.8 * tot
+            val tot = rs.rupees()
+            tot > 0 && rs.filter { (it.counterparty ?: "").trim().lowercase() in payees }.rupees() >= 0.8 * tot
         }.keys.map { it.lowercase() }.toSet()
         return FixedSet(payees, derived + plan.keys.map { it.trim().lowercase() })
     }
@@ -436,7 +437,7 @@ object Analytics {
         fun idx(d: String): Int = (Dates.parse(d).get(Calendar.DAY_OF_WEEK) + 5) % 7
         var d = from; var guard = 0
         while (d <= to && guard++ < 400) { counts[idx(d)]++; d = Dates.shiftDays(d, 1) }
-        list.filter { it.kind == "expense" && it.date >= from && it.date <= to }.forEach { sums[idx(it.date)] += it.amount }
+        list.filter { it.kind == Kind.EXPENSE && it.date >= from && it.date <= to }.forEach { sums[idx(it.date)] += it.amount }
         return DoubleArray(7) { if (counts[it] > 0) sums[it] / counts[it] else 0.0 }
     }
 }

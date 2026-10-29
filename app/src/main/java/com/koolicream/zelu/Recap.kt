@@ -20,7 +20,7 @@ object Recap {
         val rows = Storage.loadRows(context)
         val totals = Analytics.categoryTotals(rows, prev, "All")
         val spent = totals.values.sum()
-        val income = rows.filter { it.kind == "income" && it.date.startsWith(prev) }.sumOf { it.amount }
+        val income = rows.filter { it.kind == Kind.INCOME && it.date.startsWith(prev) }.rupees()
         if (spent <= 0) return
         sp.edit().putString("last", month).apply()
 
@@ -48,6 +48,6 @@ object Recap {
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setAutoCancel(true)
         if (launch != null) b.setContentIntent(PendingIntent.getActivity(context, 4, launch, flags))
-        try { nm.notify(9100, b.build()) } catch (_: Exception) {}
+        try { nm.notify(9100, b.build()) } catch (e: Exception) { CrashLog.warn("Recap.inr", e) }
     }
 }

@@ -1,5 +1,7 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,7 +59,7 @@ import androidx.compose.ui.window.Dialog
         ) {
             Text(title, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val total = rows.sumOf { it.amount }
+            val total = rows.rupees()
             MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
             Spacer(Modifier.height(10.dp))
             // A category or a search can hold hundreds of payments: only the ones on screen are drawn.
@@ -69,7 +71,7 @@ import androidx.compose.ui.window.Dialog
             Box(
                 Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            ) { Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
@@ -86,9 +88,9 @@ import androidx.compose.ui.window.Dialog
     var newName by remember { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
-            Text("Budgets", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.budgets), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            MutedText("A monthly limit per category. Mark same-every-month costs as Fixed.", 12)
+            MutedText(stringResource(R.string.a_monthly_limit_per_category), 12)
             Spacer(Modifier.height(12.dp))
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                 names.forEach { c ->
@@ -97,7 +99,7 @@ import androidx.compose.ui.window.Dialog
                         Spacer(Modifier.width(8.dp))
                         Text(c, color = ZColor.Ink, fontSize = 14.sp, modifier = Modifier.weight(1f),
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Chip("Fixed", flags[c] == true) { flags[c] = flags[c] != true }
+                        Chip(stringResource(R.string.fixed), flags[c] == true) { flags[c] = flags[c] != true }
                         Spacer(Modifier.width(6.dp))
                         OutlinedTextField(
                             value = drafts[c] ?: "",
@@ -111,10 +113,10 @@ import androidx.compose.ui.window.Dialog
                 Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = newName, onValueChange = { newName = it }, singleLine = true,
-                        placeholder = { Text("Add your own (e.g. Maid)") }, modifier = Modifier.weight(1f),
+                        placeholder = { Text(stringResource(R.string.add_your_own_e_g)) }, modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
-                    Chip("Add", false, filled = true) {
+                    Chip(stringResource(R.string.add), false, filled = true) {
                         val n = newName.trim()
                         if (n.isNotEmpty() && n !in names) { names.add(0, n); flags[n] = true; newName = "" }
                     }
@@ -133,7 +135,7 @@ import androidx.compose.ui.window.Dialog
                         }
                         onDismiss()
                     }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            ) { Text(stringResource(R.string.done), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
@@ -182,19 +184,19 @@ import androidx.compose.ui.window.Dialog
                     .padding(start = 18.dp, end = 18.dp, top = 40.dp, bottom = 28.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Savings plan", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                    Text(stringResource(R.string.savings_plan), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { save() }
                         .padding(horizontal = 22.dp, vertical = 10.dp)) {
-                        Text("Done", color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.done), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
                 // 1. This month's picture
                 Panel {
-                    Eyebrow("Every month")
+                    Eyebrow(stringResource(R.string.every_month))
                     Spacer(Modifier.height(8.dp))
-                    Text("You earn " + inr(avgIn) + " and spend " + inr(avgSpent) + ".", color = ZColor.Ink,
+                    Text(stringResource(R.string.you_earn) + inr(avgIn) + " and spend " + inr(avgSpent) + ".", color = ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(4.dp))
                     Text(if (left >= 0) inr(left) + " is left to save or invest." else "You overspend by " + inr(-left) + ".",
@@ -208,17 +210,17 @@ import androidx.compose.ui.window.Dialog
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            MutedText("Spent " + Math.round(sp * 100) + "%", 12)
-                            MutedText("Left " + Math.round((1f - sp) * 100) + "%", 12)
+                            MutedText(stringResource(R.string.spent_2) + Math.round(sp * 100) + "%", 12)
+                            MutedText(stringResource(R.string.left) + Math.round((1f - sp) * 100) + "%", 12)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
-                    MutedText("Average of your last 3 months, EMIs included.", 12)
+                    MutedText(stringResource(R.string.average_of_your_last_3), 12)
                 }
 
                 // 2. SIP
                 Panel {
-                    Eyebrow("Your SIP")
+                    Eyebrow(stringResource(R.string.your_sip))
                     Spacer(Modifier.height(6.dp))
                     Text(inr(sipN) + " a month", color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     androidx.compose.material3.Slider(
@@ -230,27 +232,27 @@ import androidx.compose.ui.window.Dialog
                             inactiveTrackColor = ZColor.Line, activeTickColor = Color.Transparent,
                             inactiveTickColor = Color.Transparent),
                     )
-                    Text("Still free after SIP" + (if (emiN > 0) " and EMI" else "") + ": " + inr(free),
+                    Text(stringResource(R.string.still_free_after_sip) + (if (emiN > 0) " and EMI" else "") + ": " + inr(free),
                         color = if (free >= 0) ZColor.Income else ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    if (free < 0) MutedText("That is more than you have left each month.", 12)
+                    if (free < 0) MutedText(stringResource(R.string.that_is_more_than_you), 12)
                     Spacer(Modifier.height(12.dp))
                     if (!emiOpen) {
-                        Text("+ Planning a loan? Add an EMI", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.planning_a_loan_add_an), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { emiOpen = true })
                     } else {
                         field("New EMI to plan for (₹ / month)", emi) { emi = it }
                         Spacer(Modifier.height(4.dp))
-                        MutedText("Only for a new loan; current EMIs are already counted.", 12)
+                        MutedText(stringResource(R.string.only_for_a_new_loan), 12)
                     }
                 }
 
                 // 3. What it becomes
                 Panel {
-                    Eyebrow("What it becomes")
+                    Eyebrow(stringResource(R.string.what_it_becomes))
                     Spacer(Modifier.height(6.dp))
                     if (sipN > 0) {
                         Text(inr(fv), color = ZColor.Ink, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                        MutedText("in " + fmtPlain(yrs) + " years at " + fmtPlain(rate) + "% a year", 13)
+                        MutedText(stringResource(R.string.in_label) + fmtPlain(yrs) + " years at " + fmtPlain(rate) + "% a year", 13)
                         Spacer(Modifier.height(12.dp))
                         val inv = (invested / fv).toFloat().coerceIn(0.001f, 0.999f)
                         Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
@@ -261,36 +263,36 @@ import androidx.compose.ui.window.Dialog
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.InkSoft))
-                                Spacer(Modifier.width(6.dp)); MutedText("You put in " + inr(invested), 12)
+                                Spacer(Modifier.width(6.dp)); MutedText(stringResource(R.string.you_put_in) + inr(invested), 12)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
-                                Spacer(Modifier.width(6.dp)); MutedText("Growth " + inr(fv - invested), 12)
+                                Spacer(Modifier.width(6.dp)); MutedText(stringResource(R.string.growth) + inr(fv - invested), 12)
                             }
                         }
-                    } else MutedText("Move the SIP slider to see how it grows.", 13)
+                    } else MutedText(stringResource(R.string.move_the_sip_slider_to), 13)
                     Spacer(Modifier.height(14.dp))
-                    MutedText("Years", 12); Spacer(Modifier.height(6.dp))
-                    ChipScroll { listOf(3, 5, 10, 15).forEach { y -> Chip("$y yr", num(years) == y.toDouble(), true) { years = y.toString() } } }
+                    MutedText(stringResource(R.string.years), 12); Spacer(Modifier.height(6.dp))
+                    ChipScroll { listOf(3, 5, 10, 15).forEach { y -> Chip(stringResource(R.string.yr, y), num(years) == y.toDouble(), true) { years = y.toString() } } }
                     Spacer(Modifier.height(10.dp))
-                    MutedText("Yearly return", 12); Spacer(Modifier.height(6.dp))
+                    MutedText(stringResource(R.string.yearly_return), 12); Spacer(Modifier.height(6.dp))
                     ChipScroll { listOf(8, 10, 12, 15).forEach { p -> Chip("$p%", num(ret) == p.toDouble(), true) { ret = p.toString() } } }
                     Spacer(Modifier.height(10.dp))
-                    MutedText("Returns are an assumption, not a promise.", 11)
+                    MutedText(stringResource(R.string.returns_are_an_assumption_not), 11)
                 }
 
                 // 4. Goal
                 Panel {
-                    Eyebrow("Goal (optional)")
+                    Eyebrow(stringResource(R.string.goal_optional))
                     Spacer(Modifier.height(8.dp))
                     field("Goal amount (₹), e.g. a down payment", goal) { goal = it }
                     if (goalN > 0) {
                         Spacer(Modifier.height(12.dp))
-                        Text("To reach " + inr(goalN) + " in " + fmtPlain(yrs) + " years you need " + inr(needed) + " a month.",
+                        Text(stringResource(R.string.to_reach) + inr(goalN) + " in " + fmtPlain(yrs) + " years you need " + inr(needed) + " a month.",
                             color = ZColor.Ink, fontSize = 15.sp)
                         Spacer(Modifier.height(6.dp))
                         when {
-                            sipN <= 0 -> MutedText("Set a SIP above to see how long it takes.", 13)
+                            sipN <= 0 -> MutedText(stringResource(R.string.set_a_sip_above_to), 13)
                             sipN >= needed - 0.5 -> Text(
                                 "Your " + inr(sipN) + " SIP gets you there in " + (goalMonths?.let { yrMo(it) } ?: "time") + " ✓",
                                 color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -301,7 +303,7 @@ import androidx.compose.ui.window.Dialog
                         }
                         if (needed > left - emiN) {
                             Spacer(Modifier.height(4.dp))
-                            MutedText("More than you have left each month. Add years or lower the goal.", 12)
+                            MutedText(stringResource(R.string.more_than_you_have_left), 12)
                         }
                     }
                 }
@@ -325,7 +327,7 @@ import androidx.compose.ui.window.Dialog
         Spacer(Modifier.height(4.dp))
         Text(if (settled) "Settled ✓" else money(bal), color = if (settled) ZColor.Muted else color,
             fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        if (!settled && bal < total) MutedText("of ${money(total)}", 11)
+        if (!settled && bal < total) MutedText(stringResource(R.string.of, money(total)), 11)
     }
 }
 
@@ -337,7 +339,7 @@ import androidx.compose.ui.window.Dialog
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
             .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-            Text("New category", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.new_category), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -347,11 +349,11 @@ import androidx.compose.ui.window.Dialog
                 Spacer(Modifier.width(12.dp))
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
-                    placeholder = { Text("Category name") }, modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.category_name)) }, modifier = Modifier.weight(1f),
                 )
             }
             Spacer(Modifier.height(12.dp))
-            MutedText("Icon", 12)
+            MutedText(stringResource(R.string.icon), 12)
             Spacer(Modifier.height(6.dp))
             CatIcons.picker.keys.toList().chunked(6).forEach { rowKeys ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -369,7 +371,7 @@ import androidx.compose.ui.window.Dialog
                 }
             }
             Spacer(Modifier.height(10.dp))
-            MutedText("Colour", 12)
+            MutedText(stringResource(R.string.colour), 12)
             Spacer(Modifier.height(6.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 colors.forEach { c ->
@@ -385,7 +387,7 @@ import androidx.compose.ui.window.Dialog
                 Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                     .clickable { if (name.trim().isNotEmpty()) onCreate(name.trim(), "i:$icon", color) }
                     .padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text("Create", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            ) { Text(stringResource(R.string.create), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
@@ -418,7 +420,7 @@ import androidx.compose.ui.window.Dialog
     onRowClick: (Row) -> Unit, onSave: (Double) -> Unit, onDismiss: () -> Unit,
     youOwe: Boolean = false,
 ) {
-    val total = lentRows.sumOf { it.amount }
+    val total = lentRows.rupees()
     var text by remember { mutableStateOf(if (repaidSoFar > 0) fmtPlain(repaidSoFar) else "") }
     val entered = text.replace(",", "").toDoubleOrNull() ?: 0.0
     val balance = (total - entered).coerceAtLeast(0.0)
@@ -433,10 +435,10 @@ import androidx.compose.ui.window.Dialog
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Fact(headWord, money(total))
                 Fact(if (youOwe) "You repaid" else "Repaid", money(entered), ZColor.Income)
-                Fact("Balance", money(balance), if (balance <= 0.0) ZColor.Muted else ZColor.Warn)
+                Fact(stringResource(R.string.balance), money(balance), if (balance <= 0.0) ZColor.Muted else ZColor.Warn)
             }
             Spacer(Modifier.height(14.dp))
-            Eyebrow("Repaid so far")
+            Eyebrow(stringResource(R.string.repaid_so_far))
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = text,
@@ -448,36 +450,36 @@ import androidx.compose.ui.window.Dialog
             )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Mark fully paid", false) { text = fmtPlain(total) }
-                if (entered > 0) Chip("Clear", false) { text = "" }
+                Chip(stringResource(R.string.mark_fully_paid), false) { text = fmtPlain(total) }
+                if (entered > 0) Chip(stringResource(R.string.clear), false) { text = "" }
             }
             if (lentRows.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                Eyebrow("Transfers")
+                Eyebrow(stringResource(R.string.transfers))
                 Spacer(Modifier.height(4.dp))
                 val sortedLent = remember(lentRows) { lentRows.newestFirst() }
                 LazyColumn(Modifier.heightIn(max = 220.dp)) {
                     items(sortedLent) { TxnRow(it, false, onRowClick) }
                 }
-                MutedText("Not a loan? Tap the transfer to change it.", 11)
+                MutedText(stringResource(R.string.not_a_loan_tap_the), 11)
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.clip(RoundedCornerShape(20.dp)).clickable { onDismiss() }
                         .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) { Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(R.string.cancel), color = ZColor.Muted, fontWeight = FontWeight.SemiBold) }
                 Spacer(Modifier.width(8.dp))
                 Box(
                     Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable { onSave(entered); onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-                ) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
         }
     }
 }
 
-@Composable internal fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+@Composable internal fun TxnDetailDialog(t: Row, onReclassify: (Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     Dialog(onDismissRequest = onDismiss) {
@@ -495,16 +497,16 @@ import androidx.compose.ui.window.Dialog
                 Spacer(Modifier.width(10.dp))
                 AmountText(t, false)
             }
-            if (t.account.isNotBlank()) { Spacer(Modifier.height(8.dp)); MutedText("Account: ${t.account}", 12) }
+            if (t.account.isNotBlank()) { Spacer(Modifier.height(8.dp)); MutedText(stringResource(R.string.account_2, t.account), 12) }
             Spacer(Modifier.height(16.dp))
-            Eyebrow("From this message")
+            Eyebrow(stringResource(R.string.from_this_message))
             Spacer(Modifier.height(6.dp))
             Text(
                 t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
                 modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
             )
             Spacer(Modifier.height(14.dp))
-            Eyebrow("Why this label")
+            Eyebrow(stringResource(R.string.why_this_label))
             Spacer(Modifier.height(4.dp))
             MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
             var saved by remember { mutableStateOf<String?>(null) }
@@ -519,10 +521,10 @@ import androidx.compose.ui.window.Dialog
             if (retitling) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = newTitle, onValueChange = { newTitle = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Who was this?") })
+                    placeholder = { Text(stringResource(R.string.who_was_this)) })
                 if (titleIdeas.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Names in the message:", 11)
+                    MutedText(stringResource(R.string.names_in_the_message), 11)
                     Spacer(Modifier.height(4.dp))
                     ChipScroll { titleIdeas.forEach { n -> Chip(n, newTitle.equals(n, ignoreCase = true)) { newTitle = n } } }
                 }
@@ -531,7 +533,7 @@ import androidx.compose.ui.window.Dialog
                     .clickable {
                         if (newTitle.isNotBlank()) { onRetitle(newTitle.trim()); retitling = false; saved = "Title saved: ${newTitle.trim()}" }
                     }.padding(horizontal = 20.dp, vertical = 9.dp)) {
-                    Text("Save title", color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.save_title), color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -548,40 +550,40 @@ import androidx.compose.ui.window.Dialog
                 Box(
                     Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
                         .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-                ) { Text("Close", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
             }
             if (editing) {
                 // Picking a category saves it, closes the picker and says so; the payment above shows the new label.
-                fun pick(kind: String, c: String) {
+                fun pick(kind: Kind, c: String) {
                     onReclassify(kind, c); editing = false
                     saved = "Moved to ${if (c in CustomCats.names) customLabel(c) else c}" +
-                        (if (kind != "income" && kind != "ignore" && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
+                        (if (kind != Kind.INCOME && kind != Kind.IGNORE && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
                 }
                 Spacer(Modifier.height(10.dp))
                 MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
                     CustomCats.names.forEach { c ->
-                        CatTab(c, t.category == c) { pick("expense", c) }
+                        CatTab(c, t.category == c) { pick(Kind.EXPENSE, c) }
                     }
-                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
+                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
                 }
-                if (t.direction == "credit") {
+                if (t.direction == Dir.CREDIT) {
                     Spacer(Modifier.height(6.dp))
-                    MutedText("Money-in category:", 12)
+                    MutedText(stringResource(R.string.money_in_category), 12)
                     Spacer(Modifier.height(6.dp))
-                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick("income", c) } } }
+                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick(Kind.INCOME, c) } } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    KindTab("income", "Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
+                    KindTab("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }
                     // Money back for something you bought: it nets against that spend once matched.
-                    if (t.direction == "credit") KindTab("refund", "Refund", t.kind == "refund") { pick("refund", "Refund") }
-                    KindTab("transfer", "Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
-                    KindTab("lent", "Lent", t.kind == "lent") { pick("lent", "Lent") }
-                    KindTab("borrowed", "Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }
-                    KindTab("ignore", "Ignore", t.kind == "ignore") { pick("ignore", "Ignore") }
+                    if (t.direction == Dir.CREDIT) KindTab("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") }
+                    KindTab("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") }
+                    KindTab("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") }
+                    KindTab("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") }
+                    KindTab("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") }
                     if (onSplit != null) KindTab("split", if (t.id.contains('#')) "Remove split" else "Split", false) { onSplit() }
                 }
             }

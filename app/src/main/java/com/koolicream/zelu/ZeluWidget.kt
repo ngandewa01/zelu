@@ -24,7 +24,7 @@ class ZeluWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = inBackground {
         val views = build(context)
         for (id in ids) {
-            try { manager.updateAppWidget(id, views) } catch (_: Exception) {}
+            try { manager.updateAppWidget(id, views) } catch (e: Exception) { CrashLog.warn("ZeluWidget.onUpdate", e) }
         }
     }
 
@@ -37,7 +37,7 @@ class ZeluWidget : AppWidgetProvider() {
                 if (ids.isEmpty()) return
                 val views = build(context)
                 for (id in ids) mgr.updateAppWidget(id, views)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { CrashLog.warn("ZeluWidget.refresh", e) }
         }
 
         private fun build(context: Context): RemoteViews {

@@ -214,23 +214,23 @@ object Classifier {
 
     private fun onCard(account: String) = account.contains(" CC ") || account.startsWith("CC ") || account.endsWith(" CC")
 
-    data class Result(val kind: String, val category: String)
+    data class Result(val kind: Kind, val category: String)
 
     // A plain-language reason for why a transaction got its label — shown in the detail dialog.
-    fun explain(counterparty: String?, raw: String, kind: String, category: String): String {
+    fun explain(counterparty: String?, raw: String, kind: Kind, category: String): String {
         val hay = ("${counterparty ?: ""} ${EMI_OFFER.replace(Parser.withoutPaymentsBank(raw), " ")}".replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")).lowercase()
         return when (kind) {
-            "income" -> "Counted as money in — a credit to your account."
-            "refund" -> "A refund credited back to you."
-            "invest" -> "Tracked as an investment (PF/NPS/funds) — neither spending nor income."
-            "transfer" -> when (category) {
+            Kind.INCOME -> "Counted as money in — a credit to your account."
+            Kind.REFUND -> "A refund credited back to you."
+            Kind.INVEST -> "Tracked as an investment (PF/NPS/funds) — neither spending nor income."
+            Kind.TRANSFER -> when (category) {
                 "Card bill" -> "A credit-card bill payment — it settles spends already counted, so it isn't counted again."
                 "Wallet" -> "Money moved to/from a wallet — counted once when it leaves your bank."
                 else -> "A transfer — between your own accounts, or money a person sent you."
             }
-            "lent" -> "You tagged this as money lent out."
-            "borrowed" -> "You tagged this as money you borrowed."
-            "ignore" -> "You've marked this to be ignored, so it's left out of totals."
+            Kind.LENT -> "You tagged this as money lent out."
+            Kind.BORROWED -> "You tagged this as money you borrowed."
+            Kind.IGNORE -> "You've marked this to be ignored, so it's left out of totals."
             else -> {
                 val kw = CATEGORIES[category]?.firstOrNull { has(hay, it) }
                 when {
@@ -278,64 +278,64 @@ object Classifier {
         val cp = (t.counterparty ?: "").lowercase()
 
         // Paying a credit-card bill (directly or via CRED) is a transfer, not a new spend.
-        if (t.direction == "debit" && (CARD_BILL.containsMatchIn(t.raw) || CARD_BILL_BBPS.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
-            return Result("transfer", "Card bill")
+        if (t.direction == Dir.DEBIT && (CARD_BILL.containsMatchIn(t.raw) || CARD_BILL_BBPS.containsMatchIn(t.raw) || CRED.containsMatchIn(t.raw) || BNPL.containsMatchIn(t.raw))) {
+            return Result(Kind.TRANSFER, "Card bill")
         }
 
         // A fee the bank or card took (annual fee, late payment, minimum balance, SMS, ATM charges) is its own spend;
         // "charges may apply" on an ordinary payment is not.
-        if (t.direction == "debit" && BANK_CHARGE.containsMatchIn(t.raw) && !CHARGE_MAYBE.containsMatchIn(t.raw))
-            return Result("expense", "Bank charges")
+        if (t.direction == Dir.DEBIT && BANK_CHARGE.containsMatchIn(t.raw) && !CHARGE_MAYBE.containsMatchIn(t.raw))
+            return Result(Kind.EXPENSE, "Bank charges")
 
         // Money moving between your own accounts is not income or spending.
         if (cp.isNotEmpty() && ownAccounts.any { it.isNotEmpty() && cp.contains(it.lowercase()) }) {
-            return Result("transfer", "Transfer")
+            return Result(Kind.TRANSFER, "Transfer")
         }
 
         // Sent to your own account ("to your own a/c X8890 (SELF)") is a transfer between your accounts.
-        if (SELF_TRANSFER.containsMatchIn(t.raw) || cp == "self") return Result("transfer", "Transfer")
-        if (t.direction == "credit" && TAX_REFUND.containsMatchIn(t.raw)) return Result("income", "Tax refund")
+        if (SELF_TRANSFER.containsMatchIn(t.raw) || cp == "self") return Result(Kind.TRANSFER, "Transfer")
+        if (t.direction == Dir.CREDIT && TAX_REFUND.containsMatchIn(t.raw)) return Result(Kind.INCOME, "Tax refund")
         // A tiny broker or bank deposit to check your account is not an investment.
-        val verify = t.direction == "credit" && ACCOUNT_CHECK.containsMatchIn(t.raw)
+        val verify = t.direction == Dir.CREDIT && ACCOUNT_CHECK.containsMatchIn(t.raw)
         // Retirement / market contributions are tracked on their own, not spend or income.
         if (!verify && (INVEST.containsMatchIn(t.raw) || INVEST.containsMatchIn(cp))) {
-            return Result("invest", "Investment")
+            return Result(Kind.INVEST, "Investment")
         }
 
         // Wallets: loading a wallet from your bank IS the spend (the money has left your
         // account), so a wallet load counts as an expense. Spending FROM the wallet, or
         // cashback landing in it, is NOT counted again — that would double-count.
         // A refund from a wallet company ("refund from AMAZON PAY INDIA") is a refund to you, not a wallet movement.
-        if (t.direction == "credit" && REFUND_WORD.containsMatchIn(t.raw)) return Result("refund", "Refund")
+        if (t.direction == Dir.CREDIT && REFUND_WORD.containsMatchIn(t.raw)) return Result(Kind.REFUND, "Refund")
         // Loading a wallet ("PAYTM ADD MONEY", "Wallet top-up") is money moved to the wallet.
-        if (t.direction == "debit" && WALLET_LOAD.containsMatchIn(t.raw)) return Result("expense", "Wallet")
+        if (t.direction == Dir.DEBIT && WALLET_LOAD.containsMatchIn(t.raw)) return Result(Kind.EXPENSE, "Wallet")
         // A card swipe at Amazon Pay is shopping on Amazon, not money loaded into a wallet.
-        if (t.direction == "debit" && onCard(t.account) && AMAZON_PAY.containsMatchIn(t.raw)) return Result("expense", "Shopping")
+        if (t.direction == Dir.DEBIT && onCard(t.account) && AMAZON_PAY.containsMatchIn(t.raw)) return Result(Kind.EXPENSE, "Shopping")
         if (WALLET.containsMatchIn(t.raw)) {
-            if (t.direction == "credit" || WALLET_SPEND.containsMatchIn(t.raw))
-                return Result("ignore", "Wallet")
-            return Result("expense", "Wallet")
+            if (t.direction == Dir.CREDIT || WALLET_SPEND.containsMatchIn(t.raw))
+                return Result(Kind.IGNORE, "Wallet")
+            return Result(Kind.EXPENSE, "Wallet")
         }
 
-        if (t.direction == "credit") {
-            if (Parser.REFUND.containsMatchIn(t.raw) || CARD_REFUND.containsMatchIn(t.raw)) return Result("refund", "Refund")
+        if (t.direction == Dir.CREDIT) {
+            if (Parser.REFUND.containsMatchIn(t.raw) || CARD_REFUND.containsMatchIn(t.raw)) return Result(Kind.REFUND, "Refund")
             // Cashback and reward credits are money in, even when they land on a card.
-            if (CASHBACK.containsMatchIn(t.raw)) return Result("income", "Income")
+            if (CASHBACK.containsMatchIn(t.raw)) return Result(Kind.INCOME, "Income")
             // A loan paid out to you is borrowed money, not income.
-            if (Parser.LOAN_DISBURSAL.containsMatchIn(t.raw)) return Result("transfer", "Loan")
+            if (Parser.LOAN_DISBURSAL.containsMatchIn(t.raw)) return Result(Kind.TRANSFER, "Loan")
             // A payment landing on your credit card is settling a bill, not income.
             // Anything landing on an account we know is a credit card (e.g. "Payment of Rs X has
             // been received on your ... Credit Card XX8003 through BBPS") is the same thing.
             if (CARD_RECV.containsMatchIn(t.raw) || onCard(t.account))
-                return Result("transfer", "Card bill")
+                return Result(Kind.TRANSFER, "Card bill")
             // A shop or app sending money back ("UPI/CR/.../SWIGGY") is a refund.
             if (cp.isNotEmpty() && CATEGORIES.any { (cat, words) -> cat in REFUND_CATEGORIES && words.any { has(cp, it) } })
-                return Result("refund", "Refund")
+                return Result(Kind.REFUND, "Refund")
             // Money from a person ("from RAMESH IYER via IMPS") is a transfer between people, not income.
             val from = t.counterparty?.trim()
             if (from != null && PERSON_NAME.matches(from) && !BUSINESS_WORD.containsMatchIn(from) && !EARNED.containsMatchIn(t.raw) && !EARNED.containsMatchIn(from))
-                return Result("transfer", "Transfer")
-            return Result("income", "Income")
+                return Result(Kind.TRANSFER, "Transfer")
+            return Result(Kind.INCOME, "Income")
         }
 
         // Names often arrive run together ("KimsHospital", "SriLakshmiMedicals"): also match on the
@@ -346,38 +346,38 @@ object Classifier {
         val hay = ("$cp $raw $spaced").lowercase()
         val joined = hay.replace("*", " ")
         // A bank fee or its tax ("towards Debit Card Annual Maint Chgs", "towards IGST on DC Annual Fee") is a bill.
-        if (BANK_FEE.containsMatchIn(raw)) return Result("expense", "Bank charges")
+        if (BANK_FEE.containsMatchIn(raw)) return Result(Kind.EXPENSE, "Bank charges")
         // "Amazon Bill Pay", "BillPay"... is a bill payment through the platform, whatever the platform sells.
-        if (BILL_PAY.containsMatchIn(cp)) return Result("expense", "Bills")
+        if (BILL_PAY.containsMatchIn(cp)) return Result(Kind.EXPENSE, "Bills")
         // 1) Exact brand dictionary (most specific). Swiggy Instamart is groceries, though "swiggy" alone is food.
-        if (has(hay, "instamart")) return Result("expense", "Groceries")
+        if (has(hay, "instamart")) return Result(Kind.EXPENSE, "Groceries")
         for ((category, words) in CATEGORIES) {
-            if (words.any { has(hay, it) }) return Result("expense", category)
+            if (words.any { has(hay, it) }) return Result(Kind.EXPENSE, category)
         }
         // Shops and apps listed by the group that owns them.
         for ((category, words) in Brands.EXTRA) {
-            if (words.any { has(hay, it) }) return Result("expense", category)
+            if (words.any { has(hay, it) }) return Result(Kind.EXPENSE, category)
         }
-        if (Brands.isBareMaxShop(t.counterparty ?: "", t.raw)) return Result("expense", "Shopping")
+        if (Brands.isBareMaxShop(t.counterparty ?: "", t.raw)) return Result(Kind.EXPENSE, "Shopping")
         // A payee written with a space or dash ("MC DONALDS", "Red Bus") still finds the word list's "mcdonald", "redbus".
         val payeeRun = cp.filter { it.isLetterOrDigit() }
         if (payeeRun.length >= 6) {
             val all = CATEGORIES.entries.asSequence() + Brands.EXTRA.entries.asSequence()
             for (e in all) for (w in e.value) {
                 val run = w.filter { it.isLetterOrDigit() }
-                if (run.length >= 6 && payeeRun.contains(run)) return Result("expense", e.key)
+                if (run.length >= 6 && payeeRun.contains(run)) return Result(Kind.EXPENSE, e.key)
             }
         }
         // 2) Name-pattern heuristics (generalize to unknown local merchants).
         for ((re, category) in NAME_HINTS) {
-            if (re.containsMatchIn(hay)) return Result("expense", category)
+            if (re.containsMatchIn(hay)) return Result(Kind.EXPENSE, category)
         }
         // "RAZ*DELHIPUBLICSCHOOL": a telling word inside one long run-together name.
         for ((word, category) in EMBEDDED) {
-            if (joined.split(' ').any { it.length > word.length + 3 && it.contains(word) }) return Result("expense", category)
+            if (joined.split(' ').any { it.length > word.length + 3 && it.contains(word) }) return Result(Kind.EXPENSE, category)
         }
         // 3) Unguessable, including money sent to a person (rent, a maid, a shop's owner) -> counted as spend and asked
         //    once (then remembered per payee). Only your own accounts and card bills are transfers.
-        return Result("expense", "Unknown")
+        return Result(Kind.EXPENSE, "Unknown")
     }
 }

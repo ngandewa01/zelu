@@ -89,7 +89,7 @@ class SmsPipelineTest {
             ?: return "ignore(parse)"
         val r = try { Classifier.classify(t, emptyList()) } catch (e: Exception) { return "CRASH classify ${e.message}" }
         val amt = if (t.amount % 1.0 == 0.0) t.amount.toLong().toString() else t.amount.toString()
-        return "${t.direction} $amt ${r.kind}/${r.category} [acct=${t.account} payee=${t.counterparty} date=${t.date}]"
+        return "${t.direction.key} $amt ${r.kind.key}/${r.category} [acct=${t.account} payee=${t.counterparty} date=${t.date}]"
     }
 
     private fun matches(expect: String, got: String): Boolean {

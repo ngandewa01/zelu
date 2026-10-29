@@ -1,18 +1,22 @@
 package com.koolicream.zelu
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CallSplit
-import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.NorthEast
-import androidx.compose.material.icons.rounded.Label
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -119,8 +123,8 @@ import androidx.compose.ui.semantics.semantics
         LogoMark(30f)
         Spacer(Modifier.width(9.dp))
         Row {
-            Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)
-            Text("lu", color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = 23.sp)
+            Text(stringResource(R.string.ze), color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)
+            Text(stringResource(R.string.lu), color = ZColor.Accent, fontWeight = FontWeight.Bold, fontSize = 23.sp)
         }
     }
 }
@@ -136,7 +140,7 @@ import androidx.compose.ui.semantics.semantics
         content()
         if (closed) {
             Box(Modifier.matchParentSize().clip(RoundedCornerShape(radius)).background(ice.copy(alpha = 0.34f)))
-            Text("❄ Closed · Reopen", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            Text(stringResource(R.string.closed_reopen), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(ice)
                     .clickable { onToggle() }.padding(horizontal = 8.dp, vertical = 3.dp))
         } else Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
@@ -145,7 +149,7 @@ import androidx.compose.ui.semantics.semantics
                 Text("⋯", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
             }
             androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Mark as closed") }, onClick = { menu = false; onToggle() })
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.mark_as_closed)) }, onClick = { menu = false; onToggle() })
             }
         }
     }
@@ -162,7 +166,7 @@ import androidx.compose.ui.semantics.semantics
             if (title.isNotEmpty()) { Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(8.dp)) }
             Text(text, color = ZColor.InkSoft, fontSize = 14.sp, lineHeight = 20.sp)
             Spacer(Modifier.height(14.dp))
-            Text("OK", color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+            Text(stringResource(R.string.ok), color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp)).clickable { open = false }.padding(horizontal = 10.dp, vertical = 6.dp))
         }
     }
@@ -177,7 +181,7 @@ import androidx.compose.ui.semantics.semantics
     Row(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.OrangeSoft).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(text, color = ZColor.InkSoft, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text("Got it", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        Text(stringResource(R.string.got_it), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { sp.edit().putBoolean(key, true).apply(); seen = true }
                 .padding(horizontal = 6.dp, vertical = 4.dp))
     }
@@ -271,13 +275,13 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 2.dp))
 }
 
-@Composable internal fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
+@Composable internal fun BottomNav(view: Tab, modifier: Modifier, onPick: (Tab) -> Unit) {
     // Each tab has its own colour on a round tile, like every other icon in the app; the chosen one gets a wash
     // of its colour and a bold name.
-    data class Tab(val key: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
+    data class NavItem(val key: Tab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
     val items = listOf(
-        Tab("ledger", "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), Tab("spend", "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
-        Tab("payees", "Payees", Icons.Rounded.People, 0xFF22B455, 0xFF3DD171), Tab("dues", "Dues", Icons.Rounded.ReceiptLong, 0xFFEAB308, 0xFFFACC15),
+        NavItem(Tab.LEDGER, "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), NavItem(Tab.SPEND, "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
+        NavItem(Tab.PAYEES, "Payees", Icons.Rounded.People, 0xFF22B455, 0xFF3DD171), NavItem(Tab.DUES, "Dues", Icons.AutoMirrored.Rounded.ReceiptLong, 0xFFEAB308, 0xFFFACC15),
     )
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
@@ -402,6 +406,30 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
             .background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp)).padding(18.dp),
         content = content,
     )
+}
+
+// A Panel drawn in slices for a long list inside a LazyColumn: its rounded top and bottom ends (with the same 14dp gap
+// above and 18dp padding inside), and the rows between them on the same card colour and outline.
+@Composable internal fun PanelEnd(top: Boolean) {
+    if (top) Spacer(Modifier.height(14.dp))
+    Box(Modifier.fillMaxWidth().height(18.dp).clipToBounds().drawBehind {
+            val r = androidx.compose.ui.geometry.CornerRadius(18.dp.toPx())
+            val stroke = 1.dp.toPx()
+            val y = if (top) 0f else -size.height
+            drawRoundRect(ZColor.Card, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, size.height * 2), r)
+            drawRoundRect(ZColor.Line, androidx.compose.ui.geometry.Offset(stroke / 2, y + stroke / 2),
+                androidx.compose.ui.geometry.Size(size.width - stroke, size.height * 2 - stroke), r,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        })
+}
+
+@Composable internal fun PanelSlice(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxWidth().drawBehind {
+        drawRect(ZColor.Card)
+        val s = 1.dp.toPx()
+        drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(s / 2, 0f), androidx.compose.ui.geometry.Offset(s / 2, size.height), s)
+        drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(size.width - s / 2, 0f), androidx.compose.ui.geometry.Offset(size.width - s / 2, size.height), s)
+    }.padding(horizontal = 18.dp)) { content() }
 }
 
 @Composable internal fun Eyebrow(text: String) {
@@ -616,7 +644,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 // A category as an icon pill: its own icon and colour, the same as everywhere else in the app.
 @Composable internal fun CatTab(cat: String, selected: Boolean, onClick: () -> Unit) {
     val icon = CatIcons.forCategory(cat)
-    IconTab(icon ?: Icons.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick = onClick)
+    IconTab(icon ?: Icons.AutoMirrored.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick = onClick)
 }
 
 // What a payment is, other than a spending category: the same icons and colours as the Needs-you answers.
@@ -625,10 +653,10 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
         "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
         "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
-        "lent" -> Triple(Icons.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
+        "lent" -> Triple(Icons.AutoMirrored.Rounded.Send, 0xFF3B82F6, 0xFF60A5FA)
         "borrowed" -> Triple(Icons.Rounded.MoveToInbox, 0xFF8B5CF6, 0xFFA78BFA)
-        "split" -> Triple(Icons.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
-        "refund" -> Triple(Icons.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
+        "split" -> Triple(Icons.AutoMirrored.Rounded.CallSplit, 0xFFC026D3, 0xFFE879F9)
+        "refund" -> Triple(Icons.AutoMirrored.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
     }
@@ -689,3 +717,17 @@ internal val LocalTabFit = androidx.compose.runtime.compositionLocalOf<TabFit?> 
         onTextLayout = { r -> if (r.hasVisualOverflow && fs > minSize) fs -= 0.5f else ready = true },
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }
+
+// The phone's own date picker, opened on [current] (YYYY-MM-DD).
+internal fun pickDate(context: android.content.Context, current: String, onPick: (String) -> Unit) {
+    val p = current.split("-")
+    val c = java.util.Calendar.getInstance()
+    try { c.set(p[0].toInt(), p[1].toInt() - 1, p[2].toInt()) } catch (_: Exception) {}
+    android.app.DatePickerDialog(context, { _, y, m, d -> onPick("%04d-%02d-%02d".format(y, m + 1, d)) },
+        c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
+}
+
+// Opens another app's screen (email, share, settings) from any context. The AppState's context is the application,
+// not a screen, and Android starts a screen from there only as a new task.
+internal fun android.content.Context.startScreen(intent: android.content.Intent) =
+    startActivity(if (this is android.app.Activity) intent else intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -103,7 +103,10 @@ class DemoContext(base: Context) : ContextWrapper(base) {
     override fun getFilesDir(): File = dir
     override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences =
         baseContext.getSharedPreferences("demo_" + name, mode)
-    override fun getApplicationContext(): Context = this
+    // Code that keeps "the application context" for later gets one that still reads sample data but wraps the
+    // application, not the screen this was made from, so a closed screen is never held on to.
+    private val appDemo: DemoContext by lazy { if (base.applicationContext === base) this else DemoContext(base.applicationContext) }
+    override fun getApplicationContext(): Context = appDemo
 
     /** A fresh sample: no old demo data, accounts already confirmed so the app opens straight on Home. */
     fun prepare() {
