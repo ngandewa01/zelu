@@ -144,7 +144,12 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     }
 
     fun reload() {
-        scope.launch {
+        scope.launch { loadAll() }
+    }
+
+    /** Reads everything saved (payments, balances, card limits, bills, budgets, prefs) and shows it in one go. */
+    suspend fun loadAll() {
+        run {
             // Read everything first, then show it in one go, so balances never trail behind the payments.
             class Loaded(
                 val rows: Pair<List<Row>, List<Pair<Row, Row>>>, val reminders: List<Reminder>, val reminderState: Map<String, Boolean>,
@@ -246,12 +251,13 @@ class AppState(val context: Context, val scope: CoroutineScope) {
                 added = (if (fresh) Ingest.rebuild(context, inbox) else Ingest.ingest(context, inbox)).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
                 Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
-                missed = Ingest.unreadable(context).size
             }
-            missedCount = missed
-            // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows.
-            reload()
+            // Refresh everything (balances, card limits, fixed plan, prefs too), not just the rows. Shown before the
+            // missed-message count below, which reads the inbox a second time.
+            loadAll()
             loading = false
+            missed = withContext(Dispatchers.IO) { Ingest.unreadable(context).size }
+            missedCount = missed
             if (stage == "scan") stage = "done"
             if (notify) Toast.makeText(context, if (full) "Read everything again" else if (added == 0) "Nothing new in your messages" else plural(added, "new payment", "new payments") + " found", Toast.LENGTH_LONG).show()
         }

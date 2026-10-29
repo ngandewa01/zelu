@@ -137,6 +137,20 @@ object Ingest {
     private val MONEYISH = Regex("""(?i)(rs\.?|inr|₹)\s*[\d,]+""")
     private val ACTIONISH = Regex("""(?i)\b(debit(ed)?|credit(ed)?|paid|sent|spent|withdraw(n|al)?|received|deposit(ed)?|transferred|purchase|txn|upi)\b""")
     private val NOT_TXN = Regex("""(?i)\b(otp|one time password|offer|cashback offer|apply now|pre-?approved|click)\b""")
+    // Money that never moved: a declined or failed attempt ("TXN DECLINED: Rs.2374.25 ... Intl online usage disabled").
+    private val DID_NOT_HAPPEN = Regex(
+        """(?i)\b(declined|unsuccessful|could not be (processed|completed)|usage (is )?disabled|(txn|transaction|payment) (has )?failed|""" +
+            """insufficient (balance|funds)|not (been )?(debited|processed|completed))\b""",
+    )
+
+    /**
+     * A bank-looking message that mentions money changing hands: worth listing when Zelu can't read it. A declined or
+     * failed attempt is not, unless it says the money came back ("Rs 500 credited for failed UPI txn").
+     */
+    internal fun looksLikeMoneyMoved(body: String): Boolean =
+        MONEYISH.containsMatchIn(body) && ACTIONISH.containsMatchIn(body) && !NOT_TXN.containsMatchIn(body) &&
+            (!DID_NOT_HAPPEN.containsMatchIn(body) || Parser.REFUND.containsMatchIn(body) || CAME_BACK.containsMatchIn(body))
+    private val CAME_BACK = Regex("""(?i)\b(credited|reversed|refunded)\b""")
 
     // Bank-looking messages that mention money but that Zelu could not turn into a transaction, balance
     // or reminder. These are the ones worth reporting so the reader can be taught about them.
@@ -151,7 +165,7 @@ object Ingest {
         for (m in all) {
             if (out.size >= limit) break
             if (!Parser.isFinancialSender(m.address) || Parser.hasSuspiciousLink(m.body, m.address)) continue
-            if (!MONEYISH.containsMatchIn(m.body) || !ACTIONISH.containsMatchIn(m.body) || NOT_TXN.containsMatchIn(m.body)) continue
+            if (!looksLikeMoneyMoved(m.body)) continue
             if (Parser.parseSms(m.body, m.date, m.address) != null) continue
             if (Parser.parseBalance(m.body, m.date, m.address) != null) continue
             if (Parser.parseReminder(m.body, m.date, m.address) != null) continue
@@ -175,7 +189,7 @@ object Ingest {
             if (m.address.isBlank() || Parser.isFinancialSender(m.address)) continue
             if (("sender|" + m.address.uppercase()) in skipped) continue
             if (Parser.hasSuspiciousLink(m.body, m.address)) continue
-            if (!MONEYISH.containsMatchIn(m.body) || !ACTIONISH.containsMatchIn(m.body) || NOT_TXN.containsMatchIn(m.body)) continue
+            if (!looksLikeMoneyMoved(m.body)) continue
             if (Parser.parseSms(m.body, m.date, m.address) == null) continue
             by.getOrPut(m.address) { ArrayList() }.add(m.body)
         }
@@ -230,7 +244,7 @@ object Ingest {
                     points.getOrPut(t.account) { ArrayList() }.add(Triple(m.date, b, if (t.direction == "debit") -t.amount else t.amount))
             } else if (Parser.parseBalance(m.body, m.date, m.address) != null) bal++
             else if (Parser.parseReminder(m.body, m.date, m.address) != null) rem++
-            else if (MONEYISH.containsMatchIn(m.body) && ACTIONISH.containsMatchIn(m.body) && !NOT_TXN.containsMatchIn(m.body)) unread++
+            else if (looksLikeMoneyMoved(m.body)) unread++
         }
         val gaps = ArrayList<Pair<String, Int>>()
         for ((acct, list) in points) {

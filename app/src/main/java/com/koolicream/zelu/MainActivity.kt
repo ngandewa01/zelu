@@ -255,12 +255,9 @@ fun ZeluApp() {
         }
 
         LaunchedEffect(Unit) {
-            refreshRows()
-            reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
-            reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
-            repaid = withContext(Dispatchers.IO) { Storage.loadRepaid(context) }
-            budgets = withContext(Dispatchers.IO) { Storage.loadBudgets(context) }
-            monthlyBudget = withContext(Dispatchers.IO) { Storage.loadMonthlyBudget(context) }
+            // Everything saved, balances and card limits included, shows at once; the inbox check below only adds
+            // what is new.
+            loadAll()
             // Coming back after Android closed the app in the background (or the theme changed): stay on the screen you were on.
             if (stage == "app" || stage == "accounts") {
                 smsOk = hasPerm()

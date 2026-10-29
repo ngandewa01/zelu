@@ -22,6 +22,27 @@ class ReconcileTest {
         assertEquals("Refund", no.rows.first { it.id == "ref-1-cr" }.category)
     }
 
+    // A failed ATM withdrawal: the reversal arrives seconds after the withdrawal, for the same amount on the same card.
+    @Test
+    fun aReversalWithinMinutesNetsWithoutAsking() {
+        val spend = row("w", "2026-04-03", 10000.0, "debit", "expense", "ATM / Cash", account = "HDFC 5997",
+            raw = "Withdrawn Rs.10000 From HDFC Bank Card x1208 At +HAFEEZPET On 2026-04-03:08:40:38 Bal Rs.747635 Not You?")
+            .copy(ms = 1775185838000L)
+        val back = row("r", "2026-04-03", 10000.0, "credit", "refund", "Refund", account = "HDFC 5997",
+            raw = "ATM Txn Reversed:Rs.10000 reversed to your HDFC Bank Card 1208 At +HAFEEZPET On 2026-04-03:08:40:40.Inconvenience regretted")
+            .copy(ms = 1775185840000L)
+        val p = Reconcile.pairRefunds(listOf(spend, back), emptyMap())
+        assertEquals("ATM / Cash", p.rows.first { it.id == "r" }.category)
+        assertTrue("paired without asking", p.suggestions.isEmpty())
+        // "Not related" still wins.
+        assertEquals("Refund", Reconcile.pairRefunds(listOf(spend, back), mapOf("r" to false)).rows.first { it.id == "r" }.category)
+        // Hours later, or on another account, it is a real refund to ask about (or leave alone).
+        val later = back.copy(raw = "Rs.10000 refunded to your HDFC Bank Card 1208 at 14:05:10", ms = 1775185840000L + 5 * 3600_000L)
+        assertEquals(1, Reconcile.pairRefunds(listOf(spend, later), emptyMap()).suggestions.size)
+        val other = back.copy(account = "SBI 4821")
+        assertEquals("Refund", Reconcile.pairRefunds(listOf(spend, other), emptyMap()).rows.first { it.id == "r" }.category)
+    }
+
     @Test
     fun aRefundOfTheSameAmountIsAskedAboutFirst() {
         val spend = row("a", "2026-10-01", 1299.0, "debit", "expense", "Shopping", payee = "Myntra")

@@ -55,6 +55,17 @@ object Reconcile {
     // without asking.
     class Paired(val rows: List<Row>, val suggestions: List<Pair<Row, Row>>)
 
+    /**
+     * True when [back] came within 15 minutes after [spend] (a minute's leeway for clocks): by when the two messages
+     * arrived, or, for payments stored without that, by the times written in them.
+     */
+    internal fun isQuickReversal(spend: Row, back: Row): Boolean {
+        if (spend.ms > 0 && back.ms > 0) return (back.ms - spend.ms) / 1000 in -60L..15L * 60
+        val a = TxnTime.fromText(spend.raw) ?: return false
+        val b = TxnTime.fromText(back.raw) ?: return false
+        return b - a in -60..15 * 60
+    }
+
     fun pairRefunds(rows: List<Row>, answers: Map<String, Boolean>): Paired {
         fun norm(x: String?) = (x ?: "").lowercase().filter { it.isLetterOrDigit() }
         val expenses = rows.filter { it.kind == "expense" }
@@ -69,6 +80,18 @@ object Reconcile {
             if (sameRef != null) {
                 remaining[sameRef.id] = (remaining[sameRef.id] ?: 0.0) - r.amount
                 paired[r.id] = sameRef.category
+                continue
+            }
+            // The same amount back on the same account within minutes of the spend: a failed ATM withdrawal or card
+            // payment ("ATM Txn Reversed: Rs.10000" two seconds after "Withdrawn Rs.10000"). The money never left, so it
+            // nets without asking.
+            val quick = expenses.firstOrNull { e ->
+                e.account.isNotBlank() && e.account == r.account && e.date == r.date && kotlin.math.abs(e.amount - r.amount) < 0.5 &&
+                    (remaining[e.id] ?: 0.0) >= r.amount - 0.5 && isQuickReversal(e, r)
+            }
+            if (quick != null) {
+                remaining[quick.id] = (remaining[quick.id] ?: 0.0) - r.amount
+                paired[r.id] = quick.category
                 continue
             }
             // Only suggest a pairing that is clearly the same purchase: the same amount (within 60 days),
