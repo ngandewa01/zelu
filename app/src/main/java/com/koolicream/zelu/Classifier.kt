@@ -172,7 +172,9 @@ object Classifier {
         """\b(epf|epfo|provident fund|passbook|uan|pf contribution|nps|tier\s?1|tier\s?2|pran|""" +
             """mutual fund|zerodha|groww|upstox|kuvera|smallcase|indmoney|demat|elss|folio|sip debit|""" +
             """icici direct|hdfc securities|paytm money|angel ?one|ppf|nippon india|sovereign gold|""" +
-            """etmoney|5paisa|motilal|fixed deposit|recurring deposit|bse limited|nse clearing|""" +
+            """etmoney|5paisa|motilal|fixed deposit|recurring deposit|term deposit|tdr|stdr|bse limited|nse clearing|""" +
+            // Banks write FDs and RDs short: "AMT TRF TO FD A.C NO20044...", "FD No XX4321", "RD A/c".
+            """(?:to|into)\s+(?:an?\s+|the\s+|your\s+)?fd|fd\s*(?:a/?c|acct|account|no\.?|number|booking)|fd\s*(?:no\.?\s*)?(?:x+|\*+)?\d{3,}|rd\s*(?:a/?c|acct|account)|""" +
             """indian clearing corp|icici prudential m(?:f|utual)?|prudential mutual|mf utilities)\b""",
         RegexOption.IGNORE_CASE,
     )
@@ -222,7 +224,7 @@ object Classifier {
         return when (kind) {
             Kind.INCOME -> "Counted as money in — a credit to your account."
             Kind.REFUND -> "A refund credited back to you."
-            Kind.INVEST -> "Tracked as an investment (PF/NPS/funds) — neither spending nor income."
+            Kind.INVEST -> "Tracked as an investment (PF, NPS, funds, fixed deposits) — neither spending nor income."
             Kind.TRANSFER -> when (category) {
                 "Card bill" -> "A credit-card bill payment — it settles spends already counted, so it isn't counted again."
                 "Wallet" -> "Money moved to/from a wallet — counted once when it leaves your bank."
