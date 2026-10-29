@@ -339,7 +339,7 @@ internal fun ReportDialog(s: AppState) {
                                     .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(to))
                                     .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu problem report")
                                     .putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
-                                try { context.startActivity(android.content.Intent.createChooser(mail, "Send report")); reportOpen = false }
+                                try { context.startScreen(android.content.Intent.createChooser(mail, "Send report")); reportOpen = false }
                                 catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
                             }
                         }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Write email", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }

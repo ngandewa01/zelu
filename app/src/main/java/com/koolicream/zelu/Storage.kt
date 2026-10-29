@@ -46,38 +46,49 @@ object Storage {
             .putString(KEY_SENDERS, bankSenders).putString(KEY_OWN, ownAccounts).apply()
     }
 
-    // Load transactions with learned payee rules and per-transaction overrides applied.
-    // Working out every payment's final category from years of messages is the slow part, so the result is kept
-    // until something it depends on changes (any saved file, or the own-accounts setting).
-    private var cacheKey: String? = null
+    // Working out every payment's final category from years of messages is the slow part, so it is done in three
+    // stages, each kept until something it reads changes: (1) the stored payments, (2) your decisions applied to them,
+    // (3) accounts joined, repeats counted once, refunds and transfers matched. Moving one payment to another category
+    // redoes (2) and (3) without reading every payment again; answering a refund question redoes only (3).
+    // Each saved name has a version that every write to it raises; [epoch] covers a restore or erase.
+    private val versions = HashMap<String, Long>()
+    private var epoch = 0L
+    private fun bump(name: String) { versions[name] = (versions[name] ?: 0L) + 1; SafeFileStats.writes++ }
+    private fun v(vararg names: String) = names.joinToString(",") { (versions[it] ?: 0L).toString() }
+
+    private class Decided(
+        val rows: List<Row>, val overrides: Map<String, Pair<String, String>>, val rules: Map<String, Pair<String, String>>,
+        val reg: Map<String, Pair<String, String>>, val apart: Set<String>, val catOff: Set<String>, val own: List<String>,
+    )
+    private var stage1: Pair<String, Map<String, Row>>? = null
+    private var stage2: Pair<String, Decided>? = null
+    private var stage3Key: String? = null
     private var cacheRows: List<Row> = emptyList()
     private var cacheRefunds: List<Pair<Row, Row>> = emptyList()
-
-    private fun dataKey(context: Context): String {
-        // The folder is part of the key, so sample data (its own folder) and your data never share a cached result.
-        val sb = StringBuilder().append(context.filesDir.absolutePath).append('|').append(SafeFileStats.writes).append('|')
-        context.filesDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".txt")) }
-            ?.sortedBy { it.name }?.forEach { sb.append(it.name).append(':').append(it.length()).append(':').append(it.lastModified()).append(';') }
-        sb.append(loadSettings(context).ownAccounts)
-        return sb.toString()
-    }
 
     fun loadRows(context: Context): List<Row> = loadRowsAndRefunds(context).first
 
     /** The payments, and the refunds that look like they belong to an earlier spend (refund, spend), read together. */
     fun loadRowsAndRefunds(context: Context): Pair<List<Row>, List<Pair<Row, Row>>> = synchronized(lock) {
-        val key = dataKey(context)
-        if (key != cacheKey) {
-            cacheRows = computeRows(context)
+        store(context)                                            // takes in any restored files first (raises versions)
+        // The folder is part of every key, so sample data (its own folder) and your data never share a result.
+        val k1 = context.filesDir.absolutePath + "|" + epoch + "|" + v(TXN_FILE, MANUAL_TXN_FILE)
+        val own = loadSettings(context).ownAccounts
+        val k2 = k1 + "|" + v(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, CATOFF_FILE, SPLIT_FILE) + "|" + own
+        val k3 = k2 + "|" + v("refund_links.json", REMINDER_FILE)
+        if (k3 != stage3Key) {
+            val base = stage1?.takeIf { it.first == k1 }?.second ?: (readMap(context) + manualTxns(context)).also { stage1 = k1 to it }
+            val decided = stage2?.takeIf { it.first == k2 }?.second ?: decide(context, base).also { stage2 = k2 to it }
+            cacheRows = reconcile(context, decided)
             cacheRefunds = lastRefunds
-            cacheKey = key
+            stage3Key = k3
         }
         cacheRows to cacheRefunds
     }
     private var lastRefunds: List<Pair<Row, Row>> = emptyList()
 
-    private fun computeRows(context: Context): List<Row> {
-        val base = readMap(context) + manualTxns(context)
+    // Stage 2: your decisions (renames, titles, payee rules, overrides, splits, categories switched off) on each payment.
+    private fun decide(context: Context, base: Map<String, Row>): Decided {
         val overrides = readKv(context, OVERRIDE_FILE)
         val rules = readKv(context, RULE_FILE)
         val aliases = readKv(context, ALIAS_FILE)
@@ -92,14 +103,8 @@ object Storage {
             return cur
         }
         val reg = readKv(context, ACCOUNTS_FILE)
-        // An account you joined into another on the Your accounts screen: its payments move to that account (or, for a
-        // loan, to the bank's main account, since the money left from there). Applied once the labels are final, below.
-        val dups = reg.filter { it.value.first == "duplicate" }.mapValues { it.value.second }
         val apart = readKv(context, APART_FILE).keys
         val titles = readKv(context, TITLE_FILE)
-        // Accounts you said are a different type than Zelu guessed (say, a savings account it read as a card).
-        val retype = reg.filter { it.value.first == "accepted" }
-            .mapNotNull { (k, v) -> val n = relabel(k, v.second); if (n != k) k to n else null }.toMap()
         val catOff = readKv(context, CATOFF_FILE).keys
         val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
@@ -139,6 +144,20 @@ object Storage {
                 part
             }
         }
+        return Decided(expanded, overrides, rules, reg, apart, catOff, own)
+    }
+
+    // Stage 3: accounts written several ways joined, retyped and joined by you; repeats counted once; EMI series,
+    // transfers between your accounts and refunds matched.
+    private fun reconcile(context: Context, d: Decided): List<Row> {
+        val overrides = d.overrides; val rules = d.rules; val reg = d.reg; val apart = d.apart; val catOff = d.catOff; val own = d.own
+        val expanded = d.rows
+        // An account you joined into another on the Your accounts screen: its payments move to that account (or, for a
+        // loan, to the bank's main account, since the money left from there). Applied once the labels are final, below.
+        val dups = reg.filter { it.value.first == "duplicate" }.mapValues { it.value.second }
+        // Accounts you said are a different type than Zelu guessed (say, a savings account it read as a card).
+        val retype = reg.filter { it.value.first == "accepted" }
+            .mapNotNull { (k, v) -> val n = relabel(k, v.second); if (n != k) k to n else null }.toMap()
         // A card/savings change also changes how its credits read (a card payment is a transfer; salary is income).
         fun reapply(r0: Row): Row {
             if (r0.id.contains('#') || overrides.containsKey(r0.id)) return r0
@@ -222,7 +241,7 @@ object Storage {
             val inserted = dao.insertNew(newRows.map(TxnEntity::of))
             newRows.forEachIndexed { i, r -> if (inserted[i] != -1L && r.id !in before) added++ }
         })
-        SafeFileStats.writes++
+        bump(TXN_FILE)
         added
     }
 
@@ -357,14 +376,14 @@ object Storage {
         context.filesDir.listFiles()?.forEach { if (it.isFile) it.delete() }
         clearTransactions(context)
         try { store(context).let { it.clearAllKv(); it.clearAllDocs() } } catch (e: Exception) { CrashLog.warn("Erase decisions", e) }
-        SafeFileStats.writes++
+        epoch++
         for (n in listOf(PREFS, "zelu_backup", "zelu_recap")) context.getSharedPreferences(n, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
     /** Deletes every stored payment (Erase everything, and a fresh sample). */
     fun clearTransactions(context: Context): Unit = synchronized(lock) {
         try { ZeluDb.get(context).txns().deleteAll() } catch (e: Exception) { CrashLog.warn("Erase payments", e) }
-        SafeFileStats.writes++
+        bump(TXN_FILE)
     }
 
     // Where "Report a problem" emails go; change it from Menu > Help.
@@ -1014,7 +1033,7 @@ object Storage {
                 out
             }
             db.runInTransaction(Runnable { db.txns().deleteAll(); db.txns().insertNew(rows.map(TxnEntity::of)) })
-            SafeFileStats.writes++
+            bump(TXN_FILE)
             val done = file(context, "$TXN_FILE.imported")
             done.delete()
             if (!f.renameTo(done)) f.delete()
@@ -1046,7 +1065,7 @@ object Storage {
     private val checkedDirs = HashSet<String>()
 
     /** A backup was just restored into the app's files: they are taken into the database on the next read. */
-    fun filesWritten(context: Context): Unit = synchronized(lock) { checkedDirs.remove(context.filesDir.absolutePath) }
+    fun filesWritten(context: Context): Unit = synchronized(lock) { checkedDirs.remove(context.filesDir.absolutePath); epoch++ }
 
     // The database's decision tables, after taking in any of the files above found among the app's files: what an
     // earlier version kept (taken in once, on the first open after the update) or what a restored backup wrote. Each
@@ -1062,13 +1081,13 @@ object Storage {
                 try {
                     val text = f.readWithBackup { t -> if (name in KV_FILES) JSONObject(t); t }
                     db.runInTransaction(Runnable { writeText(db.store(), name, text) })
+                    bump(name)
                     val done = file(context, "$name.imported")
                     done.delete()
                     if (!f.renameTo(done)) f.delete()
                     file(context, "$name.bak").delete()
                 } catch (e: Exception) { CrashLog.warn("Take in $name", e) }
             }
-            SafeFileStats.writes++
             checkedDirs.add(dir)
         }
         db.store()
@@ -1105,7 +1124,7 @@ object Storage {
         val db = ZeluDb.get(context)
         val dao = store(context)
         db.runInTransaction(Runnable { writeText(dao, name, text) })
-        SafeFileStats.writes++
+        bump(name)
     }
 
     /** Every saved file's text by its name, for a backup: the files older versions kept, so any version restores it. */
@@ -1120,7 +1139,7 @@ object Storage {
 
     /** Saves one of Zelu's small files' text. */
     fun putDocText(context: Context, name: String, text: String): Unit = synchronized(lock) {
-        store(context).putDoc(DocEntity(name, text)); SafeFileStats.writes++
+        store(context).putDoc(DocEntity(name, text)); bump(name)
     }
 
     // A saved document, read and written like the file it was (exists / readWithBackup / writeKeepingBackup), so each
@@ -1130,7 +1149,7 @@ object Storage {
         fun exists(): Boolean = text != null
         fun readText(): String = text ?: throw java.io.FileNotFoundException(name)
         fun <T> readWithBackup(parse: (String) -> T): T = parse(readText())
-        fun writeKeepingBackup(body: String) { Storage.store(context).putDoc(DocEntity(name, body)); SafeFileStats.writes++ }
+        fun writeKeepingBackup(body: String) { Storage.store(context).putDoc(DocEntity(name, body)); Storage.bump(name) }
     }
     private fun doc(context: Context, name: String) = Doc(context, name)
 
@@ -1142,14 +1161,14 @@ object Storage {
         val db = ZeluDb.get(context)
         val dao = store(context)
         db.runInTransaction(Runnable { dao.clearKv(name); dao.putKv(kv.map { (k, v) -> KvEntity(name, k, v.first, v.second) }) })
-        SafeFileStats.writes++
+        bump(name)
     }
 
     // One decision: writes (or, with null, removes) a single row.
     private fun putKv(context: Context, name: String, key: String, value: Pair<String, String>?) {
         val dao = store(context)
         if (value == null) dao.removeKv(name, key) else dao.putKv(listOf(KvEntity(name, key, value.first, value.second)))
-        SafeFileStats.writes++
+        bump(name)
     }
 
     private fun rowToJson(r: Row): JSONObject = JSONObject().apply {

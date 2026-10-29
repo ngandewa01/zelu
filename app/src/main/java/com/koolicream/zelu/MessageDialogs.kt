@@ -85,7 +85,7 @@ internal fun SendersDialog(s: AppState) {
                                             .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(Storage.reportEmail(context)))
                                             .putExtra(android.content.Intent.EXTRA_SUBJECT, "Zelu: please add this bank")
                                             .putExtra(android.content.Intent.EXTRA_TEXT, "Sender id: " + u.address + "\nBank name: (please type it here)\n\nNo message text is included.")
-                                        try { context.startActivity(android.content.Intent.createChooser(mail, "Tell Zelu")) }
+                                        try { context.startScreen(android.content.Intent.createChooser(mail, "Tell Zelu")) }
                                         catch (_: Exception) { Toast.makeText(context, "No email app found on this phone", Toast.LENGTH_LONG).show() }
                                     })
                                 }
@@ -209,7 +209,7 @@ internal fun MissedDialog(s: AppState) {
                                         modifier = Modifier.clickable {
                                             val send = android.content.Intent(android.content.Intent.ACTION_SEND)
                                                 .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, m.body)
-                                            try { context.startActivity(android.content.Intent.createChooser(send, "Share message")) } catch (_: Exception) {}
+                                            try { context.startScreen(android.content.Intent.createChooser(send, "Share message")) } catch (_: Exception) {}
                                         })
                                 }
                             }
@@ -229,6 +229,8 @@ internal fun MissedDialog(s: AppState) {
 @Composable
 internal fun AddPaymentDialog(s: AppState) {
     with(s) {
+        // Pickers open a window on the screen, so they take the screen's context, not the AppState's.
+        val screen = androidx.compose.ui.platform.LocalContext.current
         addFor?.let { sms ->
             val credit = Regex("""(?i)\b(credited|received|deposited|refund(ed)?)\b""").containsMatchIn(sms.body)
             var amtText by remember(sms) { mutableStateOf(Parser.firstAmount(sms.body)?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: "") }
@@ -260,7 +262,7 @@ internal fun AddPaymentDialog(s: AppState) {
                     }
                     Spacer(Modifier.height(10.dp))
                     Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                        .clickable { pickDate(context, day) { day = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
+                        .clickable { pickDate(screen, day) { day = it } }.padding(horizontal = 16.dp, vertical = 9.dp)) {
                         Text(prettyDate(day), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(10.dp))

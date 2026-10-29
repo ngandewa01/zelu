@@ -273,13 +273,13 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 2.dp))
 }
 
-@Composable internal fun BottomNav(view: String, modifier: Modifier, onPick: (String) -> Unit) {
+@Composable internal fun BottomNav(view: Tab, modifier: Modifier, onPick: (Tab) -> Unit) {
     // Each tab has its own colour on a round tile, like every other icon in the app; the chosen one gets a wash
     // of its colour and a bold name.
-    data class Tab(val key: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
+    data class NavItem(val key: Tab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
     val items = listOf(
-        Tab("ledger", "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), Tab("spend", "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
-        Tab("payees", "Payees", Icons.Rounded.People, 0xFF22B455, 0xFF3DD171), Tab("dues", "Dues", Icons.Rounded.ReceiptLong, 0xFFEAB308, 0xFFFACC15),
+        NavItem(Tab.LEDGER, "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), NavItem(Tab.SPEND, "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
+        NavItem(Tab.PAYEES, "Payees", Icons.Rounded.People, 0xFF22B455, 0xFF3DD171), NavItem(Tab.DUES, "Dues", Icons.Rounded.ReceiptLong, 0xFFEAB308, 0xFFFACC15),
     )
     Row(
         modifier.fillMaxWidth().background(ZColor.Card).border(1.dp, ZColor.Line)
@@ -724,3 +724,8 @@ internal fun pickDate(context: android.content.Context, current: String, onPick:
     android.app.DatePickerDialog(context, { _, y, m, d -> onPick("%04d-%02d-%02d".format(y, m + 1, d)) },
         c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
 }
+
+// Opens another app's screen (email, share, settings) from any context. The AppState's context is the application,
+// not a screen, and Android starts a screen from there only as a new task.
+internal fun android.content.Context.startScreen(intent: android.content.Intent) =
+    startActivity(if (this is android.app.Activity) intent else intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))

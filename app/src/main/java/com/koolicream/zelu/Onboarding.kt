@@ -61,11 +61,11 @@ import kotlinx.coroutines.delay
 }
 
 @Composable internal fun OnboardFlow(
-    stage: String, denied: Boolean, stats: Triple<Int, Int, Int>,
+    stage: Stage, denied: Boolean, stats: Triple<Int, Int, Int>,
     onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
     smsGiven: Boolean = false, notifGiven: Boolean = false, accountsNext: Boolean = false,
 ) {
-    val step = when (stage) { "welcome" -> 0; "privacy" -> 1; "perm" -> 2; else -> -1 }
+    val step = when (stage) { Stage.WELCOME -> 0; Stage.PRIVACY -> 1; Stage.PERM -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
         if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }
@@ -81,7 +81,7 @@ import kotlinx.coroutines.delay
         }
         Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (stage) {
-                "welcome" -> {
+                Stage.WELCOME -> {
                     var shown by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { delay(600); shown = true }
                     val a by animateFloatAsState(if (shown) 1f else 0f, tween(1000), label = "sms")
@@ -109,7 +109,7 @@ import kotlinx.coroutines.delay
                         fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Cta("Get started", onNext)
                 }
-                "privacy" -> {
+                Stage.PRIVACY -> {
                     Text("Nothing leaves your phone.", color = ZColor.Ink, fontSize = 24.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     PromiseCard("Zelu reads", true, listOf("Bank and card alerts", "UPI payment messages", "Bill and EMI reminders"))
@@ -117,7 +117,7 @@ import kotlinx.coroutines.delay
                     Text("No account. No login. No upload.", color = ZColor.Muted, fontSize = 14.sp)
                     Cta("Continue", onNext)
                 }
-                "perm" -> {
+                Stage.PERM -> {
                     Text("Two quick permissions", color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     listOf(
                         "SMS" to "Read your bank alerts and turn them into spends and bills.",
@@ -145,7 +145,7 @@ import kotlinx.coroutines.delay
                     if (denied) Text("SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.",
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
-                "scan" -> {
+                Stage.SCAN -> {
                     // "Reading your messages" worried people. Say what is looked for, what is skipped, and where it stays,
                     // one line at a time while the alerts are read.
                     var lines by remember { mutableStateOf(0) }
@@ -164,7 +164,7 @@ import kotlinx.coroutines.delay
                     }
                     CircularProgressIndicator(color = ZColor.Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                 }
-                "done" -> {
+                Stage.DONE -> {
                     var go by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { go = true }
                     val p by animateIntAsState(if (go) stats.first else 0, tween(1400), label = "p")
@@ -186,7 +186,7 @@ import kotlinx.coroutines.delay
                 else -> SplashBrand()
             }
         }
-        if (stage == "splash") SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
+        if (stage == Stage.SPLASH) SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
     }
 }
 

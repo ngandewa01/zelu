@@ -86,10 +86,17 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    // The screen's state holder (AppState) is a ViewModel.
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    // The daily check's slow parts (weekly backup, recap, widget) run as background work.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation(platform("androidx.compose:compose-bom:2024.09.03"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    // @Preview for the shared pieces (Previews.kt); the tooling that draws them is in debug builds only.
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }

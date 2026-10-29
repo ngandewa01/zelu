@@ -150,6 +150,8 @@ private val START_PAGES = listOf("ledger" to "Home", "spend" to "Spend", "payees
 @Composable
 private fun MenuPage(s: AppState, v: Filtered) {
     with(s) {
+        // Pickers open a window on the screen, so they take the screen's context, not the AppState's.
+        val screen = androidx.compose.ui.platform.LocalContext.current
         var find by remember { mutableStateOf("") }
         var tick by remember { mutableStateOf(0) }                 // a setting changed here: read them all again
         var opened by remember { mutableStateOf(setOf<String>()) }  // sections showing their "More options"
@@ -199,10 +201,10 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(MONEY, "Savings plan", "What's left after SIPs, EMIs and goals", Icons.Rounded.Savings, ZColor.Income,
                 "sip emi goal") { shut(); savingsOpen = true })
             add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.Rounded.ShowChart, ZColor.Income,
-                "epf nps mutual fund stocks") { shut(); view = "invest"; daySel = 0 })
+                "epf nps mutual fund stocks") { shut(); view = Tab.INVEST; daySel = 0 })
 
             add(Entry(ACCOUNTS, "Your accounts", "Join duplicates, say what each one is, remove what isn't yours",
-                Icons.Rounded.AccountBalance, ZColor.Accent, "bank card loan merge join duplicate remove") { shut(); stage = "accounts" })
+                Icons.Rounded.AccountBalance, ZColor.Accent, "bank card loan merge join duplicate remove") { shut(); stage = Stage.ACCOUNTS })
             if (removed > 0) add(Entry(ACCOUNTS, "Bring back removed accounts", "removed hidden", Icons.Rounded.Restore,
                 ZColor.Muted, "hidden restore declined", value = "$removed") {
                 shut()
@@ -250,14 +252,14 @@ private fun MenuPage(s: AppState, v: Filtered) {
             if (dailyOn) add(Entry(ALERTS, "Daily summary time", "", Icons.Rounded.Schedule,
                 ZColor.Muted, "notification", value = NotifyPrefs.timeText(NotifyPrefs.dailyAt(context))) {
                 val at = NotifyPrefs.dailyAt(context)
-                android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
+                android.app.TimePickerDialog(screen, { _, h, m -> NotifyPrefs.setDailyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
             add(Entry(ALERTS, "Weekly summary", "Sundays: the week against the one before", Icons.Rounded.ViewWeek, ZColor.Accent,
                 "notification", on = weeklyOn) { NotifyPrefs.setWeeklyOn(context, !weeklyOn); tick++ })
             if (weeklyOn) add(Entry(ALERTS, "Weekly summary time", "Sundays",
                 Icons.Rounded.AccessTime, ZColor.Muted, "notification", value = "Sun " + NotifyPrefs.timeText(NotifyPrefs.weeklyAt(context))) {
                 val at = NotifyPrefs.weeklyAt(context)
-                android.app.TimePickerDialog(context, { _, h, m -> NotifyPrefs.setWeeklyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
+                android.app.TimePickerDialog(screen, { _, h, m -> NotifyPrefs.setWeeklyAt(context, h * 60 + m); tick++ }, at / 60, at % 60, false).show()
             })
             add(Entry(ALERTS, "Bill reminders", "Before a bill or card is due, around 9 AM", Icons.Rounded.Alarm, ZColor.Accent,
                 "dues notification", on = duesOn) { NotifyPrefs.setDuesOn(context, !duesOn); tick++ })

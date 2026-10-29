@@ -292,7 +292,8 @@ import java.util.Locale
     val suggested = remember(a, book) { AccountBook.cardLink(book, a) }
     val ticked = remember(a) { mutableStateMapOf<String, Boolean>().also { m -> a.parts.forEach { m[it.key] = true }; suggested?.let { m[it.key] = true } } }
     var type by remember(a) { mutableStateOf(a.type) }
-    var net by remember(a) { mutableStateOf(CardNet.map[a.key]) }
+    val info = LocalAccountInfo.current
+    var net by remember(a) { mutableStateOf(info.networks[a.key]) }
     val netScope = androidx.compose.runtime.rememberCoroutineScope()
     var showMsg by remember(a) { mutableStateOf(false) }
     androidx.compose.runtime.key(a.key) {
@@ -352,7 +353,7 @@ import java.util.Locale
                                         val pick = net
                                         netScope.launch {
                                             withContext(Dispatchers.IO) { Storage.setCardNetwork(context, a.key, pick) }
-                                            CardNet.map = withContext(Dispatchers.IO) { Storage.cardNetworks(context) }
+                                            info.networksChanged()
                                         }
                                     }
                                 }

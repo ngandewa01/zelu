@@ -206,10 +206,16 @@ class MainActivity : FragmentActivity() {
 fun ZeluApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val s = rememberSaveable(saver = AppState.saver(context, scope)) { AppState(context, scope) }
+    // One AppState for your data and one for sample data. It outlives the screen (a ViewModel), so where you are and what
+    // was read survive the screen being rebuilt; its saved state survives Android closing the app in the background.
+    val s: AppState = androidx.lifecycle.viewmodel.compose.viewModel(key = if (Demo.on) "zelu-demo" else "zelu")
+    // The launchers belong to this screen: the AppState lets go of them when it goes.
+    DisposableEffect(s) { onDispose { s.restoreLauncher = null; s.notifLauncher = null; s.storageLauncher = null } }
     with(s) {
         LaunchedEffect(Unit) { crashAsk = withContext(Dispatchers.IO) { CrashLog.isNew(context) } }
-        LaunchedEffect(registry) { LinkInfo.map = registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key }) }
+        val links = androidx.compose.runtime.remember(registry) {
+            registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
+        }
         restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
@@ -218,7 +224,7 @@ fun ZeluApp() {
             onbSms = smsOk
             onbNotif = Notifier.enabled(context)
             // Show the ticks for a moment before moving on.
-            if (smsOk) scope.launch { delay(900); stage = "scan"; rescan() } else { permDenied = true }
+            if (smsOk) scope.launch { delay(900); stage = Stage.SCAN; rescan() } else { permDenied = true }
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -238,7 +244,7 @@ fun ZeluApp() {
                     checkNotif()
                     smsOk = hasPerm()
                     // Catch up on anything the phone held back while Zelu was closed.
-                    if (stage == "app" && hasPerm() && System.currentTimeMillis() - lastScan > 60_000L) rescan()
+                    if (stage == Stage.APP && hasPerm() && System.currentTimeMillis() - lastScan > 60_000L) rescan()
                 }
             }
             lifecycleOwner.lifecycle.addObserver(obs)
@@ -247,7 +253,7 @@ fun ZeluApp() {
 
         // Best-effort local reminder on open: nudge about bills due within 3 days.
         LaunchedEffect(stage, reminders) {
-            if (stage != "app") return@LaunchedEffect
+            if (stage != Stage.APP) return@LaunchedEffect
             // Daily 9 AM check runs in the background (DueReceiver); this just makes sure it's scheduled.
             DueReminders.schedule(context)
             DailySummary.schedule(context)
@@ -259,14 +265,14 @@ fun ZeluApp() {
             // what is new.
             loadAll()
             // Coming back after Android closed the app in the background (or the theme changed): stay on the screen you were on.
-            if (stage == "app" || stage == "accounts") {
+            if (stage == Stage.APP || stage == Stage.ACCOUNTS) {
                 smsOk = hasPerm()
                 if (smsOk && System.currentTimeMillis() - lastScan > 60_000L) rescan()
                 return@LaunchedEffect
             }
-            stage = "splash"
+            stage = Stage.SPLASH
             delay(1600)                                      // the start animation takes about 1.5 s
-            if (hasPerm()) { stage = "app"; rescan() } else if (rows.isNotEmpty()) { stage = "app"; smsOk = false } else { stage = "welcome" }
+            if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.WELCOME }
         }
 
         val accounts = remember(rows) {
@@ -291,15 +297,17 @@ fun ZeluApp() {
 
         // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
         LaunchedEffect(stage, rows.size, acctConfirmed) {
-            if (stage == "app" && !acctConfirmed && rows.isNotEmpty()) stage = "accounts"
-            if (stage == "done" && acctConfirmed) stage = "app"
+            if (stage == Stage.APP && !acctConfirmed && rows.isNotEmpty()) stage = Stage.ACCOUNTS
+            if (stage == Stage.DONE && acctConfirmed) stage = Stage.APP
         }
         // Working out the accounts reads every payment, so it is done off the main thread.
         val accountBook by androidx.compose.runtime.produceState<List<AccountBook.Acct>?>(null, rows, balances, limits, registry) {
             value = withContext(Dispatchers.IO) { Storage.accountBook(context) }
         }
+        androidx.compose.runtime.CompositionLocalProvider(LocalAccountInfo provides
+            AccountInfo(cardNetworks, links, manualLimits, { limitAskFor = it }, { refreshCardNetworks() })) {
         when {
-            stage == "accounts" -> {
+            stage == Stage.ACCOUNTS -> {
                 val book = accountBook
                 if (book == null) Box(Modifier.fillMaxSize().background(ZColor.Paper))
                 else {
@@ -309,13 +317,13 @@ fun ZeluApp() {
                         onRestore = { k -> restoreAcct(k) }, onDone = { confirmAccounts() }, rows = rows)
                 }
             }
-            stage != "app" -> {
+            stage != Stage.APP -> {
                 val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
                 val cardsN = accts.count { it.contains(" CC") }
                 OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
                     smsGiven = onbSms, notifGiven = onbNotif, accountsNext = !acctConfirmed,
-                    onBack = { stage = if (stage == "perm") "privacy" else "welcome" },
-                    onNext = { stage = when (stage) { "welcome" -> "privacy"; "privacy" -> "perm"; "done" -> if (acctConfirmed) "app" else "accounts"; else -> stage } },
+                    onBack = { stage = if (stage == Stage.PERM) Stage.PRIVACY else Stage.WELCOME },
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.DONE -> if (acctConfirmed) Stage.APP else Stage.ACCOUNTS; else -> stage } },
                     onAllow = {
                         val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
                         if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
@@ -323,6 +331,7 @@ fun ZeluApp() {
                     })
             }
             else -> AppScreen(s, v, accountBook)
+        }
         }
     }
 }
@@ -360,6 +369,8 @@ private fun AppScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Ac
 @Composable
 internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Acct>?) {
     with(s) { with(v) {
+        // Pickers open a window on the screen, so they take the screen's context, not the AppState's.
+        val screen = androidx.compose.ui.platform.LocalContext.current
         val pageScroll = rememberScrollState()
         val pageAlpha = remember { Animatable(1f) }
         LaunchedEffect(view) {                              // each tab opens at its top and fades in
@@ -402,7 +413,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 }
                 pendingAccts.firstOrNull()?.let { c ->
                     Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
-                        .clickable { stage = "accounts" }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        .clickable { stage = Stage.ACCOUNTS }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(if (pendingAccts.size == 1) "New account found" else "${pendingAccts.size} new accounts found", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text(AccountBook.displayName(c.key) + " · " + plural(c.count, "payment", "payments"), color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -414,7 +425,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Warn, RoundedCornerShape(16.dp))
                         .clickable {
                             try {
-                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                context.startScreen(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                     android.net.Uri.fromParts("package", context.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                             } catch (_: Exception) {}
                         }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -447,7 +458,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 val advActive = type != "all" || cat != "All" || query.isNotBlank()
                 val summary = rangeLabel
                 // Dues always shows the next 30 days, so the month picker would only confuse there.
-                if (view != "dues") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                if (view != Tab.DUES) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     if (period == "month") NavButton("‹", "Previous month") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                     Row(
@@ -484,8 +495,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }
                         if (period == "custom") {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                DateChip(customFrom) { pickDate(context, customFrom) { customFrom = it } }
-                                DateChip(customTo) { pickDate(context, customTo) { customTo = it } }
+                                DateChip(customFrom) { pickDate(screen, customFrom) { customFrom = it } }
+                                DateChip(customTo) { pickDate(screen, customTo) { customTo = it } }
                             }
                             Box(
                                 Modifier.align(Alignment.End).padding(end = 20.dp, top = 4.dp).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
@@ -570,16 +581,16 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value }) {
                 val pageView = view
                 when (pageView) {
-                    "ledger" -> LedgerView(rows, shown, f, accounts, month, account, daySel,
+                    Tab.LEDGER -> LedgerView(rows, shown, f, accounts, month, account, daySel,
                         { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { cardOpen = it }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = "dues" }, reminderState, refundSuggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { open(Page.Card(it)) }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = Tab.DUES }, reminderState, refundSuggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
                         onSetBudget = { amt, noEmi ->
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true
                         },
-                        onOpenSpend = { view = "spend" }, monthlyBudget = monthlyBudget)
-                    "spend" -> {
+                        onOpenSpend = { view = Tab.SPEND }, monthlyBudget = monthlyBudget)
+                    Tab.SPEND -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
                         // when this month's view leaves it out. (Comparing part of this month with all of last month showed
                         // "▼10%" right above a same-days "▲112%".)
@@ -597,7 +608,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         val fixedNote = if (fixedSpent <= 0 || cat in fixedCats) null else "Leaves out EMI and rent"
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
-                        BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { trendsOpen = true },
+                        BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { open(Page.Trends) },
                             onCalendar = if (isMonth) ({ calOpen = !calOpen }) else null,
                             calActive = calOpen || daySel > 0,
                             dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
@@ -636,18 +647,18 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                             { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                     }
-                    "buckets" -> {
+                    Tab.BUCKETS -> {
                         val prevByCat = if (period == "month")
                             Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
                         BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
                     }
-                    "payees" -> PayeesView(shown, { title, rows -> drill = title to rows },
+                    Tab.PAYEES -> PayeesView(shown, { title, rows -> drill = title to rows },
                         { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
                         s::renamePayee,
                         remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows)
-                    "invest" -> InvestView(rows) { title, r -> drill = title to r }
-                    "pace" -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
-                    "dues" -> RemindersView(reminders, rows, reminderState, s::markReminder,
+                    Tab.INVEST -> InvestView(rows) { title, r -> drill = title to r }
+                    Tab.PACE -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
+                    Tab.DUES -> RemindersView(reminders, rows, reminderState, s::markReminder,
                         onAdd = { n, a, d, r -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.addManualReminder(context, n, a, d, r) }
                             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
@@ -659,7 +670,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 }
             }
             // Dues: add a bill from a round + button that stays put while the list scrolls.
-            if (view == "dues") Box(
+            if (view == Tab.DUES) Box(
                 Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.navigationBars).padding(end = 18.dp, bottom = 84.dp)
                     .size(56.dp).clip(CircleShape).background(ZColor.Accent).clickable { addingBill = true }.buttonLabel("Add bill"),
                 contentAlignment = Alignment.Center,
@@ -675,16 +686,21 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { undoLast() }.padding(horizontal = 14.dp, vertical = 12.dp))
                 }
             }
-            androidx.activity.compose.BackHandler(trendsOpen) { trendsOpen = false }
-            if (trendsOpen) TrendsScreen(rows, accounts, onBack = { trendsOpen = false }, onReview = { t, r -> drill = t to r })
-            cardOpen?.let { a ->
-                CardDetailScreen(
-                    account = a, allRows = rows, limit = limits[a]?.let { it.first - Analytics.cardUsedSince(rows, a, it) }, reminders = reminders,
-                    reminderState = reminderState, pref = cardPrefs[a],
-                    onSavePref = { d, b -> setCardPref(a, d, b) },
-                    onMarkPaid = { id -> markReminder(id, true) },
-                    onRowClick = { detailRow = it }, onBack = { cardOpen = null },
-                )
+            // A page opened over Home; Back closes it.
+            androidx.activity.compose.BackHandler(page != null) { back() }
+            when (val p = page) {
+                Page.Trends -> TrendsScreen(rows, accounts, onBack = { back() }, onReview = { t, r -> drill = t to r })
+                is Page.Card -> {
+                    val a = p.account
+                    CardDetailScreen(
+                        account = a, allRows = rows, limit = limits[a]?.let { it.first - Analytics.cardUsedSince(rows, a, it) }, reminders = reminders,
+                        reminderState = reminderState, pref = cardPrefs[a],
+                        onSavePref = { d, b -> setCardPref(a, d, b) },
+                        onMarkPaid = { id -> markReminder(id, true) },
+                        onRowClick = { detailRow = it }, onBack = { back() },
+                    )
+                }
+                null -> {}
             }
         }
     } }

@@ -81,9 +81,9 @@ internal fun MonthlyBudgetDialog(s: AppState) {
 @Composable
 internal fun CardLimitDialog(s: AppState) {
     with(s) {
-        LimitAsk.account?.let { acct ->
+        limitAskFor?.let { acct ->
             var txt by remember(acct) { mutableStateOf("") }
-            Dialog(onDismissRequest = { LimitAsk.account = null }) {
+            Dialog(onDismissRequest = { limitAskFor = null }) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
                     Text("Card limit", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
@@ -93,15 +93,15 @@ internal fun CardLimitDialog(s: AppState) {
                         placeholder = { Text("Available limit ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { LimitAsk.account = null }.padding(12.dp))
+                        Text("Cancel", color = ZColor.Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { limitAskFor = null }.padding(12.dp))
                         Spacer(Modifier.width(8.dp))
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             val v = txt.toDoubleOrNull() ?: 0.0
                             if (v > 0) scope.launch {
                                 withContext(Dispatchers.IO) { Storage.setManualLimit(context, acct, v) }
                                 limits = withContext(Dispatchers.IO) { Storage.loadLimits(context) }
-                                LimitAsk.manual = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
-                                LimitAsk.account = null
+                                manualLimits = withContext(Dispatchers.IO) { Storage.manualLimitKeys(context) }
+                                limitAskFor = null
                             }
                         }.padding(horizontal = 22.dp, vertical = 10.dp)) { Text("Save", color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
                     }

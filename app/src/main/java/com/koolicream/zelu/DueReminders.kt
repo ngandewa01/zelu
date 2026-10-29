@@ -77,10 +77,30 @@ object DueReminders {
 class DueReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) = inBackground {
         DueReminders.schedule(context)  // tomorrow's
-        try { Recap.maybe(context) } catch (e: Exception) { CrashLog.warn("Recap", e) }
-        try { Backup.maybeAuto(context) } catch (e: Exception) { CrashLog.warn("Weekly backup", e) }
-        try { ZeluWidget.refresh(context) } catch (e: Exception) { CrashLog.warn("Widget", e) }
+        // Bills due are posted here, while the alarm still holds the phone awake, so they come on time. The slow rest
+        // (the encrypted weekly backup, the monthly recap, the widget) is background work that may wait for a moment
+        // the phone is not dozing.
         try { DueReminders.check(context) } catch (e: Exception) { CrashLog.warn("Due reminders", e) }
+        try { DailyWork.enqueue(context) } catch (e: Exception) { CrashLog.warn("Queue daily work", e) }
+    }
+}
+
+// The daily check's slow parts, run by WorkManager. It keeps the work through a restart and retries it, and never
+// runs two at once.
+class DailyWork(context: Context, params: androidx.work.WorkerParameters) : androidx.work.CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val c = applicationContext
+        try { Recap.maybe(c) } catch (e: Exception) { CrashLog.warn("Recap", e) }
+        try { Backup.maybeAuto(c) } catch (e: Exception) { CrashLog.warn("Weekly backup", e) }
+        try { ZeluWidget.refresh(c) } catch (e: Exception) { CrashLog.warn("Widget", e) }
+        return Result.success()
+    }
+
+    companion object {
+        fun enqueue(context: Context) {
+            androidx.work.WorkManager.getInstance(context).enqueueUniqueWork("zelu-daily", androidx.work.ExistingWorkPolicy.KEEP,
+                androidx.work.OneTimeWorkRequestBuilder<DailyWork>().build())
+        }
     }
 }
 

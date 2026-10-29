@@ -72,7 +72,7 @@ import java.util.Locale
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(niceName(name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val nLinked = LinkInfo.map[account]?.size ?: 0
+                val nLinked = LocalAccountInfo.current.links[account]?.size ?: 0
                 Text((if (last4 != null) "•• $last4" else "Account") + (if (nLinked > 0) " · +$nLinked linked" else ""),
                     color = ZColor.Muted, fontSize = 12.sp)
             }
@@ -306,14 +306,10 @@ import java.util.Locale
     }
 }
 
-// Which card is waiting for a limit you type in, and which limits were typed by you (shown as such).
-internal object LimitAsk {
-    var account by mutableStateOf<String?>(null)
-    var manual by mutableStateOf<Set<String>>(emptySet())
-}
 
 @Composable internal fun CardTile(account: String, spent: Double, limit: Pair<Double, Long>?, total: Pair<Double, Long>?, due: Reminder?, usedSince: Double = 0.0, onClick: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val info = LocalAccountInfo.current
     val parts = account.trim().split(" ")
     val last4 = parts.lastOrNull()?.takeIf { it.length in 3..4 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
     val bank = parts.firstOrNull() ?: account
@@ -356,7 +352,7 @@ internal object LimitAsk {
                     NetBadge(account, 28.dp)
                 }
                 Column {
-                    val isManual = account in LimitAsk.manual
+                    val isManual = account in info.manualLimits
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (limit != null || shown == null) "Available" else "Credit limit", color = soft, fontSize = 13.sp)
                         // Asks the bank for the latest limit by SMS.
@@ -371,7 +367,7 @@ internal object LimitAsk {
                     }
                     Text(if (shown != null) privateMoney(shown.first) else "Add your limit ›", color = Color.White,
                         fontSize = if (shown != null) 26.sp else 18.sp, fontWeight = FontWeight.Bold,
-                        modifier = if (shown == null || isManual) Modifier.clickable { LimitAsk.account = account } else Modifier)
+                        modifier = if (shown == null || isManual) Modifier.clickable { info.askLimit(account) } else Modifier)
                 }
                 // Only what has something to say: this cycle's spend and the bill, each when there is one.
                 if (spent >= 0.5 || due != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

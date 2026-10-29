@@ -238,7 +238,6 @@ fun payLogoFor(name: String): Int? = if (name.isBlank()) null else PAY_LOGOS.fir
 
 // The network of each credit card (label -> Visa, Mastercard, RuPay, Amex, Diners, Maestro): read from its messages, or picked by you.
 object CardNet {
-    var map by mutableStateOf<Map<String, String>>(emptyMap())
     val names = listOf("Visa", "Mastercard", "RuPay", "Amex", "Diners", "Maestro")
     fun logo(net: String?): Int? = when (net) {
         "Visa" -> R.drawable.net_visa; "Mastercard" -> R.drawable.net_mastercard; "RuPay" -> R.drawable.net_rupay
@@ -249,7 +248,7 @@ object CardNet {
 
 @Composable
 fun NetBadge(account: String, size: Dp = 16.dp, modifier: Modifier = Modifier) {
-    val logo = CardNet.logo(CardNet.map[account]) ?: return
+    val logo = CardNet.logo(LocalAccountInfo.current.networks[account]) ?: return
     Box(modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(Color.White), contentAlignment = Alignment.Center) {
         androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.8f))
     }
@@ -375,9 +374,17 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: Kind? =
 }
 
 // Which accounts have others linked under them (main account -> linked ones). Read by the account tiles and the Link accounts page.
-object LinkInfo {
-    var map by mutableStateOf<Map<String, List<String>>>(emptyMap())
-}
+// What account and card tiles anywhere on screen read: each card's network, the labels joined into each account,
+// the limits you typed, and how to ask for one. Provided once at the top of the screen (ZeluApp) from the AppState
+// that owns it, so no tile reaches into a global.
+class AccountInfo(
+    val networks: Map<String, String> = emptyMap(),
+    val links: Map<String, List<String>> = emptyMap(),
+    val manualLimits: Set<String> = emptySet(),
+    val askLimit: (String) -> Unit = {},
+    val networksChanged: () -> Unit = {},
+)
+val LocalAccountInfo = androidx.compose.runtime.compositionLocalOf { AccountInfo() }
 
 // Hide balances: one switch for account balances, total balance and card limits.
 // Money on the account, card and loan cards: hidden behind dots while the eye button is on.

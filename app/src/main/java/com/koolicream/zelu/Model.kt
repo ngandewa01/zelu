@@ -135,3 +135,14 @@ val NEWEST_FIRST: Comparator<Row> = compareByDescending<Row> { it.date }
     .thenByDescending { TxnTime.secondsOf(it) }.thenByDescending { it.ms }
 fun List<Row>.newestFirst(): List<Row> = sortedWith(NEWEST_FIRST)
 
+// Where the app is: the start screen, the first-run steps, the accounts check, or the app itself.
+enum class Stage { SPLASH, WELCOME, PRIVACY, PERM, SCAN, DONE, ACCOUNTS, APP }
+
+// The Home screen's page. [key] is how the "Open Zelu on" choice is saved.
+enum class Tab(val key: String) {
+    LEDGER("ledger"), SPEND("spend"), BUCKETS("buckets"), PAYEES("payees"), INVEST("invest"), PACE("pace"), DUES("dues");
+
+    companion object {
+        fun of(key: String?): Tab = entries.firstOrNull { it.key == key } ?: LEDGER
+    }
+}
