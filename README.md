@@ -25,7 +25,9 @@ Native Android app written in Kotlin with Jetpack Compose.
   - `AccountBook.kt` — the Your accounts screen: which labels are one account, cards, loans.
   - `Analytics.kt` — totals by month, category, day; dates.
 - Storage
-  - `Storage.kt` — settings in SharedPreferences, transactions and your decisions as JSON in app-private storage.
+  - `Storage.kt` — settings in SharedPreferences, your decisions as JSON in app-private storage; payments in the
+    database (`Db.kt`, Room/SQLite, amounts in paise). A `transactions.json` found in app storage (from a version before
+    the database, or written by a restored backup) is taken into the database and kept as `transactions.json.imported`.
   - `SafeFile.kt` — atomic saves that keep the previous version, and reads that fall back to it.
   - `Backup.kt`, `BackupCrypto.kt` — password-locked backup files in Downloads/Zelu.
 - Screens

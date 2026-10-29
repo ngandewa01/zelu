@@ -12,6 +12,9 @@ object Backup {
         val files = JSONObject()
         context.filesDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".json") || it.name.endsWith(".txt")) }
             ?.forEach { files.put(it.name, it.readText()) }
+        // Payments live in the database; the backup carries them as transactions.json, the file older versions kept, so
+        // a backup still restores on any version (restoring it here takes the file back into the database).
+        Storage.transactionsJson(context)?.let { files.put("transactions.json", it) }
         val prefs = JSONObject()
         for (name in PREF_FILES) {
             val o = JSONObject()
