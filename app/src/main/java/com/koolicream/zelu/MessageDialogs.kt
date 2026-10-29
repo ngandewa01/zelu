@@ -411,7 +411,7 @@ internal fun AddTransactionDialog(s: AppState) {
                 val cats = if (isIn) IncomeCats.all else Classifier.CATEGORIES.keys.toList() + CustomCats.names
                 // Its own scroll position per kind, so switching from Spent to Received doesn't open the income list part-way along.
                 androidx.compose.runtime.key(isIn) {
-                    ChipScroll { cats.forEach { c -> Chip(c, category == c) { category = if (category == c) null else c } } }
+                    ChipScroll { cats.forEach { c -> CatTab(c, category == c) { category = if (category == c) null else c } } }
                 }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = note, onValueChange = { note = it }, singleLine = true,
