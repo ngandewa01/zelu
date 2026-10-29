@@ -358,7 +358,7 @@ internal fun autoSettledReminders(reminders: List<Reminder>, rows: List<Row>): S
         val cardWindow = (-25..5).map { Dates.shiftDays(r.dueDate, it) }.toSet()
         val debit = rows.firstOrNull { row ->
             row.id !in used &&
-                (row.kind == "expense" || row.kind == "transfer" || row.kind == "invest") &&
+                (row.kind == Kind.EXPENSE || row.kind == Kind.TRANSFER || row.kind == Kind.INVEST) &&
                 kotlin.math.abs(row.amount - r.amount) < 1.0 && run {
                     val rc = row.counterparty?.lowercase()?.trim()
                     (window.contains(row.date) && !rc.isNullOrEmpty() && (rc == cp || rc.contains(cp) || cp.contains(rc))) ||

@@ -115,7 +115,7 @@ internal fun CardLimitDialog(s: AppState) {
 internal fun CategoriesDialog(s: AppState) {
     with(s) {
         if (catsOpen) Dialog(onDismissRequest = { catsOpen = false }) {
-            val names = (rows.filter { it.kind == "expense" || it.category in catOff }.map { it.category } + catOff).distinct().filter { it.isNotBlank() }.sorted()
+            val names = (rows.filter { it.kind == Kind.EXPENSE || it.category in catOff }.map { it.category } + catOff).distinct().filter { it.isNotBlank() }.sorted()
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
                 var catTab by remember { mutableStateOf(0) }
                 Text("Categories", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -234,7 +234,7 @@ internal fun DuplicatesDialog(s: AppState) {
                                     Text("Hide the extra one", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
                                         fun info(r: Row) = (if (!r.counterparty.isNullOrBlank()) 1 else 0) + (if (!r.ref.isNullOrBlank()) 1 else 0)
                                         val drop = if (info(b) > info(a)) a else b
-                                        decide(drop.id, "ignore", "Duplicate", null, false)
+                                        decide(drop.id, Kind.IGNORE, "Duplicate", null, false)
                                     })
                                     Text("Keep both", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
                                         scope.launch {
@@ -275,7 +275,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
         }
 
         lendPerson?.let { person ->
-            val pRows = rows.filter { it.kind == "lent" && (it.counterparty ?: "Someone") == person }
+            val pRows = rows.filter { it.kind == Kind.LENT && (it.counterparty ?: "Someone") == person }
             LendingDialog(
                 person = person,
                 lentRows = pRows,
@@ -287,7 +287,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
         }
 
         borrowPerson?.let { person ->
-            val pRows = rows.filter { it.kind == "borrowed" && (it.counterparty ?: "Someone") == person }
+            val pRows = rows.filter { it.kind == Kind.BORROWED && (it.counterparty ?: "Someone") == person }
             LendingDialog(
                 person = person,
                 lentRows = pRows,
@@ -304,10 +304,10 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
             val r = rows.firstOrNull { it.id == opened.id } ?: opened
             TxnDetailDialog(
                 r,
-                onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != "income" && kind != "ignore") },
+                onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != Kind.INCOME && kind != Kind.IGNORE) },
                 onNewCat = { cb -> newCatCallback = cb },
                 onRetitle = { title -> retitle(r.id, title) },
-                onSplit = if (r.kind == "expense" || r.id.contains('#')) ({
+                onSplit = if (r.kind == Kind.EXPENSE || r.id.contains('#')) ({
                     detailRow = null
                     if (r.id.contains('#')) {
                         scope.launch {

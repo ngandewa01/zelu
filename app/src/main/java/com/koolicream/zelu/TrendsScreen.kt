@@ -183,7 +183,7 @@ internal fun buildBuckets(rows: List<Row>, period: String): List<TrendBucket> {
     var sel by remember { mutableStateOf(-1) }
     var filterOpen by remember { mutableStateOf(false) }
     val base = remember(rows, acct, cat) {
-        rows.filter { it.kind == "expense" || it.kind == "income" || it.kind == "refund" }
+        rows.filter { it.kind == Kind.EXPENSE || it.kind == Kind.INCOME || it.kind == Kind.REFUND }
             .filter { (acct == "All" || it.account == acct) && (cat == "All" || it.category == cat) }
     }
     val buckets = remember(base, period) { buildBuckets(base, period) }

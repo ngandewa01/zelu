@@ -114,40 +114,40 @@ object Storage {
             var row = auto[r.account]?.let { r.copy(account = it) } ?: r
             // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
             titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
-                val c = Classifier.classify(Txn(r.id, r.date, r.amount, r.direction, t, r.ref, r.raw, r.source, r.account), own)
+                val c = Classifier.classify(Txn(r.id, r.date, r.paise, r.direction, t, r.ref, r.raw, r.source, r.account), own)
                 row = row.copy(counterparty = t, kind = c.kind, category = c.category)
             }
             if (titles[r.id] == null && aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
             val payeeKey = (row.counterparty ?: "").lowercase().trim()
             if (payeeKey.isNotEmpty() && rules.containsKey(payeeKey)) {
                 val (k, c) = rules.getValue(payeeKey)
-                row = row.copy(kind = k, category = c)
+                row = row.copy(kind = Kind.of(k), category = c)
             }
-            overrides[r.id]?.let { (k, c) -> row = row.copy(kind = k, category = c) }
+            overrides[r.id]?.let { (k, c) -> row = row.copy(kind = Kind.of(k), category = c) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
-            if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
+            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = "ignore")
             row
         }.newestFirst()
         // A payment you split becomes several rows that add up to it, one per category.
         val expanded = if (splits.isEmpty()) rows else rows.flatMap { r ->
             val parts = splits[r.id]
-            if (parts == null || r.kind != "expense" || Math.abs(parts.sumOf { it.first } - r.amount) > 0.5) listOf(r)
+            if (parts == null || r.kind != Kind.EXPENSE || Math.abs(parts.sumOf { it.first } - r.amount) > 0.5) listOf(r)
             else parts.mapIndexed { i, pc ->
                 val pid = r.id + "#" + (i + 1)
-                var part = r.copy(id = pid, amount = pc.first, category = pc.second)
-                overrides[pid]?.let { (k, c) -> part = part.copy(kind = k, category = c) }
+                var part = r.copy(id = pid, paise = paiseOf(pc.first), category = pc.second)
+                overrides[pid]?.let { (k, c) -> part = part.copy(kind = Kind.of(k), category = c) }
                 part
             }
         }
         // A card/savings change also changes how its credits read (a card payment is a transfer; salary is income).
         fun reapply(r0: Row): Row {
             if (r0.id.contains('#') || overrides.containsKey(r0.id)) return r0
-            val c = Classifier.classify(Txn(r0.id, r0.date, r0.amount, r0.direction, r0.counterparty, r0.ref, r0.raw, r0.source, r0.account), own)
+            val c = Classifier.classify(Txn(r0.id, r0.date, r0.paise, r0.direction, r0.counterparty, r0.ref, r0.raw, r0.source, r0.account), own)
             var row = r0.copy(kind = c.kind, category = c.category)
             val pk = (row.counterparty ?: "").lowercase().trim()
-            if (pk.isNotEmpty() && rules.containsKey(pk)) { val (k, cat) = rules.getValue(pk); row = row.copy(kind = k, category = cat) }
+            if (pk.isNotEmpty() && rules.containsKey(pk)) { val (k, cat) = rules.getValue(pk); row = row.copy(kind = Kind.of(k), category = cat) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
-            if (row.kind == "expense" && row.category in catOff) row = row.copy(kind = "ignore")
+            if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = "ignore")
             return row
         }
         val canon = Reconcile.dedupCrossBank(Reconcile.canonicalizeAccounts(expanded, apart))
@@ -939,9 +939,9 @@ object Storage {
         source = o.optString("source", ""),
     )
 
-    fun setOverride(context: Context, id: String, kind: String, category: String) = synchronized(lock) {
+    fun setOverride(context: Context, id: String, kind: Kind, category: String) = synchronized(lock) {
         val kv = readKv(context, OVERRIDE_FILE).toMutableMap()
-        kv[id] = kind to category
+        kv[id] = kind.key to category
         writeKv(context, OVERRIDE_FILE, kv)
     }
 
@@ -978,11 +978,11 @@ object Storage {
         writeKv(context, TITLE_FILE, kv)
     }
 
-    fun setPayeeRule(context: Context, payee: String, kind: String, category: String) = synchronized(lock) {
+    fun setPayeeRule(context: Context, payee: String, kind: Kind, category: String) = synchronized(lock) {
         val key = payee.lowercase().trim()
         if (key.isEmpty()) return@synchronized
         val kv = readKv(context, RULE_FILE).toMutableMap()
-        kv[key] = kind to category
+        kv[key] = kind.key to category
         writeKv(context, RULE_FILE, kv)
     }
 
@@ -1062,25 +1062,25 @@ object Storage {
 
     private fun rowToJson(r: Row): JSONObject = JSONObject().apply {
         put("id", r.id); put("date", r.date); put("amount", r.amount)
-        put("direction", r.direction)
+        put("direction", r.direction.key)
         put("counterparty", r.counterparty ?: JSONObject.NULL)
         put("ref", r.ref ?: JSONObject.NULL)
         put("raw", r.raw); put("source", r.source); put("account", r.account)
-        put("kind", r.kind); put("category", r.category)
+        put("kind", r.kind.key); put("category", r.category)
         if (r.ms > 0) put("ms", r.ms)
     }
 
     private fun rowFromJson(o: JSONObject): Row = Row(
         id = o.getString("id"),
         date = o.getString("date"),
-        amount = o.getDouble("amount"),
-        direction = o.getString("direction"),
+        paise = paiseOf(o.getDouble("amount")),
+        direction = Dir.of(o.getString("direction")),
         counterparty = if (o.isNull("counterparty")) null else o.getString("counterparty"),
         ref = if (o.isNull("ref")) null else o.getString("ref"),
         raw = o.optString("raw", ""),
         source = o.optString("source", ""),
         account = o.optString("account", ""),
-        kind = o.getString("kind"),
+        kind = Kind.of(o.getString("kind")),
         category = o.getString("category"),
         ms = o.optLong("ms", 0L),
     )

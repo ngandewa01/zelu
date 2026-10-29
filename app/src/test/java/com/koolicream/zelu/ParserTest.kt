@@ -19,7 +19,7 @@ class ParserTest {
         val t = Parser.parseSms(body, arrivedOn(date), src)
         assertNotNull("Should be read as a payment: $body", t)
         t!!
-        assertEquals("direction: $body", dir, t.direction)
+        assertEquals("direction: $body", dir, t.direction.key)
         assertEquals("amount: $body", amount, t.amount, 0.001)
         if (account != null) assertEquals("account: $body", account, t.account)
         if (payee != null) assertEquals("payee: $body", payee, t.counterparty)

@@ -97,14 +97,14 @@ internal fun prettyDay(ymd: String): String {
 }
 
 internal fun subtitleFor(t: Row): String = when (t.kind) {
-    "expense" -> t.category
-    "lent" -> "Lent"
-    "borrowed" -> "Borrowed"
-    "transfer" -> t.category.ifBlank { "Transfer" }
-    "invest" -> "Investment"
-    "ignore" -> "Ignored"
-    "refund" -> if (t.category != "Refund") "Refund · ${t.category}" else "Refund"
-    else -> t.kind.replaceFirstChar { it.uppercase() }
+    Kind.EXPENSE -> t.category
+    Kind.LENT -> "Lent"
+    Kind.BORROWED -> "Borrowed"
+    Kind.TRANSFER -> t.category.ifBlank { "Transfer" }
+    Kind.INVEST -> "Investment"
+    Kind.IGNORE -> "Ignored"
+    Kind.REFUND -> if (t.category != "Refund") "Refund · ${t.category}" else "Refund"
+    Kind.INCOME -> "Income"
 }
 
 internal fun ordinal(n: Int): String = if (n in 11..13) "th" else when (n % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }

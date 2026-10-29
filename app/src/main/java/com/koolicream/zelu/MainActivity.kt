@@ -593,7 +593,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         // make that weekday look the heaviest, so they are always left out (unless that is the filter).
                         val fixedCats = setOf("EMI", "Rent")
                         val flexShown = if (cat in fixedCats) shown else shown.filter { it.category !in fixedCats }
-                        val fixedSpent = shown.filter { it.kind == "expense" && it.category in fixedCats }.sumOf { it.amount }
+                        val fixedSpent = shown.filter { it.kind == Kind.EXPENSE && it.category in fixedCats }.rupees()
                         val fixedNote = if (fixedSpent <= 0 || cat in fixedCats) null else "Leaves out EMI and rent"
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
@@ -625,7 +625,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 wFrom = "$month-01"
                                 wTo = if (month == Dates.todayMonth()) Dates.today() else "$month-%02d".format(Dates.daysInMonth(month))
                             } else {
-                                val ds = shown.filter { it.kind == "expense" }.map { it.date }
+                                val ds = shown.filter { it.kind == Kind.EXPENSE }.map { it.date }
                                 wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                             }
                             WeekdayPanel(flexShown, wFrom, wTo, fixedNote)

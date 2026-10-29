@@ -339,7 +339,7 @@ private fun logoFor(slug: String?): Int? = when (slug) {
 }
 
 @Composable
-fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String = "") {
+fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: Kind? = null) {
     payLogoFor(name)?.let { logo ->
         Box(Modifier.size(size).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
             androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(logo), contentDescription = null, modifier = Modifier.size(size * 0.66f))
@@ -347,11 +347,11 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: String 
         return
     }
     val b = brandFor(name)
-    val moneyIn = kind == "income" || kind == "refund"
+    val moneyIn = kind == Kind.INCOME || kind == Kind.REFUND
     // Transfers and person-to-person lending get the banking-style swap icon; money in gets an arrow pointing in.
     val icon = when {
         b != null -> null
-        kind == "transfer" || kind == "lent" || kind == "borrowed" -> CatIcons.forCategory("Transfer")
+        kind == Kind.TRANSFER || kind == Kind.LENT || kind == Kind.BORROWED -> CatIcons.forCategory("Transfer")
         moneyIn -> Icons.Rounded.SouthWest
         else -> CatIcons.forCategory(category)
     }

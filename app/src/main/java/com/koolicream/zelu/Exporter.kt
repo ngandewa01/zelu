@@ -28,8 +28,8 @@ object Exporter {
         rows.sortedBy { it.date }.forEach { r ->
             sb.append(r.date).append(',')
                 .append(r.amount).append(',')
-                .append(r.direction).append(',')
-                .append(r.kind).append(',')
+                .append(r.direction.key).append(',')
+                .append(r.kind.key).append(',')
                 .append(esc(r.category)).append(',')
                 .append(esc(r.counterparty ?: "")).append(',')
                 .append(esc(r.account)).append('\n')

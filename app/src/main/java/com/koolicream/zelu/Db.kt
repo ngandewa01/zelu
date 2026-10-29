@@ -31,11 +31,11 @@ data class TxnEntity(
     val category: String,
     val ms: Long,
 ) {
-    fun toRow() = Row(id, date, amountPaise / 100.0, direction, counterparty, ref, raw, source, account, kind, category, ms)
+    fun toRow() = Row(id, date, amountPaise, Dir.of(direction), counterparty, ref, raw, source, account, Kind.of(kind), category, ms)
 
     companion object {
-        fun of(r: Row) = TxnEntity(r.id, r.date, Math.round(r.amount * 100), r.direction, r.counterparty, r.ref, r.raw,
-            r.source, r.account, r.kind, r.category, r.ms)
+        fun of(r: Row) = TxnEntity(r.id, r.date, r.paise, r.direction.key, r.counterparty, r.ref, r.raw,
+            r.source, r.account, r.kind.key, r.category, r.ms)
     }
 }
 

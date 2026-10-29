@@ -113,12 +113,12 @@ object Ingest {
                     if (cur == null || msg.date >= cur.second) limits[txn.account] = l to msg.date
                 }
             }
-            val c = if (upSender in Parser.walletSenders) Classifier.Result("ignore", "Wallet") else Classifier.classify(txn, own)
+            val c = if (upSender in Parser.walletSenders) Classifier.Result(Kind.IGNORE, "Wallet") else Classifier.classify(txn, own)
             rows.add(
                 Row(
                     id = txn.id,
                     date = txn.date,
-                    amount = txn.amount,
+                    paise = txn.paise,
                     direction = txn.direction,
                     counterparty = txn.counterparty,
                     ref = txn.ref,
@@ -234,7 +234,7 @@ object Ingest {
                 txns++
                 val b = Parser.balanceFromTxn(m.body)
                 if (b != null && t.account.isNotBlank() && !t.account.contains(" CC") && !Parser.isLoanAccountText(m.body))
-                    points.getOrPut(t.account) { ArrayList() }.add(Triple(m.date, b, if (t.direction == "debit") -t.amount else t.amount))
+                    points.getOrPut(t.account) { ArrayList() }.add(Triple(m.date, b, if (t.direction == Dir.DEBIT) -t.amount else t.amount))
             } else if (Parser.parseBalance(m.body, m.date, m.address) != null) bal++
             else if (Parser.parseReminder(m.body, m.date, m.address) != null) rem++
             else if (looksLikeMoneyMoved(m.body, m.address)) unread++

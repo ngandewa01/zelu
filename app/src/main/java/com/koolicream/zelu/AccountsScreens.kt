@@ -141,7 +141,7 @@ import java.util.Locale
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
             Text("Remove " + AccountBook.displayName(key) + "?", color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.sumOf { it.amount })}). " +
+            MutedText("It has ${mine.size} ${if (mine.size == 1) "payment" else "payments"} (${money(mine.rupees())}). " +
                 "If you remove it, these go from Zelu too: totals, payees, notifications.", 12)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {

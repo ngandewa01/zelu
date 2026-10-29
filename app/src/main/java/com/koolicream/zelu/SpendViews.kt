@@ -91,7 +91,7 @@ import androidx.compose.ui.unit.sp
     tabs()
     slot()
     if (cats.isEmpty()) { Panel { MutedText("No spending in this view.") }; return }
-    fun rowsFor(c: String) = list.filter { it.kind == "expense" && it.category == c }
+    fun rowsFor(c: String) = list.filter { it.kind == Kind.EXPENSE && it.category == c }
 
     // Chart groups: top 6 categories, the rest folded into "Other".
     val topN = cats.take(6)

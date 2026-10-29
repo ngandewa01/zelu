@@ -42,7 +42,7 @@ object Taught {
     }
 
     @Synchronized
-    fun learn(context: Context, body: String, address: String, payee: String?, direction: String) {
+    fun learn(context: Context, body: String, address: String, payee: String?, direction: Dir) {
         val text = WS.replace(body, " ").trim()
         var left = ""
         var right = ""
@@ -56,7 +56,7 @@ object Taught {
                 shaped = text.substring(0, i) + "<p>" + text.substring(i + p.length)
             }
         }
-        val pat = Pattern(senderKey(address), norm(shaped), direction, left, right)
+        val pat = Pattern(senderKey(address), norm(shaped), direction.key, left, right)
         val cur = load(context)
         if (cur.none { it.sender == pat.sender && it.sig == pat.sig }) save(context, cur + pat)
     }
@@ -86,8 +86,8 @@ object Taught {
             if (norm(shaped) != t.sig) continue
             val amount = Parser.firstAmount(msg.body) ?: continue
             val id = "man-" + Ingest.smsKey(msg).hashCode().toUInt().toString(16)
-            return Txn(id, Dates.fmtMs(msg.date), amount, t.direction, payee?.takeIf { it.isNotBlank() }, null, text, msg.address,
-                Parser.accountFor(msg.body, msg.address, t.direction), msg.date)
+            return Txn(id, Dates.fmtMs(msg.date), paiseOf(amount), Dir.of(t.direction), payee?.takeIf { it.isNotBlank() }, null, text, msg.address,
+                Parser.accountFor(msg.body, msg.address, Dir.of(t.direction)), msg.date)
         }
         return null
     }

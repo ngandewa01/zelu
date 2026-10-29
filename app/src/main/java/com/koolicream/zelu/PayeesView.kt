@@ -46,12 +46,12 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
-    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRename: (String, String) -> Unit,
     fixedSet: Analytics.FixedSet,
     allRows: List<Row> = emptyList(),
 ) {
-    val spend = list.filter { it.kind == "expense" }
+    val spend = list.filter { it.kind == Kind.EXPENSE }
     val payees = Analytics.byPayee(list)
     // Loan EMIs are large and fixed, so they would top every ranking. The overview ranks everyday payees and shows
     // the EMIs as one line; the All tab still lists everyone.
@@ -94,7 +94,7 @@ import androidx.compose.ui.window.Dialog
     val freshN = run {
         val thisM = Dates.todayMonth()
         val seen = HashMap<String, String>()
-        allRows.filter { it.kind == "expense" }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
+        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
         if (seen.size <= 6) 0 else payees.count { seen[it.name]?.startsWith(thisM) == true }.coerceAtMost(6)
     }
     Spacer(Modifier.height(12.dp))
@@ -147,7 +147,7 @@ import androidx.compose.ui.window.Dialog
                 }
             }
             if (loanPayees.isNotEmpty()) {
-                val loanRows = list.filter { r -> r.kind == "expense" && r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
+                val loanRows = list.filter { r -> r.kind == Kind.EXPENSE && r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill("Loan EMIs", loanRows) }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile("", "EMI", 34.dp)
@@ -252,7 +252,7 @@ import androidx.compose.ui.window.Dialog
     if (ptab == "new") run {
         val thisM = Dates.todayMonth()
         val firstSeen = HashMap<String, String>()
-        allRows.filter { it.kind == "expense" }.forEach { r ->
+        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r ->
             val n = nameOf(r); val cur = firstSeen[n]
             if (cur == null || r.date < cur) firstSeen[n] = r.date
         }
@@ -308,7 +308,7 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun PayeeDetailDialog(
     name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
-    onRecategorize: (String?, String, String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     others: List<String>, onRename: (String) -> Unit, onDismiss: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
@@ -397,21 +397,21 @@ import androidx.compose.ui.window.Dialog
                 }
             }
             if (editing && withPayee != null) {
-                fun pick(kind: String, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
+                fun pick(kind: Kind, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
                 Spacer(Modifier.height(10.dp))
                 MutedText("Applies to every payment to $name:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") "invest" else "expense", c) } }
-                    CustomCats.names.forEach { c -> CatTab(c, false) { pick("expense", c) } }
-                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
+                    CustomCats.names.forEach { c -> CatTab(c, false) { pick(Kind.EXPENSE, c) } }
+                    KindTab("new", "New", false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    KindTab("income", "Money in", false) { pick("income", "Income") }
-                    KindTab("lent", "Lent", false) { pick("lent", "Lent") }
-                    KindTab("borrowed", "Borrowed", false) { pick("borrowed", "Borrowed") }
-                    KindTab("ignore", "Ignore", false) { pick("ignore", "Ignore") }
+                    KindTab("income", "Money in", false) { pick(Kind.INCOME, "Income") }
+                    KindTab("lent", "Lent", false) { pick(Kind.LENT, "Lent") }
+                    KindTab("borrowed", "Borrowed", false) { pick(Kind.BORROWED, "Borrowed") }
+                    KindTab("ignore", "Ignore", false) { pick(Kind.IGNORE, "Ignore") }
                 }
             }
             Spacer(Modifier.height(14.dp))

@@ -5,8 +5,8 @@ import org.junit.Test
 
 class TxnEntityTest {
     private fun row(amount: Double, counterparty: String? = "SWIGGY", ref: String? = "629145872310") =
-        Row("ref-629145872310", "2026-10-18", amount, "debit", counterparty, ref, "Sent Rs.349.00 ...", "AX-HDFCBK-S",
-            "HDFC 5997", "expense", "Food", 1792305000000L)
+        Row("ref-629145872310", "2026-10-18", paiseOf(amount), Dir.DEBIT, counterparty, ref, "Sent Rs.349.00 ...", "AX-HDFCBK-S",
+            "HDFC 5997", Kind.EXPENSE, "Food", 1792305000000L)
 
     // Every amount a message can carry (two decimals at most) comes back exactly as stored.
     @Test fun amountsSurviveAsPaise() {

@@ -282,15 +282,15 @@ internal fun AddPaymentDialog(s: AppState) {
                         Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable {
                             val amount = amtText.toDoubleOrNull() ?: 0.0
                             if (amount > 0) {
-                                val dir = if (isIn) "credit" else "debit"
+                                val dir = if (isIn) Dir.CREDIT else Dir.DEBIT
                                 val name = payee.trim().ifBlank { null }
                                 val acct = Parser.accountFor(sms.body, sms.address, dir)
                                 val id = "man-" + Ingest.smsKey(sms).hashCode().toUInt().toString(16)
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
                                         val own = Storage.splitList(Storage.loadSettings(context).ownAccounts)
-                                        val c = Classifier.classify(Txn(id, day, amount, dir, name, null, sms.body, sms.address, acct), own)
-                                        Storage.addManualTxn(context, Row(id, day, amount, dir, name, null, sms.body, sms.address, acct, c.kind, c.category, sms.date), Ingest.smsKey(sms))
+                                        val c = Classifier.classify(Txn(id, day, paiseOf(amount), dir, name, null, sms.body, sms.address, acct), own)
+                                        Storage.addManualTxn(context, Row(id, day, paiseOf(amount), dir, name, null, sms.body, sms.address, acct, c.kind, c.category, sms.date), Ingest.smsKey(sms))
                                         if (learnIt) Taught.learn(context, sms.body, sms.address, name, dir)
                                     }
                                     addFor = null

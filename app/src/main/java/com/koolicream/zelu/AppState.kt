@@ -295,7 +295,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     }
 
     // decisions
-    fun decide(id: String, kind: String, category: String, payee: String?, remember: Boolean) {
+    fun decide(id: String, kind: Kind, category: String, payee: String?, remember: Boolean) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) {

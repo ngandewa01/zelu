@@ -30,7 +30,7 @@ class SmsReceiver : BroadcastReceiver() {
             if (Parser.isFinancialSender(address)) Storage.noteBankSms(app, date)
             val res = Ingest.ingest(app, listOf(raw))
             val declined = Storage.declinedKeys(app)
-            if (res.added > 0) res.rows.firstOrNull { it.kind != "ignore" && it.account !in declined && (it.counterparty ?: "") !in declined }?.let {
+            if (res.added > 0) res.rows.firstOrNull { it.kind != Kind.IGNORE && it.account !in declined && (it.counterparty ?: "") !in declined }?.let {
                 Notifier.notifyTxn(app, it)
             }
             // A balance-only alert ("Available Bal in HDFC Bank A/c XX5997 ... INR 79,377.50").

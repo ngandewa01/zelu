@@ -20,7 +20,7 @@ object Recap {
         val rows = Storage.loadRows(context)
         val totals = Analytics.categoryTotals(rows, prev, "All")
         val spent = totals.values.sum()
-        val income = rows.filter { it.kind == "income" && it.date.startsWith(prev) }.sumOf { it.amount }
+        val income = rows.filter { it.kind == Kind.INCOME && it.date.startsWith(prev) }.rupees()
         if (spent <= 0) return
         sp.edit().putString("last", month).apply()
 

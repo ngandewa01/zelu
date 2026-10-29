@@ -110,8 +110,8 @@ import java.util.Locale
     val (from, to) = cycleRange(day, offset)
     val rows = allRows.filter { it.account == account && it.date >= from && it.date <= to }
         .newestFirst()
-    val spendRows = rows.filter { it.kind == "expense" }
-    val spent = spendRows.sumOf { it.amount }
+    val spendRows = rows.filter { it.kind == Kind.EXPENSE }
+    val spent = spendRows.rupees()
     val parts = account.trim().split(" ")
     val last4 = parts.lastOrNull()?.takeIf { it.length in 2..8 && it.all { c -> c.isDigit() } } ?: account.takeLast(4)
     val bank = parts.firstOrNull() ?: account
@@ -220,7 +220,7 @@ import java.util.Locale
                 }
                 else -> Panel {
                     val items = spendRows.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Unknown" }
-                        .map { (k, v) -> Triple(k, v.sumOf { it.amount }, v.first().category) }.sortedByDescending { it.second }
+                        .map { (k, v) -> Triple(k, v.rupees(), v.first().category) }.sortedByDescending { it.second }
                     if (items.isEmpty()) MutedText("Nothing spent in this cycle.")
                     val mx = items.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
                     items.forEach { (k, v, c) ->

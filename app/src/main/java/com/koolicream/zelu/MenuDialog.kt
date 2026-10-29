@@ -427,7 +427,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
                     val today = Dates.today()
                     val usual = (1..3).map { i ->
                         val m = Dates.shiftMonth(Dates.todayMonth(), -i)
-                        rows.filter { it.kind == "expense" && it.date.startsWith(m) }.sumOf { it.amount }
+                        rows.filter { it.kind == Kind.EXPENSE && it.date.startsWith(m) }.rupees()
                     }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
                     val suggestions = buildList {
                         if (monthlyBudget <= 0 && usual > 0) {

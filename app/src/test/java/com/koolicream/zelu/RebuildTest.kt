@@ -12,7 +12,7 @@ class RebuildTest {
     private fun stored(body: String, ms: Long, src: String = "AX-HDFCBK-S"): Row {
         val t = Parser.parseSms(body, ms, src)!!
         val c = Classifier.classify(t, emptyList())
-        return Row(t.id, t.date, t.amount, t.direction, t.counterparty, t.ref, t.raw, t.source, t.account, c.kind, c.category, t.ms)
+        return Row(t.id, t.date, t.paise, t.direction, t.counterparty, t.ref, t.raw, t.source, t.account, c.kind, c.category, t.ms)
     }
 
     @Test
@@ -40,7 +40,7 @@ class RebuildTest {
 
     @Test
     fun taughtPaymentsAutoPaysAndBillsAreKept() {
-        val taught = Row("man-1a2b", "2025-06-01", 40.0, "debit", "Tea", null, "COOP BANK 40 TO TEA", "VM-COOPBK", "COOP", "expense", "Food", 1748736000000L)
+        val taught = Row("man-1a2b", "2025-06-01", 4_000, Dir.DEBIT, "Tea", null, "COOP BANK 40 TO TEA", "VM-COOPBK", "COOP", Kind.EXPENSE, "Food", 1748736000000L)
         val mandate = Mandate("netflix", "Netflix", 649.0, "HDFC 5997", "active", null, 1748736000000L, 1748736000000L,
             "UPI AutoPay mandate created successfully towards Netflix for Rs 649", "AX-HDFCBK-S")
         val bill = Reminder("rem-1", "2025-07-05", 1200.0, null, "Airtel", "", false, "Your Airtel bill of Rs 1200 is due on 05-07-2025", "AD-AIRTEL-S")
@@ -54,9 +54,9 @@ class RebuildTest {
     @Test
     fun decisionsMoveToTheNewCreditIds() {
         val rows = listOf(
-            Row("ref-111", "2026-10-01", 5.0, "credit", null, "111", "", "", "", "refund", "Refund"),
-            Row("ref-222", "2026-10-01", 5.0, "debit", null, "222", "", "", "", "expense", "Food"),
-            Row("ref-333-cr", "2026-10-01", 5.0, "credit", null, "333", "", "", "", "income", "Income"),
+            Row("ref-111", "2026-10-01", 500, Dir.CREDIT, null, "111", "", "", "", Kind.REFUND, "Refund"),
+            Row("ref-222", "2026-10-01", 500, Dir.DEBIT, null, "222", "", "", "", Kind.EXPENSE, "Food"),
+            Row("ref-333-cr", "2026-10-01", 500, Dir.CREDIT, null, "333", "", "", "", Kind.INCOME, "Income"),
         )
         val renames = Rebuild.creditRenames(rows)
         assertEquals(mapOf("ref-111" to "ref-111-cr"), renames)

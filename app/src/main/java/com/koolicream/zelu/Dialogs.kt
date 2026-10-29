@@ -57,7 +57,7 @@ import androidx.compose.ui.window.Dialog
         ) {
             Text(title, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val total = rows.sumOf { it.amount }
+            val total = rows.rupees()
             MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
             Spacer(Modifier.height(10.dp))
             // A category or a search can hold hundreds of payments: only the ones on screen are drawn.
@@ -418,7 +418,7 @@ import androidx.compose.ui.window.Dialog
     onRowClick: (Row) -> Unit, onSave: (Double) -> Unit, onDismiss: () -> Unit,
     youOwe: Boolean = false,
 ) {
-    val total = lentRows.sumOf { it.amount }
+    val total = lentRows.rupees()
     var text by remember { mutableStateOf(if (repaidSoFar > 0) fmtPlain(repaidSoFar) else "") }
     val entered = text.replace(",", "").toDoubleOrNull() ?: 0.0
     val balance = (total - entered).coerceAtLeast(0.0)
@@ -477,7 +477,7 @@ import androidx.compose.ui.window.Dialog
     }
 }
 
-@Composable internal fun TxnDetailDialog(t: Row, onReclassify: (String, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
+@Composable internal fun TxnDetailDialog(t: Row, onReclassify: (Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     Dialog(onDismissRequest = onDismiss) {
@@ -552,36 +552,36 @@ import androidx.compose.ui.window.Dialog
             }
             if (editing) {
                 // Picking a category saves it, closes the picker and says so; the payment above shows the new label.
-                fun pick(kind: String, c: String) {
+                fun pick(kind: Kind, c: String) {
                     onReclassify(kind, c); editing = false
                     saved = "Moved to ${if (c in CustomCats.names) customLabel(c) else c}" +
-                        (if (kind != "income" && kind != "ignore" && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
+                        (if (kind != Kind.INCOME && kind != Kind.IGNORE && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
                 }
                 Spacer(Modifier.height(10.dp))
                 MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") "invest" else "expense", c) } }
+                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
                     CustomCats.names.forEach { c ->
-                        CatTab(c, t.category == c) { pick("expense", c) }
+                        CatTab(c, t.category == c) { pick(Kind.EXPENSE, c) }
                     }
-                    KindTab("new", "New", false) { onNewCat { c -> pick("expense", c) } }
+                    KindTab("new", "New", false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
                 }
-                if (t.direction == "credit") {
+                if (t.direction == Dir.CREDIT) {
                     Spacer(Modifier.height(6.dp))
                     MutedText("Money-in category:", 12)
                     Spacer(Modifier.height(6.dp))
-                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick("income", c) } } }
+                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick(Kind.INCOME, c) } } }
                 }
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
-                    KindTab("income", "Money in", t.kind == "income" && t.category == "Income") { pick("income", "Income") }
+                    KindTab("income", "Money in", t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }
                     // Money back for something you bought: it nets against that spend once matched.
-                    if (t.direction == "credit") KindTab("refund", "Refund", t.kind == "refund") { pick("refund", "Refund") }
-                    KindTab("transfer", "Transfer", t.kind == "transfer") { pick("transfer", "Transfer") }
-                    KindTab("lent", "Lent", t.kind == "lent") { pick("lent", "Lent") }
-                    KindTab("borrowed", "Borrowed", t.kind == "borrowed") { pick("borrowed", "Borrowed") }
-                    KindTab("ignore", "Ignore", t.kind == "ignore") { pick("ignore", "Ignore") }
+                    if (t.direction == Dir.CREDIT) KindTab("refund", "Refund", t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") }
+                    KindTab("transfer", "Transfer", t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") }
+                    KindTab("lent", "Lent", t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") }
+                    KindTab("borrowed", "Borrowed", t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") }
+                    KindTab("ignore", "Ignore", t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") }
                     if (onSplit != null) KindTab("split", if (t.id.contains('#')) "Remove split" else "Split", false) { onSplit() }
                 }
             }

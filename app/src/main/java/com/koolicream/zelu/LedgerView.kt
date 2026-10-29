@@ -77,9 +77,9 @@ import java.util.Locale
 // A payment's name: the payee in readable case, or, when the message names none, what kind of payment it was
 // (so a row never says its category twice).
 internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank() }?.let { niceName(it) } ?: when {
-    t.kind == "expense" && (t.account.contains(" CC ") || t.account.endsWith(" CC")) -> "Card payment"
-    t.kind == "expense" -> "Payment"
-    t.kind == "income" -> "Money in"
+    t.kind == Kind.EXPENSE && (t.account.contains(" CC ") || t.account.endsWith(" CC")) -> "Card payment"
+    t.kind == Kind.EXPENSE -> "Payment"
+    t.kind == Kind.INCOME -> "Money in"
     else -> t.category
 }
 
@@ -104,13 +104,13 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
 
 @Composable internal fun AmountText(t: Row, highlight: Boolean) {
     when (t.kind) {
-        "transfer" -> Text("Transfer", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        "invest" -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        "ignore" -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
-        "income", "refund", "borrowed" ->
+        Kind.TRANSFER -> Text("Transfer", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Kind.INVEST -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Kind.IGNORE -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
+        Kind.INCOME, Kind.REFUND, Kind.BORROWED ->
             Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),
-            color = if (highlight && t.kind == "expense") ZColor.Accent else ZColor.Ink,   // spending is normal: not red
+            color = if (highlight && t.kind == Kind.EXPENSE) ZColor.Accent else ZColor.Ink,   // spending is normal: not red
             fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -124,7 +124,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, accounts: List<String>,
     month: String, account: String, daySel: Int, onDay: (Int) -> Unit,
     askOpen: Boolean, setAskOpen: (Boolean) -> Unit,
-    decide: (String, String, String, String?, Boolean) -> Unit,
+    decide: (String, Kind, String, String?, Boolean) -> Unit,
     onRowClick: (Row) -> Unit,
     onDrill: (String, List<Row>) -> Unit,
     excludeEmi: Boolean = false,
@@ -168,7 +168,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 if (b > 0 && v < b * 0.8 && dayNow >= 5 && v / b > dayNow.toDouble() / dimNow + 0.2) {
                     alerts.add(Alert(false, v / b, CatIcons.forCategory(c) ?: Icons.Rounded.Warning, c,
                         "Running ahead: " + (v / b * 100).toInt() + "% of the budget gone, " + (dayNow * 100 / dimNow) + "% of the month passed",
-                    ) { onDrill(c, allRows.filter { it.kind == "expense" && it.category == c && it.date.startsWith(f.month) }) })
+                    ) { onDrill(c, allRows.filter { it.kind == Kind.EXPENSE && it.category == c && it.date.startsWith(f.month) }) })
                 }
                 if (b > 0 && v >= b * 0.8) {
                     val over = v > b
@@ -176,7 +176,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         c,
                         if (over) money(v - b) + " over your " + money(b) + " budget"
                         else money(b - v) + " left of your " + money(b) + " budget",
-                    ) { onDrill(c, allRows.filter { it.kind == "expense" && it.category == c && it.date.startsWith(f.month) }) })
+                    ) { onDrill(c, allRows.filter { it.kind == Kind.EXPENSE && it.category == c && it.date.startsWith(f.month) }) })
                 }
             }
             accounts.filter { it.contains(" CC ") }.forEach { a ->
@@ -199,7 +199,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val isMonth = f.period == "month"
         val liveMonth = isMonth && f.month == Dates.todayMonth()
         val budget = monthlyBudget
-        val emiAmt = list.filter { it.kind == "expense" && it.category == "EMI" }.sumOf { it.amount }
+        val emiAmt = list.filter { it.kind == Kind.EXPENSE && it.category == "EMI" }.rupees()
         val today = Dates.today()
         // Bills still to pay this month, overdue ones included, settled the same way as on Dues. A card bill pays for
         // spends already counted, so it doesn't use up the budget.
@@ -269,7 +269,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
             val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
             val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
-                .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
+                .filter { it.kind == Kind.EXPENSE && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.rupees()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Text(money(s.spent), color = ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
                 if (prevSpent > 0 && s.spent > 0) {
@@ -292,7 +292,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 // No budget yet: suggest one from what a month usually costs.
                 val usual = (1..3).map { i ->
                     Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -i)))
-                        .filter { it.kind == "expense" && !(excludeEmi && it.category == "EMI") }.sumOf { it.amount }
+                        .filter { it.kind == Kind.EXPENSE && !(excludeEmi && it.category == "EMI") }.rupees()
                 }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
                 Spacer(Modifier.height(8.dp))
                 Text("Set a monthly budget ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
@@ -309,10 +309,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             var fitSeen by remember { mutableStateOf(hints.getBoolean("budget_fit", false)) }
             val fit = remember(allRows, budget, excludeEmi) {
                 val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
-                val spends = months.map { m -> allRows.filter { it.kind == "expense" && it.date.startsWith(m) } }.filter { it.isNotEmpty() }
+                val spends = months.map { m -> allRows.filter { it.kind == Kind.EXPENSE && it.date.startsWith(m) } }.filter { it.isNotEmpty() }
                 if (spends.isEmpty()) null else {
-                    val all = spends.map { rs -> rs.sumOf { it.amount } }.average()
-                    val emi = spends.map { rs -> rs.filter { it.category == "EMI" }.sumOf { it.amount } }.average()
+                    val all = spends.map { rs -> rs.rupees() }.average()
+                    val emi = spends.map { rs -> rs.filter { it.category == "EMI" }.rupees() }.average()
                     val everyday = all - emi
                     // EMI is a big part of it: the budget should cover everyday spending with EMI left out.
                     val leaveEmi = emi > all * 0.2
@@ -413,9 +413,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         if (overPace || alreadyOver) {
             val cut = Dates.dayOfMonth()
             val prev = Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -1)))
-                .filter { it.kind == "expense" && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
-                .mapValues { (_, rs) -> rs.sumOf { it.amount } }
-            list.filter { it.kind == "expense" }.groupBy { it.category }.mapValues { (_, rs) -> rs.sumOf { it.amount } }
+                .filter { it.kind == Kind.EXPENSE && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
+                .mapValues { (_, rs) -> rs.rupees() }
+            list.filter { it.kind == Kind.EXPENSE }.groupBy { it.category }.mapValues { (_, rs) -> rs.rupees() }
                 .map { (c, v) -> c to v - (prev[c] ?: 0.0) }.filter { it.second >= 1000 }.maxByOrNull { it.second }
                 ?.let { (c, up) -> noteRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c +" + money(up) + " vs last month",
                     "Why ›", onOpenSpend) }
@@ -472,7 +472,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     }
 
     // Ask-me — tackle the biggest unknowns first.
-    val pending = list.filter { it.kind == "expense" && it.category == "Unknown" }.sortedByDescending { it.amount }
+    val pending = list.filter { it.kind == Kind.EXPENSE && it.category == "Unknown" }.sortedByDescending { it.amount }
     val next = pending.firstOrNull()
     // One "Needs you" card at a time keeps Home short: the refund question comes first.
     if (next != null && refundAsk == null) {
@@ -491,10 +491,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth()) {
                 ActionCircle(Icons.Rounded.NorthEast, "Spending", 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
-                ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, "income", "Income", next.counterparty, false) }
-                ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, "lent", "Lent", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.MoveToInbox, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, "borrowed", "Borrowed", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, "ignore", "Ignore", null, false) }
+                ActionCircle(Icons.Rounded.SouthWest, "Money in", 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, Kind.INCOME, "Income", next.counterparty, false) }
+                ActionCircle(Icons.Rounded.Send, "Lent", 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, Kind.LENT, "Lent", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.MoveToInbox, "Borrowed", 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, Kind.BORROWED, "Borrowed", next.counterparty, true) }
+                ActionCircle(Icons.Rounded.Block, "Ignore", 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, Kind.IGNORE, "Ignore", null, false) }
             }
             if (askOpen) {
                 Spacer(Modifier.height(10.dp))
@@ -502,12 +502,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 Spacer(Modifier.height(6.dp))
                 ChipScroll {
                     Classifier.CATEGORIES.keys.forEach { c ->
-                        CatTab(c, false) { decide(next.id, if (c == "Investment") "invest" else "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c, next.counterparty, true) }
                     }
                     CustomCats.names.forEach { c ->
-                        CatTab(c, false) { decide(next.id, "expense", c, next.counterparty, true) }
+                        CatTab(c, false) { decide(next.id, Kind.EXPENSE, c, next.counterparty, true) }
                     }
-                    KindTab("new", "New", false) { onNewCat { c -> decide(next.id, "expense", c, next.counterparty, true) } }
+                    KindTab("new", "New", false) { onNewCat { c -> decide(next.id, Kind.EXPENSE, c, next.counterparty, true) } }
                 }
             }
         }
@@ -515,7 +515,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 
     // Recent — horizontal strip
     Panel {
-        val recent = list.filter { it.kind != "invest" }.newestFirst()
+        val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
         Row(Modifier.fillMaxWidth().clickable { onDrill("All transactions", recent) },
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow("Recent")
@@ -531,7 +531,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         .clickable { onRowClick(t) }.padding(12.dp),
                 ) {
                     // Like a bank app's card: icon, which way the money went, name, amount and when.
-                    val moneyIn = t.kind == "income" || t.kind == "refund" || t.kind == "borrowed"
+                    val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                         MerchantTile(t.counterparty ?: "", t.category, 36.dp, t.kind)
                         Spacer(Modifier.weight(1f))
@@ -687,7 +687,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 cardAccounts.sortedBy { it in closedLoans }.forEach { a ->
                     // Card totals follow only the date range, not the Show/Category filter.
                     val cardRows = Analytics.filter(allRows, f.copy(account = a, type = "all", category = "All"))
-                    val spent = cardRows.filter { it.kind == "expense" }.sumOf { it.amount }
+                    val spent = cardRows.filter { it.kind == Kind.EXPENSE }.rupees()
                     val today = Dates.today()
                     val due = reminders.filter { r -> !r.done && r.dueDate >= today && r.account.takeLast(4) == a.takeLast(4) }
                         .minByOrNull { it.dueDate }
@@ -740,7 +740,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                             Spacer(Modifier.height(6.dp))
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 Text("${rs.size} paid", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text(" · " + privateMoney(rs.sumOf { it.amount }), color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Text(" · " + privateMoney(rs.rupees()), color = ZColor.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
                                 Text("last " + prettyDay(last.date), color = ZColor.Muted, fontSize = 12.sp)
                             }
                         }
@@ -767,19 +767,19 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     }
 
     // Lending — all-time so repayments and balances stay correct across months.
-    val lentAll = allRows.filter { it.kind == "lent" }
-    val borrowedAll = allRows.filter { it.kind == "borrowed" }
+    val lentAll = allRows.filter { it.kind == Kind.LENT }
+    val borrowedAll = allRows.filter { it.kind == Kind.BORROWED }
     if (lentAll.isNotEmpty() || borrowedAll.isNotEmpty()) {
         val byPerson = lentAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
             .map { (person, rs) ->
-                val total = rs.sumOf { it.amount }
+                val total = rs.rupees()
                 val paid = repaid[person.lowercase().trim()] ?: 0.0
                 Triple(person, total, (total - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
         val owedToYou = byPerson.sumOf { it.third }
         val borrowByPerson = borrowedAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
             .map { (person, rs) ->
-                val tot = rs.sumOf { it.amount }
+                val tot = rs.rupees()
                 val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
                 Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
             }.sortedByDescending { it.third }
@@ -863,7 +863,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     if (showList && daySel > 0) {
         val dayStr = "%s-%02d".format(month, daySel)
         val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
-        val dtot = dayRows.filter { it.kind == "expense" }.sumOf { it.amount }
+        val dtot = dayRows.filter { it.kind == Kind.EXPENSE }.rupees()
         Panel {
             Eyebrow("$daySel ${Dates.monthLong(month)} · ${money(dtot)} spent")
             if (dayRows.isEmpty()) { Spacer(Modifier.height(6.dp)); MutedText("No transactions on this day.") }

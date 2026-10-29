@@ -70,8 +70,8 @@ object Notifier {
     // A sample payment alert, so you can check alerts reach you without waiting for a real one.
     fun notifyTest(context: Context) {
         notifyTxn(context, Row(
-            id = "test-" + System.currentTimeMillis(), date = "", amount = 450.0, direction = "debit",
-            counterparty = "Swiggy (test)", ref = null, raw = "", source = "", account = "", kind = "expense", category = "Food",
+            id = "test-" + System.currentTimeMillis(), date = "", paise = 45_000, direction = Dir.DEBIT,
+            counterparty = "Swiggy (test)", ref = null, raw = "", source = "", account = "", kind = Kind.EXPENSE, category = "Food",
         ))
     }
 
@@ -114,12 +114,12 @@ object Notifier {
 
     // "₹2,100 left of your ₹10,000 Groceries budget" for a spend in a category you have a budget for.
     private fun budgetLine(context: Context, r: Row): Pair<String, String>? {
-        if (r.kind != "expense" || r.direction != "debit") return null
+        if (r.kind != Kind.EXPENSE || r.direction != Dir.DEBIT) return null
         val budget = Storage.loadBudgets(context)[r.category] ?: return null
         if (budget <= 0.0) return null
         val month = r.date.take(7).ifBlank { Dates.todayMonth() }
         val spent = Storage.loadRows(context)
-            .filter { it.kind == "expense" && it.category == r.category && it.date.startsWith(month) }.sumOf { it.amount }
+            .filter { it.kind == Kind.EXPENSE && it.category == r.category && it.date.startsWith(month) }.rupees()
         val left = budget - spent
         val short = if (left >= 0) money(left) + " left" else money(-left) + " over"
         val full = if (left >= 0) money(left) + " left of your " + money(budget) + " " + r.category + " budget"
@@ -180,9 +180,9 @@ object Notifier {
             val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 Notification.Builder(context, "zelu_txn_hi") else @Suppress("DEPRECATION") Notification.Builder(context).setPriority(Notification.PRIORITY_HIGH)
             val amt = money(r.amount)
-            val credit = r.direction == "credit"
+            val credit = r.direction == Dir.CREDIT
             val who = r.counterparty?.takeIf { it.isNotBlank() } ?: ""
-            val unknown = r.category == "Unknown" && r.direction == "debit"
+            val unknown = r.category == "Unknown" && r.direction == Dir.DEBIT
             val nid = (r.id.hashCode() and 0x7fffffff) % 900000 + 2000
             if (unknown) {
                 for ((i, cat) in listOf("Food", "Groceries").withIndex()) {
@@ -194,7 +194,7 @@ object Notifier {
                 }
                 val skip = Intent(context, CategorizeReceiver::class.java)
                     .putExtra("id", r.id).putExtra("payee", r.counterparty ?: "")
-                    .putExtra("category", "Ignore").putExtra("kind", "ignore").putExtra("nid", nid)
+                    .putExtra("category", "Ignore").putExtra("kind", Kind.IGNORE.key).putExtra("nid", nid)
                 builder.addAction(Notification.Action.Builder(null, "Not spending",
                     PendingIntent.getBroadcast(context, nid * 4 + 3, skip, flags)).build())
             }

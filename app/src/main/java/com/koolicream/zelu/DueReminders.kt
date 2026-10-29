@@ -40,7 +40,7 @@ object DueReminders {
         val leads = NotifyPrefs.leadDays(context)
         val reminders = Storage.loadReminders(context).filter { !it.done }
         if (reminders.isEmpty()) return
-        val debits = Storage.loadRows(context).filter { it.direction == "debit" }
+        val debits = Storage.loadRows(context).filter { it.direction == Dir.DEBIT }
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "Bill reminders", NotificationManager.IMPORTANCE_DEFAULT))
