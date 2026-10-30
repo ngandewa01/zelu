@@ -240,19 +240,28 @@ import kotlinx.coroutines.launch
         .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).padding(vertical = 28.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Spacer(Modifier.weight(1f))
+        // A filmstrip: one slide moves out to the left exactly as the next moves in from the right, both whole, both the
+        // same height. No fading and no resizing, so nothing drifts up or down on the way.
         AnimatedContent(
             targetState = at,
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
             transitionSpec = {
-                (slideInHorizontally(tween(620, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(420))) togetherWith
-                    (slideOutHorizontally(tween(620, easing = FastOutSlowInEasing)) { -it } + fadeOut(tween(420)))
+                ContentTransform(
+                    slideInHorizontally(tween(560, easing = FastOutSlowInEasing)) { it },
+                    slideOutHorizontally(tween(560, easing = FastOutSlowInEasing)) { -it },
+                    sizeTransform = SizeTransform(clip = false) { _, _ -> androidx.compose.animation.core.snap() },
+                )
             },
             label = "tip",
         ) { i ->
             val (_, title, sub) = tips[i]
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().height(248.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
                 TipArt(i)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(14.dp))
                 Text(stringResource(title), color = ZColor.Ink, fontSize = 23.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
                 Text(stringResource(sub), color = ZColor.Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
             }
         }
