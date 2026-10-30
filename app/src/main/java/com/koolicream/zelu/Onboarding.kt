@@ -310,17 +310,14 @@ private val WELCOME_SAMPLES = listOf(
             delay(1150)
         }
     }
-    // The room above and below opens out around the icon, so the screen arrives as one movement.
-    val open = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { open.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
-    val p = open.value
+    // Nothing grows or settles here: the screen slides in whole, so the only movement is sideways.
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth().height((98f * p).dp).fadeEdge(top = true)) {
+        Box(Modifier.fillMaxWidth().height(98.dp).fadeEdge(top = true)) {
             msgs.forEach { m -> androidx.compose.runtime.key(m.id) { FallingMessage(m) { msgs.remove(m) } } }
         }
         LogoMark(76f)
-        Spacer(Modifier.height((8f * p).dp))
-        Column(Modifier.fillMaxWidth().height((150f * p).dp).fadeEdge(top = false)) {
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().height(150.dp).fadeEdge(top = false)) {
             cards.forEach { c -> androidx.compose.runtime.key(c.id) { WelcomeCardRow(c) } }
         }
     }
