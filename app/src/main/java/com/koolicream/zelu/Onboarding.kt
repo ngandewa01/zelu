@@ -103,8 +103,13 @@ import kotlinx.coroutines.launch
             targetState = stage,
             modifier = Modifier.align(Alignment.Center),
             transitionSpec = {
-                (slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))) togetherWith
-                    (slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300)))
+                // The opening screen holds the icon in the middle and Welcome keeps it there, so it dissolves rather than
+                // sliding away; from Welcome on, each screen glides out as the next glides in.
+                if (initialState == Stage.SPLASH || targetState == Stage.SPLASH)
+                    fadeIn(tween(500)) togetherWith fadeOut(tween(500))
+                else
+                    (slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))) togetherWith
+                        (slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300)))
             },
             label = "onboarding",
         ) { shownStage ->
