@@ -297,13 +297,18 @@ private val WELCOME_SAMPLES = listOf(
             delay(780)
         }
     }
+    // The screen before this one leaves its icon in the middle of the screen, at 92dp. This one takes it from there: the
+    // room above and below opens out and the icon settles to its own size, so the hand-over is one movement, not a jump.
+    val open = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) { open.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+    val p = open.value
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth().height(98.dp).fadeEdge(top = true)) {
+        Box(Modifier.fillMaxWidth().height((98f * p).dp).fadeEdge(top = true)) {
             msgs.forEach { m -> androidx.compose.runtime.key(m.id) { FallingMessage(m) { msgs.remove(m) } } }
         }
-        LogoMark(72f)
-        Spacer(Modifier.height(8.dp))
-        Column(Modifier.fillMaxWidth().height(150.dp).fadeEdge(top = false)) {
+        LogoMark(92f - 20f * p)
+        Spacer(Modifier.height((8f * p).dp))
+        Column(Modifier.fillMaxWidth().height((150f * p).dp).fadeEdge(top = false)) {
             cards.forEach { c -> androidx.compose.runtime.key(c.id) { WelcomeCardRow(c) } }
         }
     }
