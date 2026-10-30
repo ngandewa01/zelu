@@ -80,7 +80,6 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var missedSeen by mutableStateOf(Storage.missedSeen(context))
     var eraseOpen by mutableStateOf(false)
     var dupOk by mutableStateOf<Set<String>>(emptySet())
-    var dupOpen by mutableStateOf(false)
     var sendersOpen by mutableStateOf(false)
     var senderList by mutableStateOf<List<Ingest.UnknownSender>?>(null)
     var catsOpen by mutableStateOf(false)
@@ -242,6 +241,20 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         scope.launch {
             withContext(Dispatchers.IO) { Storage.setFixed(context, name, amount) }
             fixed = withContext(Dispatchers.IO) { Storage.loadFixed(context) }
+        }
+    }
+
+    // Two messages for one payment: hide the one that says less (it is the same payment), or keep both (they are two).
+    fun hideDuplicate(a: Row, b: Row) {
+        fun info(r: Row) = (if (!r.counterparty.isNullOrBlank()) 1 else 0) + (if (!r.ref.isNullOrBlank()) 1 else 0)
+        val drop = if (info(b) > info(a)) a else b
+        decide(drop.id, Kind.IGNORE, "Duplicate", null, false)
+    }
+
+    fun keepBothDuplicates(a: Row, b: Row) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.markDupOk(context, a.id + "|" + b.id) }
+            dupOk = withContext(Dispatchers.IO) { Storage.dupOk(context) }
         }
     }
 

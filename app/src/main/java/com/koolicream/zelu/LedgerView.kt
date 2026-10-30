@@ -128,8 +128,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 @Composable internal fun LedgerView(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, accounts: List<String>,
     month: String, account: String, daySel: Int, onDay: (Int) -> Unit,
-    askOpen: Boolean, setAskOpen: (Boolean) -> Unit,
-    decide: (String, Kind, String, String?, Boolean) -> Unit,
     onRowClick: (Row) -> Unit,
     onDrill: (String, List<Row>) -> Unit,
     excludeEmi: Boolean = false,
@@ -139,7 +137,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     fixed: Map<String, Double> = emptyMap(),
     onOpenFixed: () -> Unit = {},
     balances: Map<String, Pair<Double, Long>> = emptyMap(),
-    onNewCat: (((String) -> Unit)) -> Unit = {},
     limits: Map<String, Pair<Double, Long>> = emptyMap(),
     reminders: List<Reminder> = emptyList(),
     onOpenCard: (String) -> Unit = {},
@@ -147,8 +144,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     onEditBudget: () -> Unit = {},
     onOpenDues: () -> Unit = {},
     reminderState: Map<String, Boolean> = emptyMap(),
-    refundSuggestions: List<Pair<Row, Row>> = emptyList(),
-    onRefundAnswer: (String, Boolean) -> Unit = { _, _ -> },
+    attention: Map<String, Attention> = emptyMap(),
     budgets: Map<String, Double> = emptyMap(),
     onOpenSpend: () -> Unit = {},
     onAdd: () -> Unit = {},
@@ -440,87 +436,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }
     }
 
-    // Refund that looks like it belongs to an earlier spend — confirm before it nets against it.
-    val snoozeCtx = LocalContext.current
-    var snoozeTick by remember { mutableStateOf(0) }
-    val refundAsk = if (snoozeTick >= 0 && Storage.refundSnoozed(snoozeCtx)) null else refundSuggestions.firstOrNull()
-    refundAsk?.let { (rf, sp) ->
-        Panel {
-            Eyebrow(stringResource(R.string.needs_you_refund))
-            Spacer(Modifier.height(6.dp))
-            Text(money(rf.amount) + " refund · " + prettyDate(rf.date), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            MutedText(stringResource(R.string.for_label) + rowTitle(sp) + " " + money(sp.amount) + " on " + prettyDate(sp.date) + "?", 13)
-            // The actual SMS for both, behind a link, so you can check the match yourself without a tall card.
-            var showSms by remember(rf.id) { mutableStateOf(false) }
-            @Composable fun smsBox(label: String, r: Row) {
-                Spacer(Modifier.height(10.dp))
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Paper)
-                    .border(1.dp, ZColor.Line, RoundedCornerShape(12.dp)).padding(12.dp)) {
-                    Text(label.uppercase() + " · " + prettyDate(r.date) + (if (r.account.isNotBlank()) " · " + r.account else ""),
-                        color = ZColor.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
-                    Spacer(Modifier.height(4.dp))
-                    Text(r.raw.ifBlank { "(message text not stored)" }, color = ZColor.InkSoft, fontSize = 12.sp,
-                        lineHeight = 17.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Text(if (showSms) "Hide the messages" else "See the messages", color = ZColor.Accent, fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(6.dp)).clickable { showSms = !showSms })
-            if (showSms) { smsBox("Refund message", rf); smsBox("Spend it may match", sp) }
-            Spacer(Modifier.height(12.dp))
-            // The same round answer buttons as the other Needs-you questions.
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ActionCircle(Icons.Rounded.Check, stringResource(R.string.same_payment), 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, true) }
-                ActionCircle(Icons.Rounded.Close, stringResource(R.string.not_related), 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { onRefundAnswer(rf.id, false) }
-                ActionCircle(Icons.Rounded.Schedule, stringResource(R.string.ask_tomorrow), 0xFFD97706, 0xFFFBBF24, false, Modifier.weight(1f)) { Storage.snoozeRefund(snoozeCtx); snoozeTick++ }
-            }
-        }
-    }
-
-    // Ask-me — tackle the biggest unknowns first.
-    val pending = list.filter { it.kind == Kind.EXPENSE && it.category == "Unknown" }.sortedByDescending { it.amount }
-    val next = pending.firstOrNull()
-    // One "Needs you" card at a time keeps Home short: the refund question comes first.
-    if (next != null && refundAsk == null) {
-        Panel {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill("Needs a category", pending) },
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(stringResource(R.string.needs_you_to_go, pending.size))
-                if (pending.size > 1) Text(stringResource(R.string.see_all), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(rowTitle(next), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            MutedText(money(next.amount) + " · " + prettyDate(next.date) + if (next.account.isNotBlank()) " · " + next.account else "", 13)
-            Spacer(Modifier.height(10.dp))
-            // Five round answers in one row: the icon in a circle, the word under it.
-            Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth()) {
-                ActionCircle(Icons.Rounded.NorthEast, stringResource(R.string.spending), 0xFFFF6B1A, 0xFFFF8A3D, askOpen, Modifier.weight(1f)) { setAskOpen(!askOpen) }
-                ActionCircle(Icons.Rounded.SouthWest, stringResource(R.string.money_in), 0xFF22B455, 0xFF3DD171, false, Modifier.weight(1f)) { decide(next.id, Kind.INCOME, "Income", next.counterparty, false) }
-                ActionCircle(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.lent), 0xFF3B82F6, 0xFF60A5FA, false, Modifier.weight(1f)) { decide(next.id, Kind.LENT, "Lent", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.MoveToInbox, stringResource(R.string.borrowed), 0xFF8B5CF6, 0xFFA78BFA, false, Modifier.weight(1f)) { decide(next.id, Kind.BORROWED, "Borrowed", next.counterparty, true) }
-                ActionCircle(Icons.Rounded.Block, stringResource(R.string.ignore), 0xFF64748B, 0xFF94A3B8, false, Modifier.weight(1f)) { decide(next.id, Kind.IGNORE, "Ignore", null, false) }
-            }
-            if (askOpen) {
-                Spacer(Modifier.height(10.dp))
-                MutedText(stringResource(R.string.category), 12)
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c ->
-                        CatTab(c, false) { decide(next.id, if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c, next.counterparty, true) }
-                    }
-                    CustomCats.names.forEach { c ->
-                        CatTab(c, false) { decide(next.id, Kind.EXPENSE, c, next.counterparty, true) }
-                    }
-                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> decide(next.id, Kind.EXPENSE, c, next.counterparty, true) } }
-                }
-            }
-        }
-    }
-
     // Recent — horizontal strip
     Panel {
         val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
+        // A payment that wants a look wears a small mark on its card (red: nothing sorted it; amber: a refund or a message
+        // twice to check). Tapping the card opens the payment, where it is settled. Those come first, so none is lost.
+        val strip = Analytics.recentStrip(recent, attention)
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.recent))
@@ -539,7 +460,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Spacer(Modifier.height(8.dp))
         if (recent.isEmpty()) MutedText(stringResource(R.string.no_transactions_here))
         else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            recent.take(10).forEach { t ->
+            strip.forEach { t ->
                 Column(
                     Modifier.width(150.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper)
                         .border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
@@ -550,7 +471,15 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                         MerchantTile(t.counterparty ?: "", t.category, 36.dp, t.kind)
                         Spacer(Modifier.weight(1f))
-                        androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
+                        val mark = attention[t.id]
+                        if (mark != null) {
+                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) Color(0xFFEF4444) else Color(0xFFD97706))
+                                .spoken(stringResource(when (mark) { Attention.UNKNOWN -> R.string.mark_unsorted; Attention.REFUND -> R.string.mark_refund; Attention.DUPLICATE -> R.string.mark_duplicate })),
+                                contentAlignment = Alignment.Center) {
+                                Text(when (mark) { Attention.UNKNOWN -> "!"; Attention.REFUND -> "?"; Attention.DUPLICATE -> "=" },
+                                    color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
+                            }
+                        } else androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
                             if (moneyIn) "Money in" else "Spent", tint = if (moneyIn) ZColor.Income else ZColor.Muted,
                             modifier = Modifier.size(18.dp))
                     }
@@ -560,7 +489,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     val at = TxnTime.label(t)
-                    MutedText((if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
+                    MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
                 }
             }
         }

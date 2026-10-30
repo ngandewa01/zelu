@@ -210,56 +210,6 @@ internal fun SplitDialog(s: AppState) {
 }
 
 @Composable
-internal fun DuplicatesDialog(s: AppState) {
-    with(s) {
-        if (dupOpen) {
-            val pairs = Analytics.possibleDuplicates(rows, dupOk)
-            if (pairs.isNotEmpty()) Dialog(onDismissRequest = { dupOpen = false }) {
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp).heightIn(max = 620.dp)) {
-                    Text(stringResource(R.string.possible_duplicates), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    MutedText(stringResource(R.string.same_amount_account_and_day_2), 12)
-                    Spacer(Modifier.height(10.dp))
-                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                        pairs.forEach { (a, b) ->
-                            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Paper).padding(12.dp)) {
-                                listOf(a, b).forEach { r ->
-                                    Text((r.counterparty ?: r.category) + " · " + money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    MutedText(prettyDate(r.date) + " · " + r.account + " · from " + r.source, 11)
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(r.raw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
-                                    Spacer(Modifier.height(8.dp))
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                                    Text(stringResource(R.string.hide_the_extra_one), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable {
-                                        fun info(r: Row) = (if (!r.counterparty.isNullOrBlank()) 1 else 0) + (if (!r.ref.isNullOrBlank()) 1 else 0)
-                                        val drop = if (info(b) > info(a)) a else b
-                                        decide(drop.id, Kind.IGNORE, "Duplicate", null, false)
-                                    })
-                                    Text(stringResource(R.string.keep_both), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable {
-                                        scope.launch {
-                                            withContext(Dispatchers.IO) { Storage.markDupOk(context, a.id + "|" + b.id) }
-                                            dupOk = withContext(Dispatchers.IO) { Storage.dupOk(context) }
-                                        }
-                                    })
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                        .clickable { dupOpen = false }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                        Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 internal fun PaymentDialogs(s: AppState, v: Filtered) {
     with(s) { with(v) {
         drill?.let { (title, snap) ->
@@ -304,8 +254,14 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
         detailRow?.let { opened ->
             // Stays open after a change and shows the payment as saved.
             val r = rows.firstOrNull { it.id == opened.id } ?: opened
+            // What this payment may need settled: a purchase its refund may belong to, or the payment it may be a copy of.
+            val refundOf = refundSuggestions.firstOrNull { it.first.id == r.id }?.second
+            val copyOf = Analytics.possibleDuplicates(rows, dupOk).firstOrNull { it.first.id == r.id || it.second.id == r.id }
+                ?.let { (a, b) -> if (a.id == r.id) b else a }
             TxnDetailDialog(
                 r,
+                refundOf = refundOf, onRefundAnswer = { yes -> answerRefund(r.id, yes) },
+                copyOf = copyOf, onSameCopy = { hideDuplicate(r, copyOf!!) }, onTwoPayments = { keepBothDuplicates(r, copyOf!!) },
                 onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != Kind.INCOME && kind != Kind.IGNORE) },
                 onNewCat = { cb -> newCatCallback = cb },
                 onRetitle = { title -> retitle(r.id, title) },

@@ -356,7 +356,6 @@ private fun AppScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Ac
         SendersDialog(s)
         CategoriesDialog(s)
         SplitDialog(s)
-        DuplicatesDialog(s)
         EraseDialog(s)
         ReadAgainDialog(s)
         HelpDialog(s)
@@ -383,6 +382,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
         val screen = androidx.compose.ui.platform.LocalContext.current
         val pageScroll = rememberScrollState()
         val pageAlpha = remember { Animatable(1f) }
+        // The payments marked on Home's Recent strip: nothing sorted them, a refund may belong to a purchase, or a message came twice.
+        val attention = remember(rows, refundSuggestions, dupOk) { Analytics.attention(rows, refundSuggestions, Analytics.possibleDuplicates(rows, dupOk)) }
         LaunchedEffect(view) {                              // each tab opens at its top and fades in
             pageScroll.scrollTo(0)
             pageAlpha.snapTo(0.35f); pageAlpha.animateTo(1f, tween(180))
@@ -445,17 +446,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 color = ZColor.InkSoft, fontSize = 12.sp)
                         }
                         Text(stringResource(R.string.fix), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
-                    }
-                }
-                val dupPairs = remember(rows, dupOk) { Analytics.possibleDuplicates(rows, dupOk) }
-                if (dupPairs.isNotEmpty()) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
-                        .clickable { dupOpen = true }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(plural(dupPairs.size, "possible duplicate", "possible duplicates"), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text(stringResource(R.string.same_amount_account_and_day), color = ZColor.InkSoft, fontSize = 12.sp)
-                        }
-                        Text(stringResource(R.string.review), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
                 // filter bar: arrows + summary pill + collapsible dropdowns
@@ -592,9 +582,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 val pageView = view
                 when (pageView) {
                     Tab.LEDGER -> LedgerView(rows, shown, f, accounts, month, account, daySel,
-                        { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
+                        { daySel = if (daySel == it) 0 else it },
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { open(Page.Card(it)) }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = Tab.DUES }, reminderState, refundSuggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, limits, reminders, { open(Page.Card(it)) }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = Tab.DUES }, reminderState, attention, budgets = budgets,
                         onSetBudget = { amt, noEmi ->
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true

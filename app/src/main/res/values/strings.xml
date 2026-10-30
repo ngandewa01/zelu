@@ -9,7 +9,6 @@
     <string name="zelu_can_t_read_your">Zelu can\'t read your messages</string>
     <string name="android_may_have_switched_off">Android may have switched off SMS permission for an app you open rarely. Tap, then Permissions › SMS › Allow.</string>
     <string name="fix">Fix</string>
-    <string name="same_amount_account_and_day">Same amount, account and day. Tap to check.</string>
     <string name="date_range">Date range</string>
     <string name="done">Done</string>
     <string name="search_payee_or_amount">Search payee or amount</string>
@@ -32,12 +31,8 @@
     <string name="spent_in">"Spent in "</string>
     <string name="your_budget_looks_too_low">Your budget looks too low</string>
     <string name="keep">Keep</string>
-    <string name="needs_you_refund">Needs you · refund</string>
-    <string name="for_label">"For "</string>
     <string name="same_payment">Same payment</string>
     <string name="not_related">Not related</string>
-    <string name="ask_tomorrow">Ask tomorrow</string>
-    <string name="needs_you_to_go">Needs you · %1$s to go</string>
     <string name="see_all">see all ›</string>
     <string name="spending">Spending</string>
     <string name="money_in">Money in</string>
@@ -148,10 +143,6 @@
     <string name="amount">Amount ₹</string>
     <string name="add_part">＋ Add part</string>
     <string name="split_into_parts">Split into %1$s parts</string>
-    <string name="possible_duplicates">Possible duplicates</string>
-    <string name="same_amount_account_and_day_2">Same amount, account and day. Hide the extra if it\'s one payment.</string>
-    <string name="hide_the_extra_one">Hide the extra one</string>
-    <string name="keep_both">Keep both</string>
     <string name="split_removed">Split removed</string>
     <string name="unrecognised_senders">Unrecognised senders</string>
     <string name="senders_that_look_like_payments">Senders that look like payments. Say what each one is; add only ones you trust.</string>
@@ -407,4 +398,11 @@
     <string name="under_budget">✓ Under budget</string>
     <string name="set_budget">Set budget</string>
     <string name="set_budget_to">Set budget %1$s</string>
+    <string name="mark_unsorted">Not sorted</string>
+    <string name="mark_refund">Refund to check</string>
+    <string name="mark_duplicate">Possible duplicate</string>
+    <string name="unknown_label">Unknown</string>
+    <string name="message_label">Message</string>
+    <string name="dup_same">Same</string>
+    <string name="dup_two">Two payments</string>
 </resources>

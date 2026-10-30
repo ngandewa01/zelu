@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -480,47 +482,34 @@ import androidx.compose.ui.window.Dialog
 }
 
 @Composable internal fun TxnDetailDialog(t: Row, onReclassify: (Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
-    onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null, onDismiss: () -> Unit) {
+    onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null,
+    refundOf: Row? = null, onRefundAnswer: (Boolean) -> Unit = {},
+    copyOf: Row? = null, onSameCopy: () -> Unit = {}, onTwoPayments: () -> Unit = {},
+    onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     // With the category picker open this is taller than a phone screen: it scrolls instead of squashing its last row.
     val maxHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.9f).dp
+    val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
+    val unsorted = t.kind == Kind.EXPENSE && t.category == "Unknown"
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
                 .heightIn(max = maxHeight).verticalScroll(rememberScrollState()).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(rowTitle(t), color = ZColor.Ink,
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) ", $it" else "" }) + " · " + subtitleFor(t), 12)
-                }
-                Spacer(Modifier.width(10.dp))
-                AmountText(t, false)
-            }
-            if (t.account.isNotBlank()) { Spacer(Modifier.height(8.dp)); MutedText(stringResource(R.string.account_2, t.account), 12) }
-            Spacer(Modifier.height(16.dp))
-            Eyebrow(stringResource(R.string.from_this_message))
-            Spacer(Modifier.height(6.dp))
-            Text(
-                t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
-                modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
-            )
-            Spacer(Modifier.height(14.dp))
-            Eyebrow(stringResource(R.string.why_this_label))
-            Spacer(Modifier.height(4.dp))
-            MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
-            var saved by remember { mutableStateOf<String?>(null) }
-            saved?.let { Spacer(Modifier.height(8.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-            Spacer(Modifier.height(12.dp))
+            // Who, how much and when: the page says nothing else until you ask.
+            MerchantTile(t.counterparty ?: t.category, t.category, 52.dp, kind = t.kind)
+            Spacer(Modifier.height(10.dp))
             var retitling by remember { mutableStateOf(false) }
             var newTitle by remember { mutableStateOf(t.counterparty ?: "") }
-            Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { retitling = !retitling }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                Text(if (retitling) "Cancel" else "Edit title", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
+            Text(rowTitle(t), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { retitling = !retitling })
+            MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) ", $it" else "" }) +
+                (if (t.account.isNotBlank()) " · " + t.account else ""), 13)
+            Spacer(Modifier.height(8.dp))
+            Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+            var saved by remember { mutableStateOf<String?>(null) }
+            saved?.let { Spacer(Modifier.height(6.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
             if (retitling) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = newTitle, onValueChange = { newTitle = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -539,21 +528,22 @@ import androidx.compose.ui.window.Dialog
                     Text(stringResource(R.string.save_title), color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
+            // The category is the one big button. Unsorted, it wears a red mark; tapping opens the choices.
             var editing by remember { mutableStateOf(false) }
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                        .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp),
-                ) { Text(if (editing) "Cancel" else "Change category", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-                Box(
-                    Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                        .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-                ) { Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
+            val catLabel = if (t.kind == Kind.EXPENSE && t.category in CustomCats.names) customLabel(t.category) else subtitleFor(t)
+            Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile).clickable { editing = !editing }
+                .padding(start = if (unsorted) 6.dp else 18.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (unsorted) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFEF4444)), contentAlignment = Alignment.Center) {
+                        Text("!", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                Text(if (unsorted) stringResource(R.string.unknown_label) else catLabel, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 6.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (editing) "▴" else "▾", color = ZColor.Muted, fontSize = 12.sp, modifier = Unspoken)
             }
             if (editing) {
                 // Picking a category saves it, closes the picker and says so; the payment above shows the new label.
@@ -562,35 +552,101 @@ import androidx.compose.ui.window.Dialog
                     saved = "Moved to ${if (c in CustomCats.names) customLabel(c) else c}" +
                         (if (kind != Kind.INCOME && kind != Kind.IGNORE && !t.counterparty.isNullOrBlank()) ", and ${t.counterparty}'s other payments too" else "")
                 }
-                Spacer(Modifier.height(10.dp))
-                MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
-                    CustomCats.names.forEach { c ->
-                        CatTab(c, t.category == c) { pick(Kind.EXPENSE, c) }
+                Column(Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(10.dp))
+                    MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
+                    Spacer(Modifier.height(6.dp))
+                    ChipScroll {
+                        Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
+                        CustomCats.names.forEach { c ->
+                            CatTab(c, t.category == c) { pick(Kind.EXPENSE, c) }
+                        }
+                        KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
                     }
-                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
-                }
-                if (t.direction == Dir.CREDIT) {
+                    if (t.direction == Dir.CREDIT) {
+                        Spacer(Modifier.height(6.dp))
+                        MutedText(stringResource(R.string.money_in_category), 12)
+                        Spacer(Modifier.height(6.dp))
+                        ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick(Kind.INCOME, c) } } }
+                    }
                     Spacer(Modifier.height(6.dp))
-                    MutedText(stringResource(R.string.money_in_category), 12)
-                    Spacer(Modifier.height(6.dp))
-                    ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick(Kind.INCOME, c) } } }
-                }
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    KindTab("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }
-                    // Money back for something you bought: it nets against that spend once matched.
-                    if (t.direction == Dir.CREDIT) KindTab("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") }
-                    KindTab("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") }
-                    KindTab("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") }
-                    KindTab("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") }
-                    KindTab("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") }
-                    if (onSplit != null) KindTab("split", if (t.id.contains('#')) "Remove split" else "Split", false) { onSplit() }
+                    ChipScroll {
+                        KindTab("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }
+                        // Money back for something you bought: it nets against that spend once matched.
+                        if (t.direction == Dir.CREDIT) KindTab("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") }
+                        KindTab("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") }
+                        KindTab("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") }
+                        KindTab("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") }
+                        KindTab("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") }
+                        if (onSplit != null) KindTab("split", if (t.id.contains('#')) "Remove split" else "Split", false) { onSplit() }
+                    }
                 }
             }
+            // A refund that may belong to a purchase: the purchase, and a yes or a no.
+            if (refundOf != null) Column(Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper).padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(refundOf.counterparty ?: refundOf.category, refundOf.category, 34.dp, kind = refundOf.kind)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(rowTitle(refundOf), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(prettyDate(refundOf.date), 12)
+                    }
+                    Text(money(refundOf.amount), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettleButton(stringResource(R.string.same_payment), true, Modifier.weight(1f)) { onRefundAnswer(true) }
+                    SettleButton(stringResource(R.string.not_related), false, Modifier.weight(1f)) { onRefundAnswer(false) }
+                }
+            }
+            // The same message twice: the other one, and which it is.
+            if (copyOf != null) Column(Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Paper).padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MerchantTile(copyOf.counterparty ?: copyOf.category, copyOf.category, 34.dp, kind = copyOf.kind)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(rowTitle(copyOf), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(prettyDate(copyOf.date) + (TxnTime.label(copyOf).let { if (it.isNotEmpty()) ", $it" else "" }), 12)
+                    }
+                    Text(money(copyOf.amount), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettleButton(stringResource(R.string.dup_same), true, Modifier.weight(1f)) { onSameCopy() }
+                    SettleButton(stringResource(R.string.dup_two), false, Modifier.weight(1f)) { onTwoPayments() }
+                }
+            }
+            // The message and why it got this label are one tap away, not on the page.
+            var showMsg by remember { mutableStateOf(false) }
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Paper)
+                .clickable { showMsg = !showMsg }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.message_label), color = ZColor.InkSoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(if (showMsg) "▴" else "›", color = ZColor.Muted, fontSize = 16.sp, modifier = Unspoken)
+            }
+            if (showMsg) Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text(
+                    t.raw.ifBlank { "(no message text stored)" }, color = ZColor.InkSoft, fontSize = 13.sp,
+                    modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
+                )
+                Spacer(Modifier.height(10.dp))
+                Eyebrow(stringResource(R.string.why_this_label))
+                Spacer(Modifier.height(4.dp))
+                MutedText(Classifier.explain(t.counterparty, t.raw, t.kind, t.category), 12)
+            }
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+            }
         }
+    }
+}
+
+// A yes or a no under a question on the payment page: the yes is filled, the no is outlined.
+@Composable private fun SettleButton(label: String, primary: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.clip(RoundedCornerShape(22.dp)).then(if (primary) Modifier.background(ZColor.Accent) else Modifier.border(1.dp, ZColor.Line, RoundedCornerShape(22.dp)))
+        .clickable { onClick() }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Text(label, color = if (primary) ZColor.AccentInk else ZColor.InkSoft, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
