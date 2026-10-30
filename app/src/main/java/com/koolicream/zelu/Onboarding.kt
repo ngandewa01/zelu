@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
