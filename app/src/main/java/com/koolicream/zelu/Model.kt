@@ -16,6 +16,9 @@ enum class Dir(val key: String) {
     }
 }
 
+// Why a payment is marked on Home: nothing sorted it, a refund may belong to a purchase, or it may be a message twice.
+enum class Attention { UNKNOWN, REFUND, DUPLICATE }
+
 // What a payment is to you. [key] is how it is written in saved files, rules and backups.
 enum class Kind(val key: String) {
     EXPENSE("expense"), INCOME("income"), REFUND("refund"), TRANSFER("transfer"),

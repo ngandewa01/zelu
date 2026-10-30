@@ -221,6 +221,22 @@ object Analytics {
     // the same reference number says it is one payment, different reference numbers say two real payments, and with no
     // reference at all they must come from the same sender to be worth asking about. A different balance, time, payee
     // or way of paying (UPI, NEFT, IMPS...) says they are two.
+    /** The payments that want a look, and why. Both payments of a possible duplicate are marked; a duplicate outranks a refund, a refund an unsorted one. */
+    fun attention(rows: List<Row>, refunds: List<Pair<Row, Row>>, duplicates: List<Pair<Row, Row>>): Map<String, Attention> {
+        val out = LinkedHashMap<String, Attention>()
+        for (r in rows) if (r.kind == Kind.EXPENSE && r.category == "Unknown") out[r.id] = Attention.UNKNOWN
+        for ((refund, _) in refunds) out[refund.id] = Attention.REFUND
+        for ((a, b) in duplicates) { out[a.id] = Attention.DUPLICATE; out[b.id] = Attention.DUPLICATE }
+        return out
+    }
+
+    /** The cards on Home's Recent strip: the biggest payments that want a look first (at most [flagged]), then the newest. */
+    fun recentStrip(recent: List<Row>, attention: Map<String, Attention>, limit: Int = 10, flagged: Int = 3): List<Row> {
+        val first = recent.filter { it.id in attention }.sortedByDescending { it.amount }.take(flagged)
+        val ids = first.map { it.id }.toSet()
+        return (first + recent.filter { it.id !in ids }).take(limit)
+    }
+
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
         val groups = rows.filter { (it.kind == Kind.EXPENSE || it.kind == Kind.INCOME) && it.category != "EMI" && it.account.isNotBlank() }
