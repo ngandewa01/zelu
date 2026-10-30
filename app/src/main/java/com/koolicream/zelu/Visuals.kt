@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.SouthWest
 
 // ---- Zelu themes: pick a palette (6 of them) x light/dark. 60-30-10: paper / card+ink / accent ----
@@ -353,11 +355,13 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: Kind? =
     }
     val b = brandFor(name)
     val moneyIn = kind == Kind.INCOME || kind == Kind.REFUND
-    // Transfers and person-to-person lending get the banking-style swap icon; money in gets an arrow pointing in.
+    // Transfers and person-to-person lending get the banking-style swap icon. Money in gets cash (a refund, a return arrow):
+    // the arrows on a card already say which way the money went, so the tile does not repeat them.
     val icon = when {
         b != null -> null
         kind == Kind.TRANSFER || kind == Kind.LENT || kind == Kind.BORROWED -> CatIcons.forCategory("Transfer")
-        moneyIn -> Icons.Rounded.SouthWest
+        kind == Kind.REFUND -> Icons.Rounded.Replay
+        moneyIn -> Icons.Rounded.Payments
         else -> CatIcons.forCategory(category)
     }
     // Old custom categories may still hold an emoji.
