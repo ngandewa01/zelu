@@ -341,7 +341,7 @@
     <string name="notif_locked_text">New activity. Unlock to see it.</string>
     <string name="use_your_phone_s_pin">Use your phone\'s PIN, pattern or fingerprint.</string>
     <string name="unlock">Unlock</string>
-    <string name="nothing_leaves_your_phone">Nothing leaves your phone.</string>
+    <string name="nothing_leaves_your_phone">It all stays here.</string>
     <string name="continue_label">Continue</string>
     <string name="two_quick_permissions">Two quick permissions</string>
     <string name="sms_is_needed_to_read">SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.</string>

@@ -20,7 +20,14 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
@@ -91,8 +98,18 @@ import kotlinx.coroutines.launch
             Spacer(Modifier.width(46.dp))
         }
         if (stage == Stage.SCAN) SettingUp(scanDone, scanTotal)
-        else Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            when (stage) {
+        // One screen glides out as the next glides in, so the first run reads as one movement.
+        else AnimatedContent(
+            targetState = stage,
+            modifier = Modifier.align(Alignment.Center),
+            transitionSpec = {
+                (slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))) togetherWith
+                    (slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300)))
+            },
+            label = "onboarding",
+        ) { shownStage ->
+            Column(Modifier.padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            when (shownStage) {
                 Stage.WELCOME -> {
                     // The Zelu icon in the middle. Messages come down from the top: the bank ones go into the icon, OTPs, chats
                     // and offers fade out on the way. Payment cards with their logos come out below. Then the headline, and the
@@ -134,6 +151,7 @@ import kotlinx.coroutines.launch
                 }
                 else -> SplashBrand()
             }
+            }
         }
         if (stage == Stage.SPLASH) SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
     }
@@ -148,36 +166,35 @@ import kotlinx.coroutines.launch
     )
     var shown by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { repeat(lines.size) { delay(420); shown++ } }
-    val lock by animateFloatAsState(if (shown >= lines.size) 1f else 0f, tween(500), label = "privacy-lock")
+    val closed by animateFloatAsState(if (shown >= lines.size) 1f else 0f,
+        tween(600, easing = FastOutSlowInEasing), label = "privacy-lock")
     Column(Modifier.fillMaxWidth().spoken(stringResource(R.string.privacy_picture_description)),
         horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Rounded.CloudOff, null, tint = ZColor.Muted, modifier = Modifier.size(44.dp))
-        Spacer(Modifier.height(10.dp))
-        // The phone, with every message still in it.
-        Box(contentAlignment = Alignment.BottomCenter) {
-            Column(Modifier.width(188.dp).clip(RoundedCornerShape(26.dp)).background(ZColor.Card)
-                .border(2.dp, ZColor.Ink, RoundedCornerShape(26.dp)).padding(horizontal = 10.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Box(Modifier.width(46.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ZColor.Line)
-                    .align(Alignment.CenterHorizontally))
-                Spacer(Modifier.height(2.dp))
-                lines.forEachIndexed { i, (sender, text, bank) ->
-                    val a by animateFloatAsState(if (shown > i) 1f else 0f, tween(400), label = "privacy-line$i")
-                    Column(Modifier.graphicsLayer { alpha = a; translationY = (1f - a) * 10.dp.toPx() }
-                        .fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Tile)
-                        .border(1.dp, if (bank) ZColor.Accent else ZColor.Line, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 8.dp, vertical = 6.dp).then(Unspoken)) {
-                        Text(sender, color = ZColor.Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                        Text(stringResource(text), color = ZColor.Ink, fontSize = 11.sp, maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    }
+        // Nothing goes up to the cloud; it fades back as the phone closes.
+        Icon(Icons.Rounded.CloudOff, null, tint = ZColor.Muted,
+            modifier = Modifier.size(40.dp).graphicsLayer { alpha = 1f - 0.55f * closed })
+        Spacer(Modifier.height(12.dp))
+        Column(Modifier.width(200.dp).clip(RoundedCornerShape(28.dp)).background(ZColor.Card)
+            .border(2.dp, ZColor.Ink, RoundedCornerShape(28.dp)).padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.width(44.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ZColor.Line))
+            Spacer(Modifier.height(12.dp))
+            lines.forEachIndexed { i, (sender, text, bank) ->
+                val a by animateFloatAsState(if (shown > i) 1f else 0f, tween(450, easing = FastOutSlowInEasing), label = "privacy-line$i")
+                Column(Modifier.padding(bottom = 7.dp).graphicsLayer { alpha = a; translationY = (1f - a) * 12.dp.toPx() }
+                    .fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(ZColor.Tile)
+                    .border(1.dp, if (bank) ZColor.Accent else ZColor.Line, RoundedCornerShape(11.dp))
+                    .padding(horizontal = 9.dp, vertical = 7.dp).then(Unspoken)) {
+                    Text(sender, color = ZColor.Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    Text(stringResource(text), color = ZColor.Ink, fontSize = 11.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
-                Spacer(Modifier.height(18.dp))
             }
-            // The lock closes over them once they are all in.
-            Box(Modifier.padding(bottom = 12.dp).graphicsLayer { alpha = lock; scaleX = 0.7f + 0.3f * lock; scaleY = 0.7f + 0.3f * lock }
-                .size(44.dp).clip(CircleShape).background(ZColor.Accent), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Lock, null, tint = ZColor.AccentInk, modifier = Modifier.size(24.dp))
+            // The lock closes under them, on its own line, once they are all in.
+            Spacer(Modifier.height(5.dp))
+            Box(Modifier.graphicsLayer { alpha = closed; scaleX = 0.6f + 0.4f * closed; scaleY = 0.6f + 0.4f * closed }
+                .size(40.dp).clip(CircleShape).background(ZColor.Accent), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Lock, null, tint = ZColor.AccentInk, modifier = Modifier.size(21.dp))
             }
         }
     }
@@ -212,7 +229,14 @@ import kotlinx.coroutines.launch
         .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).padding(vertical = 28.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Spacer(Modifier.weight(1f))
-        androidx.compose.animation.Crossfade(targetState = at, animationSpec = tween(500), label = "tip") { i ->
+        AnimatedContent(
+            targetState = at,
+            transitionSpec = {
+                (slideInHorizontally(tween(620, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(420))) togetherWith
+                    (slideOutHorizontally(tween(620, easing = FastOutSlowInEasing)) { -it } + fadeOut(tween(420)))
+            },
+            label = "tip",
+        ) { i ->
             val (_, title, sub) = tips[i]
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TipArt(i)
