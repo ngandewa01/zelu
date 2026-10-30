@@ -361,7 +361,7 @@
     <string name="came_back_to_you">Came back to you: %1$s</string>
     <string name="deposits">Deposits</string>
     <string name="welcome_headline">Know where your money goes</string>
-    <string name="setup_reading">Reading messages</string>
+    <string name="setup_reading">Finding your payments</string>
     <string name="setup_count">%1$s / %2$s</string>
     <string name="setup_tip1_title">Know what is safe to spend</string>
     <string name="setup_tip1_sub">Every day, worked out for you</string>

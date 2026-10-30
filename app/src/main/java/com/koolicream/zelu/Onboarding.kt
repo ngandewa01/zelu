@@ -217,11 +217,40 @@ import kotlinx.coroutines.launch
             Text(stringResource(R.string.setup_reading), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(stringResource(R.string.setup_count, "%,d".format(done), "%,d".format(total)), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
-            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
-        }
+        Spacer(Modifier.height(12.dp))
+        ReadingBar(frac)
         SetupTips(Modifier.weight(1f).padding(top = 20.dp, bottom = 10.dp))
+    }
+}
+
+// The bar fills with the theme's own colours and a soft light keeps moving along the part that is done, so the screen
+// never looks stuck while a long read goes on.
+@Composable private fun ReadingBar(frac: Float) {
+    val shine = androidx.compose.animation.core.rememberInfiniteTransition(label = "shine")
+    val sweep by shine.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            tween(1700, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "sweep")
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(11.dp)) {
+        val round = androidx.compose.ui.geometry.CornerRadius(size.height / 2f)
+        drawRoundRect(ZColor.Line, cornerRadius = round)
+        val done = size.width * frac
+        if (done <= 0.5f) return@Canvas
+        val filled = androidx.compose.ui.graphics.Path().apply {
+            addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, done, size.height, round))
+        }
+        androidx.compose.ui.graphics.drawscope.clipPath(filled) {
+            drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(ZColor.Accent, Color(0xFFEAB308)), endX = size.width),
+                size = androidx.compose.ui.geometry.Size(done, size.height))
+            // one soft band travelling along what is already read
+            val band = size.width * 0.34f
+            val x = -band + sweep * (done + band)
+            drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(Color.Transparent, Color.White.copy(alpha = 0.32f), Color.Transparent), startX = x, endX = x + band),
+                size = androidx.compose.ui.geometry.Size(done, size.height))
+        }
     }
 }
 
