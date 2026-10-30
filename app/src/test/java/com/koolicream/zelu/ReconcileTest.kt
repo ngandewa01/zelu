@@ -152,6 +152,19 @@ class ReconcileTest {
     }
 
     @Test
+    fun aDebitCardJoinsItsOnlySavingsAccountAndOtherwiseStaysACard() {
+        fun ex(id: String, account: String) = row(id, "2026-10-0${id.length}", 10.0, "debit", "expense", "ATM / Cash", account = account)
+        // HDFC has one savings account: the ATM cash taken with its card is that account's.
+        val one = listOf(ex("a", "HDFC 9065"), ex("bb", "HDFC DC 4421"))
+        assertEquals(setOf("HDFC 9065"), Reconcile.canonicalizeAccounts(one).map { it.account }.toSet())
+        // ICICI has two: the card is not guessed onto either, and keeps being a card.
+        val two = listOf(ex("a", "ICICI 2211"), ex("bb", "ICICI 7765"), ex("ccc", "ICICI DC 9012"))
+        assertEquals(setOf("ICICI 2211", "ICICI 7765", "ICICI DC 9012"), Reconcile.canonicalizeAccounts(two).map { it.account }.toSet())
+        // A card whose bank has no savings account yet is a card of that bank.
+        assertEquals(setOf("AXIS DC 5512"), Reconcile.canonicalizeAccounts(listOf(ex("a", "AXIS DC 5512"))).map { it.account }.toSet())
+    }
+
+    @Test
     fun anAccountReportingALimitIsACard() {
         val rows = listOf(
             row("a", "2026-10-01", 10.0, "debit", "expense", "Food", account = "ICICI CC 9012", raw = "Rs 10 spent on ICICI Bank Card XX9012. Avl Limit: Rs 96,800.00"),

@@ -377,6 +377,8 @@ object Parser {
     private val LIMIT_WORD = Regex("""\b(avl\.?\s*lmt|avl\.?\s*limit|available\s*limit|credit\s*limit|total\s*limit)""", RegexOption.IGNORE_CASE)
     private val BAL_AFTER = Regex("""\b(avl\.?|available|avbl\.?|closing)\s*bal(ance)?""", RegexOption.IGNORE_CASE)
     private val ATM_WORD = Regex("""\b(atm|withdrawn|withdrawal)\b""", RegexOption.IGNORE_CASE)
+    private val ATM_MACHINE = Regex("""\batm\b""", RegexOption.IGNORE_CASE)
+    private val MICRO_ATM = Regex("""\b(?:micro\s*atm|aeps)\b""", RegexOption.IGNORE_CASE)
     private val AC_KEYWORD = Regex("""\b(a/?c|acct|account)\b""", RegexOption.IGNORE_CASE)
     private val DATE = Regex("""\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})\b""")
     private val DATE_ISO = Regex("""\b(20\d{2})-(\d{1,2})-(\d{1,2})\b""")
@@ -922,7 +924,9 @@ object Parser {
         // "Loan A/c *0126" names the LOAN's number: that is not a savings account of yours.
         LOAN_AC.find(text)?.groupValues?.get(1)?.let { ln -> if (last4.isNotEmpty() && (last4 == ln || ln.endsWith(last4) || last4.endsWith(ln))) last4 = "" }
         // A debit card is the bank account, not a separate credit-card bill.
-        val debitCard = DEBIT_CARD.containsMatchIn(text)
+        // Cash from an ATM (not a micro ATM or AEPS point) is taken with a debit card, even when the message never says so.
+        val atmCard = ATM_MACHINE.containsMatchIn(text) && !MICRO_ATM.containsMatchIn(text) && !EXPLICIT_CARD.containsMatchIn(text)
+        val debitCard = DEBIT_CARD.containsMatchIn(text) || atmCard
         // When a debit card shows only its card number (no a/c), attribute it to the bank
         // account itself (which then folds into the main savings) rather than the card number.
         // The card number is kept so the card can be linked to its account on the Your accounts screen.

@@ -104,7 +104,7 @@ class ParserTest {
         none("VM-HDFCBK", "Your a/c XX5997 balance is Rs 45,210.55 as of 22-02-26. Avl Bal Rs 45,210.55")
         ok("VM-HDFCBK", "Rs 25,000 debited from a/c XX5997 and invested in HDFC Mutual Fund SIP folio 123456 on 21-02-26", "debit", 25000.0, null, null, "2026-02-21", null)
         ok("VM-HDFCBK", "Rs.1,500.00 debited from a/c **5997 on 20-02-26 to UPI Lite wallet load", "debit", 1500.0, "HDFC 5997", null, "2026-02-20", null)
-        ok("VM-HDFCBK", "INR 500 withdrawn from ATM XYZ using card ending 5997 on 19-02-26. Avl Bal INR 12,000", "debit", 500.0, "HDFC 5997", null, "2026-02-19", null)
+        ok("VM-HDFCBK", "INR 500 withdrawn from ATM XYZ using card ending 5997 on 19-02-26. Avl Bal INR 12,000", "debit", 500.0, "HDFC DC 5997", null, "2026-02-19", null)
         none("VM-HDFCBK", "Dear Customer, URGENT: your KYC expired. Click bit.ly/abc to update or account will be blocked.")
         ok("VM-HDFCBK", "Rs.75.50 debited from a/c **5997 on 18-02-26 to VPA paytmqr1xyz@paytm (UPI Ref No 607123450011)", "debit", 75.5, "HDFC 5997", null, "2026-02-18", "607123450011")
         ok("VM-HDFCBK", "Rs.2,000.00 credited to a/c **5997 on 17-02-26 by cheque deposit 123456. Clearing credit", "credit", 2000.0, "HDFC 5997", null, "2026-02-17", null)
@@ -270,6 +270,19 @@ class ParserTest {
         assertEquals("HDFC DC 4321", Parser.parseSms(m, 1745236000000L, "HDFCBK")!!.account)
         val cc = "Rs.100.00 spent on HDFC Bank Credit Card ending 4321 at SHOP on 21-04-25. Avl limit: 50000"
         assertEquals("HDFC CC 4321", Parser.parseSms(cc, 1745236000000L, "HDFCBK")!!.account)
+    }
+
+    @Test
+    fun atmWithdrawalIsADebitCardNotACreditCardOrAnAccount() {
+        // No "debit card" and no account number in the message: the digits are the card, so it is a debit card of that bank.
+        val atm = "HDFC Bank: Rs.5000 withdrawn at ATM with card ending 4421 on 03-10-26. Avl bal Rs.43000"
+        assertEquals("HDFC DC 4421", Parser.parseSms(atm, 1745236000000L, "HDFCBK")!!.account)
+        // A credit card cash advance at an ATM stays a credit card.
+        val cc = "Rs.5000 withdrawn at ATM using HDFC Bank Credit Card ending 4421 on 03-10-26. Avl limit: 50000"
+        assertEquals("HDFC CC 4421", Parser.parseSms(cc, 1745236000000L, "HDFCBK")!!.account)
+        // With the account named, the cash is that account's, as before.
+        val named = "Rs.5000 withdrawn at ATM from HDFC Bank A/c XX5997 on 03-10-26. Avl bal Rs.43000"
+        assertEquals("HDFC 5997", Parser.parseSms(named, 1745236000000L, "HDFCBK")!!.account)
     }
 
     @Test

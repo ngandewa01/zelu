@@ -221,6 +221,15 @@ object Analytics {
     // the same reference number says it is one payment, different reference numbers say two real payments, and with no
     // reference at all they must come from the same sender to be worth asking about. A different balance, time, payee
     // or way of paying (UPI, NEFT, IMPS...) says they are two.
+    /** The payments that want a look, and why. Both payments of a possible duplicate are marked; a duplicate outranks a refund, a refund an unsorted one. */
+    fun attention(rows: List<Row>, refunds: List<Pair<Row, Row>>, duplicates: List<Pair<Row, Row>>): Map<String, Attention> {
+        val out = LinkedHashMap<String, Attention>()
+        for (r in rows) if (r.kind == Kind.EXPENSE && r.category == "Unknown") out[r.id] = Attention.UNKNOWN
+        for ((refund, _) in refunds) out[refund.id] = Attention.REFUND
+        for ((a, b) in duplicates) { out[a.id] = Attention.DUPLICATE; out[b.id] = Attention.DUPLICATE }
+        return out
+    }
+
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
         val groups = rows.filter { (it.kind == Kind.EXPENSE || it.kind == Kind.INCOME) && it.category != "EMI" && it.account.isNotBlank() }

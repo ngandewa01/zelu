@@ -19,9 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
@@ -94,37 +92,58 @@ object ZeluMark {
 
 private val FULL = floatArrayOf(1f, 1f, 1f)
 
-// The start screen, animated (about 1.5 s): the tile pops in, the Z and its two lines draw themselves, then the name,
-// the line under it and "Private · works offline". Phones with animations turned off show the finished screen.
+// The start screen: the three strokes of the mark fly in from outside, like payments arriving, and settle into place.
+// The tile then fades in behind them and the name comes up. No line under it. Phones with animations off show the
+// finished mark.
 @Composable internal fun SplashBrand() {
     val t = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { t.animateTo(1500f, androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.LinearEasing)) }
+    LaunchedEffect(Unit) { t.animateTo(1800f, androidx.compose.animation.core.tween(1800, easing = androidx.compose.animation.core.LinearEasing)) }
     val ms = t.value
     fun part(start: Float, length: Float, ease: androidx.compose.animation.core.Easing = androidx.compose.animation.core.FastOutSlowInEasing) =
         ease.transform(((ms - start) / length).coerceIn(0f, 1f))
-    val pop = part(0f, 380f, androidx.compose.animation.core.CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.25f))
-    val gold = if (ZTheme.dark) Color(0xFFF2C27A) else Color(0xFFC98E3F)
+    val dark = ZTheme.dark
+    val gold = if (dark) Color(0xFFF2C27A) else Color(0xFFC98E3F)
+    // Where each stroke comes in from, as a share of the mark's own size, and when.
+    val from = listOf(Offset(-1.1f, 0.55f), Offset(1.15f, -0.45f), Offset(0.95f, 1.0f))
+    val arrive = listOf(part(60f, 760f), part(260f, 760f), part(460f, 760f))
+    val tile = part(820f, 460f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.graphicsLayer { alpha = part(0f, 380f); scaleX = 0.6f + 0.4f * pop; scaleY = 0.6f + 0.4f * pop }) {
-            LogoMark(92f, floatArrayOf(part(250f, 480f), part(600f, 260f), part(720f, 200f)))
+        Canvas(Modifier.size(156.dp)) {
+            val mark = size.width * 0.59f          // the mark itself, with room around it for the strokes to fly in
+            val k = mark / 72f
+            val ox = (size.width - mark) / 2f
+            val oy = (size.height - mark) / 2f
+            if (tile > 0f) {
+                drawRoundRect(
+                    Brush.linearGradient(
+                        if (dark) listOf(Color(0xFF4A3B2E), Color(0xFF2B2219)) else listOf(Color(ZeluMark.TOP), Color(ZeluMark.BOTTOM)),
+                        Offset(ox, oy), Offset(ox + mark, oy + mark)),
+                    topLeft = Offset(ox, oy), size = androidx.compose.ui.geometry.Size(mark, mark),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(mark * 0.24f), alpha = tile)
+                if (dark) drawRoundRect(Color(0xFF5A4A3B), topLeft = Offset(ox, oy),
+                    size = androidx.compose.ui.geometry.Size(mark, mark),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(mark * 0.24f), alpha = tile,
+                    style = Stroke(width = 1.dp.toPx()))
+            }
+            ZeluMark.LINES.forEachIndexed { i, (col, p) ->
+                val a = arrive[i]
+                if (a <= 0f) return@forEachIndexed
+                val dx = ox + from[i].x * mark * (1f - a)
+                val dy = oy + from[i].y * mark * (1f - a)
+                val path = Path().apply {
+                    moveTo(p[0] * k + dx, p[1] * k + dy)
+                    for (j in 2 until p.size step 2) lineTo(p[j] * k + dx, p[j + 1] * k + dy)
+                }
+                drawPath(path, Color(col), alpha = (a * 2.2f).coerceAtMost(1f),
+                    style = Stroke(width = ZeluMark.STROKE * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
         }
-        Spacer(Modifier.height(22.dp))
-        val name = part(900f, 420f)
+        val name = part(1150f, 460f)
         Row(Modifier.graphicsLayer { alpha = name; translationY = (1f - name) * 14.dp.toPx() }) {
             Text("Ze", color = ZColor.Ink, fontWeight = FontWeight.Bold, fontSize = 40.sp)
             Text("lu", color = gold, fontWeight = FontWeight.Bold, fontSize = 40.sp)
         }
-        Spacer(Modifier.height(8.dp))
-        val tag = part(1050f, 420f)
-        Text("Every rupee, tracked on your phone.", color = ZColor.Muted, fontSize = 14.sp, textAlign = TextAlign.Center,
-            modifier = Modifier.graphicsLayer { alpha = tag; translationY = (1f - tag) * 14.dp.toPx() })
     }
 }
 
 // The small line at the bottom of the start screen.
-@Composable internal fun SplashFooter(modifier: Modifier) {
-    val t = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { delay(1200); t.animateTo(1f, androidx.compose.animation.core.tween(400)) }
-    Text("Private · works offline", color = ZColor.Muted, fontSize = 12.sp, letterSpacing = 0.6.sp,
-        modifier = modifier.graphicsLayer { alpha = t.value })
-}

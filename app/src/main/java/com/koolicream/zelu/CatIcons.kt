@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.PriorityHigh
-import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BeachAccess
 import androidx.compose.material.icons.rounded.Bolt
@@ -93,7 +93,7 @@ object CatIcons {
         "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.LocalAtm,
         "Wallet" to Icons.Rounded.AccountBalanceWallet, "Home services" to Icons.Rounded.Handyman,
         "Donation" to Icons.Rounded.VolunteerActivism, "Transfer" to Icons.Rounded.SwapHoriz,
-        "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.MoneyOff, "Income" to Icons.Rounded.ArrowDownward,
+        "Card bill" to Icons.Rounded.CreditCard, "Bank charges" to Icons.Rounded.MoneyOff, "Income" to Icons.Rounded.Savings,
         "Refund" to Icons.AutoMirrored.Rounded.Undo, "Milk & Dairy" to Icons.Rounded.LocalDrink,
         "Internet" to Icons.Rounded.Wifi, "Mobile" to Icons.Rounded.PhoneAndroid,
         "Laundry" to Icons.Rounded.LocalLaundryService, "Maid" to Icons.Rounded.CleaningServices,
@@ -107,7 +107,7 @@ object CatIcons {
     // Icon for a category (standard or custom), or null to fall back to a letter.
     fun forCategory(name: String): ImageVector? {
         byCategory[name]?.let { return it }
-        if (name in IncomeCats.custom) return Icons.Rounded.ArrowDownward
+        if (name in IncomeCats.custom) return Icons.Rounded.Payments
         val custom = CustomCats.map[name]?.first ?: return null
         return if (custom.startsWith("i:")) picker[custom.removePrefix("i:")] ?: Icons.Rounded.Category else null
     }

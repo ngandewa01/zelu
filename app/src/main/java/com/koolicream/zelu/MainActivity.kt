@@ -226,11 +226,15 @@ fun ZeluApp() {
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { res ->
-            val smsOk = res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true
+            val askedSms = res.containsKey(Manifest.permission.READ_SMS)
+            val smsOk = if (askedSms) res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true else onbSms
             onbSms = smsOk
             onbNotif = Notifier.enabled(context)
-            // Show the ticks for a moment before moving on.
-            if (smsOk) scope.launch { delay(900); stage = Stage.SCAN; rescan() } else { permDenied = true }
+            // Long enough to watch the preview fill in before Zelu starts reading.
+            // Messages granted moves on to the nudges; answering the nudges (either way) starts the reading.
+            if (askedSms && smsOk) scope.launch { delay(700); stage = Stage.NOTIF }
+            else if (askedSms) permDenied = true
+            else scope.launch { delay(500); stage = Stage.SCAN }
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -246,6 +250,8 @@ fun ZeluApp() {
         val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
             val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_START) inForeground = true
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) inForeground = false
                 if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                     checkNotif()
                     smsOk = hasPerm()
@@ -277,8 +283,8 @@ fun ZeluApp() {
                 return@LaunchedEffect
             }
             stage = Stage.SPLASH
-            delay(1600)                                      // the start animation takes about 1.5 s
-            if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.WELCOME }
+            delay(2300)                                      // the start animation takes about 1.5 s, then it is held to be read
+            if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.PRIVACY }
         }
 
         val accounts = remember(rows) {
@@ -304,8 +310,13 @@ fun ZeluApp() {
         // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
         LaunchedEffect(stage, rows.size, acctConfirmed) {
             if (stage == Stage.APP && !acctConfirmed && rows.isNotEmpty()) stage = Stage.ACCOUNTS
-            if (stage == Stage.DONE && acctConfirmed) stage = Stage.APP
+            // The old "All set" page is gone: whoever was on it carries on to their accounts, or Home.
+            if (stage == Stage.DONE) stage = if (acctConfirmed) Stage.APP else Stage.ACCOUNTS
         }
+        // An older install saved on the screen that has gone: carry on from the privacy picture.
+        LaunchedEffect(Unit) { if (stage == Stage.WELCOME) stage = Stage.PRIVACY }
+        // The first read starts when Setting up opens, and starts again if Android closed the app while it ran.
+        LaunchedEffect(stage) { if (stage == Stage.SCAN && !loading && hasPerm()) rescan() }
         // Working out the accounts reads every payment, so it is done off the main thread.
         val accountBook by androidx.compose.runtime.produceState<List<AccountBook.Acct>?>(null, rows, balances, limits, registry) {
             value = withContext(Dispatchers.IO) { Storage.accountBook(context) }
@@ -324,16 +335,16 @@ fun ZeluApp() {
                 }
             }
             stage != Stage.APP -> {
-                val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
-                val cardsN = accts.count { it.contains(" CC") }
-                OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
-                    smsGiven = onbSms, notifGiven = onbNotif, accountsNext = !acctConfirmed,
-                    onBack = { stage = if (stage == Stage.PERM) Stage.PRIVACY else Stage.WELCOME },
-                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.DONE -> if (acctConfirmed) Stage.APP else Stage.ACCOUNTS; else -> stage } },
-                    onAllow = {
-                        val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
-                        if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
-                        permLauncher.launch(perms.toTypedArray())
+                OnboardFlow(stage, permDenied, scanDone, scanTotal,
+                    smsGiven = onbSms, notifGiven = onbNotif,
+                    onBack = { stage = when (stage) { Stage.NOTIF -> Stage.PERM; else -> Stage.PRIVACY } },
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.NOTIF; Stage.NOTIF -> Stage.SCAN; else -> stage } },
+                    onAllow = { sms, notif ->
+                        val perms = mutableListOf<String>()
+                        if (sms) { perms.add(Manifest.permission.READ_SMS); perms.add(Manifest.permission.RECEIVE_SMS) }
+                        if (notif && Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
+                        // Before Android 13 notifications are on already, so there is nothing to ask.
+                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray()) else stage = Stage.SCAN
                     })
             }
             else -> AppScreen(s, v, accountBook)
@@ -353,7 +364,6 @@ private fun AppScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Ac
         SendersDialog(s)
         CategoriesDialog(s)
         SplitDialog(s)
-        DuplicatesDialog(s)
         EraseDialog(s)
         ReadAgainDialog(s)
         HelpDialog(s)
@@ -380,6 +390,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
         val screen = androidx.compose.ui.platform.LocalContext.current
         val pageScroll = rememberScrollState()
         val pageAlpha = remember { Animatable(1f) }
+        // After the first read, Home is not simply there: it rises into view.
+        val intro = remember { Animatable(if (homeIntro) 0f else 1f) }
+        LaunchedEffect(Unit) { if (homeIntro) { intro.animateTo(1f, tween(900)); homeIntro = false } }
+        // The payments marked on Home's Recent strip: nothing sorted them, a refund may belong to a purchase, or a message came twice.
+        val attention = remember(rows, refundSuggestions, dupOk) { Analytics.attention(rows, refundSuggestions, Analytics.possibleDuplicates(rows, dupOk)) }
         LaunchedEffect(view) {                              // each tab opens at its top and fades in
             pageScroll.scrollTo(0)
             pageAlpha.snapTo(0.35f); pageAlpha.animateTo(1f, tween(180))
@@ -398,15 +413,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     verticalAlignment = Alignment.CenterVertically) {
                     BrandBar()
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TopIcon(if (ZTheme.dark) "Use light theme" else "Use dark theme", onClick = {
-                            ZTheme.dark = !ZTheme.dark
-                            context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
-                                .edit().putBoolean("dark", ZTheme.dark).apply()
-                        }) {
-                            androidx.compose.material3.Icon(
-                                if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                                null, tint = Color(if (ZTheme.dark) 0xFF818CF8 else 0xFFF59E0B), modifier = Modifier.size(21.dp))
-                        }
                         TopIcon(stringResource(R.string.filters), onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
                         TopIcon(stringResource(R.string.menu), onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
                     }
@@ -444,17 +450,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         Text(stringResource(R.string.fix), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
                     }
                 }
-                val dupPairs = remember(rows, dupOk) { Analytics.possibleDuplicates(rows, dupOk) }
-                if (dupPairs.isNotEmpty()) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card).border(1.dp, ZColor.Accent, RoundedCornerShape(16.dp))
-                        .clickable { dupOpen = true }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(plural(dupPairs.size, "possible duplicate", "possible duplicates"), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text(stringResource(R.string.same_amount_account_and_day), color = ZColor.InkSoft, fontSize = 12.sp)
-                        }
-                        Text(stringResource(R.string.review), color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
-                    }
-                }
                 // filter bar: arrows + summary pill + collapsible dropdowns
                 val rangeLabel = when (period) {
                     "week" -> "Last 7 days"; "month" -> Dates.monthLabel(month)
@@ -469,8 +464,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     verticalAlignment = Alignment.CenterVertically) {
                     if (period == "month") NavButton("‹", "Previous month") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                     Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
-                            .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
+                        Modifier.weight(1f).clip(RoundedCornerShape(22.dp))
                             .clickable { rangeOpen = true }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
@@ -585,13 +579,13 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     Text(stringResource(R.string.turn_on), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 // Only the new page is drawn, fading in. A Column (not a Box) so the page's parts stack top to bottom.
-                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value }) {
+                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value * intro.value; translationY = (1f - intro.value) * 48.dp.toPx() }) {
                 val pageView = view
                 when (pageView) {
                     Tab.LEDGER -> LedgerView(rows, shown, f, accounts, month, account, daySel,
-                        { daySel = if (daySel == it) 0 else it }, askOpen, { askOpen = it }, s::decide,
+                        { daySel = if (daySel == it) 0 else it },
                         { detailRow = it }, { title, r -> drill = title to r }, excludeEmi,
-                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, { cb -> newCatCallback = cb }, limits, reminders, { open(Page.Card(it)) }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = Tab.DUES }, reminderState, refundSuggestions, { id, yes -> answerRefund(id, yes) }, budgets = budgets,
+                        repaid, { lendPerson = it }, { borrowPerson = it }, fixed, { budgetsOpen = true }, balances, limits, reminders, { open(Page.Card(it)) }, { excludeEmi = !excludeEmi }, { budgetDlg = true }, { view = Tab.DUES }, reminderState, attention, budgets = budgets,
                         onSetBudget = { amt, noEmi ->
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true

@@ -351,13 +351,15 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: Kind? =
         }
         return
     }
+    BrandLogos.forName(name)?.let { BrandTile(it, size); return }
     val b = brandFor(name)
     val moneyIn = kind == Kind.INCOME || kind == Kind.REFUND
-    // Transfers and person-to-person lending get the banking-style swap icon; money in gets an arrow pointing in.
+    // Transfers and person-to-person lending get the banking-style swap icon. Money in gets its category's icon (salary,
+    // interest...): the arrows on a card already say which way the money went, so the tile does not repeat them.
     val icon = when {
         b != null -> null
         kind == Kind.TRANSFER || kind == Kind.LENT || kind == Kind.BORROWED -> CatIcons.forCategory("Transfer")
-        moneyIn -> Icons.Rounded.SouthWest
+        kind == Kind.REFUND -> CatIcons.forCategory("Refund")
         else -> CatIcons.forCategory(category)
     }
     // Old custom categories may still hold an emoji.
