@@ -429,3 +429,26 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
         }
     }
 }
+
+// One permission: a round icon, its name with "needed" or "optional" under it, and a switch. Tapping the row asks for
+// just that one, so each can be answered on its own.
+@Composable private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, tag: String, on: Boolean, onTap: () -> Unit) {
+    val slide by animateFloatAsState(if (on) 1f else 0f, tween(300), label = "perm-switch")
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, if (on) ZColor.Income else ZColor.Line, RoundedCornerShape(16.dp))
+        .clickable(enabled = !on) { onTap() }.padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = if (on) ZColor.Income else ZColor.Accent, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text(tag.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+        }
+        Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(if (on) ZColor.Income else ZColor.Line)
+            .then(if (on) Modifier.spoken(title) else Unspoken)) {
+            Box(Modifier.padding(3.dp).offset(x = 20.dp * slide).size(22.dp).clip(CircleShape).background(Color.White))
+        }
+    }
+}
