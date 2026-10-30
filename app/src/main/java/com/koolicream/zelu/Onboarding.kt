@@ -163,7 +163,6 @@ import kotlinx.coroutines.launch
             }
             }
         }
-        if (stage == Stage.SPLASH) SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
     }
 }
 

@@ -95,7 +95,7 @@ object ZeluMark {
 private val FULL = floatArrayOf(1f, 1f, 1f)
 
 // The start screen, animated (about 1.5 s): the tile pops in, the Z and its two lines draw themselves, then the name,
-// the line under it and "Private". Phones with animations turned off show the finished screen.
+// and the line under it. Phones with animations turned off show the finished screen.
 @Composable internal fun SplashBrand() {
     val t = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(Unit) { t.animateTo(1500f, androidx.compose.animation.core.tween(1500, easing = androidx.compose.animation.core.LinearEasing)) }
@@ -122,9 +122,3 @@ private val FULL = floatArrayOf(1f, 1f, 1f)
 }
 
 // The small line at the bottom of the start screen.
-@Composable internal fun SplashFooter(modifier: Modifier) {
-    val t = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { delay(1200); t.animateTo(1f, androidx.compose.animation.core.tween(400)) }
-    Text("Private", color = ZColor.Muted, fontSize = 12.sp, letterSpacing = 0.6.sp,
-        modifier = modifier.graphicsLayer { alpha = t.value })
-}
