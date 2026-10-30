@@ -28,22 +28,4 @@ class AttentionTest {
         assertEquals(Attention.REFUND, marks["r"])
         assertEquals(null, marks["p"])
     }
-
-    @Test
-    fun theStripShowsTheBiggestMarkedPaymentsFirstThenTheNewest() {
-        val newest = (1..12).map { row("n$it", it.toDouble()) }            // newest first
-        val old = row("old", 5000.0, category = "Unknown")
-        val older = row("older", 700.0, category = "Unknown")
-        val marks = Analytics.attention(newest + old + older, emptyList(), emptyList())
-        val strip = Analytics.recentStrip(newest + old + older, marks).map { it.id }
-        assertEquals(listOf("old", "older", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8"), strip)
-    }
-
-    @Test
-    fun theStripHoldsAtMostThreeMarkedPaymentsAndNeverShowsOneTwice() {
-        val rows = (1..6).map { row("u$it", it * 100.0, category = "Unknown") }
-        val strip = Analytics.recentStrip(rows, Analytics.attention(rows, emptyList(), emptyList())).map { it.id }
-        assertEquals(listOf("u6", "u5", "u4", "u1", "u2", "u3"), strip.take(6))
-        assertEquals(strip.distinct(), strip)
-    }
 }

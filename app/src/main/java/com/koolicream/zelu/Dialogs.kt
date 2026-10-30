@@ -498,7 +498,7 @@ import androidx.compose.ui.window.Dialog
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Who, how much and when: the page says nothing else until you ask.
-            MerchantTile(t.counterparty ?: t.category, t.category, 52.dp, kind = t.kind)
+            MerchantTile(t.counterparty ?: t.category, if (unsorted) "" else t.category, 52.dp, kind = t.kind)
             Spacer(Modifier.height(10.dp))
             var retitling by remember { mutableStateOf(false) }
             var newTitle by remember { mutableStateOf(t.counterparty ?: "") }

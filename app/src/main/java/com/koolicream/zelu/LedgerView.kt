@@ -232,7 +232,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val heroInk = hero?.let { Color(it.ink) } ?: ZColor.Ink
         val soft = if (onHero) heroInk.copy(alpha = 0.82f) else ZColor.Muted
         val hasBudget = isMonth && budget > 0
-        val heat = if (liveMonth && hasBudget && free > 0) heatColor(free / daysLeft / (budget / Dates.daysInMonth(f.month))) else heatColor(0.0)
+        // heatColor: 2.0 is plenty of room (green), 0.0 is none (red); here, the share of the budget that is left, doubled.
+        val heat = heatColor(if (hasBudget) 2.0 * (1.0 - s.spent / budget) else 2.0)
         val prevMonth = if (isMonth) Dates.shiftMonth(f.month, -1) else ""
         val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
         val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
@@ -246,32 +247,24 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Column(if (hero == null) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
             .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(hero.from), Color(hero.to)))).padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(stringResource(R.string.spent_in) + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "", soft)
-                Spacer(Modifier.weight(1f))
+                // The label gives way to the chip, which stays on one line.
+                Box(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Eyebrow(stringResource(R.string.spent_in) + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "", soft)
+                }
                 if (prevSpent > 0 && s.spent > 0) {
                     val diff = Math.round((s.spent - prevSpent) / prevSpent * 100).toInt()
                     val down = diff <= 0
                     Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (down) ZColor.IncomeSoft else ZColor.WarnSoft)
                         .padding(horizontal = 9.dp, vertical = 4.dp)) {
                         Text((if (down) "↓ " else "↑ ") + Math.abs(diff) + "% vs " + Dates.monthLabel(prevMonth).take(3),
-                            color = if (down) ZColor.Income else ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            color = if (down) ZColor.Income else ZColor.Warn, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                     }
                 }
             }
-            Text(money(s.spent), color = if (onHero) heroInk else ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(10.dp))
-            // The month in one thin bar: spent, still due, free. With no budget it is an empty track, so the card keeps its shape.
-            val spentC = if (onHero) heroInk else heat
-            val parts = when {
-                liveMonth && hasBudget && free > 0 -> listOf(s.spent to spentC, billsLeft to (if (onHero) heroInk.copy(alpha = 0.55f) else ZColor.AmberInk),
-                    free to (if (onHero) Color.Transparent else ZColor.Line))
-                liveMonth && hasBudget -> listOf(budget to spentC, -free to (if (onHero) heroInk.copy(alpha = 0.55f) else HeatOver))
-                hasBudget && s.spent <= budget -> listOf(s.spent to spentC, (budget - s.spent) to Color.Transparent)
-                hasBudget -> listOf(budget to spentC, (s.spent - budget) to (if (onHero) heroInk.copy(alpha = 0.55f) else HeatOver))
-                else -> emptyList()
-            }
-            Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (onHero) heroInk.copy(alpha = 0.22f) else ZColor.Paper)) {
-                parts.filter { it.first > 0.5 }.forEach { (v, c) -> Box(Modifier.weight(v.toFloat()).fillMaxHeight().background(c)) }
+            // The number itself says how much of the budget is gone: 20 steps from green to red. With no budget it stays plain.
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (onHero && hasBudget) Box(Modifier.padding(end = 8.dp, bottom = 14.dp).size(10.dp).clip(CircleShape).background(heat))
+                Text(money(s.spent), color = if (onHero) heroInk else if (hasBudget) heat else ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(12.dp))
             // The pill: what is left a day, how the month ended against the budget, or a way to set one.
@@ -440,8 +433,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     Panel {
         val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
         // A payment that wants a look wears a small mark on its card (red: nothing sorted it; amber: a refund or a message
-        // twice to check). Tapping the card opens the payment, where it is settled. Those come first, so none is lost.
-        val strip = Analytics.recentStrip(recent, attention)
+        // twice to check). Tapping the card opens the payment, where it is settled. The cards stay in date and time order.
+        val strip = recent.take(10)
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.recent))
@@ -469,9 +462,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     // Like a bank app's card: icon, which way the money went, name, amount and when.
                     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                        MerchantTile(t.counterparty ?: "", t.category, 36.dp, t.kind)
-                        Spacer(Modifier.weight(1f))
                         val mark = attention[t.id]
+                        MerchantTile(t.counterparty ?: "", if (mark == Attention.UNKNOWN) "" else t.category, 36.dp, t.kind)
+                        Spacer(Modifier.weight(1f))
                         if (mark != null) {
                             Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) Color(0xFFEF4444) else Color(0xFFD97706))
                                 .spoken(stringResource(when (mark) { Attention.UNKNOWN -> R.string.mark_unsorted; Attention.REFUND -> R.string.mark_refund; Attention.DUPLICATE -> R.string.mark_duplicate })),

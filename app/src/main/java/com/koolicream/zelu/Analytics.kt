@@ -230,13 +230,6 @@ object Analytics {
         return out
     }
 
-    /** The cards on Home's Recent strip: the biggest payments that want a look first (at most [flagged]), then the newest. */
-    fun recentStrip(recent: List<Row>, attention: Map<String, Attention>, limit: Int = 10, flagged: Int = 3): List<Row> {
-        val first = recent.filter { it.id in attention }.sortedByDescending { it.amount }.take(flagged)
-        val ids = first.map { it.id }.toSet()
-        return (first + recent.filter { it.id !in ids }).take(limit)
-    }
-
     fun possibleDuplicates(rows: List<Row>, dismissed: Set<String>): List<Pair<Row, Row>> {
         val out = ArrayList<Pair<Row, Row>>()
         val groups = rows.filter { (it.kind == Kind.EXPENSE || it.kind == Kind.INCOME) && it.category != "EMI" && it.account.isNotBlank() }
