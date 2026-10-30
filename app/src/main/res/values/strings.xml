@@ -409,7 +409,6 @@
     <string name="cat_travel">Travel</string>
     <string name="allow_messages">Allow messages</string>
     <string name="allow_notifications">Allow notifications</string>
-    <string name="not_now">Not now</string>
     <string name="nudge_headline">A nudge when it matters</string>
     <string name="nudge_now">now</string>
     <string name="nudge_bill">Bill due tomorrow</string>
