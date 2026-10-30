@@ -343,7 +343,6 @@
     <string name="unlock">Unlock</string>
     <string name="nothing_leaves_your_phone">It all stays here.</string>
     <string name="continue_label">Continue</string>
-    <string name="two_quick_permissions">Two quick permissions</string>
     <string name="sms_is_needed_to_read">SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.</string>
     <string name="ze">Ze</string>
     <string name="lu">lu</string>
@@ -362,11 +361,6 @@
     <string name="came_back_to_you">Came back to you: %1$s</string>
     <string name="deposits">Deposits</string>
     <string name="welcome_headline">Know where your money goes</string>
-    <string name="perm_messages">Messages</string>
-    <string name="perm_notifications">Notifications</string>
-    <string name="perm_needed">Needed</string>
-    <string name="perm_optional">Optional</string>
-    <string name="perm_allow_both">Allow both</string>
     <string name="setup_reading">Reading messages</string>
     <string name="setup_count">%1$s / %2$s</string>
     <string name="setup_tip1_title">Know what is safe to spend</string>
@@ -408,11 +402,20 @@
     <string name="welcome_sms_amazon">Rs.1,299 spent at AMAZON</string>
     <string name="welcome_sms_netflix">Rs.649 debited, NETFLIX</string>
     <string name="welcome_salary">Salary</string>
-    <string name="perm_preview_title">Spent</string>
-    <string name="perm_preview_bill">Bill due tomorrow</string>
     <string name="setup_art_safe">SAFE TO SPEND</string>
     <string name="cat_food">Food</string>
     <string name="cat_shopping">Shopping</string>
     <string name="cat_bills">Bills</string>
     <string name="cat_travel">Travel</string>
+    <string name="allow_messages">Allow messages</string>
+    <string name="allow_notifications">Allow notifications</string>
+    <string name="not_now">Not now</string>
+    <string name="nudge_headline">A nudge when it matters</string>
+    <string name="nudge_now">now</string>
+    <string name="nudge_bill">Bill due tomorrow</string>
+    <string name="nudge_bill_sub">Airtel · ₹649</string>
+    <string name="nudge_card">Card bill due in 3 days</string>
+    <string name="nudge_card_sub">HDFC Credit · ₹14,200</string>
+    <string name="nudge_safe">₹1,240 safe to spend today</string>
+    <string name="nudge_safe_sub">4 days left this month</string>
 </resources>

@@ -223,8 +223,6 @@ fun ZeluApp() {
             registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
         }
         restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
-        // True when "Allow both" asked; a single row's tap leaves you on the screen to tap the other.
-        var allowBoth by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { res ->
@@ -233,7 +231,10 @@ fun ZeluApp() {
             onbSms = smsOk
             onbNotif = Notifier.enabled(context)
             // Long enough to watch the preview fill in before Zelu starts reading.
-            if (smsOk && allowBoth) scope.launch { delay(2600); stage = Stage.SCAN } else if (askedSms && !smsOk) permDenied = true
+            // Messages granted moves on to the nudges; answering the nudges (either way) starts the reading.
+            if (askedSms && smsOk) scope.launch { delay(700); stage = Stage.NOTIF }
+            else if (askedSms) permDenied = true
+            else scope.launch { delay(500); stage = Stage.SCAN }
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -283,7 +284,7 @@ fun ZeluApp() {
             }
             stage = Stage.SPLASH
             delay(1600)                                      // the start animation takes about 1.5 s
-            if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.WELCOME }
+            if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.PRIVACY }
         }
 
         val accounts = remember(rows) {
@@ -312,6 +313,8 @@ fun ZeluApp() {
             // The old "All set" page is gone: whoever was on it carries on to their accounts, or Home.
             if (stage == Stage.DONE) stage = if (acctConfirmed) Stage.APP else Stage.ACCOUNTS
         }
+        // An older install saved on the screen that has gone: carry on from the privacy picture.
+        LaunchedEffect(Unit) { if (stage == Stage.WELCOME) stage = Stage.PRIVACY }
         // The first read starts when Setting up opens, and starts again if Android closed the app while it ran.
         LaunchedEffect(stage) { if (stage == Stage.SCAN && !loading && hasPerm()) rescan() }
         // Working out the accounts reads every payment, so it is done off the main thread.
@@ -334,15 +337,14 @@ fun ZeluApp() {
             stage != Stage.APP -> {
                 OnboardFlow(stage, permDenied, scanDone, scanTotal,
                     smsGiven = onbSms, notifGiven = onbNotif,
-                    onBack = { stage = if (stage == Stage.PERM) Stage.PRIVACY else Stage.WELCOME },
-                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.SCAN; else -> stage } },
+                    onBack = { stage = when (stage) { Stage.NOTIF -> Stage.PERM; else -> Stage.PRIVACY } },
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.NOTIF; Stage.NOTIF -> Stage.SCAN; else -> stage } },
                     onAllow = { sms, notif ->
-                        allowBoth = sms && notif
                         val perms = mutableListOf<String>()
                         if (sms) { perms.add(Manifest.permission.READ_SMS); perms.add(Manifest.permission.RECEIVE_SMS) }
                         if (notif && Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
-                        if (notif && Build.VERSION.SDK_INT < 33) Notifier.openSettings(context)
-                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray())
+                        // Before Android 13 notifications are on already, so there is nothing to ask.
+                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray()) else stage = Stage.SCAN
                     })
             }
             else -> AppScreen(s, v, accountBook)

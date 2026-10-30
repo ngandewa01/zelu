@@ -86,7 +86,7 @@ import kotlinx.coroutines.launch
     onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit,
     smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
-    val step = when (stage) { Stage.WELCOME -> 0; Stage.PRIVACY -> 1; Stage.PERM -> 2; else -> -1 }
+    val step = when (stage) { Stage.PRIVACY -> 0; Stage.PERM -> 1; Stage.NOTIF -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
         if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }
@@ -124,19 +124,6 @@ import kotlinx.coroutines.launch
         ) { shownStage ->
             Column(Modifier.padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (shownStage) {
-                Stage.WELCOME -> {
-                    // The Zelu icon in the middle. Messages come down from the top: the bank ones go into the icon, OTPs, chats
-                    // and offers fade out on the way. Payment cards with their logos come out below. Then the headline, and the
-                    // screen moves on by itself; a tap anywhere goes sooner.
-                    val t = remember { androidx.compose.animation.core.Animatable(0f) }
-                    LaunchedEffect(Unit) { t.animateTo(2000f, tween(2000, easing = androidx.compose.animation.core.LinearEasing)) }
-                    LaunchedEffect(Unit) { delay(5200); onNext() }
-                    val ms = t.value
-                    val head = androidx.compose.animation.core.FastOutSlowInEasing.transform(((ms - 600f) / 500f).coerceIn(0f, 1f))
-                    WelcomeScene()
-                    Text(stringResource(R.string.welcome_headline), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center, modifier = Modifier.graphicsLayer { alpha = head; translationY = (1f - head) * 16.dp.toPx() })
-                }
                 Stage.PRIVACY -> {
                     // A picture, not a list: every message stays inside the phone, which is locked, and the cloud is crossed out.
                     PrivacyPicture()
@@ -146,22 +133,28 @@ import kotlinx.coroutines.launch
                     Cta(stringResource(R.string.continue_label), onNext)
                 }
                 Stage.PERM -> {
-                    // Two short rows: what, and whether it is needed. The switch shows what the phone has allowed.
-                    Text(stringResource(R.string.two_quick_permissions), color = ZColor.Ink, fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    PermissionPreview(smsGiven, notifGiven)
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PermissionRow(Icons.Rounded.Sms, stringResource(R.string.perm_messages), stringResource(R.string.perm_needed), smsGiven) {
-                            if (!smsGiven) onAllow(true, false)
-                        }
-                        PermissionRow(Icons.Rounded.Notifications, stringResource(R.string.perm_notifications), stringResource(R.string.perm_optional), notifGiven) {
-                            if (!notifGiven) onAllow(false, true)
-                        }
+                    // The ask shows the thing it is asking to do: messages fall into the icon and come out as payments.
+                    WelcomeScene()
+                    Text(stringResource(R.string.welcome_headline), color = ZColor.Ink, fontSize = 27.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(4.dp))
+                    Cta(stringResource(if (smsGiven) R.string.continue_label else R.string.allow_messages)) {
+                        if (smsGiven) onNext() else onAllow(true, false)
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Cta(stringResource(if (smsGiven) R.string.continue_label else R.string.perm_allow_both)) { if (smsGiven) onNext() else onAllow(true, true) }
                     if (denied) Text(stringResource(R.string.sms_is_needed_to_read),
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
+                }
+                Stage.NOTIF -> {
+                    // The same again: the nudges drop in the way they really will, then you say yes or not now.
+                    NudgeScene()
+                    Text(stringResource(R.string.nudge_headline), color = ZColor.Ink, fontSize = 27.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(4.dp))
+                    Cta(stringResource(if (notifGiven) R.string.continue_label else R.string.allow_notifications)) {
+                        if (notifGiven) onNext() else onAllow(false, true)
+                    }
+                    Text(stringResource(R.string.not_now), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onNext() }.padding(horizontal = 18.dp, vertical = 8.dp))
                 }
                 else -> SplashBrand()
             }
@@ -306,8 +299,7 @@ private val WELCOME_SAMPLES = listOf(
             delay(780)
         }
     }
-    // The screen before this one leaves its icon in the middle of the screen, at 92dp. This one takes it from there: the
-    // room above and below opens out and the icon settles to its own size, so the hand-over is one movement, not a jump.
+    // The room above and below opens out around the icon, so the screen arrives as one movement.
     val open = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(Unit) { open.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
     val p = open.value
@@ -315,7 +307,7 @@ private val WELCOME_SAMPLES = listOf(
         Box(Modifier.fillMaxWidth().height((98f * p).dp).fadeEdge(top = true)) {
             msgs.forEach { m -> androidx.compose.runtime.key(m.id) { FallingMessage(m) { msgs.remove(m) } } }
         }
-        LogoMark(92f - 20f * p)
+        LogoMark(76f)
         Spacer(Modifier.height((8f * p).dp))
         Column(Modifier.fillMaxWidth().height((150f * p).dp).fadeEdge(top = false)) {
             cards.forEach { c -> androidx.compose.runtime.key(c.id) { WelcomeCardRow(c) } }
@@ -374,49 +366,6 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
         drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(*stops), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
     }
 
-// A taste of Home above the two rows: the real thing, held back until you allow it, then it lights up. Allowing
-// notifications drops a bill reminder in underneath.
-@Composable private fun PermissionPreview(sms: Boolean, notif: Boolean) {
-    val lit by animateFloatAsState(if (sms) 1f else 0.3f, tween(700, easing = FastOutSlowInEasing), label = "preview-lit")
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))
-        .animateContentSize().padding(14.dp).then(Unspoken)) {
-        Column(Modifier.graphicsLayer { alpha = lit }) {
-            Eyebrow(stringResource(R.string.perm_preview_title))
-            Text(money(662.0), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                PreviewRow("swiggy", "Swiggy", "\u2212" + money(450.0), false)
-                PreviewRow("uber", "Uber", "\u2212" + money(212.0), false)
-                PreviewRow(null, stringResource(R.string.welcome_salary), "+" + money(52000.0), true)
-            }
-        }
-        androidx.compose.animation.AnimatedVisibility(
-            visible = notif,
-            enter = androidx.compose.animation.expandVertically(tween(450, easing = FastOutSlowInEasing)) + fadeIn(tween(450)),
-        ) {
-            Row(Modifier.padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Tile)
-                .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text(money(649.0), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable private fun PreviewRow(brand: String?, name: String, amount: String, income: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (brand != null) BrandTile(brand, 28.dp)
-        else Box(Modifier.size(28.dp).clip(CircleShape).background(ZColor.Income), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Payments, null, tint = Color.White, modifier = Modifier.size(16.dp))
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(amount, color = if (income) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
 // What each Setting-up slide shows: the daily number, a bill reminder, and where the money went.
 @Composable private fun TipArt(which: Int) {
     Box(Modifier.fillMaxWidth().height(132.dp), contentAlignment = Alignment.Center) {
@@ -469,25 +418,42 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
     }
 }
 
-// One permission: a round icon, its name with "needed" or "optional" under it, and a switch. Tapping the row asks for
-// just that one, so each can be answered on its own.
-@Composable private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, tag: String, on: Boolean, onTap: () -> Unit) {
-    val slide by animateFloatAsState(if (on) 1f else 0f, tween(300), label = "perm-switch")
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-        .border(1.dp, if (on) ZColor.Income else ZColor.Line, RoundedCornerShape(16.dp))
-        .clickable(enabled = !on) { onTap() }.padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = if (on) ZColor.Income else ZColor.Accent, modifier = Modifier.size(22.dp))
+// The nudges, dropping in the way they really will. Three, slowly: a nudge when it matters is not a stream.
+private val NUDGES = listOf(
+    R.string.nudge_bill to R.string.nudge_bill_sub,
+    R.string.nudge_card to R.string.nudge_card_sub,
+    R.string.nudge_safe to R.string.nudge_safe_sub,
+)
+
+@Composable private fun NudgeScene() {
+    var shown by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { repeat(NUDGES.size) { delay(if (it == 0) 400L else 1500L); shown++ } }
+    Column(Modifier.fillMaxWidth().height(236.dp).fadeEdge(top = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The newest sits on top and pushes the rest down.
+        NUDGES.indices.reversed().forEach { i ->
+            androidx.compose.runtime.key(i) { NudgeRow(NUDGES[i].first, NUDGES[i].second, shown > i) }
         }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text(tag.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
-        }
-        Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(if (on) ZColor.Income else ZColor.Line)
-            .then(if (on) Modifier.spoken(title) else Unspoken)) {
-            Box(Modifier.padding(3.dp).offset(x = 20.dp * slide).size(22.dp).clip(CircleShape).background(Color.White))
+    }
+}
+
+@Composable private fun NudgeRow(title: Int, sub: Int, visible: Boolean) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = visible,
+        enter = androidx.compose.animation.expandVertically(tween(430, easing = FastOutSlowInEasing)) +
+            androidx.compose.animation.slideInVertically(tween(430, easing = FastOutSlowInEasing)) { -it / 2 } + fadeIn(tween(380)),
+    ) {
+        Row(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFE9E4DD))
+            .padding(horizontal = 12.dp).then(Unspoken), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) { LogoMark(32f) }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(title), color = Color(0xFF1D1B18), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(stringResource(sub), color = Color(0xFF55504A), fontSize = 12.sp, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.nudge_now), color = Color(0xFF77716A), fontSize = 11.sp)
         }
     }
 }
