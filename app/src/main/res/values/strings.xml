@@ -26,14 +26,10 @@
     <string name="patterns">Patterns</string>
     <string name="undo">UNDO</string>
     <string name="transfer">Transfer</string>
-    <string name="safe_to_spend">Safe to spend</string>
-    <string name="your_monthly_budget_minus_what">Your monthly budget, minus what you\'ve spent and bills still due this month, shared over the days left.</string>
     <string name="budget">"Budget "</string>
     <string name="a_day">" a day"</string>
     <string name="over">" over"</string>
     <string name="spent_in">"Spent in "</string>
-    <string name="set_a_monthly_budget">Set a monthly budget ›</string>
-    <string name="you_usually_spend">"You usually spend "</string>
     <string name="your_budget_looks_too_low">Your budget looks too low</string>
     <string name="keep">Keep</string>
     <string name="needs_you_refund">Needs you · refund</string>
@@ -408,4 +404,7 @@
         <item quantity="one">%1$d payment found. Tap to open</item>
         <item quantity="other">%1$d payments found. Tap to open</item>
     </plurals>
+    <string name="under_budget">✓ Under budget</string>
+    <string name="set_budget">Set budget</string>
+    <string name="set_budget_to">Set budget %1$s</string>
 </resources>
