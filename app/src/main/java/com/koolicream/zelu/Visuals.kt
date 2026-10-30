@@ -351,6 +351,7 @@ fun MerchantTile(name: String, category: String, size: Dp = 38.dp, kind: Kind? =
         }
         return
     }
+    BrandLogos.forName(name)?.let { BrandTile(it, size); return }
     val b = brandFor(name)
     val moneyIn = kind == Kind.INCOME || kind == Kind.REFUND
     // Transfers and person-to-person lending get the banking-style swap icon. Money in gets its category's icon (salary,

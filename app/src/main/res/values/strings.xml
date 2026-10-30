@@ -402,4 +402,13 @@
     <string name="privacy_otp">OTP</string>
     <string name="privacy_chat">Chat</string>
     <string name="privacy_picture_description">Zelu reads only bank alerts. OTPs and chats are skipped. Nothing leaves your phone.</string>
+    <string name="welcome_sms_swiggy">Rs.450 spent at SWIGGY</string>
+    <string name="welcome_sms_otp">Your OTP is 4821</string>
+    <string name="welcome_sms_uber">Rs.212 paid to UBER</string>
+    <string name="welcome_sms_chat">Lunch today?</string>
+    <string name="welcome_sms_salary">INR 52,000 credited</string>
+    <string name="welcome_sms_offer">SALE 50% off, shop now</string>
+    <string name="welcome_sms_amazon">Rs.1,299 spent at AMAZON</string>
+    <string name="welcome_sms_netflix">Rs.649 debited, NETFLIX</string>
+    <string name="welcome_salary">Salary</string>
 </resources>
