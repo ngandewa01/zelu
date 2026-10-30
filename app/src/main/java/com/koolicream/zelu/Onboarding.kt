@@ -390,7 +390,7 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
                         Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.nudge_bill), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     Text(money(649.0), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
                 Box(Modifier.fillMaxWidth(0.84f).height(34.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Tile.copy(alpha = 0.45f))
