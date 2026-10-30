@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
@@ -373,39 +374,33 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
         drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(*stops), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
     }
 
-// A faded Home that fills in as you allow things: Messages brings the payments and the total, Notifications a bill reminder.
+// A taste of Home above the two rows: the real thing, held back until you allow it, then it lights up. Allowing
+// notifications drops a bill reminder in underneath.
 @Composable private fun PermissionPreview(sms: Boolean, notif: Boolean) {
-    val fill by animateFloatAsState(if (sms) 1f else 0f, tween(600), label = "preview-fill")
-    val total by animateFloatAsState(if (sms) 662f else 0f, tween(900, delayMillis = 500), label = "preview-total")
-    val bell by animateFloatAsState(if (notif) 1f else 0f, tween(500), label = "preview-bell")
+    val lit by animateFloatAsState(if (sms) 1f else 0.3f, tween(700, easing = FastOutSlowInEasing), label = "preview-lit")
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))
-        .padding(14.dp).then(Unspoken)) {
-        Eyebrow(stringResource(R.string.perm_preview_title))
-        Text(if (total > 0.5f) money(total.toDouble()) else "\u20B9 \u2013\u2013", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Box {
-            // Before Messages: grey bars where the payments will be.
-            Column(Modifier.graphicsLayer { alpha = 1f - fill }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(3) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(28.dp).clip(CircleShape).background(ZColor.Tile))
-                        Spacer(Modifier.width(10.dp))
-                        Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line))
-                    }
-                }
-            }
-            Column(Modifier.graphicsLayer { alpha = fill }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        .animateContentSize().padding(14.dp).then(Unspoken)) {
+        Column(Modifier.graphicsLayer { alpha = lit }) {
+            Eyebrow(stringResource(R.string.perm_preview_title))
+            Text(money(662.0), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 PreviewRow("swiggy", "Swiggy", "\u2212" + money(450.0), false)
                 PreviewRow("uber", "Uber", "\u2212" + money(212.0), false)
                 PreviewRow(null, stringResource(R.string.welcome_salary), "+" + money(52000.0), true)
             }
         }
-        Row(Modifier.padding(top = 10.dp).graphicsLayer { alpha = bell }.clip(RoundedCornerShape(12.dp)).background(ZColor.Tile)
-            .padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text(money(649.0), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = notif,
+            enter = androidx.compose.animation.expandVertically(tween(450, easing = FastOutSlowInEasing)) + fadeIn(tween(450)),
+        ) {
+            Row(Modifier.padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Tile)
+                .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(money(649.0), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
