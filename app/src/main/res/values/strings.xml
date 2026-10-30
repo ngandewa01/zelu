@@ -364,9 +364,6 @@
     <string name="deposits">Deposits</string>
     <string name="welcome_headline">Know where your money goes</string>
     <string name="welcome_sub">Automatic. Private. On your phone.</string>
-    <string name="privacy_reads_alerts">Reads bank alerts only</string>
-    <string name="privacy_skips_otps">Ignores OTPs and chats</string>
-    <string name="privacy_no_login">No account, no login</string>
     <string name="perm_messages">Messages</string>
     <string name="perm_notifications">Notifications</string>
     <string name="perm_needed">Needed</string>
@@ -401,4 +398,8 @@
     <string name="n_numbers">%1$d numbers</string>
     <string name="joined_label">Joined</string>
     <string name="could_be_same">Could be the same</string>
+    <string name="privacy_bank_alert">Bank alert</string>
+    <string name="privacy_otp">OTP</string>
+    <string name="privacy_chat">Chat</string>
+    <string name="privacy_picture_description">Zelu reads only bank alerts. OTPs and chats are skipped. Nothing leaves your phone.</string>
 </resources>

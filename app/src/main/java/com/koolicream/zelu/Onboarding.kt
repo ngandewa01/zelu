@@ -15,8 +15,10 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Sms
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.PersonOff
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -108,15 +110,10 @@ import kotlinx.coroutines.delay
                     Box(Modifier.graphicsLayer { alpha = go }) { Cta(stringResource(R.string.get_started), onNext) }
                 }
                 Stage.PRIVACY -> {
-                    // Three short lines with an icon each: nobody reads a list. The headline carries the promise.
+                    // A picture, not a list: the cloud is crossed out, the bank alert comes in, OTPs and chats stay out.
+                    PrivacyPicture()
                     Text(stringResource(R.string.nothing_leaves_your_phone), color = ZColor.Ink, fontSize = 28.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(6.dp))
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        PrivacyPoint(Icons.Rounded.Sms, stringResource(R.string.privacy_reads_alerts))
-                        PrivacyPoint(Icons.Rounded.Block, stringResource(R.string.privacy_skips_otps))
-                        PrivacyPoint(Icons.Rounded.PersonOff, stringResource(R.string.privacy_no_login))
-                    }
                     Spacer(Modifier.height(10.dp))
                     Cta(stringResource(R.string.continue_label), onNext)
                 }
@@ -142,16 +139,35 @@ import kotlinx.coroutines.delay
     }
 }
 
-// One privacy point: a round icon and a few words, large enough to read at a glance.
-@Composable private fun PrivacyPoint(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
+// The privacy promise as a picture: no cloud, a locked phone, and three kinds of message with what happens to each.
+@Composable private fun PrivacyPicture() {
+    var shown by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { repeat(3) { delay(450); shown++ } }
+    Column(Modifier.fillMaxWidth().spoken(stringResource(R.string.privacy_picture_description)),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Icon(Icons.Rounded.CloudOff, null, tint = ZColor.Muted, modifier = Modifier.size(48.dp))
+        Box(Modifier.size(width = 132.dp, height = 150.dp).clip(RoundedCornerShape(26.dp)).background(ZColor.Card)
+            .border(2.dp, ZColor.Ink, RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(64.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Lock, null, tint = ZColor.Accent, modifier = Modifier.size(32.dp))
+            }
         }
-        Spacer(Modifier.width(14.dp))
-        Text(text, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrivacyChip(Icons.Rounded.Check, R.string.privacy_bank_alert, true, shown > 0)
+            PrivacyChip(Icons.Rounded.VisibilityOff, R.string.privacy_otp, false, shown > 1)
+            PrivacyChip(Icons.Rounded.VisibilityOff, R.string.privacy_chat, false, shown > 2)
+        }
+    }
+}
+
+@Composable private fun PrivacyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Int, ok: Boolean, visible: Boolean) {
+    val a by animateFloatAsState(if (visible) 1f else 0f, tween(400), label = "privacy-chip")
+    val tint = if (ok) ZColor.Income else ZColor.Muted
+    Row(Modifier.graphicsLayer { alpha = a; translationY = (1f - a) * 12.dp.toPx() }.clip(RoundedCornerShape(20.dp))
+        .background(tint.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(label), color = if (ok) ZColor.Ink else ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Unspoken)
     }
 }
 
