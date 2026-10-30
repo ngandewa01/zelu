@@ -205,7 +205,7 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(MONEY, "Investments", "EPF, mutual funds, SIPs", Icons.AutoMirrored.Rounded.ShowChart, ZColor.Income,
                 "epf nps mutual fund stocks") { shut(); view = Tab.INVEST; daySel = 0 })
 
-            add(Entry(ACCOUNTS, "Your accounts", "Join duplicates, say what each one is, remove what isn't yours",
+            add(Entry(ACCOUNTS, "Linked accounts", "Join, split or fix an account",
                 Icons.Rounded.AccountBalance, ZColor.Accent, "bank card loan merge join duplicate remove") { shut(); stage = Stage.ACCOUNTS })
             if (removed > 0) add(Entry(ACCOUNTS, "Bring back removed accounts", "removed hidden", Icons.Rounded.Restore,
                 ZColor.Muted, "hidden restore declined", value = "$removed") {
@@ -665,7 +665,7 @@ private fun shortName(e: Entry): String = when (e.title) {
     "Dark theme" -> if (e.on == true) "Dark on" else "Dark"
     "Theme colours" -> "Colours"
     "Budgets by category" -> "Budgets"
-    "Your accounts" -> "Accounts"
+    "Linked accounts" -> "Accounts"
     "Export spending (CSV)" -> "Export"
     "Missed messages" -> "Missed"
     "Banks Zelu doesn't know" -> "New bank"
