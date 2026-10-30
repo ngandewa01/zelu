@@ -123,7 +123,7 @@ import kotlinx.coroutines.launch
                     // Two short rows: what, and whether it is needed. The switch shows what the phone has allowed.
                     Text(stringResource(R.string.two_quick_permissions), color = ZColor.Ink, fontSize = 28.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(6.dp))
+                    PermissionPreview(smsGiven, notifGiven)
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         PermissionRow(Icons.Rounded.Sms, stringResource(R.string.perm_messages), stringResource(R.string.perm_needed), smsGiven)
                         PermissionRow(Icons.Rounded.Notifications, stringResource(R.string.perm_notifications), stringResource(R.string.perm_optional), notifGiven)
@@ -342,3 +342,52 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
             else arrayOf(0f to Color.Black, 0.62f to Color.Black, 1f to Color.Transparent)
         drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(*stops), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
     }
+
+// A faded Home that fills in as you allow things: Messages brings the payments and the total, Notifications a bill reminder.
+@Composable private fun PermissionPreview(sms: Boolean, notif: Boolean) {
+    val fill by animateFloatAsState(if (sms) 1f else 0f, tween(600), label = "preview-fill")
+    val total by animateFloatAsState(if (sms) 662f else 0f, tween(900, delayMillis = 500), label = "preview-total")
+    val bell by animateFloatAsState(if (notif) 1f else 0f, tween(500), label = "preview-bell")
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))
+        .padding(14.dp).then(Unspoken)) {
+        Eyebrow(stringResource(R.string.perm_preview_title))
+        Text(if (total > 0.5f) money(total.toDouble()) else "\u20B9 \u2013\u2013", color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Box {
+            // Before Messages: grey bars where the payments will be.
+            Column(Modifier.graphicsLayer { alpha = 1f - fill }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(28.dp).clip(CircleShape).background(ZColor.Tile))
+                        Spacer(Modifier.width(10.dp))
+                        Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line))
+                    }
+                }
+            }
+            Column(Modifier.graphicsLayer { alpha = fill }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PreviewRow("swiggy", "Swiggy", "\u2212" + money(450.0), false)
+                PreviewRow("uber", "Uber", "\u2212" + money(212.0), false)
+                PreviewRow(null, stringResource(R.string.welcome_salary), "+" + money(52000.0), true)
+            }
+        }
+        Row(Modifier.padding(top = 10.dp).graphicsLayer { alpha = bell }.clip(RoundedCornerShape(12.dp)).background(ZColor.Tile)
+            .padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(money(649.0), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable private fun PreviewRow(brand: String?, name: String, amount: String, income: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (brand != null) BrandTile(brand, 28.dp)
+        else Box(Modifier.size(28.dp).clip(CircleShape).background(ZColor.Income), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Payments, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(amount, color = if (income) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}

@@ -114,6 +114,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var scanTotal by mutableStateOf(0)
     // False while the app is in the background, so a long first read can say it is finished with a notification.
     var inForeground = true
+    // True from the end of the first read until Home has finished rising into view.
+    var homeIntro by mutableStateOf(false)
     var type by saved("type", "all")
     var cat by saved("cat", "All")
     var excludeEmi by saved("excludeEmi", false)
@@ -338,6 +340,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     // opens. If the person left the app while it read, a notification says it is ready.
     private fun finishFirstRun() {
         scanDone = scanTotal
+        homeIntro = true
         scope.launch {
             if (inForeground) delay(700) else if (Notifier.enabled(context)) Notifier.notifyReady(context, rows.size)
             confirmAccounts()

@@ -382,6 +382,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
         val screen = androidx.compose.ui.platform.LocalContext.current
         val pageScroll = rememberScrollState()
         val pageAlpha = remember { Animatable(1f) }
+        // After the first read, Home is not simply there: it rises into view.
+        val intro = remember { Animatable(if (homeIntro) 0f else 1f) }
+        LaunchedEffect(Unit) { if (homeIntro) { intro.animateTo(1f, tween(900)); homeIntro = false } }
         // The payments marked on Home's Recent strip: nothing sorted them, a refund may belong to a purchase, or a message came twice.
         val attention = remember(rows, refundSuggestions, dupOk) { Analytics.attention(rows, refundSuggestions, Analytics.possibleDuplicates(rows, dupOk)) }
         LaunchedEffect(view) {                              // each tab opens at its top and fades in
@@ -568,7 +571,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     Text(stringResource(R.string.turn_on), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 // Only the new page is drawn, fading in. A Column (not a Box) so the page's parts stack top to bottom.
-                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value }) {
+                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = pageAlpha.value * intro.value; translationY = (1f - intro.value) * 48.dp.toPx() }) {
                 val pageView = view
                 when (pageView) {
                     Tab.LEDGER -> LedgerView(rows, shown, f, accounts, month, account, daySel,

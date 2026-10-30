@@ -411,4 +411,6 @@
     <string name="welcome_sms_amazon">Rs.1,299 spent at AMAZON</string>
     <string name="welcome_sms_netflix">Rs.649 debited, NETFLIX</string>
     <string name="welcome_salary">Salary</string>
+    <string name="perm_preview_title">Spent</string>
+    <string name="perm_preview_bill">Bill due tomorrow</string>
 </resources>
