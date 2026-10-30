@@ -111,14 +111,18 @@ import kotlinx.coroutines.launch
             transitionSpec = {
                 // The opening screen holds the icon in the middle and Welcome keeps it there, so it dissolves rather than
                 // sliding away; from Welcome on, each screen glides out as the next glides in.
+                // One screen leaves before the next arrives. Overlapping them put two half-faded screens on top of each
+                // other, which read as a mess; this hands over cleanly.
                 val handover = initialState == Stage.SPLASH || targetState == Stage.SPLASH
-                val comesIn = if (handover) fadeIn(tween(500))
-                    else slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))
-                val goesOut = if (handover) fadeOut(tween(500))
-                    else slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300))
+                val leaving = if (handover) 220 else 190
+                val comesIn = if (handover) fadeIn(tween(420, delayMillis = leaving))
+                    else slideInHorizontally(tween(460, delayMillis = leaving, easing = FastOutSlowInEasing)) { it / 5 } +
+                        fadeIn(tween(360, delayMillis = leaving))
+                val goesOut = if (handover) fadeOut(tween(leaving))
+                    else slideOutHorizontally(tween(leaving, easing = FastOutSlowInEasing)) { -it / 6 } + fadeOut(tween(leaving))
                 // Nothing is clipped while the box grows from one screen's size to the next.
                 ContentTransform(comesIn, goesOut,
-                    sizeTransform = SizeTransform(clip = false) { _, _ -> tween(520, easing = FastOutSlowInEasing) })
+                    sizeTransform = SizeTransform(clip = false) { _, _ -> tween(460, delayMillis = leaving, easing = FastOutSlowInEasing) })
             },
             label = "onboarding",
         ) { shownStage ->
