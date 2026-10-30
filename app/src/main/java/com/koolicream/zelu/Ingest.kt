@@ -20,7 +20,8 @@ object Ingest {
 
     // Parses and classifies raw SMS, then stores the new transactions.
     @Synchronized
-    fun ingest(context: Context, raw: List<RawSms>): Result = store(context, read(context, raw), replace = false)
+    fun ingest(context: Context, raw: List<RawSms>, onProgress: ((done: Int, total: Int) -> Unit)? = null): Result =
+        store(context, read(context, raw, onProgress), replace = false)
 
     /**
      * Reads the inbox afresh and replaces what was stored (a new parser version, or "Read everything again"). Payments,
@@ -28,11 +29,11 @@ object Ingest {
      * stored list is replaced in one save, so nothing is lost if the phone stops halfway.
      */
     @Synchronized
-    fun rebuild(context: Context, inbox: List<RawSms>): Result {
+    fun rebuild(context: Context, inbox: List<RawSms>, onProgress: ((done: Int, total: Int) -> Unit)? = null): Result {
         val stored = Storage.storedRows(context)
         val plan = Rebuild.plan(inbox, stored, Storage.loadMandates(context), Storage.storedReminders(context))
         Storage.migrateCreditIds(context, stored)
-        val p = read(context, inbox + plan.messages)
+        val p = read(context, inbox + plan.messages, onProgress)
         p.rows.addAll(plan.keep)
         return store(context, p, replace = true)
     }
@@ -46,7 +47,10 @@ object Ingest {
         return Result(p.rows.size, added, p.rows, p.balanceHits)
     }
 
-    private fun read(context: Context, raw: List<RawSms>): Parsed {
+    /** How many messages are read between two reports of progress: often enough to look alive, rarely enough to cost nothing. */
+    private const val PROGRESS_STEP = 100
+
+    private fun read(context: Context, raw: List<RawSms>, onProgress: ((done: Int, total: Int) -> Unit)? = null): Parsed {
         Storage.loadTrust(context)
         val settings = Storage.loadSettings(context)
         val own = Storage.splitList(settings.ownAccounts)
@@ -59,7 +63,8 @@ object Ingest {
         val txnBalances = p.txnBalances
         val limits = p.limits
         val balanceHits = p.balanceHits
-        for (msg in raw) {
+        for ((i, msg) in raw.withIndex()) {
+            if (onProgress != null && i % PROGRESS_STEP == 0) onProgress(i, raw.size)
             // 1) Trust the sender first: accept only bank/financial sender IDs
             //    (HDFCBK, ICICIB, SBIINB…). Personal numbers, astrology apps,
             //    lottery and fake-KYC senders are not banks — drop before parsing.

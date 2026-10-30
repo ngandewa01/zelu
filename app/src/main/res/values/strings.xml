@@ -366,15 +366,7 @@
     <string name="nothing_leaves_your_phone">Nothing leaves your phone.</string>
     <string name="continue_label">Continue</string>
     <string name="two_quick_permissions">Two quick permissions</string>
-    <string name="why_zelu_asks_for_sms">Why Zelu asks for SMS</string>
-    <string name="your_bank_already_texts_you">Your bank already texts you every payment. Zelu reads those texts to find the amount, who was paid and which account, so you never type anything.</string>
-    <string name="it_skips_otps_and_personal">It skips OTPs and personal chats. Your messages are never sent anywhere: Zelu has no ads and no internet access.</string>
     <string name="sms_is_needed_to_read">SMS is needed to read your bank alerts. Allow it in Settings › Apps › Zelu › Permissions, then reopen Zelu.</string>
-    <string name="finding_your_payments">Finding your payments</string>
-    <string name="usually_a_few_seconds">Usually a few seconds.</string>
-    <string name="all_set">All set.</string>
-    <string name="next_tick_which_of_these">Next, tick which of these are yours.</string>
-    <string name="read_on_this_phone_nothing">Read on this phone. Nothing was uploaded.</string>
     <string name="ze">Ze</string>
     <string name="lu">lu</string>
     <string name="closed_reopen">❄ Closed · Reopen</string>
@@ -396,4 +388,24 @@
     <string name="privacy_reads_alerts">Reads bank alerts only</string>
     <string name="privacy_skips_otps">Ignores OTPs and chats</string>
     <string name="privacy_no_login">No account, no login</string>
+    <string name="perm_messages">Messages</string>
+    <string name="perm_notifications">Notifications</string>
+    <string name="perm_needed">Needed</string>
+    <string name="perm_optional">Optional</string>
+    <string name="perm_allow_both">Allow both</string>
+    <string name="perm_allowed">Allowed</string>
+    <string name="setup_reading">Reading messages</string>
+    <string name="setup_count">%1$s / %2$s</string>
+    <string name="setup_tip1_title">Know what is safe to spend</string>
+    <string name="setup_tip1_sub">Every day, worked out for you</string>
+    <string name="setup_tip2_title">Never miss a bill</string>
+    <string name="setup_tip2_sub">A reminder before it is due</string>
+    <string name="setup_tip3_title">See where it all goes</string>
+    <string name="setup_tip3_sub">By shop and by category</string>
+    <string name="notif_ready_title">Zelu is ready</string>
+    <string name="notif_ready_channel">Setup</string>
+    <plurals name="notif_ready_text">
+        <item quantity="one">%1$d payment found. Tap to open</item>
+        <item quantity="other">%1$d payments found. Tap to open</item>
+    </plurals>
 </resources>

@@ -10,22 +10,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,7 +34,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,9 +67,9 @@ import kotlinx.coroutines.delay
 }
 
 @Composable internal fun OnboardFlow(
-    stage: Stage, denied: Boolean, stats: Triple<Int, Int, Int>,
+    stage: Stage, denied: Boolean, scanDone: Int, scanTotal: Int,
     onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
-    smsGiven: Boolean = false, notifGiven: Boolean = false, accountsNext: Boolean = false,
+    smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
     val step = when (stage) { Stage.WELCOME -> 0; Stage.PRIVACY -> 1; Stage.PERM -> 2; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
@@ -121,87 +121,24 @@ import kotlinx.coroutines.delay
                     Cta(stringResource(R.string.continue_label), onNext)
                 }
                 Stage.PERM -> {
-                    Text(stringResource(R.string.two_quick_permissions), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    listOf(
-                        "SMS" to "Read your bank alerts and turn them into spends and bills.",
-                        "Notifications" to "Bill due reminders and a nudge for each payment. Optional.",
-                    ).forEach { (t, d) ->
-                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-                            .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp)) {
-                            val given = if (t == "SMS") smsGiven else notifGiven
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(t, color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                if (given) Box(Modifier.size(24.dp).clip(CircleShape).background(ZColor.Income).spoken("Allowed"), contentAlignment = Alignment.Center) {
-                                    Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Unspoken)
-                                }
-                            }
-                            MutedText(d, 13)
-                        }
+                    // Two short rows: what, and whether it is needed. The switch shows what the phone has allowed.
+                    Text(stringResource(R.string.two_quick_permissions), color = ZColor.Ink, fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(6.dp))
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PermissionRow(Icons.Rounded.Sms, stringResource(R.string.perm_messages), stringResource(R.string.perm_needed), smsGiven)
+                        PermissionRow(Icons.Rounded.Notifications, stringResource(R.string.perm_notifications), stringResource(R.string.perm_optional), notifGiven)
                     }
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(stringResource(R.string.why_zelu_asks_for_sms), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.your_bank_already_texts_you), color = ZColor.InkSoft, fontSize = 13.sp)
-                        Text(stringResource(R.string.it_skips_otps_and_personal), color = ZColor.InkSoft, fontSize = 13.sp)
-                    }
-                    Cta(if (smsGiven) "Allowed" else "Allow both", onAllow)
+                    Spacer(Modifier.height(6.dp))
+                    Cta(stringResource(if (smsGiven) R.string.perm_allowed else R.string.perm_allow_both), onAllow)
                     if (denied) Text(stringResource(R.string.sms_is_needed_to_read),
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
-                Stage.SCAN -> {
-                    // "Reading your messages" worried people. Say what is looked for, what is skipped, and where it stays,
-                    // one line at a time while the alerts are read.
-                    var lines by remember { mutableStateOf(0) }
-                    LaunchedEffect(Unit) { repeat(3) { delay(500); lines++ } }
-                    LogoMark(66f)
-                    Text(stringResource(R.string.finding_your_payments), color = ZColor.Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center)
-                    MutedText(stringResource(R.string.usually_a_few_seconds), 14)
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-                        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("Only bank, card and UPI alerts", "OTPs and personal chats skipped", "Stays on this phone").forEachIndexed { i, t ->
-                            val a by animateFloatAsState(if (lines > i) 1f else 0f, tween(400), label = "line$i")
-                            Box(Modifier.graphicsLayer { alpha = a }) { PromiseRow(t, true) }
-                        }
-                    }
-                    CircularProgressIndicator(color = ZColor.Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
-                }
-                Stage.DONE -> {
-                    var go by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) { go = true }
-                    val p by animateIntAsState(if (go) stats.first else 0, tween(1400), label = "p")
-                    val b by animateIntAsState(if (go) stats.second else 0, tween(1400), label = "b")
-                    val c by animateIntAsState(if (go) stats.third else 0, tween(1400), label = "c")
-                    Text(stringResource(R.string.all_set), color = ZColor.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("%,d".format(p), color = ZColor.Accent, fontSize = 52.sp, fontWeight = FontWeight.Bold)
-                        Text(if (stats.first == 1) "payment found" else "payments found", color = ZColor.Muted, fontSize = 15.sp)
-                    }
-                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatTile(b, if (b == 1) "bank account" else "bank accounts", Modifier.weight(1f))
-                        StatTile(c, if (c == 1) "card" else "cards", Modifier.weight(1f))
-                    }
-                    if (accountsNext) MutedText(stringResource(R.string.next_tick_which_of_these), 14)
-                    Cta(if (accountsNext) "Check my accounts" else "Open Zelu", onNext)
-                    Text(stringResource(R.string.read_on_this_phone_nothing), color = ZColor.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
-                }
+                Stage.SCAN -> SettingUp(scanDone, scanTotal)
                 else -> SplashBrand()
             }
         }
         if (stage == Stage.SPLASH) SplashFooter(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
-    }
-}
-
-// One line of what Zelu does with your messages: a round tick (or cross), then the words.
-@Composable private fun PromiseRow(text: String, yes: Boolean) {
-    val tint = if (yes) ZColor.Income else ZColor.Warn
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(22.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(if (yes) Icons.Rounded.Check else Icons.Rounded.Close, null, tint = tint, modifier = Modifier.size(14.dp))
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(text, color = ZColor.InkSoft, fontSize = 14.sp, modifier = Modifier.weight(1f))
     }
 }
 
@@ -215,16 +152,6 @@ import kotlinx.coroutines.delay
         }
         Spacer(Modifier.width(14.dp))
         Text(text, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-    }
-}
-
-// A count with its name under it, for the "All set" screen; two side by side are the same size.
-@Composable private fun StatTile(n: Int, label: String, modifier: Modifier) {
-    Column(modifier.fillMaxHeight().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(vertical = 14.dp, horizontal = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(n.toString(), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = ZColor.Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -249,6 +176,75 @@ import kotlinx.coroutines.delay
         }
         Box(Modifier.graphicsLayer { alpha = part(0f, 450f); scaleX = 0.6f + 0.4f * pop; scaleY = 0.6f + 0.4f * pop }) {
             LogoMark(108f, floatArrayOf(part(300f, 520f), part(700f, 280f), part(840f, 220f)))
+        }
+    }
+}
+
+// One permission: a round icon, its name with "needed" or "optional" under it, and a switch that shows what is allowed.
+@Composable private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, tag: String, on: Boolean) {
+    val slide by animateFloatAsState(if (on) 1f else 0f, tween(300), label = "perm-switch")
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text(tag.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+        }
+        Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(if (on) ZColor.Income else ZColor.Line)
+            .then(if (on) Modifier.spoken(stringResource(R.string.perm_allowed)) else Unspoken)) {
+            Box(Modifier.padding(3.dp).offset(x = 20.dp * slide).size(22.dp).clip(CircleShape).background(Color.White))
+        }
+    }
+}
+
+// The first read: an honest count with a bar, and three short things the app does while you wait.
+@Composable private fun SettingUp(done: Int, total: Int) {
+    val frac by animateFloatAsState(if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f, tween(300), label = "read")
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.setup_reading), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.setup_count, "%,d".format(done), "%,d".format(total)), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        }
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
+            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    SetupTips()
+}
+
+// Three slides that change by themselves while the messages are read.
+@Composable private fun SetupTips() {
+    val tips = listOf(
+        Triple(Icons.Rounded.AccountBalanceWallet, R.string.setup_tip1_title, R.string.setup_tip1_sub),
+        Triple(Icons.Rounded.Receipt, R.string.setup_tip2_title, R.string.setup_tip2_sub),
+        Triple(Icons.Rounded.PieChart, R.string.setup_tip3_title, R.string.setup_tip3_sub),
+    )
+    var at by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(2400); at = (at + 1) % tips.size } }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
+        .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).padding(vertical = 28.dp, horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.animation.Crossfade(targetState = at, animationSpec = tween(500), label = "tip") { i ->
+            val (icon, title, sub) = tips[i]
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(72.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(36.dp))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(stringResource(title), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(stringResource(sub), color = ZColor.Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            tips.indices.forEach { i ->
+                Box(Modifier.height(6.dp).width(if (i == at) 16.dp else 6.dp).clip(CircleShape).background(if (i == at) ZColor.Accent else ZColor.Line))
+            }
         }
     }
 }

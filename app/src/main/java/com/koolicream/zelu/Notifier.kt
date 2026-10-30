@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.toArgb
 object Notifier {
     private const val CHANNEL = "zelu_dues"
     private const val ID = 1001
+    private const val READY_CHANNEL = "zelu_ready"
+    private const val READY_ID = 1002
 
     fun notifyDueSoon(context: Context, count: Int, line: String) {
         if (context is DemoContext) return
@@ -46,6 +48,33 @@ object Notifier {
         } catch (e: Exception) {
             CrashLog.warn("Notifier.notifyDueSoon", e)
             // notifications are best-effort
+        }
+    }
+
+    // The first read of the inbox can take a while: if the person left the app meanwhile, this says it is done.
+    fun notifyReady(context: Context, payments: Int) {
+        if (context is DemoContext) return
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    NotificationChannel(READY_CHANNEL, context.getString(R.string.notif_ready_channel), NotificationManager.IMPORTANCE_DEFAULT),
+                )
+            }
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pi = PendingIntent.getActivity(context, 0, launch, flags)
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                Notification.Builder(context, READY_CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context)
+            builder.setSmallIcon(R.drawable.ic_stat_zelu).setColor(accentInt(context))
+                .setContentTitle(context.getString(R.string.notif_ready_title))
+                .setContentText(context.resources.getQuantityString(R.plurals.notif_ready_text, payments, payments))
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+            nm.notify(READY_ID, hideOnLockScreen(context, builder, READY_CHANNEL).build())
+        } catch (e: Exception) {
+            CrashLog.warn("Notifier.notifyReady", e)
         }
     }
 

@@ -230,7 +230,7 @@ fun ZeluApp() {
             onbSms = smsOk
             onbNotif = Notifier.enabled(context)
             // Show the ticks for a moment before moving on.
-            if (smsOk) scope.launch { delay(900); stage = Stage.SCAN; rescan() } else { permDenied = true }
+            if (smsOk) scope.launch { delay(900); stage = Stage.SCAN } else { permDenied = true }
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -246,6 +246,8 @@ fun ZeluApp() {
         val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
         DisposableEffect(lifecycleOwner) {
             val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_START) inForeground = true
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) inForeground = false
                 if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                     checkNotif()
                     smsOk = hasPerm()
@@ -304,8 +306,11 @@ fun ZeluApp() {
         // First time (or first time after this update): once messages are read, you confirm which accounts are yours.
         LaunchedEffect(stage, rows.size, acctConfirmed) {
             if (stage == Stage.APP && !acctConfirmed && rows.isNotEmpty()) stage = Stage.ACCOUNTS
-            if (stage == Stage.DONE && acctConfirmed) stage = Stage.APP
+            // The old "All set" page is gone: whoever was on it carries on to their accounts, or Home.
+            if (stage == Stage.DONE) stage = if (acctConfirmed) Stage.APP else Stage.ACCOUNTS
         }
+        // The first read starts when Setting up opens, and starts again if Android closed the app while it ran.
+        LaunchedEffect(stage) { if (stage == Stage.SCAN && !loading && hasPerm()) rescan() }
         // Working out the accounts reads every payment, so it is done off the main thread.
         val accountBook by androidx.compose.runtime.produceState<List<AccountBook.Acct>?>(null, rows, balances, limits, registry) {
             value = withContext(Dispatchers.IO) { Storage.accountBook(context) }
@@ -324,12 +329,10 @@ fun ZeluApp() {
                 }
             }
             stage != Stage.APP -> {
-                val accts = rows.map { it.account }.filter { it.isNotBlank() }.distinct()
-                val cardsN = accts.count { it.contains(" CC") }
-                OnboardFlow(stage, permDenied, Triple(rows.size, accts.size - cardsN, cardsN),
-                    smsGiven = onbSms, notifGiven = onbNotif, accountsNext = !acctConfirmed,
+                OnboardFlow(stage, permDenied, scanDone, scanTotal,
+                    smsGiven = onbSms, notifGiven = onbNotif,
                     onBack = { stage = if (stage == Stage.PERM) Stage.PRIVACY else Stage.WELCOME },
-                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.DONE -> if (acctConfirmed) Stage.APP else Stage.ACCOUNTS; else -> stage } },
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; else -> stage } },
                     onAllow = {
                         val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
                         if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")

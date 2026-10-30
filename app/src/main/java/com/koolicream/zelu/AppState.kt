@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -109,6 +110,11 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var spendTab by saved("spendTab", 0)
     var askOpen by mutableStateOf(false) // category picker open for ask
     var loading by mutableStateOf(false)
+    // First-run reading: how many messages are read so far, and how many there are. The Setting up screen shows them.
+    var scanDone by mutableStateOf(0)
+    var scanTotal by mutableStateOf(0)
+    // False while the app is in the background, so a long first read can say it is finished with a notification.
+    var inForeground = true
     var type by saved("type", "all")
     var cat by saved("cat", "All")
     var excludeEmi by saved("excludeEmi", false)
@@ -295,7 +301,10 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
                 val inbox = if (quick && !fresh && since > 0L)
                     SmsReader.readInboxBetween(context, since - 2L * 86_400_000L, System.currentTimeMillis()).take(depth)
                 else SmsReader.readInbox(context, if (fresh) maxOf(depth, 20_000) else depth)
-                added = (if (fresh) Ingest.rebuild(context, inbox) else Ingest.ingest(context, inbox)).added
+                val firstRun = stage == Stage.SCAN
+                val onProgress: ((Int, Int) -> Unit)? = if (firstRun) ({ done, total -> scanDone = done; scanTotal = total }) else null
+                if (firstRun) { scanDone = 0; scanTotal = inbox.size }
+                added = (if (fresh) Ingest.rebuild(context, inbox, onProgress) else Ingest.ingest(context, inbox, onProgress)).added
                 Storage.setDataVersion(context, Storage.PARSER_VERSION)
                 Storage.setReadStamp(context, System.currentTimeMillis(), inbox.filter { Parser.isFinancialSender(it.address) }.maxOfOrNull { it.date } ?: 0L)
             }
@@ -307,8 +316,18 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
                 missed = withContext(Dispatchers.IO) { Ingest.unreadable(context).size }
                 missedCount = missed
             }
-            if (stage == Stage.SCAN) stage = Stage.DONE
+            if (stage == Stage.SCAN) finishFirstRun()
             if (notify) Toast.makeText(context, if (full) "Read everything again" else if (added == 0) "Nothing new in your messages" else plural(added, "new payment", "new payments") + " found", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // The first read ends here. The accounts Zelu found are taken as yours (Settings, Linked accounts, fixes any) and Home
+    // opens. If the person left the app while it read, a notification says it is ready.
+    private fun finishFirstRun() {
+        scanDone = scanTotal
+        scope.launch {
+            if (inForeground) delay(700) else if (Notifier.enabled(context)) Notifier.notifyReady(context, rows.size)
+            confirmAccounts()
         }
     }
 
