@@ -58,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -240,7 +241,7 @@ import kotlinx.coroutines.launch
         val filled = androidx.compose.ui.graphics.Path().apply {
             addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, done, size.height, round))
         }
-        androidx.compose.ui.graphics.drawscope.clipPath(filled) {
+        clipPath(filled) {
             drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(
                 listOf(ZColor.Accent, Color(0xFFEAB308)), endX = size.width),
                 size = androidx.compose.ui.geometry.Size(done, size.height))
