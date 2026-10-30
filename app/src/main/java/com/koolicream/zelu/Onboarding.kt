@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
@@ -29,7 +30,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.using
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
@@ -110,13 +110,14 @@ import kotlinx.coroutines.launch
             transitionSpec = {
                 // The opening screen holds the icon in the middle and Welcome keeps it there, so it dissolves rather than
                 // sliding away; from Welcome on, each screen glides out as the next glides in.
-                val move = if (initialState == Stage.SPLASH || targetState == Stage.SPLASH)
-                    fadeIn(tween(500)) togetherWith fadeOut(tween(500))
-                else
-                    (slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))) togetherWith
-                        (slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300)))
-                // The box is not squeezed from one screen's size to the next: each is drawn at its own size.
-                move using SizeTransform(clip = false) { _, _ -> tween(520, easing = FastOutSlowInEasing) }
+                val handover = initialState == Stage.SPLASH || targetState == Stage.SPLASH
+                val comesIn = if (handover) fadeIn(tween(500))
+                    else slideInHorizontally(tween(520, easing = FastOutSlowInEasing)) { it / 3 } + fadeIn(tween(420))
+                val goesOut = if (handover) fadeOut(tween(500))
+                    else slideOutHorizontally(tween(520, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(300))
+                // Nothing is clipped while the box grows from one screen's size to the next.
+                ContentTransform(comesIn, goesOut,
+                    sizeTransform = SizeTransform(clip = false) { _, _ -> tween(520, easing = FastOutSlowInEasing) })
             },
             label = "onboarding",
         ) { shownStage ->
