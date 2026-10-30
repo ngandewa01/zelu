@@ -209,6 +209,8 @@ object Reconcile {
             }
             return Triple(bank, cc, last4)
         }
+        // "HDFC DC 4421" is a debit card (its digits are the card, not an account).
+        fun isDc(s: String) = s.trim().split(" ").contains("DC")
         // last4 -> (bank -> how many rows name that bank); and whether any row marked it a card.
         val bankCount = HashMap<String, HashMap<String, Int>>()
         val ccForBankLast4 = HashMap<String, Boolean>()
@@ -217,6 +219,7 @@ object Reconcile {
         val ccRows = HashMap<String, Int>()
         val balRows = HashMap<String, Int>()
         for (r in rows) {
+            if (isDc(r.account)) continue
             val (bank, cc, last4) = parse(r.account)
             if (last4.isNotEmpty() && bank.isNotEmpty()) {
                 val m = bankCount.getOrPut(last4) { HashMap() }
@@ -240,6 +243,12 @@ object Reconcile {
         }
         fun canonical(acct: String): String {
             val (bank0, cc0, last4) = parse(acct)
+            if (isDc(acct) && last4.isNotEmpty()) {
+                // A debit card belongs to its bank's savings account when that bank has only one. With two or more it stays
+                // a card of that bank, and joins when a message names the account (never guessed).
+                val only = savingsCount[bank0]?.keys?.singleOrNull()
+                return if (only != null) "$bank0 $only" else "$bank0 DC $last4"
+            }
             if (last4.isEmpty()) {
                 if (bank0.isNotEmpty() && !cc0) {
                     val sav = savingsCount[bank0]?.maxByOrNull { it.value }?.key
