@@ -402,15 +402,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     verticalAlignment = Alignment.CenterVertically) {
                     BrandBar()
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TopIcon(if (ZTheme.dark) "Use light theme" else "Use dark theme", onClick = {
-                            ZTheme.dark = !ZTheme.dark
-                            context.getSharedPreferences("zelu_theme", android.content.Context.MODE_PRIVATE)
-                                .edit().putBoolean("dark", ZTheme.dark).apply()
-                        }) {
-                            androidx.compose.material3.Icon(
-                                if (ZTheme.dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                                null, tint = Color(if (ZTheme.dark) 0xFF818CF8 else 0xFFF59E0B), modifier = Modifier.size(21.dp))
-                        }
                         TopIcon(stringResource(R.string.filters), onClick = { controlsOpen = true }, dot = advActiveTop, dotLabel = "some are on") { FunnelIcon() }
                         TopIcon(stringResource(R.string.menu), onClick = { menuOpen = true }, dot = missedCount > missedSeen, dotLabel = "new messages to check") { MenuIcon() }
                     }
@@ -462,8 +453,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     verticalAlignment = Alignment.CenterVertically) {
                     if (period == "month") NavButton("‹", "Previous month") { month = Dates.shiftMonth(month, -1); daySel = 0 }
                     Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
-                            .border(1.dp, ZColor.Line, RoundedCornerShape(22.dp))
+                        Modifier.weight(1f).clip(RoundedCornerShape(22.dp))
                             .clickable { rangeOpen = true }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
