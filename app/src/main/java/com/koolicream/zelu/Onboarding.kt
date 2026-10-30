@@ -175,7 +175,7 @@ import kotlinx.coroutines.launch
         Triple("MUM", R.string.welcome_sms_chat, false),
     )
     var shown by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { repeat(lines.size) { delay(420); shown++ } }
+    LaunchedEffect(Unit) { repeat(lines.size) { delay(620); shown++ } }
     val closed by animateFloatAsState(if (shown >= lines.size) 1f else 0f,
         tween(600, easing = FastOutSlowInEasing), label = "privacy-lock")
     Column(Modifier.fillMaxWidth().spoken(stringResource(R.string.privacy_picture_description)),
@@ -234,7 +234,7 @@ import kotlinx.coroutines.launch
         Triple(Icons.Rounded.PieChart, R.string.setup_tip3_title, R.string.setup_tip3_sub),
     )
     var at by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { delay(2400); at = (at + 1) % tips.size } }
+    LaunchedEffect(Unit) { while (true) { delay(3400); at = (at + 1) % tips.size } }
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
         .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).padding(vertical = 28.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -303,12 +303,12 @@ private val WELCOME_SAMPLES = listOf(
             msgs.add(WelcomeMsg(id, s.sender, s.text, s.card != null))
             s.card?.let { c ->
                 launch {
-                    delay(1450)
+                    delay(1900)
                     cards.add(0, WelcomeCard(id, c.brand, c.name, c.label, c.amount, c.income))
                     while (cards.size > 3) cards.removeAt(cards.lastIndex)
                 }
             }
-            delay(780)
+            delay(1150)
         }
     }
     // The room above and below opens out around the icon, so the screen arrives as one movement.
@@ -331,7 +331,7 @@ private val WELCOME_SAMPLES = listOf(
 @Composable private fun FallingMessage(m: WelcomeMsg, onDone: () -> Unit) {
     val p = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(Unit) {
-        p.animateTo(1f, tween(if (m.bank) 2000 else 1500, easing = androidx.compose.animation.core.LinearEasing))
+        p.animateTo(1f, tween(if (m.bank) 2600 else 1900, easing = androidx.compose.animation.core.LinearEasing))
         onDone()
     }
     fun lerp(a: Float, b: Float, x: Float) = a + (b - a) * x.coerceIn(0f, 1f)
@@ -439,7 +439,7 @@ private val NUDGES = listOf(
 
 @Composable private fun NudgeScene() {
     var shown by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { repeat(NUDGES.size) { delay(if (it == 0) 400L else 1500L); shown++ } }
+    LaunchedEffect(Unit) { repeat(NUDGES.size) { delay(if (it == 0) 500L else 1900L); shown++ } }
     Column(Modifier.fillMaxWidth().height(236.dp).fadeEdge(top = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // The newest sits on top and pushes the rest down.
         NUDGES.indices.reversed().forEach { i ->

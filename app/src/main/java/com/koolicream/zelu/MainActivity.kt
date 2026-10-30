@@ -283,7 +283,7 @@ fun ZeluApp() {
                 return@LaunchedEffect
             }
             stage = Stage.SPLASH
-            delay(1600)                                      // the start animation takes about 1.5 s
+            delay(2300)                                      // the start animation takes about 1.5 s, then it is held to be read
             if (hasPerm()) { stage = Stage.APP; rescan() } else if (rows.isNotEmpty()) { stage = Stage.APP; smsOk = false } else { stage = Stage.PRIVACY }
         }
 
