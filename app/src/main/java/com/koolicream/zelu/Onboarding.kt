@@ -73,7 +73,7 @@ import kotlinx.coroutines.launch
 
 @Composable internal fun OnboardFlow(
     stage: Stage, denied: Boolean, scanDone: Int, scanTotal: Int,
-    onBack: () -> Unit, onNext: () -> Unit, onAllow: () -> Unit,
+    onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit,
     smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
     val step = when (stage) { Stage.WELCOME -> 0; Stage.PRIVACY -> 1; Stage.PERM -> 2; else -> -1 }
@@ -95,25 +95,19 @@ import kotlinx.coroutines.launch
             when (stage) {
                 Stage.WELCOME -> {
                     // The Zelu icon in the middle. Messages come down from the top: the bank ones go into the icon, OTPs, chats
-                    // and offers fade out on the way. Payment cards with their logos come out below. Then one headline and one line.
+                    // and offers fade out on the way. Payment cards with their logos come out below. Then the headline, and the
+                    // screen moves on by itself; a tap anywhere goes sooner.
                     val t = remember { androidx.compose.animation.core.Animatable(0f) }
                     LaunchedEffect(Unit) { t.animateTo(2000f, tween(2000, easing = androidx.compose.animation.core.LinearEasing)) }
+                    LaunchedEffect(Unit) { delay(5200); onNext() }
                     val ms = t.value
-                    fun part(start: Float, length: Float) =
-                        androidx.compose.animation.core.FastOutSlowInEasing.transform(((ms - start) / length).coerceIn(0f, 1f))
+                    val head = androidx.compose.animation.core.FastOutSlowInEasing.transform(((ms - 600f) / 500f).coerceIn(0f, 1f))
                     WelcomeScene()
-                    val head = part(600f, 500f)
                     Text(stringResource(R.string.welcome_headline), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center, modifier = Modifier.graphicsLayer { alpha = head; translationY = (1f - head) * 16.dp.toPx() })
-                    val sub = part(900f, 500f)
-                    Text(stringResource(R.string.welcome_sub), color = ZColor.Muted, fontSize = 16.sp, textAlign = TextAlign.Center,
-                        modifier = Modifier.graphicsLayer { alpha = sub; translationY = (1f - sub) * 16.dp.toPx() })
-                    Spacer(Modifier.height(6.dp))
-                    val go = part(1300f, 400f)
-                    Box(Modifier.graphicsLayer { alpha = go }) { Cta(stringResource(R.string.get_started), onNext) }
                 }
                 Stage.PRIVACY -> {
-                    // A picture, not a list: the cloud is crossed out, the bank alert comes in, OTPs and chats stay out.
+                    // A picture, not a list: every message stays inside the phone, which is locked, and the cloud is crossed out.
                     PrivacyPicture()
                     Text(stringResource(R.string.nothing_leaves_your_phone), color = ZColor.Ink, fontSize = 28.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
@@ -126,11 +120,15 @@ import kotlinx.coroutines.launch
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     PermissionPreview(smsGiven, notifGiven)
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PermissionRow(Icons.Rounded.Sms, stringResource(R.string.perm_messages), stringResource(R.string.perm_needed), smsGiven)
-                        PermissionRow(Icons.Rounded.Notifications, stringResource(R.string.perm_notifications), stringResource(R.string.perm_optional), notifGiven)
+                        PermissionRow(Icons.Rounded.Sms, stringResource(R.string.perm_messages), stringResource(R.string.perm_needed), smsGiven) {
+                            if (!smsGiven) onAllow(true, false)
+                        }
+                        PermissionRow(Icons.Rounded.Notifications, stringResource(R.string.perm_notifications), stringResource(R.string.perm_optional), notifGiven) {
+                            if (!notifGiven) onAllow(false, true)
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Cta(stringResource(if (smsGiven) R.string.perm_allowed else R.string.perm_allow_both), onAllow)
+                    Cta(stringResource(if (smsGiven) R.string.continue_label else R.string.perm_allow_both)) { if (smsGiven) onNext() else onAllow(true, true) }
                     if (denied) Text(stringResource(R.string.sms_is_needed_to_read),
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
@@ -141,55 +139,46 @@ import kotlinx.coroutines.launch
     }
 }
 
-// The privacy promise as a picture: no cloud, a locked phone, and three kinds of message with what happens to each.
+// The privacy promise as a picture: the cloud is crossed out, and every message there is sits inside the phone, locked.
 @Composable private fun PrivacyPicture() {
+    val lines = listOf(
+        Triple("HDFCBK", R.string.welcome_sms_swiggy, true),
+        Triple("MESSAGE", R.string.welcome_sms_otp, false),
+        Triple("MUM", R.string.welcome_sms_chat, false),
+    )
     var shown by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { repeat(3) { delay(450); shown++ } }
+    LaunchedEffect(Unit) { repeat(lines.size) { delay(420); shown++ } }
+    val lock by animateFloatAsState(if (shown >= lines.size) 1f else 0f, tween(500), label = "privacy-lock")
     Column(Modifier.fillMaxWidth().spoken(stringResource(R.string.privacy_picture_description)),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Icon(Icons.Rounded.CloudOff, null, tint = ZColor.Muted, modifier = Modifier.size(48.dp))
-        Box(Modifier.size(width = 132.dp, height = 150.dp).clip(RoundedCornerShape(26.dp)).background(ZColor.Card)
-            .border(2.dp, ZColor.Ink, RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(64.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Lock, null, tint = ZColor.Accent, modifier = Modifier.size(32.dp))
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.Rounded.CloudOff, null, tint = ZColor.Muted, modifier = Modifier.size(44.dp))
+        Spacer(Modifier.height(10.dp))
+        // The phone, with every message still in it.
+        Box(contentAlignment = Alignment.BottomCenter) {
+            Column(Modifier.width(188.dp).clip(RoundedCornerShape(26.dp)).background(ZColor.Card)
+                .border(2.dp, ZColor.Ink, RoundedCornerShape(26.dp)).padding(horizontal = 10.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(Modifier.width(46.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(ZColor.Line)
+                    .align(Alignment.CenterHorizontally))
+                Spacer(Modifier.height(2.dp))
+                lines.forEachIndexed { i, (sender, text, bank) ->
+                    val a by animateFloatAsState(if (shown > i) 1f else 0f, tween(400), label = "privacy-line$i")
+                    Column(Modifier.graphicsLayer { alpha = a; translationY = (1f - a) * 10.dp.toPx() }
+                        .fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Tile)
+                        .border(1.dp, if (bank) ZColor.Accent else ZColor.Line, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp).then(Unspoken)) {
+                        Text(sender, color = ZColor.Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                        Text(stringResource(text), color = ZColor.Ink, fontSize = 11.sp, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PrivacyChip(Icons.Rounded.Check, R.string.privacy_bank_alert, true, shown > 0)
-            PrivacyChip(Icons.Rounded.VisibilityOff, R.string.privacy_otp, false, shown > 1)
-            PrivacyChip(Icons.Rounded.VisibilityOff, R.string.privacy_chat, false, shown > 2)
-        }
-    }
-}
-
-@Composable private fun PrivacyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Int, ok: Boolean, visible: Boolean) {
-    val a by animateFloatAsState(if (visible) 1f else 0f, tween(400), label = "privacy-chip")
-    val tint = if (ok) ZColor.Income else ZColor.Muted
-    Row(Modifier.graphicsLayer { alpha = a; translationY = (1f - a) * 12.dp.toPx() }.clip(RoundedCornerShape(20.dp))
-        .background(tint.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(stringResource(label), color = if (ok) ZColor.Ink else ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Unspoken)
-    }
-}
-
-// One permission: a round icon, its name with "needed" or "optional" under it, and a switch that shows what is allowed.
-@Composable private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, tag: String, on: Boolean) {
-    val slide by animateFloatAsState(if (on) 1f else 0f, tween(300), label = "perm-switch")
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
-        .border(1.dp, ZColor.Line, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(22.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text(tag.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
-        }
-        Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(if (on) ZColor.Income else ZColor.Line)
-            .then(if (on) Modifier.spoken(stringResource(R.string.perm_allowed)) else Unspoken)) {
-            Box(Modifier.padding(3.dp).offset(x = 20.dp * slide).size(22.dp).clip(CircleShape).background(Color.White))
+            // The lock closes over them once they are all in.
+            Box(Modifier.padding(bottom = 12.dp).graphicsLayer { alpha = lock; scaleX = 0.7f + 0.3f * lock; scaleY = 0.7f + 0.3f * lock }
+                .size(44.dp).clip(CircleShape).background(ZColor.Accent), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Lock, null, tint = ZColor.AccentInk, modifier = Modifier.size(24.dp))
+            }
         }
     }
 }
@@ -224,14 +213,12 @@ import kotlinx.coroutines.launch
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Spacer(Modifier.weight(1f))
         androidx.compose.animation.Crossfade(targetState = at, animationSpec = tween(500), label = "tip") { i ->
-            val (icon, title, sub) = tips[i]
+            val (_, title, sub) = tips[i]
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(96.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(46.dp))
-                }
+                TipArt(i)
                 Spacer(Modifier.height(10.dp))
-                Text(stringResource(title), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Text(stringResource(sub), color = ZColor.Muted, fontSize = 16.sp, textAlign = TextAlign.Center)
+                Text(stringResource(title), color = ZColor.Ink, fontSize = 23.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(stringResource(sub), color = ZColor.Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
             }
         }
         Spacer(Modifier.weight(1f))
@@ -390,5 +377,55 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
         Spacer(Modifier.width(10.dp))
         Text(name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Text(amount, color = if (income) ZColor.Income else ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// What each Setting-up slide shows: the daily number, a bill reminder, and where the money went.
+@Composable private fun TipArt(which: Int) {
+    Box(Modifier.fillMaxWidth().height(132.dp), contentAlignment = Alignment.Center) {
+        when (which) {
+            0 -> Column(Modifier.fillMaxWidth(0.82f).clip(RoundedCornerShape(16.dp)).background(ZColor.Tile).padding(14.dp).then(Unspoken)) {
+                Text(stringResource(R.string.setup_art_safe), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(money(1240.0), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.a_day), color = ZColor.Muted, fontSize = 14.sp, modifier = Modifier.padding(bottom = 4.dp))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
+                    Box(Modifier.weight(0.44f).fillMaxHeight().background(ZColor.Accent))
+                    Box(Modifier.weight(0.16f).fillMaxHeight().background(Color(0xFFEAB308)))
+                    Box(Modifier.weight(0.40f).fillMaxHeight())
+                }
+            }
+            1 -> Column(Modifier.fillMaxWidth(0.82f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Tile).padding(12.dp).then(Unspoken),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(ZColor.Card), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Notifications, null, tint = ZColor.Accent, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(R.string.perm_preview_bill), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(money(649.0), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Box(Modifier.fillMaxWidth(0.84f).height(34.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Tile.copy(alpha = 0.45f))
+                    .align(Alignment.CenterHorizontally))
+            }
+            else -> Column(Modifier.fillMaxWidth(0.82f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                listOf(
+                    Triple(R.string.cat_food, 0xFFF97316, 0.34f), Triple(R.string.cat_shopping, 0xFFF59E0B, 0.22f),
+                    Triple(R.string.cat_bills, 0xFF3B82F6, 0.18f), Triple(R.string.cat_travel, 0xFF8B5CF6, 0.14f),
+                ).forEach { (name, colour, share) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(name), color = ZColor.InkSoft, fontSize = 12.sp, modifier = Modifier.width(66.dp))
+                        Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
+                            Box(Modifier.weight(share / 0.34f).fillMaxHeight().background(Color(colour)))
+                            Box(Modifier.weight(1f - share / 0.34f).fillMaxHeight())
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("${(share * 100).toInt()}%", color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
     }
 }

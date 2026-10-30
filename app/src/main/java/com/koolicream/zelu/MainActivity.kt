@@ -223,14 +223,17 @@ fun ZeluApp() {
             registry.filter { it.value.first == "duplicate" }.entries.groupBy({ it.value.second }, { it.key })
         }
         restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
+        // True when "Allow both" asked; a single row's tap leaves you on the screen to tap the other.
+        var allowBoth by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { res ->
-            val smsOk = res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true
+            val askedSms = res.containsKey(Manifest.permission.READ_SMS)
+            val smsOk = if (askedSms) res[Manifest.permission.READ_SMS] == true && res[Manifest.permission.RECEIVE_SMS] == true else onbSms
             onbSms = smsOk
             onbNotif = Notifier.enabled(context)
-            // Show the ticks for a moment before moving on.
-            if (smsOk) scope.launch { delay(900); stage = Stage.SCAN } else { permDenied = true }
+            // Long enough to watch the preview fill in before Zelu starts reading.
+            if (smsOk && allowBoth) scope.launch { delay(2600); stage = Stage.SCAN } else if (askedSms && !smsOk) permDenied = true
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -332,11 +335,14 @@ fun ZeluApp() {
                 OnboardFlow(stage, permDenied, scanDone, scanTotal,
                     smsGiven = onbSms, notifGiven = onbNotif,
                     onBack = { stage = if (stage == Stage.PERM) Stage.PRIVACY else Stage.WELCOME },
-                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; else -> stage } },
-                    onAllow = {
-                        val perms = mutableListOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
-                        if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
-                        permLauncher.launch(perms.toTypedArray())
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.SCAN; else -> stage } },
+                    onAllow = { sms, notif ->
+                        allowBoth = sms && notif
+                        val perms = mutableListOf<String>()
+                        if (sms) { perms.add(Manifest.permission.READ_SMS); perms.add(Manifest.permission.RECEIVE_SMS) }
+                        if (notif && Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
+                        if (notif && Build.VERSION.SDK_INT < 33) Notifier.openSettings(context)
+                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray())
                     })
             }
             else -> AppScreen(s, v, accountBook)

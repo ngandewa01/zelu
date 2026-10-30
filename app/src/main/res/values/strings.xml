@@ -341,7 +341,6 @@
     <string name="notif_locked_text">New activity. Unlock to see it.</string>
     <string name="use_your_phone_s_pin">Use your phone\'s PIN, pattern or fingerprint.</string>
     <string name="unlock">Unlock</string>
-    <string name="get_started">Get started</string>
     <string name="nothing_leaves_your_phone">Nothing leaves your phone.</string>
     <string name="continue_label">Continue</string>
     <string name="two_quick_permissions">Two quick permissions</string>
@@ -363,13 +362,11 @@
     <string name="came_back_to_you">Came back to you: %1$s</string>
     <string name="deposits">Deposits</string>
     <string name="welcome_headline">Know where your money goes</string>
-    <string name="welcome_sub">Automatic. Private. On your phone.</string>
     <string name="perm_messages">Messages</string>
     <string name="perm_notifications">Notifications</string>
     <string name="perm_needed">Needed</string>
     <string name="perm_optional">Optional</string>
     <string name="perm_allow_both">Allow both</string>
-    <string name="perm_allowed">Allowed</string>
     <string name="setup_reading">Reading messages</string>
     <string name="setup_count">%1$s / %2$s</string>
     <string name="setup_tip1_title">Know what is safe to spend</string>
@@ -413,4 +410,9 @@
     <string name="welcome_salary">Salary</string>
     <string name="perm_preview_title">Spent</string>
     <string name="perm_preview_bill">Bill due tomorrow</string>
+    <string name="setup_art_safe">SAFE TO SPEND</string>
+    <string name="cat_food">Food</string>
+    <string name="cat_shopping">Shopping</string>
+    <string name="cat_bills">Bills</string>
+    <string name="cat_travel">Travel</string>
 </resources>
