@@ -90,7 +90,8 @@ import kotlinx.coroutines.launch
             }
             Spacer(Modifier.width(46.dp))
         }
-        Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        if (stage == Stage.SCAN) SettingUp(scanDone, scanTotal)
+        else Column(Modifier.align(Alignment.Center).padding(top = 40.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (stage) {
                 Stage.WELCOME -> {
                     // The Zelu icon in the middle. Messages come down from the top: the bank ones go into the icon, OTPs, chats
@@ -133,7 +134,6 @@ import kotlinx.coroutines.launch
                     if (denied) Text(stringResource(R.string.sms_is_needed_to_read),
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
-                Stage.SCAN -> SettingUp(scanDone, scanTotal)
                 else -> SplashBrand()
             }
         }
@@ -194,24 +194,24 @@ import kotlinx.coroutines.launch
     }
 }
 
-// The first read: an honest count with a bar, and three short things the app does while you wait.
+// The first read: an honest count with a bar at the top, and the rest of the screen says what the app does while you wait.
 @Composable private fun SettingUp(done: Int, total: Int) {
     val frac by animateFloatAsState(if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f, tween(300), label = "read")
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxSize().padding(top = 26.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.setup_reading), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.setup_reading), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(stringResource(R.string.setup_count, "%,d".format(done), "%,d".format(total)), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
+        Spacer(Modifier.height(10.dp))
         Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
             Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(ZColor.Accent))
         }
+        SetupTips(Modifier.weight(1f).padding(top = 20.dp, bottom = 10.dp))
     }
-    Spacer(Modifier.height(14.dp))
-    SetupTips()
 }
 
 // Three slides that change by themselves while the messages are read.
-@Composable private fun SetupTips() {
+@Composable private fun SetupTips(modifier: Modifier = Modifier) {
     val tips = listOf(
         Triple(Icons.Rounded.AccountBalanceWallet, R.string.setup_tip1_title, R.string.setup_tip1_sub),
         Triple(Icons.Rounded.Receipt, R.string.setup_tip2_title, R.string.setup_tip2_sub),
@@ -219,21 +219,22 @@ import kotlinx.coroutines.launch
     )
     var at by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(2400); at = (at + 1) % tips.size } }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card)
         .border(1.dp, ZColor.Line, RoundedCornerShape(20.dp)).padding(vertical = 28.dp, horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Spacer(Modifier.weight(1f))
         androidx.compose.animation.Crossfade(targetState = at, animationSpec = tween(500), label = "tip") { i ->
             val (icon, title, sub) = tips[i]
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(72.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(36.dp))
+                Box(Modifier.size(96.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = ZColor.Accent, modifier = Modifier.size(46.dp))
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(stringResource(title), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Text(stringResource(sub), color = ZColor.Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(title), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(stringResource(sub), color = ZColor.Muted, fontSize = 16.sp, textAlign = TextAlign.Center)
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             tips.indices.forEach { i ->
                 Box(Modifier.height(6.dp).width(if (i == at) 16.dp else 6.dp).clip(CircleShape).background(if (i == at) ZColor.Accent else ZColor.Line))
