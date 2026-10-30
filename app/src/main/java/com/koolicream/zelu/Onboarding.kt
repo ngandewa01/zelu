@@ -418,8 +418,10 @@ private fun Modifier.fadeEdge(top: Boolean): Modifier = this
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(name), color = ZColor.InkSoft, fontSize = 12.sp, modifier = Modifier.width(66.dp))
                         Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(ZColor.Line)) {
-                            Box(Modifier.weight(share / 0.34f).fillMaxHeight().background(Color(colour)))
-                            Box(Modifier.weight(1f - share / 0.34f).fillMaxHeight())
+                            // The biggest category fills the whole bar, so the rest of it is only drawn when there is some.
+                            val filled = (share / 0.34f).coerceIn(0.01f, 1f)
+                            Box(Modifier.weight(filled).fillMaxHeight().background(Color(colour)))
+                            if (filled < 0.999f) Box(Modifier.weight(1f - filled).fillMaxHeight())
                         }
                         Spacer(Modifier.width(8.dp))
                         Text("${(share * 100).toInt()}%", color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
