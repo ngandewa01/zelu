@@ -333,17 +333,9 @@
     <string name="and_more">and %1$s more</string>
     <string name="remove_all">Remove all</string>
     <string name="keep_it">Keep it</string>
-    <string name="your_accounts">Your accounts</string>
     <string name="looks_like_the_card_of">Looks like the card of %1$s. Tap to link.</string>
-    <string name="includes">"Includes "</string>
     <string name="bank_not_known">Bank not known</string>
-    <string name="bank_not_known_tap_one">Bank not known. Tap one to link it to an account above.</string>
-    <string name="latest_message_from_this_account">Latest message from this account</string>
-    <string name="looks_like_s_debit_card">Looks like %1$s\'s debit card. Save to link it.</string>
     <string name="not_your_account_so_not">Not your account, so not counted.</string>
-    <string name="what_is_it">What is it?</string>
-    <string name="card_network">Card network</string>
-    <string name="is_it_the_same_account">Is it the same account as any of these?</string>
     <string name="not_my_account">Not my account</string>
     <string name="zelu_is_locked">Zelu is locked</string>
     <string name="notif_locked_text">New activity. Unlock to see it.</string>
@@ -405,4 +397,8 @@
     <string name="message_label">Message</string>
     <string name="dup_same">Same</string>
     <string name="dup_two">Two payments</string>
+    <string name="linked_accounts">Linked accounts</string>
+    <string name="n_numbers">%1$d numbers</string>
+    <string name="joined_label">Joined</string>
+    <string name="could_be_same">Could be the same</string>
 </resources>

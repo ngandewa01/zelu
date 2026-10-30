@@ -187,35 +187,9 @@ import java.util.Locale
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)
             .padding(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 16.dp)) {
-            Text(stringResource(R.string.your_accounts), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            MutedText(if (firstRun) "Zelu found these in your bank messages. A quick check, about 30 seconds:"
-                else "Tap an account to see what is joined into it, or to change it.", 13)
+            Text(stringResource(R.string.linked_accounts), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                if (firstRun) {
-                    // New users did not know what to look for here: say it in three plain steps.
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ZColor.Card).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf(
-                            "Not yours?" to "A family member's or an old account: tap it, then Not my account.",
-                            "Same account twice?" to "Banks write one account in different ways (XX9116, A/c 9116, its debit card). Tap one and tick the other to join them.",
-                            "Looks fine?" to "Just tap Continue. You can change this any time in Menu, Accounts.",
-                        ).forEachIndexed { i, (head, body) ->
-                            Row {
-                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(11.dp)).background(ZColor.Accent), contentAlignment = Alignment.Center) {
-                                    Text("${i + 1}", color = ZColor.AccentInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    MutedText(body, 12)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
                 @Composable fun card(a: AccountBook.Acct, faded: Boolean = false) {
                     Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(ZColor.Card)
                         .clickable { open = a.key }.padding(14.dp)) {
@@ -225,9 +199,7 @@ import java.util.Locale
                             Column(Modifier.weight(1f)) {
                                 Text(AccountBook.displayName(a.key), color = if (faded) ZColor.Muted else ZColor.Ink, fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                MutedText(acctLine(a.type, a.count) + (if (a.own.lastDate.isNotBlank()) " · last " + money(a.own.lastAmount) + " on " + prettyDate(a.own.lastDate) else ""), 12)
-                                if (a.own.lastRaw.isNotBlank()) Text("“" + a.own.lastRaw.take(90) + "”", color = ZColor.InkSoft, fontSize = 11.sp,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                MutedText(acctLine(a.type, a.count), 12)
                                 AccountBook.cardLink(book, a)?.let { Text(stringResource(R.string.looks_like_the_card_of, it.key), color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             }
                             val bal = if (a.type == "card") a.limit else a.balance
@@ -235,7 +207,7 @@ import java.util.Locale
                         }
                         if (a.parts.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.includes) + a.parts.joinToString(" · ") { AccountBook.displayName(it.key) }, color = ZColor.Muted, fontSize = 12.sp,
+                            Text(stringResource(R.string.n_numbers, a.parts.size + 1), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(start = 50.dp))
                         }
                     }
@@ -244,7 +216,6 @@ import java.util.Locale
                 if (unknown.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
                     Eyebrow(stringResource(R.string.bank_not_known))
-                    MutedText(stringResource(R.string.bank_not_known_tap_one), 12)
                     unknown.forEach { card(it) }
                 }
                 if (removed.isNotEmpty()) {
@@ -257,7 +228,7 @@ import java.util.Locale
                 Spacer(Modifier.height(8.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Cta(if (firstRun) "Looks right, continue" else "Done", onDone)
+            Cta(stringResource(if (firstRun) R.string.continue_label else R.string.done), onDone)
         }
         undoMsg?.let { m ->
             Row(Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 84.dp).fillMaxWidth()
@@ -315,18 +286,15 @@ import java.util.Locale
                         val bal = if (a.type == "card") a.limit else a.balance
                         if (bal != null && !a.declined) Text(if (Privacy.hideBalance) Privacy.MASK else money(bal), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
-                    // The newest message is shown straight away: people know an account by what its bank writes, not its number.
+                    // People know an account by what its bank writes, not its number: the newest message is one tap away.
                     if (a.own.lastRaw.isNotBlank()) {
                         Spacer(Modifier.height(12.dp))
-                        MutedText(stringResource(R.string.latest_message_from_this_account), 12)
-                        Spacer(Modifier.height(4.dp))
-                        Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, maxLines = if (showMsg) 20 else 4, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(ZColor.Card)
-                                .clickable { showMsg = !showMsg }.padding(10.dp))
-                    }
-                    if (suggested != null && !a.declined) {
-                        Spacer(Modifier.height(10.dp))
-                        MutedText(stringResource(R.string.looks_like_s_debit_card, suggested.key), 13)
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ZColor.Card).clickable { showMsg = !showMsg }
+                            .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.message_label), color = ZColor.InkSoft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text(if (showMsg) "▴" else "›", color = ZColor.Muted, fontSize = 16.sp, modifier = Unspoken)
+                        }
+                        if (showMsg) Text(a.own.lastRaw, color = ZColor.InkSoft, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp))
                     }
                     if (a.declined) {
                         Spacer(Modifier.height(14.dp))
@@ -334,8 +302,6 @@ import java.util.Locale
                     } else {
                         if (a.type != "loan" && a.type != "debit") {
                             Spacer(Modifier.height(12.dp))
-                            MutedText(stringResource(R.string.what_is_it), 12)
-                            Spacer(Modifier.height(6.dp))
                             ChipScroll {
                                 listOf("savings" to "Savings account", "card" to "Credit card", "loan" to "Loan", "fd" to "Fixed deposit", "rd" to "Recurring deposit", "other" to "Wallet or other").forEach { (ty, lab) ->
                                     PickChip(lab, type == ty) { type = ty }
@@ -343,9 +309,7 @@ import java.util.Locale
                             }
                         }
                         if (a.type == "card" && type == "card") {
-                            Spacer(Modifier.height(12.dp))
-                            MutedText(stringResource(R.string.card_network), 12)
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(10.dp))
                             ChipScroll {
                                 CardNet.names.forEach { n ->
                                     PickChip(n, net == n, lead = {
@@ -361,11 +325,10 @@ import java.util.Locale
                                 }
                             }
                         }
-                        Spacer(Modifier.height(14.dp))
-                        Text(stringResource(R.string.is_it_the_same_account), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(2.dp))
-                        MutedText(if (options.isEmpty()) "Zelu found no other account like this one. Nothing to join."
-                            else "Tick one if it is this account written another way, or its debit card. Leave them unticked if not.", 12)
+                        if (options.isNotEmpty()) {
+                            Spacer(Modifier.height(14.dp))
+                            Eyebrow(stringResource(if (a.parts.isNotEmpty()) R.string.joined_label else R.string.could_be_same))
+                        }
                         options.forEach { o ->
                             val on = ticked[o.key] == true
                             Row(Modifier.fillMaxWidth().checkRow(on) { ticked[o.key] = !on }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -373,12 +336,8 @@ import java.util.Locale
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(AccountBook.displayName(o.key), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    val extra = (if (o.auto) "Joined by Zelu · " else if (o.numberMatch) "Number matches · " else "") + acctTypeLabel(o.type) + " · " +
-                                        plural(o.stat.count, "payment", "payments") + (if (o.stat.lastDate.isNotBlank()) " · last " + money(o.stat.lastAmount) + " on " + prettyDate(o.stat.lastDate) else "")
-                                    Text(extra, color = if (o.auto || o.numberMatch) ZColor.Income else ZColor.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    // Its newest message, so it can be recognised without knowing the number.
-                                    if (o.stat.lastRaw.isNotBlank()) Text("“" + o.stat.lastRaw.take(90) + "”", color = ZColor.InkSoft, fontSize = 11.sp,
-                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    val extra = acctTypeLabel(o.type) + " · " + plural(o.stat.count, "payment", "payments")
+                                    Text(extra, color = if (o.auto || o.numberMatch) ZColor.Income else ZColor.Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Box(Modifier.size(24.dp).clip(RoundedCornerShape(7.dp)).background(if (on) ZColor.Accent else Color.Transparent)
                                     .border(2.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
