@@ -19,7 +19,7 @@ object Classifier {
             "monginis", "bikaner", "saravana", "sagar ratna", "mainland china", "chinese wok", "chowman",
             "kwality wall", "mad over donuts", "jumboking", "papa john", "smokin joe", "oven story", "ovenstory",
             "punjab grill", "chai point", "nic ice cream", "mithai", "sweet shop", "sweets", "tea stall", "tea shop",
-            "grab*", "grabfood", "taj hotels", "hotel ", "hungerbox", "hunger box", "kohinoor", "olive mithai"),
+            "grab*", "grabfood",  "hungerbox", "hunger box", "kohinoor", "olive mithai"),
         "Groceries" to listOf("flower shop", "milk basked", "milk basket", "general store", "gen store", "vegitable", "vegitables", "vegetable", "veggies", "veggie", "food mart", "foodmart", "food bazaar", "grand bazar", "grand bazaar", "smart bazar", "smart bazaar",
             "flour mill","floor mill","flour","atta","chakki","rice mill","oil mill","masala","milk parlour", "milk parlor", "aavin", "amul parlour", "meat", "chicken", "mutton", "fish", "eggs", "egg", "fruit", "flowers", "flower", "daily mart", "super mart", "supermart", "mini mart", "bazaar", "bazar", "wholesale", "ration", "general stores", "provision store", "fresh mart", "big bazaar", "daily needs", "poultry",
             "nature's basket", "natures basket", "spencer", "star bazaar", "easyday", "ratnadeep",
@@ -110,7 +110,7 @@ object Classifier {
             "bharat connect", "water bill", "gas bill", "broadband", "fibernet", "jiofiber", "jio fiber",
             "airtel xstream", "xstream", "act fibernet", "actcorp", "hathway", "excitel", "spectra", "tikona", "wifi",
             "mobile recharge", "recharge", "prepaid", "postpaid", "airtel", "jio", "vodafone", " vi ", "bsnl", "idea"),
-        "Travel" to listOf("gmr airport", "airport", "gmr hyderabad", "gmr delhi", "delhi airport", "bial", "mumbai airport",
+        "Travel" to listOf("taj hotels","itc hotels","hotels.com","hotel booking","hotel stay","hotel rooms","gmr airport", "airport", "gmr hyderabad", "gmr delhi", "delhi airport", "bial", "mumbai airport",
             "hostel", "homestay", "home stay", "visa", "forex", "passport", "vfs", "cox & kings", "cox and kings", "sotc", "kesari", "veena world", "club mahindra", "sterling holidays", "trivago", "expedia", "hotels.com", "marriott", "hyatt", "hilton", "radisson", "lemon tree", "ihg", "oberoi",
             "easemytrip", "yatra", "agoda", "booking.com", "spicejet", "akasa", "air asia", "airasia",
             "treebo", "fabhotels", "zostel", "thomas cook", "lodge", "guest house", "irctc", "makemytrip", "goibibo",
@@ -209,7 +209,7 @@ object Classifier {
     // "Sri Balaji Medicals", "Annapurna Supermarket", "Balaji Travels" all classify from
     // a generic word in the name. Checked after the exact dictionary, before giving up.
     private val NAME_HINTS: List<Pair<Regex, String>> = listOf(
-        Regex("""\b(hostels?|homestays?|visa|forex|travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
+        Regex("""\b(hotels|grand\s+hotel|boutique\s+hotel|luxury\s+hotel|residency|regency|plaza|inns?|lodging|lodges?|hostels?|homestays?|visa|forex|travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(gyms?|fitness|yoga|crossfit|zumba|pilates|karate|taekwondo|badminton|swimming|sports\s+(?:academy|club))\b""", RegexOption.IGNORE_CASE) to "Fitness",
         Regex("""\b(neonatolog\w*|child\s+health|health\s+solutions|maternity|fertility|ivf|gyn(?:ae?|e)colog\w*|obstetric\w*|pa?ediatric\w*|neonatal|doctors?|laborator(?:y|ies)|labs?|scans?|x-?ray|mri|vet|veterinary|nursing\s+home|optician|polyclinic|physiotherapy|homeo(?:pathy)?|medical|medicals|pharmacy|pharma|chemists?|drugs?|druggists?|drugists?|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(meat|chicken|mutton|fish|eggs|poultry|fruits?|flowers?|mart|bazaar|bazar|wholesale|ration|milk|supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
