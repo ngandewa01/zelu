@@ -442,7 +442,7 @@
     <string name="backup_ask_sub">A password for your weekly backup. It brings everything back on a new phone. Zelu can\'t recover it, so keep it somewhere safe.</string>
     <string name="save_password">Save password</string>
     <string name="one_visit">1 visit</string>
-    <string name="average_a_month">Average %1$s a month</string>
+    <string name="average_a_month">Usually %1$s a month</string>
     <string name="chart_budget">Budget</string>
     <string name="pick_search">Search</string>
     <string name="pick_nothing">Nothing found</string>
@@ -552,4 +552,5 @@
     <string name="refund_linked">Refund linked: it comes off %1$s</string>
     <string name="duplicate_hidden">Duplicate hidden</string>
     <string name="yours_amount">yours %1$s</string>
+    <string name="usual_line_legend">Dotted line: a usual month (the middle one of the year)</string>
 </resources>

@@ -73,7 +73,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     val lineColor = ZColor.Muted
     // A usual month: the average of the months that have payments, drawn as a thin line through every bar.
     val paid = values.filter { it > 0 }
-    val avg = if (paid.size > 1) paid.average() else 0.0
+    val avg = if (paid.size > 1) PatternMath.median(paid) else 0.0
     // fit: every month shares the width (Spend's twelve months), so nothing scrolls sideways.
     Row(if (fit) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(if (fit) 4.dp else 6.dp)) {
         months.forEachIndexed { i, m ->
@@ -120,7 +120,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
 @Composable private fun MonthHeadline(values: List<Double>, selected: Int) {
     val v = values.getOrElse(selected) { 0.0 }
     val paid = values.filter { it > 0 }
-    val usual = if (paid.isEmpty()) 0.0 else paid.average()
+    val usual = PatternMath.median(paid)
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Text(money(v), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)

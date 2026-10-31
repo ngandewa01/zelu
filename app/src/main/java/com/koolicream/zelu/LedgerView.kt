@@ -741,7 +741,14 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                             .border(if (daySel == d) 2.dp else 0.dp, if (daySel == d) ZColor.Ink else Color.Transparent, RoundedCornerShape(9.dp))
                             .clickable { onDay(d) },
                         contentAlignment = Alignment.Center,
-                    ) { Text("$d", color = ZColor.InkSoft, fontSize = 11.sp) }
+                    ) {
+                        // The day and what it cost; on a dark (heavy) day the text turns light so it stays readable.
+                        val ink = if (alpha > 0.55f) ZColor.Paper else ZColor.InkSoft
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$d", color = ink, fontSize = 11.sp, fontWeight = if (daySel == d) FontWeight.Bold else FontWeight.Normal)
+                            if (v > 0) Text("₹" + shortAmt(v), color = ink, fontSize = 8.sp, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }

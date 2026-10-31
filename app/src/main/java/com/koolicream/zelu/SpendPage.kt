@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
     val values = remember(spendRows, months) { Analytics.monthlyTotals(spendRows, months) }
     val sel = months.indexOf(month)
     val others = values.filterIndexed { i, v -> i != sel && v > 0 }
-    val usual = if (others.isEmpty()) 0.0 else others.average()
+    val usual = PatternMath.median(others)
     Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(22.dp)).background(ZColor.Card)
         .padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
         if (usual > 0) MutedText(stringResource(R.string.usual_month_is, money(usual)), 13)
         Spacer(Modifier.height(10.dp))
         MonthChart(months, values, ZColor.Accent, sel, { onPickMonth(months[it]) }, budget, fit = true)
+        if (usual > 0) MutedText(stringResource(R.string.usual_line_legend), 11)
     }
 }
 
@@ -95,7 +96,7 @@ internal class Pattern(val title: String, val short: String, val head: String, v
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
             p.values.forEachIndexed { i, v ->
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { pick = i }, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(shortAmt(v), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
+                    Text("₹" + shortAmt(v), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1, softWrap = false)
                     Spacer(Modifier.height(3.dp))
                     Box(Modifier.height(60.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
                         Box(Modifier.fillMaxWidth().height((60 * (v / mx)).coerceAtLeast(3.0).dp).clip(RoundedCornerShape(6.dp))
