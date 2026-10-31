@@ -164,8 +164,7 @@ import java.util.Calendar
         }
         if (paidOlder.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text(if (showOlderPaid) stringResource(R.string.hide_earlier_months) else stringResource(R.string.show_earlier_months, paidOlder.size), color = ZColor.Accent,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { showOlderPaid = !showOlderPaid }.padding(vertical = 6.dp))
+            FoldHeading(stringResource(R.string.earlier_months), paidOlder.size, showOlderPaid) { showOlderPaid = !showOlderPaid }
             if (showOlderPaid) paidOlder.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
         }
     }
@@ -191,8 +190,7 @@ import java.util.Calendar
         var showEnded by remember { mutableStateOf(false) }
         val liveMandates = mandates.filter { it.status == "active" || it.status == "scheduled" }
         val endedMandates = mandates.filter { it !in liveMandates }
-        // The arrow by the heading folds the whole section away; ended ones also stay folded until opened.
-        (if (!autopayOpen) emptyList() else liveMandates + if (showEnded) endedMandates else emptyList()).forEach { md ->
+        @Composable fun mandateRow(md: Mandate) {
             val live = md.status == "active" || md.status == "scheduled"
             val tone = when (md.status) { "paused" -> ZColor.Warn; "ended" -> ZColor.Muted; else -> ZColor.Income }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
@@ -223,9 +221,15 @@ import java.util.Calendar
                 }
             }
         }
-        if (autopayOpen && endedMandates.isNotEmpty()) Text(if (showEnded) stringResource(R.string.hide_ended) else stringResource(R.string.show_ended, endedMandates.size),
-            color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showEnded = !showEnded }.padding(vertical = 8.dp, horizontal = 4.dp))
+        if (autopayOpen) {
+            liveMandates.forEach { mandateRow(it) }
+            // Ended set-ups are history: their own heading, folded until opened.
+            if (endedMandates.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                FoldHeading(stringResource(R.string.ended_label), endedMandates.size, showEnded) { showEnded = !showEnded }
+                if (showEnded) endedMandates.forEach { mandateRow(it) }
+            }
+        }
     }
 
     mandateOpen?.let { md ->

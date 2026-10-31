@@ -565,4 +565,7 @@
     <string name="not_counted_now">Not counted · its type stays as it was</string>
     <string name="legend_usual">Usual ₹%1$s</string>
     <string name="legend_budget">Budget ₹%1$s</string>
+    <string name="earlier_months">Earlier months</string>
+    <string name="ended_label">Ended</string>
+    <string name="settled_label">Settled</string>
 </resources>

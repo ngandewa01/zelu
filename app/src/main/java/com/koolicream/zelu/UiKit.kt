@@ -437,6 +437,15 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     }.padding(horizontal = 18.dp)) { content() }
 }
 
+// A heading that folds what is under it: its name, how many, and an arrow; tap anywhere on it to open or close.
+@Composable internal fun FoldHeading(title: String, count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onToggle() }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Eyebrow("$title · $count")
+        Text(if (open) "  ▴" else "  ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
 @Composable internal fun Eyebrow(text: String, color: Color = ZColor.Muted) {
     Text(text.uppercase(), color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 }
