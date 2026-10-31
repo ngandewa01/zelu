@@ -188,39 +188,3 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun WeekdayPanel(list: List<Row>, from: String, to: String, note: String? = null) {
-    if (to < from) return
-    var days = 0; var d = from
-    while (d <= to && days < 400) { days++; d = Dates.shiftDays(d, 1) }
-    if (days < 7) return
-    val avg = Analytics.weekdayAverages(list, from, to)
-    val mx = avg.maxOrNull() ?: 0.0
-    if (mx <= 0.0) return
-    val names = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-    val letters = listOf("M", "T", "W", "T", "F", "S", "S")
-    val top = avg.indices.maxByOrNull { avg[it] } ?: 0
-    Panel {
-        Eyebrow(stringResource(R.string.weekday_pattern))
-        Spacer(Modifier.height(4.dp))
-        Text(names[top] + "s are your heaviest day", color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        MutedText(money(avg[top]) + " on average", 12)
-        if (note != null) MutedText(note, 11)
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-            avg.forEachIndexed { i, v ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(shortAmt(v), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
-                    Spacer(Modifier.height(4.dp))
-                    Box(Modifier.height(64.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                        Box(Modifier.fillMaxWidth().height((64 * (v / mx)).coerceAtLeast(3.0).dp).clip(RoundedCornerShape(6.dp))
-                            .background(if (i == top) ZColor.Accent else ZColor.Line))
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(letters[i], color = if (i == top) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
-                        fontWeight = if (i == top) FontWeight.Bold else FontWeight.Normal)
-                }
-            }
-        }
-    }
-}
-
