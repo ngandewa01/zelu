@@ -176,7 +176,7 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 40.dp)) {
             item {
-                PageBar(niceName(name), primary + " · " + (if (income) stringResource(R.string.n_times, history.size) else history.size.toString() + " " + stringResource(if (history.size == 1) R.string.visit else R.string.visits)), onBack) {
+                PageBar(niceName(name), primary + " · " + (if (income) stringResource(R.string.usually_on_day) + " " + usualDays(history) else history.size.toString() + " " + stringResource(if (history.size == 1) R.string.visit else R.string.visits)), onBack) {
                     Box {
                         TopIcon(stringResource(R.string.more), onClick = { menu = true }) { Text("⋯", color = ZColor.Ink, fontSize = 20.sp, modifier = Unspoken) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -186,18 +186,12 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
                         }
                     }
                 }
-                Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (income) {
-                        // Money in: the usual amount a month, the days of the month it usually lands on, and the latest.
-                        FactCard(stringResource(R.string.usual_label), money(PatternMath.median(values.filter { it > 0 })), Modifier.weight(1f))
-                        FactCard(stringResource(R.string.usually_on_day), usualDays(history), Modifier.weight(1f))
-                        FactCard(stringResource(R.string.last_received), prettyDate(history.maxOf { it.date }), Modifier.weight(1f))
-                    } else {
+                // Money in keeps to the chart and its list; the usual day is in the line under the name.
+                if (!income) Spacer(Modifier.height(14.dp))
+                if (!income) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FactCard(stringResource(R.string.visits_label), history.size.toString(), Modifier.weight(1f))
                     FactCard(stringResource(R.string.average), money(total / history.size.coerceAtLeast(1)), Modifier.weight(1f))
                     FactCard(stringResource(R.string.last_paid), prettyDate(history.maxOf { it.date }), Modifier.weight(1f))
-                    }
                 }
                 if (renaming) {
                     Spacer(Modifier.height(12.dp))
