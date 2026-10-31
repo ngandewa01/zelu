@@ -56,26 +56,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
+// A list of payments (all of them, a search, what needs a category) as a page: Back closes it, and a long list only draws
+// what is on screen.
 @Composable internal fun DrillDialog(title: String, rows: List<Row>, onRowClick: (Row) -> Unit, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp),
-        ) {
-            Text(title, color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val total = rows.rupees()
-            MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(total)}", 12)
-            Spacer(Modifier.height(10.dp))
-            // A category or a search can hold hundreds of payments: only the ones on screen are drawn.
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
             val sorted = remember(rows) { rows.newestFirst() }
-            LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                items(sorted) { TxnRow(it, false, onRowClick) }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 18.dp, end = 18.dp, top = 28.dp, bottom = 32.dp)) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TopIcon(stringResource(R.string.back), onClick = onDismiss) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(title, color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(rows.rupees())}", 12)
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                items(sorted, key = { it.id }) { TxnRow(it, false, onRowClick) }
             }
-            Spacer(Modifier.height(14.dp))
-            Box(
-                Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp),
-            ) { Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold) }
         }
     }
 }
