@@ -13,6 +13,11 @@ class BrandsTest {
         assertEquals("Transport", cat("Red Bus"))
     }
 
+    @Test fun bakeriesAndCaterersAreFood() {
+        for (n in listOf("Catering Service", "SRI SAI CATERING SERVICES", "Lakshmi Bakers", "Hot Bake House", "New Star Bakeries", "Royal Confectionery", "Iyengar Bakery"))
+            assertEquals(n, "Food", cat(n))
+    }
+
     @Test fun appsAndOwners() {
         assertEquals("Home services", cat("Snabbit"))
         assertEquals("Home services", cat("PRONTO"))

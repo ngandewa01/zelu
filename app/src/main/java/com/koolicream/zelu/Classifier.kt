@@ -9,7 +9,7 @@ object Classifier {
         "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "dominos",
+        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "bakeries", "catering", "caterer", "confectionery", "dominos",
             "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks",
             "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma",
             "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut",
@@ -186,7 +186,7 @@ object Classifier {
         Regex("""\b(travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(medical|medicals|pharmacy|pharma|chemist|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
-        Regex("""\b(restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bakers|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
+        Regex("""\b(restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bakeries|bakers?|bakes|bake ?house|catering|confectionery|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
         Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
