@@ -233,11 +233,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         val cutDay = if (liveMonth) Dates.dayOfMonth() else 31
         val prevSpent = if (!isMonth) 0.0 else Analytics.filter(allRows, f.copy(month = prevMonth))
             .filter { it.kind == Kind.EXPENSE && it.date.substring(8, 10).toInt() <= cutDay && !(excludeEmi && it.category == "EMI") }.rupees()
-        @Composable fun slotPill(text: String, tone: Color, onClick: () -> Unit) {
-            Box(Modifier.clip(RoundedCornerShape(20.dp)).background(tone.copy(alpha = 0.2f)).clickable { onClick() }
-                .padding(horizontal = 16.dp, vertical = 9.dp)) {
-                Text(text, color = if (onHero) heroInk else tone, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
+        // Month-end estimate from the same numbers as above: spent, bills still due, and a normal day's spending
+        // (last 30 days, big one-offs left out) for the days still to come.
+        val forecast = if (!liveMonth || s.spent <= 0) 0.0 else {
+            val base = allRows.filter { (account == "All" || it.account == account) && !(excludeEmi && it.category == "EMI") }
+            s.spent + billsLeft + Analytics.typicalDaily(base, today) * (daysLeft - 1).coerceAtLeast(0)
         }
         Column(if (hero == null) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
             .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(hero.from), Color(hero.to)))).padding(14.dp)) {
@@ -261,20 +261,26 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 if (onHero && hasBudget) Box(Modifier.padding(end = 8.dp, bottom = 14.dp).size(10.dp).clip(CircleShape).background(heat))
                 Text(money(s.spent), color = if (onHero) heroInk else if (hasBudget) heat else ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
             }
-            // One row for the controls, aligned: what is left a day (or how the month ended) once there is a budget, and the
-            // EMI switch at the other end. With no budget there is no pill; a budget is set from Spend, never suggested here.
+            // The month as one line: spent so far, where it is heading, and the budget. Tapping it edits the budget.
+            if (isMonth && s.spent > 0) {
+                val dim = Dates.daysInMonth(f.month)
+                val untilDay = if (liveMonth) Dates.dayOfMonth() else dim
+                val perDay = DoubleArray(dim + 1)
+                list.filter { it.kind == Kind.EXPENSE }.forEach { perDay[it.date.substring(8, 10).toInt().coerceIn(1, dim)] += it.paise / 100.0 }
+                val running = ArrayList<Double>(untilDay)
+                var acc = 0.0
+                for (d in 1..untilDay) { acc += perDay[d]; running.add(acc) }
+                val lineColor = if (onHero) heroInk else if (hasBudget) heat else ZColor.Ink
+                Spacer(Modifier.height(10.dp))
+                SpendLine(running, dim, untilDay, if (liveMonth) forecast else 0.0, if (hasBudget) budget else 0.0, lineColor,
+                    if (onHero) heroInk else ZColor.Ink, soft, if (onHero) heroInk.copy(alpha = 0.18f) else ZColor.Line,
+                    Modifier.clip(RoundedCornerShape(12.dp)).clickable { onEditBudget() })
+            }
+            // One row below: a link to set a budget when there is none, and the EMI switch at the other end.
             val showEmi = emiAmt > 0 || excludeEmi
-            if (hasBudget || showEmi || isMonth) {
-                Spacer(Modifier.height(12.dp))
+            if ((!hasBudget && isMonth) || showEmi) {
+                Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    when {
-                        liveMonth && hasBudget -> slotPill(
-                            if (free > 0) money(free / daysLeft) + stringResource(R.string.a_day) else money(-free) + stringResource(R.string.over),
-                            heat, onEditBudget)
-                        hasBudget -> slotPill(
-                            if (s.spent <= budget) stringResource(R.string.under_budget) else money(s.spent - budget) + stringResource(R.string.over),
-                            if (s.spent <= budget) ZColor.Income else ZColor.Warn, onEditBudget)
-                    }
                     if (!hasBudget && isMonth) Text(stringResource(R.string.set_budget_action), color = if (onHero) heroInk else ZColor.Accent, fontSize = 14.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onEditBudget() }.padding(vertical = 8.dp, horizontal = 4.dp))
                     Spacer(Modifier.weight(1f))
@@ -306,38 +312,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Text("›", color = ZColor.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        }
-        // A quiet line: icon, words, and an optional link. No box, so the card stays light.
-        @Composable fun noteRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String,
-                                action: String?, onClick: (() -> Unit)?) {
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier).padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(text, color = ZColor.InkSoft, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
-                if (action != null) Text(action, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        // Month-end estimate from the same numbers as above: spent, bills still due, and a normal day's spending
-        // (last 30 days, big one-offs left out) for the days still to come.
-        val forecast = if (!liveMonth || s.spent <= 0) 0.0 else {
-            val base = allRows.filter { (account == "All" || it.account == account) && !(excludeEmi && it.category == "EMI") }
-            s.spent + billsLeft + Analytics.typicalDaily(base, today) * (daysLeft - 1).coerceAtLeast(0)
-        }
-        val overPace = liveMonth && budget > 0 && forecast > budget
-        val alreadyOver = liveMonth && budget > 0 && free <= 0
-        // Running hot: name the category that grew most against the same days last month; the why is on Spend.
-        if (overPace || alreadyOver) {
-            val cut = Dates.dayOfMonth()
-            val prev = Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -1)))
-                .filter { it.kind == Kind.EXPENSE && it.date.substring(8, 10).toInt() <= cut }.groupBy { it.category }
-                .mapValues { (_, rs) -> rs.rupees() }
-            list.filter { it.kind == Kind.EXPENSE }.groupBy { it.category }.mapValues { (_, rs) -> rs.rupees() }
-                .map { (c, v) -> c to v - (prev[c] ?: 0.0) }.filter { it.second >= 1000 }.maxByOrNull { it.second }
-                ?.let { (c, up) -> noteRow(Icons.Rounded.Lightbulb, ZColor.AmberInk, "$c +" + money(up) + " vs last month",
-                    "Why ›", onOpenSpend) }
         }
         if (glanceAlerts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
