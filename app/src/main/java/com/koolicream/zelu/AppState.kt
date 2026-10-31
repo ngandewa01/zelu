@@ -370,6 +370,22 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         }
     }
 
+    /** The payment page's switch: off leaves the payment out of every total, on counts it again as exactly what it was. */
+    fun setCounted(r: Row, counted: Boolean) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) {
+                Storage.setNotCounted(context, r.id, !counted)
+                // Switched off before this mark existed (it was turned into "Ignore"): count it again as spending or income.
+                if (counted && r.kind == Kind.IGNORE && Storage.overrideOf(context, r.id)?.first == Kind.IGNORE.key)
+                    Storage.setOverride(context, r.id, if (r.direction == Dir.DEBIT) Kind.EXPENSE else Kind.INCOME, r.category.takeIf { it != "Ignore" } ?: "Unknown")
+            }
+            refreshRows()
+            undo = context.getString(if (counted) R.string.counted_again else R.string.not_counted_now) to snap
+        }
+    }
+
     fun saveGroup(name: String, members: List<String>) {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.saveGroup(context, name, members) }

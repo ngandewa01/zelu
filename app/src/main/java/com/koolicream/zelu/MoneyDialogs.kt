@@ -283,7 +283,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 onLink = { what -> detailRow = null; linkFor = r to what },
                 onRemoveSplit = if (r.id.contains('#')) ({ removeSplit(r) }) else null,
                 splitParts = splitParts,
-                onCount = { k, c -> decide(r.id, k, c, r.counterparty, false) },
+                onCount = { on -> setCounted(r, on) },
                 onDismiss = { detailRow = null },
             )
         }

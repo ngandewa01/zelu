@@ -523,7 +523,7 @@ import androidx.compose.ui.window.Dialog
     visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
     onLink: ((String) -> Unit)? = null, splitParts: List<Row> = emptyList(),
-    onCount: (Kind, String) -> Unit = { _, _ -> },
+    onCount: (Boolean) -> Unit = {},
     onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
@@ -669,7 +669,7 @@ import androidx.compose.ui.window.Dialog
                     // One switch for what matters here: money out is Spending or not, money in is Income or not. Off leaves the payment out of
                     // every total (Ignore); the category button picks Transfer, Lent and the rest. Turning it on sorts it again.
                     // One switch, one fixed label: Spending (money out) or Income (money in). Off leaves the payment out of every
-                    // total and keeps its category; on puts it back as what its category says it is.
+                    // total and keeps its type and category; on counts it again exactly as it was.
                     val isOut = t.direction == Dir.DEBIT
                     val on = t.kind != Kind.IGNORE
                     Text(stringResource(if (isOut) R.string.spending else R.string.income_label), color = ZColor.Ink, fontSize = 14.sp,
@@ -677,14 +677,7 @@ import androidx.compose.ui.window.Dialog
                     Spacer(Modifier.width(10.dp))
                     androidx.compose.material3.Switch(
                         checked = on,
-                        onCheckedChange = { next ->
-                            val kind = if (!next) Kind.IGNORE else when (t.category) {
-                                "Transfer" -> Kind.TRANSFER; "Lent" -> Kind.LENT; "Borrowed" -> Kind.BORROWED
-                                "Refund" -> Kind.REFUND; "Investment" -> Kind.INVEST
-                                else -> if (isOut) Kind.EXPENSE else Kind.INCOME
-                            }
-                            onCount(kind, t.category)
-                        },
+                        onCheckedChange = { next -> onCount(next) },
                         colors = androidx.compose.material3.SwitchDefaults.colors(
                             checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,
                             uncheckedTrackColor = ZColor.Tile, uncheckedThumbColor = ZColor.Muted, uncheckedBorderColor = ZColor.Line),

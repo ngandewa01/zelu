@@ -561,4 +561,6 @@
     <string name="show_settled">Show settled (%1$d) ▾</string>
     <string name="hide_settled">Hide settled ▴</string>
     <string name="income_label">Income</string>
+    <string name="counted_again">Counted again</string>
+    <string name="not_counted_now">Not counted · its type stays as it was</string>
 </resources>
