@@ -68,7 +68,8 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     LaunchedEffect(months.size) { scroll.scrollTo(scroll.maxValue) }
     val plot = 112.dp
     val labelH = 16.dp
-    val tagH = 24.dp
+    // In the strip that fits the width there is no room for the amount over a bar; the card shows it big above.
+    val tagH = if (fit) 6.dp else 24.dp
     val lineColor = ZColor.Muted
     // A usual month: the average of the months that have payments, drawn as a thin line through every bar.
     val paid = values.filter { it > 0 }
@@ -96,7 +97,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom,
             ) {
                 Box(Modifier.height(tagH), contentAlignment = Alignment.BottomCenter) {
-                    if (on && v > 0) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Ink).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    if (on && v > 0 && !fit) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Ink).padding(horizontal = 6.dp, vertical = 2.dp)) {
                         Text(shortAmt(v), color = ZColor.Paper, fontSize = if (fit) 9.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
                     }
                 }
