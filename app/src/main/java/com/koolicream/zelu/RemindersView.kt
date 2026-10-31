@@ -106,7 +106,7 @@ import java.util.Calendar
             if (lt > 0) Fact(stringResource(R.string.later), money(lt))
         }
         // The 30-day strip shows whenever a bill falls inside it, so it never shows only empty days.
-        // Today has an outline; a day with a bill is gold and opens it; swipe for later days.
+        // Today has an outline; a day with a bill takes the theme colour and opens it; swipe for later days.
         val stripEnd = Dates.shiftDays(today, 29)
         if (pending.any { it.dueDate >= today && it.dueDate <= stripEnd }) {
         Spacer(Modifier.height(14.dp))
@@ -118,8 +118,8 @@ import java.util.Calendar
                 val dayN = d.substring(8, 10).toInt()
                 val shape = RoundedCornerShape(10.dp)
                 Column(Modifier.width(50.dp).clip(shape)
-                    .background(if (due.isNotEmpty()) ZColor.AmberSoft else ZColor.Paper)
-                    .then(if (due.isNotEmpty()) Modifier.border(1.dp, ZColor.AmberInk.copy(alpha = 0.5f), shape) else Modifier)
+                    .background(if (due.isNotEmpty()) ZColor.Accent.copy(alpha = 0.16f) else ZColor.Paper)
+                    .then(if (due.isNotEmpty()) Modifier.border(1.dp, ZColor.Accent.copy(alpha = 0.55f), shape) else Modifier)
                     .then(if (i == 0) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
                     .then(if (due.isNotEmpty()) Modifier.clickable { detail = due.first() } else Modifier)
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -130,7 +130,7 @@ import java.util.Calendar
                         fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
                     // A bill day shows its amount; an empty day shows nothing, so bill days stand out.
                     Text(if (due.isNotEmpty()) "₹" + shortAmt(due.sumOf { it.amount }) else " ",
-                        color = ZColor.AmberInk, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
         }

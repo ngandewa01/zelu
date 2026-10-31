@@ -672,6 +672,7 @@ private fun shortName(e: Entry): String = when (e.title) {
     "Export to Excel (CSV)" -> "Export"
     "Read older messages" -> "Older"
     "Payment alerts" -> "Alerts"
+    "Bring back removed accounts" -> "Restore"
     else -> e.title
 }
 

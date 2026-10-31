@@ -6,7 +6,7 @@ object Classifier {
     // Order matters: earlier entries win.
     // Old built-in names folded into the standard set (applied to stored rules/overrides too).
     val ALIAS = mapOf("Milk & Dairy" to "Groceries", "FASTag" to "Transport", "Gym" to "Fitness", "Internet" to "Bills",
-        "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
+        "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Domestic help")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
         "Food" to listOf("pan shop", "paan shop", "namkeen", "glass house", "creamery", "almond house", "wow momo", "haldiram", "baskin", "robbin", "robbins", "busking robbin", "cream stone", "cream-stone", "creamstone", "pure veg", "pure vegetarian", "veg restaurant", "family restaurant", "food court",
@@ -73,8 +73,11 @@ object Classifier {
             "cash deposit", "cardless cash", "withdrawn at", "withdrawn from your", "aeps", "micro atm"),
         "Wallet" to emptyList(), // detected specially (wallet loads); listed so it can be filtered/picked
         "Bank charges" to emptyList(), // detected specially (fees and charges the bank or card takes); listed so it can be picked
+        // People who work in your home: their own category, ahead of Home services so a cook or maid lands here.
+        "Domestic help" to listOf("maid", "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter",
+            "cook", "kaamwali", "kamwali", "ayah", "caretaker", "maid service", "domestic worker", "home nurse", "driver salary"),
         "Home services" to listOf("anacity", "anarock",
-            "painter", "pest", "car wash", "carwash", "cook", "gas cylinder", "cylinder", "water can", "water cans", "ro service", "ro water", "cable tv", "cable operator", "cable", "cleaning", "housekeeping",
+            "painter", "pest", "car wash", "carwash", "gas cylinder", "cylinder", "water can", "water cans", "ro service", "ro water", "cable tv", "cable operator", "cable", "cleaning", "housekeeping",
             "mygate", "101society", "apnacomplex", "nobrokerhood", "society maintenance", " chs",
             "apartmentadda", "apartment adda", "adda.io", "societyrun", "isocietymanager", "societykit", "society kit",
             "societynotebook", "society notebook", "paperbit", "societykingdom", "ggate", "housing society",
@@ -82,8 +85,8 @@ object Classifier {
             "apartment association", "apartments association", "residents welfare", "residents association", "rwa",
             "pest control", "plumber", "electrician", "carpenter", "water purifier", "aquaguard", "kent ro",
             "ac service", "urban company", "urbancompany", "urbanclap", "urban clap", "housejoy", "nobroker",
-            "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat", "maid",
-            "housemaid", "domestic help", "househelp", "house help", "nanny", "babysitter"),
+            "handyman", "laundry", "dryclean", "dry clean", "uclean", "pressto", "washmart", "laundromat",
+            ),
         "Entertainment" to listOf("kuku tv", "kuku fm", "kukufm", "kuku", "mxplayer", "atrangii", "atrangi network", "atrangii network",
             "gaming", "game zone", "gamezone", "games", "amusement", "water park", "waterpark", "theme park", "concert", "stadium", "night club", "nightclub", "bowling", "dream11", "mpl", "arcade", "escape room", "go karting", "imagica", "wonderla", "paytm insider",
             "disney", "apple music", "sonyliv", "aha video", "sun nxt", "sunnxt", "hoichoi",
@@ -224,6 +227,7 @@ object Classifier {
         Regex("""\b(educational\s+society|education\s+society)\b""", RegexOption.IGNORE_CASE) to "Education",
         Regex("""\b(motors?|automobiles?|automotive|showrooms?|taxi|cabs?|rickshaw|autorickshaw|parking|toll)\b""", RegexOption.IGNORE_CASE) to "Transport",
         Regex("""\b(cinemas?|theatres?|theaters?|multiplex|amusement|water\s?park|gaming|game\s?zone|bowling|stadium|night\s?club)\b""", RegexOption.IGNORE_CASE) to "Entertainment",
+        Regex("""\b(maid|house\s?maid|cook|nanny|babysitter|ayah|kaamwali|kamwali)\b""", RegexOption.IGNORE_CASE) to "Domestic help",
         Regex("""\b(plumber|electrician|carpenter|painter|pest\s+control|laundry|dry\s?clean|car\s?wash|housekeeping|cleaning)\b""", RegexOption.IGNORE_CASE) to "Home services",
         Regex("""\b(securities|broking|stock\s?broker|mutual\s+funds?|asset\s+management)\b""", RegexOption.IGNORE_CASE) to "Investment",
         Regex("""\b(charity|ngo|orphanage|orphan|old\s+age\s+home|mandir|temple|church|mosque|masjid|gurudwara|gurdwara|trust|foundation|charitable|ashram|mutt)\b""", RegexOption.IGNORE_CASE) to "Donation",
