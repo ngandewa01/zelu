@@ -498,4 +498,11 @@
     <string name="dp_fri">Fridays</string>
     <string name="dp_sat">Saturdays</string>
     <string name="dp_sun">Sundays</string>
+    <string name="top_this_month">Top this month</string>
+    <string name="regulars">Regulars</string>
+    <string name="regulars_sub">Paid in most of the last 4 months</string>
+    <string name="months_of">%1$d of %2$d months</string>
+    <string name="a_month_amount">%1$s a month</string>
+    <string name="everyone">Everyone</string>
+    <string name="a_to_z">A–Z</string>
 </resources>

@@ -54,247 +54,146 @@ import androidx.compose.ui.window.Dialog
 ) {
     val spend = list.filter { it.kind == Kind.EXPENSE }
     val payees = Analytics.byPayee(list)
-    // Loan EMIs are large and fixed, so they would top every ranking. The overview ranks everyday payees and shows
-    // the EMIs as one line; the All tab still lists everyone.
+    // Loan EMIs are large and fixed, so they would top every ranking: Top this month leaves them out and shows them as one line.
     val loanPayees = payees.filter { p -> p.cats.isNotEmpty() && p.cats.all { it == "EMI" } }
     val ranked = payees.filter { it !in loanPayees }
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("amount") }
-    var catSel by remember { mutableStateOf("All") }
-    var ptab by remember { mutableStateOf("overview") }
+    var sortOpen by remember { mutableStateOf(false) }
     var limit by remember { mutableStateOf(10) }
     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
-    val total = ranked.sumOf { it.amount }
     val lastDate = spend.groupBy { nameOf(it) }.mapValues { e -> e.value.maxOf { it.date } }
+    // The month this view is about: the newest payment's month, so a month picked at the top is followed.
+    val viewMonth = spend.maxOfOrNull { it.date }?.take(7) ?: Dates.todayMonth()
 
     Text(stringResource(R.string.who_you_paid), color = ZColor.Ink, fontSize = 30.sp, fontWeight = FontWeight.Bold)
     if (payees.isEmpty()) { Panel { MutedText(stringResource(R.string.no_payments_in_this_view)) }; return }
 
-    // 1. Summary: how concentrated your spending is.
-    Panel {
-        // One line says it all: how many payees, how much, and how much of it the top few take.
-        val top5 = ranked.take(5)
-        val share = if (total > 0) top5.sumOf { it.amount } / total else 0.0
-        Text(stringResource(R.string.payees, ranked.size, money(total)), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        if (ranked.size > top5.size) MutedText(stringResource(R.string.top_take, top5.size, Math.round(share * 100)), 13)
-        if (total > 0) {
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
-                top5.forEach { p ->
-                    Box(Modifier.weight((p.amount / total).toFloat().coerceAtLeast(0.01f)).fillMaxHeight()
-                        .background(catColor(p.cats.firstOrNull() ?: "Unknown")))
-                }
-                val rest = (1.0 - share).toFloat()
-                if (rest > 0.005f) Box(Modifier.weight(rest).fillMaxHeight().background(ZColor.Line))
+    @Composable fun payeeRow(p: Analytics.Payee) {
+        val c0 = p.cats.firstOrNull() ?: "Unknown"
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) }.padding(vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            MerchantTile(p.name, c0, 36.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(niceName(p.name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                MutedText(plural(p.count, "visit", "visits") + " · " + p.cats.joinToString(", ") { customLabel(it) }, 11)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(money(p.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                lastDate[p.name]?.let { MutedText(prettyDate(it), 11) }
             }
         }
     }
 
-    // Tabs: the picture first, the full list on its own tab.
-    val freshN = run {
-        val thisM = Dates.todayMonth()
-        val seen = HashMap<String, String>()
-        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r -> val n = nameOf(r); val cur = seen[n]; if (cur == null || r.date < cur) seen[n] = r.date }
-        if (seen.size <= 6) 0 else payees.count { seen[it.name]?.startsWith(thisM) == true }.coerceAtMost(6)
-    }
+    // Search first: typing turns the page into one list of matches.
     Spacer(Modifier.height(12.dp))
-    TabRowWrap {
-        IconTab(Icons.Rounded.Leaderboard, stringResource(R.string.overview), 0xFF3B82F6, 0xFF60A5FA, ptab == "overview", modifier = Modifier.weight(1f)) { ptab = "overview" }
-        IconTab(Icons.Rounded.Group, stringResource(R.string.all), 0xFF22B455, 0xFF3DD171, ptab == "all", modifier = Modifier.weight(1f)) { ptab = "all" }
-        IconTab(Icons.Rounded.FiberNew, stringResource(R.string.new_label), 0xFFEC4899, 0xFFF472B6, ptab == "new", freshN, modifier = Modifier.weight(1f)) { ptab = "new" }
-    }
-    if (ptab == "overview") {
-        // A ranked list reads at a glance on a phone: every row has its name, amount and share. (The box chart it replaces
-        // hid most amounts, cut names off, and gave the biggest box to "everyone else".)
-        val top = ranked.take(8)
-        val restN = ranked.size - top.size
-        val restAmt = (total - top.sumOf { it.amount }).coerceAtLeast(0.0)
-        val biggest = (top.maxOfOrNull { it.amount } ?: 1.0).coerceAtLeast(1.0)
-        fun share(a: Double) = if (total > 0) { val p = a / total * 100; if (p < 1) "<1%" else Math.round(p).toString() + "%" } else ""
-        Panel {
-            Eyebrow(stringResource(R.string.top_payees))
-            top.forEachIndexed { i, p ->
-                val cat = p.cats.firstOrNull() ?: "Unknown"
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) }.padding(vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(p.name, cat, 34.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("${i + 1}. " + niceName(p.name), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            Spacer(Modifier.width(8.dp))
-                            Text(money(p.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(ZColor.Line)) {
-                            Box(Modifier.fillMaxWidth((p.amount / biggest).toFloat().coerceIn(0.02f, 1f)).fillMaxHeight()
-                                .clip(RoundedCornerShape(3.dp)).background(catColor(cat)))
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        MutedText(plural(p.count, "payment", "payments") + " · " + p.cats.joinToString(", ") { customLabel(it) } + " · " + share(p.amount) + " of spend", 11)
-                    }
-                }
-            }
-            if (restN > 0 && restAmt > 0.5) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { ptab = "all" }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.everyone_else), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        MutedText(plural(restN, "payee", "payees") + " · " + share(restAmt) + " of spend ›", 11)
-                    }
-                    Text(money(restAmt), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            if (loanPayees.isNotEmpty()) {
-                val loanRows = list.filter { r -> r.kind == Kind.EXPENSE && r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill("Loan EMIs", loanRows) }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile("", "EMI", 34.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.loan_emis), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        MutedText(plural(loanPayees.size, "loan", "loans") + " · not ranked ›", 11)
-                    }
-                    Text(money(loanPayees.sumOf { it.amount }), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            OnceHint("payee_tap", "Tap a payee to see its payments or rename it.")
-        }
-        val freq = ranked.sortedByDescending { it.count }.take(4)
-        if (freq.isNotEmpty() && freq.first().count > 1) {
-            Spacer(Modifier.height(14.dp))
-            Text(stringResource(R.string.paid_most_often), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                freq.forEach { p ->
-                    Column(Modifier.width(124.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
-                        .clickable { onOpenPayee(p.name) }.padding(12.dp)) {
-                        Text(p.count.toString() + "×", color = ZColor.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(niceName(p.name), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText(money(p.amount), 12)
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Chip(stringResource(R.string.see_all_3) + payees.size + " payees", false) { ptab = "all" }
-    }
-
-    // 2. Search, sort and category filter.
-    Spacer(Modifier.height(14.dp))
-    if (ptab == "all") OutlinedTextField(
-        value = query, onValueChange = { query = it }, singleLine = true,
+    OutlinedTextField(
+        value = query, onValueChange = { query = it; limit = 10 }, singleLine = true, shape = RoundedCornerShape(22.dp),
         placeholder = { Text(stringResource(R.string.search_payee)) }, modifier = Modifier.fillMaxWidth(),
     )
-    if (ptab == "all") { Spacer(Modifier.height(8.dp))
-    TabRowWrap {
-        IconTab(Icons.Rounded.Payments, stringResource(R.string.amount_2), 0xFF22B455, 0xFF3DD171, sort == "amount", modifier = Modifier.weight(1f)) { sort = "amount" }
-        IconTab(Icons.Rounded.Repeat, stringResource(R.string.most_paid), 0xFF3B82F6, 0xFF60A5FA, sort == "count", modifier = Modifier.weight(1f)) { sort = "count" }
-        IconTab(Icons.Rounded.Schedule, stringResource(R.string.recent), 0xFFEAB308, 0xFFFACC15, sort == "recent", modifier = Modifier.weight(1f)) { sort = "recent" }
-    } }
-    val catsPresent = payees.flatMap { it.cats }.groupingBy { it }.eachCount().entries
-        .sortedByDescending { it.value }.map { it.key }
-    val sel = if (catSel in catsPresent) catSel else "All"
-    androidx.compose.runtime.LaunchedEffect(query, sort, sel) { limit = 10 }
-    if (ptab == "all") { Spacer(Modifier.height(8.dp))
-    ChipScroll {
-        IconTab(Icons.Rounded.Apps, stringResource(R.string.all), 0xFF64748B, 0xFF94A3B8, sel == "All") { catSel = "All" }
-        catsPresent.forEach { c -> CatTab(c, sel == c) { catSel = c } }
-    } }
-
     val q = query.trim().lowercase()
-    val filtered = payees.filter { p -> (q.isEmpty() || p.name.lowercase().contains(q)) && (sel == "All" || sel in p.cats) }
-    val ordered = when (sort) {
-        "count" -> filtered.sortedByDescending { it.count }
-        "recent" -> filtered.sortedByDescending { lastDate[it.name] ?: "" }
-        else -> filtered
-    }
-    val split = q.isEmpty() && sel == "All"
-    val shownList = ordered.take(limit)
-    val fixedP = shownList.filter { p -> p.name.trim().lowercase() in fixedSet.payees || (p.cats.isNotEmpty() && p.cats.all { it.lowercase() in fixedSet.cats }) }
-    val everyday = shownList.filter { it !in fixedP }
-
-    @Composable fun section(title: String, items: List<Analytics.Payee>) {
-        if (items.isEmpty()) return
-        val top = items.maxOf { it.amount }.coerceAtLeast(1.0)
+    if (q.isNotEmpty()) {
+        val found = payees.filter { it.name.lowercase().contains(q) }
         Panel {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Eyebrow(title); MutedText(money(items.sumOf { it.amount }), 12)
-            }
-            items.forEachIndexed { i, p ->
-                Spacer(Modifier.height(if (i == 0) 10.dp else 14.dp))
-                val c0 = p.cats.firstOrNull() ?: "Unknown"
-                val pct = if (total > 0) Math.round(p.amount / total * 100).toInt() else 0
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        MerchantTile(p.name, c0, 36.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(niceName(p.name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            MutedText("${p.count} ${if (p.count == 1) "payment" else "payments"} · ${p.cats.joinToString(", ")}", 11)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(money(p.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                            MutedText(if (pct < 1) "<1%" else "$pct%", 11)
-                        }
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    Meter((p.amount / top).toFloat(), catColor(c0))
+            if (found.isEmpty()) MutedText(stringResource(R.string.no_payee_matches))
+            else { Eyebrow(plural(found.size, "payee", "payees")); found.forEach { payeeRow(it) } }
+        }
+        return
+    }
+
+    // Top this month: the five everyday payees that took the most, and the loans as one line.
+    Panel {
+        Eyebrow(stringResource(R.string.top_this_month))
+        ranked.take(5).forEach { payeeRow(it) }
+        if (loanPayees.isNotEmpty()) {
+            val loanRows = spend.filter { r -> r.category == "EMI" && loanPayees.any { it.name == nameOf(r) } }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill("Loan EMIs", loanRows) }.padding(vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile("", "EMI", 36.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.loan_emis), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    MutedText(plural(loanPayees.size, "loan", "loans") + " ›", 11)
                 }
+                Text(money(loanPayees.sumOf { it.amount }), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 
-    // 4b. Payees you have never paid before this month, so an unfamiliar charge stands out.
-    if (ptab == "new") run {
-        val thisM = Dates.todayMonth()
-        val firstSeen = HashMap<String, String>()
-        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r ->
-            val n = nameOf(r); val cur = firstSeen[n]
-            if (cur == null || r.date < cur) firstSeen[n] = r.date
-        }
-        val fresh = payees.filter { firstSeen[it.name]?.startsWith(thisM) == true }.take(6)
-        if (fresh.isEmpty() || firstSeen.size <= fresh.size) Panel { MutedText(stringResource(R.string.no_new_payees_this_month)) }
-        else Panel {
-            Eyebrow(stringResource(R.string.new_this_month))
-            Spacer(Modifier.height(4.dp))
-            MutedText(stringResource(R.string.first_time_you_ve_paid), 11)
-            fresh.forEach { p ->
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) },
+    // Regulars: who you pay month after month (milk, the maid, rent, the phone), and what they usually cost.
+    val regulars = remember(allRows, viewMonth) { PatternMath.regulars(allRows, viewMonth).take(8) }
+    if (regulars.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        Panel {
+            Eyebrow(stringResource(R.string.regulars))
+            MutedText(stringResource(R.string.regulars_sub), 11)
+            regulars.forEach { r ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(r.name) }.padding(vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown", 30.dp)
-                    Spacer(Modifier.width(10.dp))
+                    MerchantTile(r.name, payees.firstOrNull { it.name == r.name }?.cats?.firstOrNull() ?: "Unknown", 36.dp)
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(niceName(p.name), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        MutedText(prettyDate(firstSeen[p.name] ?: ""), 11)
+                        Text(niceName(r.name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        MutedText(stringResource(R.string.months_of, r.months, r.of), 11)
                     }
-                    Text(money(p.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.a_month_amount, money(r.perMonth)), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
         }
     }
 
-    // 5. Fixed costs (EMI, rent...) are kept apart so they don't bury everyday spending.
-    if (ptab == "all") {
-        when {
-            ordered.isEmpty() -> Panel { MutedText(stringResource(R.string.no_payee_matches)) }
-            split && fixedP.isNotEmpty() -> { section("Everyday spending", everyday); section("Fixed & recurring", fixedP) }
-            else -> section(if (split) "All payees" else "Results", shownList)
+    // New this month: first payments to someone, so an unfamiliar charge stands out.
+    val firstSeen = remember(allRows) {
+        val m = HashMap<String, String>()
+        allRows.filter { it.kind == Kind.EXPENSE }.forEach { r -> val n = nameOf(r); val cur = m[n]; if (cur == null || r.date < cur) m[n] = r.date }
+        m
+    }
+    val fresh = payees.filter { firstSeen[it.name]?.startsWith(viewMonth) == true }
+    if (fresh.isNotEmpty() && firstSeen.size > fresh.size) {
+        Spacer(Modifier.height(12.dp))
+        Panel {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Eyebrow(stringResource(R.string.new_this_month)) }
+                Text(fresh.size.toString(), color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+            fresh.take(6).forEach { payeeRow(it) }
         }
-        // Grow the list ten at a time, and fold it back up again.
+    }
+
+    // Everyone, with one sort menu.
+    val sortLabels = mapOf("amount" to stringResource(R.string.amount_2), "count" to stringResource(R.string.most_paid),
+        "recent" to stringResource(R.string.recent), "az" to stringResource(R.string.a_to_z))
+    val ordered = when (sort) {
+        "count" -> payees.sortedByDescending { it.count }
+        "recent" -> payees.sortedByDescending { lastDate[it.name] ?: "" }
+        "az" -> payees.sortedBy { niceName(it.name).lowercase() }
+        else -> payees
+    }
+    Spacer(Modifier.height(12.dp))
+    Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { Eyebrow(stringResource(R.string.everyone)) }
+            Box {
+                Text((sortLabels[sort] ?: "") + " ▾", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sortOpen = true }.padding(horizontal = 8.dp, vertical = 4.dp))
+                androidx.compose.material3.DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                    sortLabels.forEach { (k, label) ->
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { sort = k; sortOpen = false; limit = 10 })
+                    }
+                }
+            }
+        }
+        ordered.take(limit).forEach { payeeRow(it) }
         if (ordered.size > limit || limit > 10) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (ordered.size > limit) Chip(stringResource(R.string.show_10_more) + (ordered.size - limit) + " left)", false) { limit += 10 }
                 if (limit > 10) Chip(stringResource(R.string.show_less), false) { limit = 10 }
             }
         }
     }
-
 }
 
 // ---------- Investments ----------

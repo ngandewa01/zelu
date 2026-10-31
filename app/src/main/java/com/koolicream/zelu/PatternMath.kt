@@ -54,4 +54,18 @@ object PatternMath {
         val total = s.sumOf { it.paise } / 100.0
         return Small(s.size, total, if (s.isEmpty()) 0.0 else total / s.size)
     }
+
+    class Regular(val name: String, val months: Int, val of: Int, val perMonth: Double)
+
+    /** Payees paid in at least [min] of the [span] months up to [lastMonth], with what they usually cost a month. */
+    fun regulars(rows: List<Row>, lastMonth: String, span: Int = 4, min: Int = 3): List<Regular> {
+        val months = (span - 1 downTo 0).map { Dates.shiftMonth(lastMonth, -it) }.toSet()
+        return rows.filter { it.kind == Kind.EXPENSE && it.date.take(7) in months }
+            .groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: it.category }
+            .mapNotNull { (name, rs) ->
+                val byMonth = rs.groupBy { it.date.take(7) }
+                if (byMonth.size < min) null else Regular(name, byMonth.size, span, rs.sumOf { it.paise } / 100.0 / byMonth.size)
+            }
+            .sortedByDescending { it.perMonth }
+    }
 }

@@ -24,4 +24,14 @@ class PatternMathTest {
             row("2026-10-03", 100, "paid at 08:15 AM"), row("2026-10-03", 200, "paid at 7:41 PM"), row("2026-10-03", 300, "paid at 11:30 PM")))
         assertEquals(listOf(100.0, 0.0, 200.0, 300.0), v.toList())
     }
+
+    @Test fun regularsArePaidMostMonths() {
+        fun r(date: String, who: String, rs: Long) = Row("id$date$who", date, rs * 100, Dir.DEBIT, who, null, "x", "S", "A", Kind.EXPENSE, "Food", 0L)
+        val rows = listOf(r("2026-07-02", "Milk", 1800), r("2026-08-02", "Milk", 1900), r("2026-10-02", "Milk", 2000),
+            r("2026-10-05", "Croma", 18000), r("2026-09-05", "Maid", 3000), r("2026-10-05", "Maid", 3000))
+        val reg = PatternMath.regulars(rows, "2026-10")
+        assertEquals(listOf("Milk"), reg.map { it.name })
+        assertEquals(1900.0, reg[0].perMonth, 0.01)
+        assertEquals(3, reg[0].months)
+    }
 }
