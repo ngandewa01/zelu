@@ -124,6 +124,8 @@ import androidx.compose.ui.window.Dialog
 
     // Regulars: who you pay month after month (milk, the maid, rent, the phone), and what they usually cost.
     val regulars = remember(allRows, viewMonth) { PatternMath.regulars(allRows, viewMonth).take(8) }
+    // A regular may not be paid in the month shown, so its icon comes from its latest payment, not this month's.
+    val lastCat = remember(allRows) { allRows.filter { it.kind == Kind.EXPENSE }.groupBy { nameOf(it) }.mapValues { (_, rs) -> rs.maxByOrNull { it.date }?.category ?: "Unknown" } }
     if (regulars.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
         Panel {
@@ -132,7 +134,7 @@ import androidx.compose.ui.window.Dialog
             regulars.forEach { r ->
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(r.name) }.padding(vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    MerchantTile(r.name, payees.firstOrNull { it.name == r.name }?.cats?.firstOrNull() ?: "Unknown", 36.dp)
+                    MerchantTile(r.name, lastCat[r.name] ?: "Unknown", 36.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(niceName(r.name), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
