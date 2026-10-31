@@ -276,6 +276,7 @@
     <string name="by_type">By type</string>
     <string name="dues_reminders">Dues &amp; reminders</string>
     <string name="upcoming">Upcoming</string>
+    <string name="upcoming_tab">Due</string>
     <string name="paid_2">Paid</string>
     <string name="autopay">Autopay</string>
     <string name="overdue">Overdue</string>
