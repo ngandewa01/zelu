@@ -74,7 +74,7 @@ object Storage {
         // The folder is part of every key, so sample data (its own folder) and your data never share a result.
         val k1 = context.filesDir.absolutePath + "|" + epoch + "|" + v(TXN_FILE, MANUAL_TXN_FILE)
         val own = loadSettings(context).ownAccounts
-        val k2 = k1 + "|" + v(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, CATOFF_FILE, SPLIT_FILE) + "|" + own
+        val k2 = k1 + "|" + v(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, CATOFF_FILE, SPLIT_FILE, NOT_COUNTED_FILE) + "|" + own
         val k3 = k2 + "|" + v("refund_links.json", REMINDER_FILE)
         if (k3 != stage3Key) {
             val base = stage1?.takeIf { it.first == k1 }?.second ?: (readMap(context) + manualTxns(context)).also { stage1 = k1 to it }
@@ -106,6 +106,7 @@ object Storage {
         val apart = readKv(context, APART_FILE).keys
         val titles = readKv(context, TITLE_FILE)
         val catOff = readKv(context, CATOFF_FILE).keys
+        val notCounted = readKv(context, NOT_COUNTED_FILE).keys
         val splits = loadSplits(context)
         val own = splitList(loadSettings(context).ownAccounts)
         // The same account written with different digit counts is joined here, unless you decided otherwise about that
@@ -131,8 +132,10 @@ object Storage {
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = Kind.of(k), category = c) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = Kind.IGNORE)
+            // Switched off on its page: left out of every total, its type and category untouched (switching on brings them back).
+            if (r.id in notCounted) row = row.copy(kind = Kind.IGNORE)
             row
-        }.newestFirst()
+        }.filter { it.category != DELETED }.newestFirst()   // a payment you deleted is gone everywhere (undo brings it back)
         // A payment you split becomes several rows that add up to it, one per category.
         val expanded = if (splits.isEmpty()) rows else rows.flatMap { r ->
             val parts = splits[r.id]
@@ -145,6 +148,7 @@ object Storage {
                     counterparty = pc.second.removePrefix(PERSON_PART))
                 else r.copy(id = pid, paise = paiseOf(pc.first), category = pc.second)
                 overrides[pid]?.let { (k, c) -> part = part.copy(kind = Kind.of(k), category = c) }
+                if (pid in notCounted) part = part.copy(kind = Kind.IGNORE)
                 part
             }
         }
@@ -320,6 +324,8 @@ object Storage {
 
     // ---- one payment split across categories ----  id -> [(amount, category)]; a category "@Name" is that person's share
     const val PERSON_PART = "@"
+    // The category a payment you deleted is kept under, so the message is not read in again and undo can bring it back.
+    const val DELETED = "Deleted"
     private const val SPLIT_FILE = "splits.json"
     fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
         val f = doc(context, SPLIT_FILE)
@@ -342,6 +348,15 @@ object Storage {
         val obj = JSONObject()
         for ((k, v) in splits) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
         doc(context, SPLIT_FILE).writeKeepingBackup(obj.toString())
+    }
+
+    // ---- payments switched off on their page: not counted, but their type and category are kept ----
+    private const val NOT_COUNTED_FILE = "not_counted.json"
+    fun notCounted(context: Context): Set<String> = synchronized(lock) { readKv(context, NOT_COUNTED_FILE).keys }
+    fun setNotCounted(context: Context, id: String, off: Boolean): Unit = synchronized(lock) {
+        val kv = readKv(context, NOT_COUNTED_FILE).toMutableMap()
+        if (off) kv[id] = "1" to "" else kv.remove(id)
+        writeKv(context, NOT_COUNTED_FILE, kv)
     }
 
     // ---- groups of people to split with, and which split was with which group ----
@@ -411,13 +426,13 @@ object Storage {
         bump(TXN_FILE)
     }
 
-    // Where "Report a problem" emails go; change it from Menu > Help.
+    // Where "Report a problem" emails go. Fixed: it is ours, not something a user sets.
     const val DEFAULT_REPORT_EMAIL = "koolicream@gmail.com"
     fun reportEmail(context: Context): String {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         // Earlier versions saved the report address on the phone; forget it once so everyone uses the current one.
         if (!p.getBoolean("report_email_reset_v2", false)) p.edit().remove("report_email").putBoolean("report_email_reset_v2", true).apply()
-        return p.getString("report_email", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_REPORT_EMAIL
+        return DEFAULT_REPORT_EMAIL
     }
     fun setReportEmail(context: Context, email: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("report_email", email.trim()).apply()
@@ -985,6 +1000,8 @@ object Storage {
         source = o.optString("source", ""),
     )
 
+    fun overrideOf(context: Context, id: String): Pair<String, String>? = synchronized(lock) { readKv(context, OVERRIDE_FILE)[id] }
+
     fun setOverride(context: Context, id: String, kind: Kind, category: String) = synchronized(lock) {
         putKv(context, OVERRIDE_FILE, id, kind.key to category)
     }
@@ -1006,7 +1023,7 @@ object Storage {
     }
 
     // Undo support: a copy of everything a category / refund / rename decision can change.
-    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE)
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE, SPLIT_FILE, GROUP_OF_FILE, NOT_COUNTED_FILE)
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
         UNDO_FILES.associateWith { n -> exportText(context, n) }
@@ -1080,7 +1097,7 @@ object Storage {
     // ---- your decisions, in the database (kv and doc tables, see Db.kt) ----
     // Files whose every entry is "key -> a|b": one row per key in the kv table.
     private val KV_FILES = setOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, "card_networks.json",
-        "dup_ok.json", SENDER_FILE, SENDER_BANK_FILE, CLOSEDLOAN_FILE, CATOFF_FILE, HANDLED_FILE, GROUP_FILE, GROUP_OF_FILE)
+        "dup_ok.json", SENDER_FILE, SENDER_BANK_FILE, CLOSEDLOAN_FILE, CATOFF_FILE, HANDLED_FILE, GROUP_FILE, GROUP_OF_FILE, NOT_COUNTED_FILE)
     // Every other file Zelu keeps, as its whole text in the doc table.
     private val DOC_FILES = setOf(SPLIT_FILE, MANDATE_FILE, MANUAL_TXN_FILE, MANUAL_FILE, REPAID_FILE, BUDGET_FILE, REM_DONE_FILE,
         REMINDER_FILE, "balances.json", "limits.json", "refund_links.json", "plan.json", "card_prefs.json", "monthly_budget.txt",

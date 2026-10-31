@@ -115,12 +115,15 @@ object Analytics {
         }
     }
 
+    /** Payments switched off on their page: shown in lists (struck through), never in a total. Set after each refresh. */
+    @Volatile var notCounted: Set<String> = emptySet()
+
     private fun typeOk(r: Row, type: String): Boolean = when (type) {
         "expense" -> r.kind == Kind.EXPENSE
         "income" -> r.kind == Kind.INCOME || r.kind == Kind.REFUND
         "ignore" -> r.kind == Kind.IGNORE
-        // "Everything" hides ignored rows — pick "Ignored" to see and un-ignore them.
-        else -> r.kind != Kind.IGNORE
+        // "Everything" hides ignored rows (duplicates and such) — but a payment you switched off still shows, struck through.
+        else -> r.kind != Kind.IGNORE || r.id in notCounted
     }
 
     private fun catOk(r: Row, cat: String): Boolean = when (cat) {

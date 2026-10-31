@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -278,8 +280,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 }
 
 @Composable internal fun BottomNav(view: Tab, modifier: Modifier, onPick: (Tab) -> Unit) {
-    // Each tab has its own colour on a round tile, like every other icon in the app; the chosen one gets a wash
-    // of its colour and a bold name.
+    // The tabs follow the theme: the chosen one takes the theme colour (wash, ring and icon) and a bold name;
+    // the others stay quiet in the muted ink, so switching theme recolours the whole bar.
     data class NavItem(val key: Tab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
     val items = listOf(
         NavItem(Tab.LEDGER, "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), NavItem(Tab.SPEND, "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
@@ -293,7 +295,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     ) {
         items.forEach { t ->
             val on = view == t.key
-            val tint = Color(if (ZTheme.dark) t.dark else t.light)
+            val tint = if (on) ZColor.Accent else ZColor.Muted
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.testTag("nav-" + t.key.key).padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -435,6 +437,24 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
         drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(s / 2, 0f), androidx.compose.ui.geometry.Offset(s / 2, size.height), s)
         drawLine(ZColor.Line, androidx.compose.ui.geometry.Offset(size.width - s / 2, 0f), androidx.compose.ui.geometry.Offset(size.width - s / 2, size.height), s)
     }.padding(horizontal = 18.dp)) { content() }
+}
+
+// A heading that folds what is under it: its name, how many, and an arrow; tap anywhere on it to open or close.
+/** The open/close arrow for a folding section: a clear chevron in a small round chip, big enough to see and tap. */
+@Composable internal fun FoldArrow(open: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(
+            if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+            contentDescription = null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable internal fun FoldHeading(title: String, count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onToggle() }.padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Eyebrow("$title · $count")
+        FoldArrow(open)
+    }
 }
 
 @Composable internal fun Eyebrow(text: String, color: Color = ZColor.Muted) {

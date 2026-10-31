@@ -2,6 +2,13 @@ package com.koolicream.zelu
 
 // The numbers behind the Analytics cards: when in the day, which payments, which part of the month, and small spends.
 object PatternMath {
+    /** The middle value: a usual month that one or two big months can't drag up the way an average does. */
+    fun median(values: List<Double>): Double {
+        if (values.isEmpty()) return 0.0
+        val s = values.sorted(); val n = s.size
+        return if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2
+    }
+
     /** 0 = Monday ... 6 = Sunday. */
     fun weekdayIndex(date: String): Int = (Dates.parse(date).get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
 

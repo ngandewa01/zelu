@@ -125,9 +125,11 @@ import androidx.compose.ui.unit.sp
     if (showSummary) afterSummary()
     if (!showCategories) return
     val top = cats.first().second
+    var catsAll by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
     Panel {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.by_category))
+            FoldArrow(catsAll, Modifier.clip(CircleShape).clickable { catsAll = !catsAll })
             Spacer(Modifier.weight(1f))
             // The month's budget lives here, next to what was spent, and is set from here.
             if (dayLabel == null) Text(
@@ -135,7 +137,9 @@ import androidx.compose.ui.unit.sp
                 color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditMonthly() }.padding(horizontal = 6.dp, vertical = 4.dp))
         }
-        cats.forEachIndexed { i, (c, v) ->
+        // The arrow folds the whole list away (just this heading stays) or opens all of it.
+        val shownCats = if (catsAll) cats else emptyList()
+        shownCats.forEachIndexed { i, (c, v) ->
             Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
             // A day picked on the calendar keeps the short list of that day's payments; otherwise a category is a page of its own.
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { if (dayLabel == null) onOpenCategory(c) else onDrill(c, rowsFor(c)) }) {
@@ -187,4 +191,3 @@ import androidx.compose.ui.unit.sp
         }
     }
 }
-

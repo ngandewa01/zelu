@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -108,7 +112,11 @@ internal fun personBalances(allRows: List<Row>, repaid: Map<String, Double>): Li
             onDrill(g, allRows.filter { it.id.substringBefore('#') in ids })
         }
     }
-    people.forEach { p ->
+    // People who are settled are history: folded under one line, like ended autopays.
+    var showSettled by rememberSaveable { mutableStateOf(false) }
+    val open = people.filter { kotlin.math.abs(it.net) > 0.5 }
+    val settled = people.filter { kotlin.math.abs(it.net) <= 0.5 }
+    @Composable fun personCard(p: PersonBalance) {
         val parts = buildList {
             if (p.splits > 0) add(plural(p.splits, "split", "splits"))
             val plainLent = p.lent - allRows.filter { it.kind == Kind.LENT && it.counterparty == p.name && it.id.contains('#') }.rupees()
@@ -119,6 +127,10 @@ internal fun personBalances(allRows: List<Row>, repaid: Map<String, Double>): Li
             if (p.net < -0.5 || (p.lent <= 0.0 && p.borrowed > 0)) onOpenBorrow(p.name) else onOpenLend(p.name)
         }
     }
-    Spacer(Modifier.height(12.dp))
-    MutedText(stringResource(R.string.people_hint), 12)
+    open.forEach { personCard(it) }
+    if (settled.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        FoldHeading(stringResource(R.string.settled_label), settled.size, showSettled) { showSettled = !showSettled }
+        if (showSettled) settled.forEach { personCard(it) }
+    }
 }

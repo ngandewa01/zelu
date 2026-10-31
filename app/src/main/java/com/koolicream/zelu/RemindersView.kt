@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -105,7 +106,7 @@ import java.util.Calendar
             if (lt > 0) Fact(stringResource(R.string.later), money(lt))
         }
         // The 30-day strip shows whenever a bill falls inside it, so it never shows only empty days.
-        // Today has an outline; a day with a bill is gold and opens it; swipe for later days.
+        // Today has an outline; a day with a bill takes the theme colour and opens it; swipe for later days.
         val stripEnd = Dates.shiftDays(today, 29)
         if (pending.any { it.dueDate >= today && it.dueDate <= stripEnd }) {
         Spacer(Modifier.height(14.dp))
@@ -117,8 +118,8 @@ import java.util.Calendar
                 val dayN = d.substring(8, 10).toInt()
                 val shape = RoundedCornerShape(10.dp)
                 Column(Modifier.width(50.dp).clip(shape)
-                    .background(if (due.isNotEmpty()) ZColor.AmberSoft else ZColor.Paper)
-                    .then(if (due.isNotEmpty()) Modifier.border(1.dp, ZColor.AmberInk.copy(alpha = 0.5f), shape) else Modifier)
+                    .background(if (due.isNotEmpty()) ZColor.Accent.copy(alpha = 0.16f) else ZColor.Paper)
+                    .then(if (due.isNotEmpty()) Modifier.border(1.dp, ZColor.Accent.copy(alpha = 0.55f), shape) else Modifier)
                     .then(if (i == 0) Modifier.border(2.dp, ZColor.Ink, shape) else Modifier)
                     .then(if (due.isNotEmpty()) Modifier.clickable { detail = due.first() } else Modifier)
                     .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -129,7 +130,7 @@ import java.util.Calendar
                         fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Medium)
                     // A bill day shows its amount; an empty day shows nothing, so bill days stand out.
                     Text(if (due.isNotEmpty()) "₹" + shortAmt(due.sumOf { it.amount }) else " ",
-                        color = ZColor.AmberInk, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        color = ZColor.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
         }
@@ -164,25 +165,32 @@ import java.util.Calendar
         }
         if (paidOlder.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text(if (showOlderPaid) "Hide earlier months" else "Show earlier months (" + paidOlder.size + ")", color = ZColor.Accent,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { showOlderPaid = !showOlderPaid }.padding(vertical = 6.dp))
+            FoldHeading(stringResource(R.string.earlier_months), paidOlder.size, showOlderPaid) { showOlderPaid = !showOlderPaid }
             if (showOlderPaid) paidOlder.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
         }
     }
     if (duesTab == 2) people()
     // Autopay set-ups sit under the bills to pay, since each is a bill that pays itself.
     if (duesTab == 0 && mandates.isNotEmpty()) {
+        var autopayOpen by remember { mutableStateOf(true) }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Eyebrow(stringResource(R.string.autopay_mandates))
                 InfoDot(stringResource(R.string.upi_autopay_set_up_from))
             }
-            MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
+                FoldArrow(autopayOpen, Modifier.clip(CircleShape).clickable { autopayOpen = !autopayOpen })
+            }
         }
 
         Spacer(Modifier.height(6.dp))
-        mandates.forEach { md ->
+        // Ended or paused set-ups are history: folded away under one line unless you open them.
+        var showEnded by remember { mutableStateOf(false) }
+        val liveMandates = mandates.filter { it.status == "active" || it.status == "scheduled" }
+        val endedMandates = mandates.filter { it !in liveMandates }
+        @Composable fun mandateRow(md: Mandate) {
             val live = md.status == "active" || md.status == "scheduled"
             val tone = when (md.status) { "paused" -> ZColor.Warn; "ended" -> ZColor.Muted; else -> ZColor.Income }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
@@ -211,6 +219,15 @@ import java.util.Calendar
                     if (md.amount != null) Text(money(md.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(when (md.status) { "paused" -> "PAUSED"; "ended" -> "ENDED"; else -> "ACTIVE" }, color = tone, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+        if (autopayOpen) {
+            liveMandates.forEach { mandateRow(it) }
+            // Ended set-ups are history: their own heading, folded until opened.
+            if (endedMandates.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                FoldHeading(stringResource(R.string.ended_label), endedMandates.size, showEnded) { showEnded = !showEnded }
+                if (showEnded) endedMandates.forEach { mandateRow(it) }
             }
         }
     }

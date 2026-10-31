@@ -68,11 +68,12 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     LaunchedEffect(months.size) { scroll.scrollTo(scroll.maxValue) }
     val plot = 112.dp
     val labelH = 16.dp
-    val tagH = 24.dp
+    // In the strip that fits the width there is no room for the amount over a bar; the card shows it big above.
+    val tagH = if (fit) 6.dp else 24.dp
     val lineColor = ZColor.Muted
     // A usual month: the average of the months that have payments, drawn as a thin line through every bar.
     val paid = values.filter { it > 0 }
-    val avg = if (paid.size > 1) paid.average() else 0.0
+    val avg = if (paid.size > 1) PatternMath.median(paid) else 0.0
     // fit: every month shares the width (Spend's twelve months), so nothing scrolls sideways.
     Row(if (fit) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(if (fit) 4.dp else 6.dp)) {
         months.forEachIndexed { i, m ->
@@ -96,7 +97,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom,
             ) {
                 Box(Modifier.height(tagH), contentAlignment = Alignment.BottomCenter) {
-                    if (on && v > 0) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Ink).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    if (on && v > 0 && !fit) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Ink).padding(horizontal = 6.dp, vertical = 2.dp)) {
                         Text(shortAmt(v), color = ZColor.Paper, fontSize = if (fit) 9.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
                     }
                 }
@@ -119,7 +120,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
 @Composable private fun MonthHeadline(values: List<Double>, selected: Int) {
     val v = values.getOrElse(selected) { 0.0 }
     val paid = values.filter { it > 0 }
-    val usual = if (paid.isEmpty()) 0.0 else paid.average()
+    val usual = PatternMath.median(paid)
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Text(money(v), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
@@ -158,10 +159,13 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     onRename: (String) -> Unit,
 ) {
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
-    val values = remember(history) { Analytics.monthlyTotals(history, months) }
+    // The chart counts what counts: a payment switched off is in the list below but not in the bars.
+    val values = remember(history) { Analytics.monthlyTotals(history.filter { it.kind != Kind.IGNORE }, months) }
     var sel by remember(name) { mutableStateOf(openMonth(values)) }
     val primary = remember(history) { history.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown" }
-    val inMonth = remember(history, sel) { history.filter { it.date.startsWith(months[sel]) }.newestFirst() }
+    val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
+    val rest = remember(history, sel) { SplitMarks.forDisplay(history.filter { !it.date.startsWith(months[sel]) }).newestFirst() }
+    var showRest by remember(name) { mutableStateOf(false) }
     val withPayee = history.firstOrNull { !it.counterparty.isNullOrBlank() }
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -241,6 +245,14 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
                 if (inMonth.isEmpty()) MutedText(stringResource(R.string.nothing_in_month, monthName(months[sel])))
             }
             items(inMonth, key = { it.id }) { r -> TxnRow(r, false, onRowClick) }
+            // Every visit stays reachable, even ones older than the chart: the rest fold under one heading.
+            if (rest.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(10.dp))
+                    FoldHeading(stringResource(R.string.other_months), rest.size, showRest) { showRest = !showRest }
+                }
+                if (showRest) items(rest, key = { "o" + it.id }) { r -> TxnRow(r, false, onRowClick) }
+            }
         }
     }
 }
@@ -251,9 +263,10 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     onBack: () -> Unit, onRowClick: (Row) -> Unit,
 ) {
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
-    val values = remember(history) { Analytics.monthlyTotals(history, months) }
+    // The chart counts what counts: a payment switched off is in the list below but not in the bars.
+    val values = remember(history) { Analytics.monthlyTotals(history.filter { it.kind != Kind.IGNORE }, months) }
     var sel by remember(category) { mutableStateOf(openMonth(values)) }
-    val inMonth = remember(history, sel) { history.filter { it.date.startsWith(months[sel]) }.newestFirst() }
+    val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 40.dp)) {
             item {

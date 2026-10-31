@@ -36,6 +36,8 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -99,11 +101,24 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
             val at = TxnTime.label(t)
             // A foreign-currency card spend shows what was actually charged ("USD 25.00").
             val fx = remember(t.raw) { Parser.foreign(t.raw) }
-            MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
-                (if (fx != null) " · " + Fx.label(fx) else ""), 12)
+            // A part of a split shows a small mark: people for a split with people, a fork for one split into categories.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (t.id.contains('#')) {
+                    val withPeople = t.id.substringBefore('#') in SplitMarks.people
+                    androidx.compose.material3.Icon(if (withPeople) Icons.Rounded.Group else Icons.AutoMirrored.Rounded.CallSplit,
+                        stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories),
+                        tint = ZColor.Muted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                val whole = SplitMarks.wholeOf(t)
+                MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
+                    (if (whole != null) " · " + stringResource(R.string.yours_amount, money(t.amount)) else "") +
+                    (if (fx != null) " · " + Fx.label(fx) else ""), 12)
+            }
         }
         Spacer(Modifier.width(10.dp))
-        AmountText(t, highlight)
+        // Your share of a split with people: the row shows the whole payment, your part is in the line under the name.
+        AmountText(SplitMarks.wholeOf(t)?.let { t.copy(paise = it) } ?: t, highlight)
     }
 }
 
@@ -111,7 +126,9 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
     when (t.kind) {
         Kind.TRANSFER -> Text(stringResource(R.string.transfer), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Kind.INVEST -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        Kind.IGNORE -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
+        // Switched off on its page: the amount, struck through. Other ignored rows (duplicates and such) show a dash.
+        Kind.IGNORE -> if (t.id in Analytics.notCounted) Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else Text("—", color = ZColor.Muted, fontSize = 14.sp)
         Kind.INCOME, Kind.REFUND, Kind.BORROWED ->
             Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),
@@ -330,7 +347,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 
     // Recent — horizontal strip
     Panel {
-        val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
+        val recent = SplitMarks.forDisplay(list.filter { it.kind != Kind.INVEST }).newestFirst()
         // A payment that wants a look wears a small mark on its card (red: nothing sorted it; amber: a refund or a message
         // twice to check). Tapping the card opens the payment, where it is settled. The cards stay in date and time order.
         val strip = recent.take(10)
@@ -378,10 +395,20 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Spacer(Modifier.height(8.dp))
                     Text(rowTitle(t), color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
+                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     val at = TxnTime.label(t)
-                    MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
+                    // A split shows its mark here too: people for a split with people, a fork for categories.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (t.id.contains('#')) {
+                            val withPeople = t.id.substringBefore('#') in SplitMarks.people
+                            androidx.compose.material3.Icon(if (withPeople) Icons.Rounded.Group else Icons.AutoMirrored.Rounded.CallSplit,
+                                stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories),
+                                tint = ZColor.Muted, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
+                    }
                 }
             }
         }
@@ -661,10 +688,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 @Composable internal fun DailyCalendarBlock(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
     daySel: Int, onDay: (Int) -> Unit, onRowClick: (Row) -> Unit,
-    showCal: Boolean = true, showList: Boolean = true,
+    showCal: Boolean = true, showList: Boolean = true, excludeEmi: Boolean = false,
 ) {
     val bigIds = Analytics.bigSpendIds(list)
-    val daily = Analytics.dailyTotals(allRows, month, account)
+    // The days follow "Exclude EMI" like the rest of the page.
+    val daily = Analytics.dailyTotals(if (excludeEmi) allRows.filter { it.category != "EMI" } else allRows, month, account)
     if (showCal) Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.daily_spend))
@@ -675,7 +703,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     }
     if (showList && daySel > 0) {
         val dayStr = "%s-%02d".format(month, daySel)
-        val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
+        val dayRows = SplitMarks.forDisplay(list.filter { it.date == dayStr }).sortedByDescending { it.amount }
         val dtot = dayRows.filter { it.kind == Kind.EXPENSE }.rupees()
         Panel {
             Eyebrow(stringResource(R.string.spent, daySel, Dates.monthLong(month), money(dtot)))
@@ -705,18 +733,25 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             week.forEach { d ->
                 if (d == 0) {
-                    Box(Modifier.weight(1f).aspectRatio(1f))
+                    Box(Modifier.weight(1f).aspectRatio(0.8f))
                 } else {
                     val v = daily[d]
                     val alpha = if (v <= 0) 0f else (0.18f + (v / max).toFloat() * 0.72f)
                     val bg = if (alpha == 0f) Color.Transparent else ZColor.Accent.copy(alpha = alpha)
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(9.dp))
+                        Modifier.weight(1f).aspectRatio(0.8f).clip(RoundedCornerShape(9.dp))
                             .background(bg)
                             .border(if (daySel == d) 2.dp else 0.dp, if (daySel == d) ZColor.Ink else Color.Transparent, RoundedCornerShape(9.dp))
                             .clickable { onDay(d) },
                         contentAlignment = Alignment.Center,
-                    ) { Text("$d", color = ZColor.InkSoft, fontSize = 11.sp) }
+                    ) {
+                        // The day and what it cost; on a dark (heavy) day the text turns light so it stays readable.
+                        val ink = if (alpha > 0.55f) ZColor.Paper else ZColor.InkSoft
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$d", color = ink, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = if (daySel == d) FontWeight.Bold else FontWeight.Normal)
+                            if (v > 0) Text("₹" + shortAmt(v), color = ink, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }

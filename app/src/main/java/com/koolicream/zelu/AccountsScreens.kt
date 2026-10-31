@@ -154,7 +154,7 @@ import java.util.Locale
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             MutedText(prettyDate(r.date), 11)
                         }
-                        Text(money(r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(money(SplitMarks.wholeOf(r)?.let { it / 100.0 } ?: r.amount), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 if (mine.size > 10) MutedText(stringResource(R.string.and_more, mine.size - 10), 12)

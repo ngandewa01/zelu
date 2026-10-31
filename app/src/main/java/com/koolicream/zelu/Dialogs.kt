@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -61,7 +63,7 @@ import androidx.compose.ui.window.Dialog
 @Composable internal fun DrillDialog(title: String, rows: List<Row>, onRowClick: (Row) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
-            val sorted = remember(rows) { rows.newestFirst() }
+            val sorted = remember(rows) { SplitMarks.forDisplay(rows).newestFirst() }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = 18.dp, end = 18.dp, top = 28.dp, bottom = 32.dp)) {
                 item {
@@ -70,7 +72,7 @@ import androidx.compose.ui.window.Dialog
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(title, color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(rows.rupees())}", 12)
+                            MutedText("${sorted.size} ${if (sorted.size == 1) "entry" else "entries"} · ${money(rows.rupees())}", 12)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -114,6 +116,7 @@ import androidx.compose.ui.window.Dialog
 @Composable internal fun BudgetsDialog(
     cats: List<String>, budgets: Map<String, Double>, fixed: Map<String, Double>,
     onSet: (String, Double) -> Unit, onFixed: (String, Double) -> Unit, onDismiss: () -> Unit,
+    monthly: Double = 0.0, onMonthly: (() -> Unit)? = null,
 ) {
     val names = remember { mutableStateListOf<String>().apply { addAll(cats) } }
     val drafts = remember {
@@ -127,6 +130,15 @@ import androidx.compose.ui.window.Dialog
             Spacer(Modifier.height(6.dp))
             MutedText(stringResource(R.string.a_monthly_limit_per_category), 12)
             Spacer(Modifier.height(12.dp))
+            // The month's total limit sits on top, so every budget is in one place.
+            if (onMonthly != null) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Tile).clickable { onMonthly() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.monthly_total), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text((if (monthly > 0) money(monthly) else stringResource(R.string.not_set)) + "  ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                 names.forEach { c ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -519,6 +531,9 @@ import androidx.compose.ui.window.Dialog
     refundOf: Row? = null, onRefundAnswer: (Boolean) -> Unit = {},
     copyOf: Row? = null, onSameCopy: () -> Unit = {}, onTwoPayments: () -> Unit = {},
     visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
+    onLink: ((String) -> Unit)? = null, splitParts: List<Row> = emptyList(),
+    onCount: (Boolean) -> Unit = {},
     onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
@@ -530,9 +545,47 @@ import androidx.compose.ui.window.Dialog
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TopIcon(stringResource(R.string.back), onClick = onDismiss) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.payment), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         if (t.account.isNotBlank()) MutedText(t.account, 12)
+                    }
+                    // More: take a split apart, or delete the payment (undo is offered after either).
+                    if (onDelete != null || onRemoveSplit != null || onLink != null || t.raw.isNotBlank()) Box {
+                        var more by remember { mutableStateOf(false) }
+                        val ctx = LocalContext.current
+                        TopIcon(stringResource(R.string.more_options), onClick = { more = true }) { Text("⋮", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Unspoken) }
+                        androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                            if (onRemoveSplit != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.remove_split)) },
+                                onClick = { more = false; onRemoveSplit() })
+                            // Match by hand what Zelu did not: a refund and its purchase, or the same payment told twice.
+                            if (onLink != null) {
+                                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(if (t.direction == Dir.DEBIT) R.string.link_refund else R.string.link_purchase)) },
+                                    onClick = { more = false; onLink(if (t.direction == Dir.DEBIT) "refund" else "purchase") })
+                                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.link_duplicate)) },
+                                    onClick = { more = false; onLink("dup") })
+                            }
+                            // Send us this one message when Zelu read it wrong: what Zelu made of it, and the text with
+                            // long numbers and UPI names hidden. It opens the email; you press Send.
+                            if (t.raw.isNotBlank()) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.report_this_message)) },
+                                onClick = {
+                                    more = false
+                                    val body = buildString {
+                                        append(ctx.getString(R.string.report_message_intro)).append("\n\n")
+                                        append("Zelu read: ").append(t.kind.key).append(" / ").append(t.category)
+                                        append(" · payee=").append(t.counterparty ?: "-").append(" · account=").append(t.account.ifBlank { "-" }).append("\n\n")
+                                        append("[").append(t.source).append("] ").append(Redact.message(t.raw)).append("\n")
+                                    }
+                                    val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+                                        .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(Storage.reportEmail(ctx)))
+                                        .putExtra(android.content.Intent.EXTRA_SUBJECT, ctx.getString(R.string.report_message_subject))
+                                        .putExtra(android.content.Intent.EXTRA_TEXT, body)
+                                    runCatching { ctx.startActivity(mail) }.onFailure {
+                                        android.widget.Toast.makeText(ctx, ctx.getString(R.string.no_email_app), android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                })
+                            if (onDelete != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.delete_payment), color = ZColor.Warn) },
+                                onClick = { more = false; onDelete() })
+                        }
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -552,7 +605,11 @@ import androidx.compose.ui.window.Dialog
                     Spacer(Modifier.height(4.dp))
                     MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) " · $it" else "" }), 13)
                     Spacer(Modifier.height(8.dp))
-                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                    // A split with people shows the whole payment; your share is in the split card below.
+                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount),
+                        color = if (t.kind == Kind.IGNORE) ZColor.Muted else if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold,
+                        // Not counted: the amount is struck through.
+                        textDecoration = if (t.kind == Kind.IGNORE) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
                     saved?.let { Spacer(Modifier.height(4.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
                     if (retitling) {
                         Spacer(Modifier.height(8.dp))
@@ -574,7 +631,7 @@ import androidx.compose.ui.window.Dialog
                     }
                     Spacer(Modifier.height(14.dp))
                     // The category is one button (red when nothing sorted it), and how often this payee was paid is another.
-                    val catLabel = if (t.kind == Kind.EXPENSE && t.category in CustomCats.names) customLabel(t.category) else subtitleFor(t)
+                    val catLabel = if ((t.kind == Kind.EXPENSE || t.kind == Kind.IGNORE) && t.category in CustomCats.names) customLabel(t.category) else if (t.kind == Kind.IGNORE) t.category else subtitleFor(t)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile).clickable { editing = !editing }
                             .padding(start = if (unsorted) 6.dp else 16.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -641,25 +698,44 @@ import androidx.compose.ui.window.Dialog
                     }
                     // One switch for what matters here: money out is Spending or not, money in is Income or not. Off leaves the payment out of
                     // every total (Ignore); the category button picks Transfer, Lent and the rest. Turning it on sorts it again.
+                    // One switch, one fixed label: Spending (money out) or Income (money in). Off leaves the payment out of every
+                    // total and keeps its type and category; on counts it again exactly as it was.
                     val isOut = t.direction == Dir.DEBIT
-                    val on = if (isOut) (t.kind == Kind.EXPENSE || t.kind == Kind.INVEST) else t.kind == Kind.INCOME
-                    val onWord = stringResource(if (isOut) R.string.spending else R.string.money_in)
-                    val offWord = stringResource(R.string.ignore)
-                    Text(if (on) onWord else stringResource(kindWord),
-                        color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    val on = t.kind != Kind.IGNORE
+                    Text(stringResource(if (isOut) R.string.spending else R.string.income_label), color = ZColor.Ink, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Spacer(Modifier.width(10.dp))
                     androidx.compose.material3.Switch(
                         checked = on,
-                        onCheckedChange = { next ->
-                            val kind = if (next) (if (isOut) Kind.EXPENSE else Kind.INCOME) else Kind.IGNORE
-                            val cat = if (next) (if (isOut) "Unknown" else "Income") else "Ignore"
-                            onReclassify(kind, cat)
-                            saved = if (next) "Counted as $onWord" else "Left out: not counted anywhere ($offWord)"
-                        },
+                        onCheckedChange = { next -> onCount(next) },
                         colors = androidx.compose.material3.SwitchDefaults.colors(
                             checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,
                             uncheckedTrackColor = ZColor.Tile, uncheckedThumbColor = ZColor.Muted, uncheckedBorderColor = ZColor.Line),
                     )
+                }
+                // The split, on the payment itself: who owes what (or which categories), and a way to take it apart.
+                if (splitParts.size > 1) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    val withPeople = splitParts.any { it.kind == Kind.LENT }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(if (withPeople) androidx.compose.material.icons.Icons.Rounded.Group else androidx.compose.material.icons.Icons.AutoMirrored.Rounded.CallSplit,
+                            null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories), color = ZColor.Ink, fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        if (onRemoveSplit != null) Text(stringResource(R.string.remove_split), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onRemoveSplit() }.padding(6.dp))
+                    }
+                    splitParts.forEach { p ->
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val who = if (p.kind == Kind.LENT) niceName(p.counterparty ?: "") else if (withPeople) stringResource(R.string.you_label) else p.category
+                            Text(who, color = ZColor.Ink, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (p.kind == Kind.LENT) stringResource(R.string.owes_you) + " " else if (withPeople) p.category + " · " else "",
+                                color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                            Text(money(p.amount), color = if (p.kind == Kind.LENT) ZColor.Income else ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
                 // A refund that may belong to a purchase: the purchase, and a yes or a no.
                 if (refundOf != null) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(12.dp)) {

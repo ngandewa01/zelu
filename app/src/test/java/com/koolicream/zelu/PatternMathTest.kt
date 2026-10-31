@@ -34,4 +34,10 @@ class PatternMathTest {
         assertEquals(1900.0, reg[0].perMonth, 0.01)
         assertEquals(3, reg[0].months)
     }
+
+    @Test fun medianIgnoresOneBigMonth() {
+        assertEquals(130.0, PatternMath.median(listOf(120.0, 130.0, 600.0)), 0.001)
+        assertEquals(125.0, PatternMath.median(listOf(120.0, 130.0, 600.0, 110.0)), 0.001)
+        assertEquals(0.0, PatternMath.median(emptyList()), 0.001)
+    }
 }

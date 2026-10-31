@@ -638,7 +638,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }
                         PatternsBlock(spendPatterns(flexShown, wFrom, wTo)) { detailRow = it }
                         if (isMonth) DailyCalendarBlock(rows, shown, f, month, account, daySel,
-                            { daySel = if (daySel == it) 0 else it }, { detailRow = it })
+                            { daySel = if (daySel == it) 0 else it }, { detailRow = it }, excludeEmi = excludeEmi && cat != "EMI")
                     }
                     Tab.BUCKETS -> {
                         val prevByCat = if (period == "month")
@@ -696,7 +696,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 is Page.Payee -> {
                     val name = p.name
                     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
-                    val history = remember(rows, name) { rows.filter { it.kind == Kind.EXPENSE && nameOf(it) == name } }
+                    val history = remember(rows, name) { rows.filter { (it.kind == Kind.EXPENSE || it.id in Analytics.notCounted) && nameOf(it) == name } }
                     // A payee renamed or merged away, or all of whose payments moved elsewhere, has nothing left to show here.
                     if (history.isEmpty()) LaunchedEffect(name) { back() }
                     else PayeePage(
@@ -712,7 +712,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                 is Page.Category -> {
                     val c = p.name
                     CategoryPage(
-                        category = c, history = remember(rows, c) { rows.filter { it.kind == Kind.EXPENSE && it.category == c } },
+                        category = c, history = remember(rows, c) { rows.filter { (it.kind == Kind.EXPENSE || it.id in Analytics.notCounted) && it.category == c } },
                         budget = budgets[c] ?: 0.0, onSetBudget = { budgetFor = c },
                         onBack = { back() }, onRowClick = { detailRow = it },
                     )

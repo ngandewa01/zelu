@@ -153,6 +153,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var onbSms by mutableStateOf(false)
     var onbNotif by mutableStateOf(false)
     var detailRow by mutableStateOf<Row?>(null)
+    // Linking by hand from a payment's ⋮ menu: the payment, and what to link ("refund", "purchase" or "dup").
+    var linkFor by mutableStateOf<Pair<Row, String>?>(null)
     var drill by mutableStateOf<Pair<String, List<Row>>?>(null)
     var notifBlocked by mutableStateOf(false)
 
@@ -191,7 +193,9 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     suspend fun refreshRows() {
         val (r, refunds) = withContext(Dispatchers.IO) { Storage.loadRowsAndRefunds(context) }
         refundSuggestions = refunds
+        Analytics.notCounted = withContext(Dispatchers.IO) { Storage.notCounted(context) }
         rows = r
+        SplitMarks.update(r)
     }
 
     fun reload() {
@@ -232,6 +236,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             balances = l.balances; limits = l.limits
             refundSuggestions = l.rows.second
             rows = l.rows.first
+            SplitMarks.update(rows)
+            scope.launch { Analytics.notCounted = withContext(Dispatchers.IO) { Storage.notCounted(context) }; rows = rows.toList() }
         }
     }
 
@@ -316,6 +322,69 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             }
             refreshRows()
             groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
+        }
+    }
+
+    /** Deletes a payment: it leaves every list and total. Undo brings it back. */
+    fun deletePayment(r: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) {
+                Storage.setSplit(context, base, null)
+                Storage.setGroupOfSplit(context, base, null)
+                Storage.setOverride(context, base, Kind.IGNORE, Storage.DELETED)
+            }
+            refreshRows()
+            undo = context.getString(R.string.payment_deleted) to snap
+        }
+    }
+
+    /** Takes a split apart again: the payment is one row, whole, with its category. */
+    fun removeSplit(r: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) { Storage.setSplit(context, base, null); Storage.setGroupOfSplit(context, base, null) }
+            refreshRows()
+            groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
+            undo = context.getString(R.string.split_removed) to snap
+        }
+    }
+
+    /** A refund you matched by hand: it nets against the purchase's category, the way an automatic match does. */
+    fun linkRefund(refund: Row, purchase: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setOverride(context, refund.id, Kind.REFUND, purchase.category) }
+            refreshRows()
+            undo = context.getString(R.string.refund_linked, purchase.category) to snap
+        }
+    }
+
+    /** Two messages for one payment, matched by hand: the other one is hidden as a duplicate. */
+    fun linkDuplicate(keep: Row, drop: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setOverride(context, drop.id, Kind.IGNORE, "Duplicate") }
+            refreshRows()
+            undo = context.getString(R.string.duplicate_hidden) to snap
+        }
+    }
+
+    /** The payment page's switch: off leaves the payment out of every total, on counts it again as exactly what it was. */
+    fun setCounted(r: Row, counted: Boolean) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) {
+                Storage.setNotCounted(context, r.id, !counted)
+                // Switched off before this mark existed (it was turned into "Ignore"): count it again as spending or income.
+                if (counted && r.kind == Kind.IGNORE && Storage.overrideOf(context, r.id)?.first == Kind.IGNORE.key)
+                    Storage.setOverride(context, r.id, if (r.direction == Dir.DEBIT) Kind.EXPENSE else Kind.INCOME, r.category.takeIf { it != "Ignore" } ?: "Unknown")
+            }
+            refreshRows()
+            undo = context.getString(if (counted) R.string.counted_again else R.string.not_counted_now) to snap
         }
     }
 
