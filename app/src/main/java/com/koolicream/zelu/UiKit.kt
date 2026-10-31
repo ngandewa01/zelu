@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -442,7 +444,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 @Composable internal fun FoldArrow(open: Boolean, modifier: Modifier = Modifier) {
     Box(modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
         androidx.compose.material3.Icon(
-            if (open) androidx.compose.material.icons.Icons.Rounded.KeyboardArrowUp else androidx.compose.material.icons.Icons.Rounded.KeyboardArrowDown,
+            if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
             contentDescription = null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
     }
 }
