@@ -264,7 +264,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             // One row for the controls, aligned: what is left a day (or how the month ended) once there is a budget, and the
             // EMI switch at the other end. With no budget there is no pill; a budget is set from Spend, never suggested here.
             val showEmi = emiAmt > 0 || excludeEmi
-            if (hasBudget || showEmi) {
+            if (hasBudget || showEmi || isMonth) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
@@ -275,7 +275,9 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                             if (s.spent <= budget) stringResource(R.string.under_budget) else money(s.spent - budget) + stringResource(R.string.over),
                             if (s.spent <= budget) ZColor.Income else ZColor.Warn, onEditBudget)
                     }
-                    if (hasBudget) Spacer(Modifier.weight(1f))
+                    if (!hasBudget && isMonth) Text(stringResource(R.string.set_budget_action), color = if (onHero) heroInk else ZColor.Accent, fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onEditBudget() }.padding(vertical = 8.dp, horizontal = 4.dp))
+                    Spacer(Modifier.weight(1f))
                     emiPill()
                 }
             }
