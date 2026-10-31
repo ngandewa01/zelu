@@ -685,6 +685,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
             // Picking several payments: Back ends picking first; the bar moves them all to one category.
             androidx.activity.compose.BackHandler(Picking.active) { Picking.clear() }
             PickBar(onMove = { list, k, c, rem -> moveMany(list, k, c, rem) }, onNewCat = { cb -> newCatCallback = cb })
+            similarAsk?.let { a -> SimilarDialog(a, onApply = { picked, future -> applySimilar(a, picked, future) }, onDismiss = { similarAsk = null }) }
             when (val p = page) {
                 is Page.Card -> {
                     val a = p.account

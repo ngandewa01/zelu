@@ -483,18 +483,60 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 
     // decisions
     fun decide(id: String, kind: Kind, category: String, payee: String?, remember: Boolean) {
+        val shape = shapeOf(id)
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) {
                 Storage.setOverride(context, id, kind, category)
                 if (remember && !payee.isNullOrBlank()) Storage.setPayeeRule(context, payee, kind, category)
-                // No payee name: remember it for messages of the same shape (same bank, same words, same place).
-                if (remember && payee.isNullOrBlank()) shapeOf(id)?.let { Storage.setShapeRule(context, it, kind, category) }
             }
             refreshRows()
             askOpen = false
-            undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category"
-                else if (remember && shapeOf(id) != null) "Moved to $category, and similar messages too" else "Moved to $category") to snap
+            undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category" else "Moved to $category") to snap
+            // No payee name: offer the messages of the same shape, ticked, so you choose which of them follow.
+            if (remember && payee.isNullOrBlank()) askSimilar(id, shape, kind, category, null)
+        }
+    }
+
+    /** Messages like this one (same bank, words and place) that could take the same choice. */
+    class SimilarAsk(val shape: String, val kind: Kind?, val category: String?, val title: String?, val others: List<Row>)
+    var similarAsk by mutableStateOf<SimilarAsk?>(null)
+
+    private fun askSimilar(id: String, shape: String?, kind: Kind?, category: String?, title: String?) {
+        if (shape == null) return
+        val others = rows.filter { it.id != id && !it.id.contains('#') && MessageShape.key(it.raw, it.source) == shape }
+        if (others.isEmpty()) {
+            // Nothing else yet: remember it quietly for new messages like this one.
+            scope.launch(Dispatchers.IO) {
+                if (title != null) Storage.setTitle(context, shape, title) else if (kind != null && category != null) Storage.setShapeRule(context, shape, kind, category)
+            }
+            return
+        }
+        similarAsk = SimilarAsk(shape, kind, category, title, others)
+    }
+
+    /** Your answer to "Apply to similar messages?": the ticked ones follow; with future on, new ones will too. */
+    fun applySimilar(ask: SimilarAsk, picked: Set<String>, future: Boolean) {
+        similarAsk = null
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) {
+                ask.others.forEach { r ->
+                    val on = r.id in picked
+                    if (ask.title != null) {
+                        if (on) Storage.setTitle(context, r.id, ask.title) else if (future) Storage.keepNoTitle(context, r.id)
+                    } else if (ask.kind != null && ask.category != null) {
+                        // An unticked one keeps what it has, even once new messages like it follow your choice.
+                        if (on) Storage.setOverride(context, r.id, ask.kind, ask.category) else if (future) Storage.setOverride(context, r.id, r.kind, r.category)
+                    }
+                }
+                if (future) {
+                    if (ask.title != null) Storage.setTitle(context, ask.shape, ask.title)
+                    else if (ask.kind != null && ask.category != null) Storage.setShapeRule(context, ask.shape, ask.kind, ask.category)
+                }
+            }
+            refreshRows()
+            undo = context.getString(R.string.applied_to_n_similar, picked.size) to snap
         }
     }
 
@@ -533,13 +575,12 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     fun retitle(id: String, title: String) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
-            withContext(Dispatchers.IO) {
-                Storage.setTitle(context, id, title)
-                // A title for a payment with no payee name also names the others of the same message shape.
-                shapeOf(id)?.let { Storage.setTitle(context, it, title) }
-            }
+            val shape = shapeOf(id)
+            withContext(Dispatchers.IO) { Storage.setTitle(context, id, title) }
             refreshRows()
             undo = "Title changed" to snap
+            // A payment with no payee name: offer the same title to messages like it.
+            if (title.isNotBlank()) askSimilar(id, shape, null, null, title.trim())
         }
     }
 

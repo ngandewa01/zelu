@@ -579,4 +579,10 @@
     <string name="pick_other">Not spending or income</string>
     <string name="also_remember_payees">Also remember for these payees and similar messages</string>
     <string name="moved_n_payments">Moved %1$d payments to %2$s</string>
+    <string name="similar_title">%1$d similar messages</string>
+    <string name="similar_sub">Same bank, same wording, same place. Tick the ones that should also be %1$s.</string>
+    <string name="similar_future">New messages like these too</string>
+    <string name="only_this_one">Only this one</string>
+    <string name="apply_to_n">Apply to %1$d</string>
+    <string name="applied_to_n_similar">Applied to %1$d similar messages</string>
 </resources>

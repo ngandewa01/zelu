@@ -1041,6 +1041,11 @@ object Storage {
         putKv(context, TITLE_FILE, id, if (title.isBlank()) null else title.trim() to "")
     }
 
+    /** Keeps a payment's own name from the message even when others of its shape are given a title. */
+    fun keepNoTitle(context: Context, id: String): Unit = synchronized(lock) {
+        putKv(context, TITLE_FILE, id, "" to "keep")
+    }
+
     fun setShapeRule(context: Context, shape: String, kind: Kind, category: String) = synchronized(lock) {
         putKv(context, RULE_FILE, shape, kind.key to category)
     }

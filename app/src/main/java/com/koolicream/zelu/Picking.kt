@@ -1,6 +1,9 @@
 package com.koolicream.zelu
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -114,6 +117,60 @@ object Picking {
                     Text(stringResource(R.string.also_remember_payees), color = ZColor.Ink, fontSize = 13.sp)
                 }
                 Spacer(Modifier.width(1.dp))
+            }
+        }
+    }
+}
+
+/**
+ * "Apply to similar messages?": the payments whose message reads like the one you just changed (same bank, words and
+ * place), each with a tick box, all ticked to start. Only the ticked ones change. With "new messages too" on, later
+ * messages like these follow the same choice.
+ */
+@Composable internal fun SimilarDialog(ask: AppState.SimilarAsk, onApply: (Set<String>, Boolean) -> Unit, onDismiss: () -> Unit) {
+    val ticked = remember(ask) { mutableStateMapOf<String, Boolean>().apply { ask.others.forEach { put(it.id, true) } } }
+    var future by remember(ask) { mutableStateOf(true) }
+    val what = ask.title ?: ask.category?.let { if (it in CustomCats.names) customLabel(it) else it } ?: ""
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp)) {
+            Text(stringResource(R.string.similar_title, ask.others.size), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            MutedText(stringResource(R.string.similar_sub, what), 12)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                ask.others.forEach { r ->
+                    val on = ticked[r.id] == true
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { ticked[r.id] = !on }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        PickBox(on)
+                        Column(Modifier.weight(1f)) {
+                            Text(prettyDate(r.date) + " · " + (if (r.category.isNotBlank()) r.category else ""), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(r.raw, color = ZColor.Muted, fontSize = 11.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(money(r.amount), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { future = !future }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)).background(if (future) ZColor.Accent else ZColor.Paper)
+                    .border(2.dp, if (future) ZColor.Accent else ZColor.Line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                    if (future) Text("✓", color = ZColor.AccentInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(stringResource(R.string.similar_future), color = ZColor.Ink, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.only_this_one), color = ZColor.Muted, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onDismiss() }.padding(12.dp))
+                Spacer(Modifier.width(6.dp))
+                val n = ticked.count { it.value }
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink).clickable { onApply(ticked.filterValues { it }.keys, future) }
+                    .padding(horizontal = 18.dp, vertical = 10.dp)) {
+                    Text(stringResource(R.string.apply_to_n, n), color = ZColor.Paper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
