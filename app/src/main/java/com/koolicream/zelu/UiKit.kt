@@ -652,8 +652,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 }
 
 // What a payment is, other than a spending category: the same icons and colours as the Needs-you answers.
-@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
-    val (icon, light, dark) = when (kind) {
+internal fun kindStyle(kind: String): Triple<androidx.compose.ui.graphics.vector.ImageVector, Long, Long> = when (kind) {
         "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
         "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
         "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
@@ -663,8 +662,51 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "refund" -> Triple(Icons.AutoMirrored.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
-    }
+}
+
+@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val (icon, light, dark) = kindStyle(kind)
     IconTab(icon, label, light, dark, selected, onClick = onClick)
+}
+
+// A choice in a grid: round icon over a short name, three to a row, all the same size.
+internal class Pick(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val tint: Color, val selected: Boolean, val onClick: () -> Unit)
+
+@Composable internal fun kindPick(kind: String, label: String, selected: Boolean, onClick: () -> Unit): Pick {
+    val (icon, light, dark) = kindStyle(kind)
+    return Pick(icon, label, Color(if (ZTheme.dark) dark else light), selected, onClick)
+}
+
+@Composable internal fun catPick(cat: String, selected: Boolean, onClick: () -> Unit): Pick {
+    val icon = CatIcons.forCategory(cat)
+    return Pick(icon ?: Icons.AutoMirrored.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick)
+}
+
+@Composable internal fun PickGrid(items: List<Pick>) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(3).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowItems.forEach { p ->
+                    Column(
+                        Modifier.weight(1f).heightIn(min = 76.dp).clip(RoundedCornerShape(16.dp))
+                            .background(if (p.selected) p.tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card)
+                            .border(if (p.selected) 1.5.dp else 1.dp, if (p.selected) p.tint else ZColor.Line, RoundedCornerShape(16.dp))
+                            .clickable { p.onClick() }.padding(horizontal = 4.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                    ) {
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(p.icon, null, tint = p.tint, modifier = Modifier.size(19.dp))
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Text(p.label, color = if (p.selected) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
+                            fontWeight = if (p.selected) FontWeight.Bold else FontWeight.Medium, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 14.sp)
+                    }
+                }
+                repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
 }
 
 // A row of tabs that always stays one line: the tabs share the width equally (each passes Modifier.weight(1f)).
