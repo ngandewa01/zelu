@@ -678,7 +678,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
             // A page opened over Home; Back closes it.
             androidx.activity.compose.BackHandler(page != null) { back() }
             when (val p = page) {
-                Page.Trends -> TrendsScreen(rows, accounts, onBack = { back() }, onReview = { t, r -> drill = t to r })
                 is Page.Card -> {
                     val a = p.account
                     CardDetailScreen(

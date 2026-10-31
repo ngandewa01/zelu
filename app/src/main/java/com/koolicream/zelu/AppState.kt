@@ -108,7 +108,6 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var daySel by saved("daySel", 0)
     var calOpen by mutableStateOf(false)
     // Spend page sub-tab: 0 Overview, 1 Categories, 2 Patterns.
-    var spendTab by saved("spendTab", 0)
     var askOpen by mutableStateOf(false) // category picker open for ask
     var loading by mutableStateOf(false)
     // First-run reading: how many messages are read so far, and how many there are. The Setting up screen shows them.
@@ -127,7 +126,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var customTo by saved("customTo", Dates.today())
     var stage by saved("stage", Stage.SPLASH)
 
-    // Pages opened over Home (Trends, a card), newest last; Back closes the top one. Saved as their routes.
+    // Pages opened over Home (a card, a payee, a category), newest last; Back closes the top one. Saved as their routes.
     private var pageRoutes by saved("pages", "")
     val page: Page? get() = pageRoutes.lines().lastOrNull { it.isNotEmpty() }?.let { Page.of(it) }
     fun open(p: Page) { pageRoutes = (pageRoutes.lines().filter { it.isNotEmpty() } + p.route).joinToString("\n") }
@@ -444,14 +443,12 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 
 // A page opened over Home. [route] is how it is kept in the saved state.
 sealed class Page(val route: String) {
-    object Trends : Page("trends")
     data class Card(val account: String) : Page("card:$account")
     data class Payee(val name: String) : Page("payee:$name")
     data class Category(val name: String) : Page("category:$name")
 
     companion object {
         fun of(route: String): Page? = when {
-            route == Trends.route -> Trends
             route.startsWith("card:") -> Card(route.removePrefix("card:"))
             route.startsWith("payee:") -> Payee(route.removePrefix("payee:"))
             route.startsWith("category:") -> Category(route.removePrefix("category:"))
