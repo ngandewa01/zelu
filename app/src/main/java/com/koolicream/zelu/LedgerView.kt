@@ -393,7 +393,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Spacer(Modifier.height(8.dp))
                     Text(rowTitle(t), color = ZColor.Ink, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
+                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     val at = TxnTime.label(t)
                     MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
