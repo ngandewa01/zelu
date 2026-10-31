@@ -649,7 +649,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
                             RecurringPanel(recurring)
                         }
-                        if (spendTab == 2) PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                             { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                     }
