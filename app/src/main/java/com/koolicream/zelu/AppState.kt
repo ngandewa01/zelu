@@ -85,6 +85,12 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var catsOpen by mutableStateOf(false)
     var catOff by mutableStateOf<Set<String>>(emptySet())
     var splitFor by mutableStateOf<Row?>(null)
+    // Split: first the choice (with people or into categories), then the people split itself.
+    var splitChoice by mutableStateOf<Row?>(null)
+    var peopleSplitFor by mutableStateOf<Row?>(null)
+    var groups by mutableStateOf<Map<String, List<String>>>(emptyMap())
+    var groupOf by mutableStateOf<Map<String, String>>(emptyMap())
+    var duesTab by saved("duesTab", 0)
     var smsOk by mutableStateOf(true)
     var lastScan by saved("lastScan", 0L)
     var restoreUri by mutableStateOf<android.net.Uri?>(null)
@@ -221,7 +227,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             cardPrefs = l.cardPrefs
             CustomCats.map = l.customCats
             registry = l.registry
-            reminders = l.reminders; reminderState = l.reminderState; repaid = l.repaid
+            reminders = l.reminders; reminderState = l.reminderState; repaid = l.repaid; loadGroups()
             budgets = l.budgets; monthlyBudget = l.monthlyBudget; fixed = l.fixed
             balances = l.balances; limits = l.limits
             refundSuggestions = l.rows.second
@@ -290,6 +296,33 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             withContext(Dispatchers.IO) { Storage.setReminderDone(context, id, done) }
             reminderState = withContext(Dispatchers.IO) { Storage.loadReminderState(context) }
             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) }
+        }
+    }
+
+    fun loadGroups() {
+        scope.launch {
+            groups = withContext(Dispatchers.IO) { Storage.loadGroups(context) }
+            groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
+        }
+    }
+
+    /** Saves a split with people: your share keeps the payment's category, each person's share is money lent to them. */
+    fun savePeopleSplit(t: Row, yours: Double, shares: List<Pair<String, Double>>, group: String?) {
+        scope.launch {
+            val parts = listOf(yours to t.category) + shares.map { (who, amt) -> amt to Storage.PERSON_PART + who }
+            withContext(Dispatchers.IO) {
+                Storage.setSplit(context, t.id, parts.filter { it.first > 0.004 })
+                Storage.setGroupOfSplit(context, t.id, group)
+            }
+            refreshRows()
+            groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
+        }
+    }
+
+    fun saveGroup(name: String, members: List<String>) {
+        scope.launch {
+            withContext(Dispatchers.IO) { Storage.saveGroup(context, name, members) }
+            groups = withContext(Dispatchers.IO) { Storage.loadGroups(context) }
         }
     }
 

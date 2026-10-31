@@ -368,6 +368,8 @@ private fun AppScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.Ac
         SendersDialog(s)
         CategoriesDialog(s)
         SplitDialog(s)
+        SplitChoiceDialog(s)
+        PeopleSplitDialog(s)
         EraseDialog(s)
         ReadAgainDialog(s)
         HelpDialog(s)
@@ -594,7 +596,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             scope.launch { withContext(Dispatchers.IO) { Storage.saveMonthlyBudget(context, amt) }; monthlyBudget = amt }
                             if (noEmi) excludeEmi = true
                         },
-                        onOpenSpend = { view = Tab.SPEND }, monthlyBudget = monthlyBudget, onAdd = { addNew = true })
+                        onOpenSpend = { view = Tab.SPEND }, monthlyBudget = monthlyBudget, onAdd = { addNew = true },
+                        onOpenPeople = { duesTab = 2; view = Tab.DUES })
                     Tab.SPEND -> {
                         // Last month, compared fairly: only up to today's date while this month is running, and without EMI
                         // when this month's view leaves it out. (Comparing part of this month with all of last month showed
@@ -654,7 +657,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         onRemove = { id -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.removeManualReminder(context, id) }
                             reminders = withContext(Dispatchers.IO) { Storage.loadReminders(context) } } },
-                        adding = addingBill, setAdding = { addingBill = it })
+                        adding = addingBill, setAdding = { addingBill = it },
+                        tab = duesTab, onTab = { duesTab = it },
+                        people = { PeopleTab(rows, repaid, groups, groupOf, { lendPerson = it }, { borrowPerson = it }) { t, r -> drill = t to r } })
                 }
                 }
             }

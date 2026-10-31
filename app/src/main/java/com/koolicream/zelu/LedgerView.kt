@@ -150,6 +150,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     onAdd: () -> Unit = {},
     onSetBudget: (Double, Boolean) -> Unit = { _, _ -> },
     monthlyBudget: Double = 0.0,
+    onOpenPeople: () -> Unit = {},
 ) {
     val s = Analytics.summarize(list)
 
@@ -638,79 +639,19 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }
     }
 
-    // Lending — all-time so repayments and balances stay correct across months.
-    val lentAll = allRows.filter { it.kind == Kind.LENT }
-    val borrowedAll = allRows.filter { it.kind == Kind.BORROWED }
-    if (lentAll.isNotEmpty() || borrowedAll.isNotEmpty()) {
-        val byPerson = lentAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
-            .map { (person, rs) ->
-                val total = rs.rupees()
-                val paid = repaid[person.lowercase().trim()] ?: 0.0
-                Triple(person, total, (total - paid).coerceAtLeast(0.0))
-            }.sortedByDescending { it.third }
-        val owedToYou = byPerson.sumOf { it.third }
-        val borrowByPerson = borrowedAll.groupBy { it.counterparty?.takeIf { c -> c.isNotBlank() } ?: "Someone" }
-            .map { (person, rs) ->
-                val tot = rs.rupees()
-                val paid = repaid["b:" + person.lowercase().trim()] ?: 0.0
-                Triple(person, tot, (tot - paid).coerceAtLeast(0.0))
-            }.sortedByDescending { it.third }
-        // One compact row per person: who, which way, how much is left and how much has come back.
-        val owe = borrowByPerson.sumOf { it.third }
-        val people = byPerson.map { Triple(it, true, it.third <= 0.0) } + borrowByPerson.map { Triple(it, false, it.third <= 0.0) }
-        val open = people.filter { !it.third }
-        var peopleAll by remember { mutableStateOf(false) }
+    // People: one line with what you are owed and what you owe; the people themselves are on Dues › People.
+    val peopleBal = remember(allRows, repaid) { personBalances(allRows, repaid) }
+    if (peopleBal.isNotEmpty()) {
+        val get = peopleBal.sumOf { it.net.coerceAtLeast(0.0) }
+        val pay = peopleBal.sumOf { (-it.net).coerceAtLeast(0.0) }
         Panel {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Eyebrow(stringResource(R.string.people))
-                Spacer(Modifier.weight(1f))
-                if (owedToYou > 0) Text(money(owedToYou), color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (owedToYou > 0) Text(stringResource(R.string.to_get), color = ZColor.Muted, fontSize = 13.sp)
-                if (owedToYou > 0 && owe > 0) Text(" · ", color = ZColor.Muted, fontSize = 13.sp)
-                if (owe > 0) Text(money(owe), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (owe > 0) Text(stringResource(R.string.to_pay), color = ZColor.Muted, fontSize = 13.sp)
-            }
-            val shown = if (peopleAll) people.sortedBy { it.third } else open.take(3)
-            shown.forEach { (p, theyOwe, settled) ->
-                val (person, total, bal) = p
-                val tone = if (theyOwe) ZColor.Income else ZColor.Ink
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                    .clickable { if (theyOwe) onOpenLend(person) else onOpenBorrow(person) }.padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-                        Text(niceName(person).take(1).uppercase(), color = if (theyOwe) ZColor.Income else ZColor.Warn,
-                            fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    // Name across the full width, with how much came back under it; the amount and who owes whom on the right.
-                    Column(Modifier.weight(1f)) {
-                        Text(niceName(person), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val back = total - bal
-                        if (!settled && back >= 1) {
-                            Spacer(Modifier.height(5.dp))
-                            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(ZColor.Line)) {
-                                Box(Modifier.fillMaxWidth((back / total).toFloat().coerceIn(0f, 1f)).fillMaxHeight()
-                                    .background(if (theyOwe) ZColor.Income else ZColor.Accent))
-                            }
-                            Spacer(Modifier.height(3.dp))
-                            Text(money(back) + " of " + money(total) + " back", color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
-                        } else Text(if (settled) "Settled" else if (theyOwe) "Lent " + money(total) else "Borrowed " + money(total),
-                            color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(money(if (settled) total else bal), color = if (settled) ZColor.Muted else tone,
-                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text(if (settled) "settled" else if (theyOwe) "owes you" else "you owe", color = ZColor.Muted, fontSize = 12.sp)
-                    }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenPeople() }, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Eyebrow(stringResource(R.string.people_card))
+                    Spacer(Modifier.height(4.dp))
+                    Text(stringResource(R.string.people_card_sub, money(get), money(pay)), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
-            }
-            if (people.size > shown.size || peopleAll) {
-                Spacer(Modifier.height(8.dp))
-                Text(if (peopleAll) "Show less" else "See all ›", color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp)).clickable { peopleAll = !peopleAll }.padding(4.dp))
+                Text("›", color = ZColor.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
