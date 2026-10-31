@@ -396,7 +396,17 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink,
                         fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     val at = TxnTime.label(t)
-                    MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
+                    // A split shows its mark here too: people for a split with people, a fork for categories.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (t.id.contains('#')) {
+                            val withPeople = t.id.substringBefore('#') in SplitMarks.people
+                            androidx.compose.material3.Icon(if (withPeople) Icons.Rounded.Group else Icons.AutoMirrored.Rounded.CallSplit,
+                                stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories),
+                                tint = ZColor.Muted, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        MutedText(if (t.category == "Unknown" && t.kind == Kind.EXPENSE) stringResource(R.string.unknown_label) else (if (at.isNotEmpty()) "$at · " else "") + prettyDay(t.date), 11)
+                    }
                 }
             }
         }
