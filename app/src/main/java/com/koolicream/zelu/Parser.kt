@@ -411,6 +411,9 @@ object Parser {
     private val DATE_LIKE = Regex("""^(?:on\s+)?\d{1,2}[-/ ][A-Za-z0-9]{2,9}[-/ ]\d{2,4}$""", RegexOption.IGNORE_CASE)
 
     // ACH / NACH mandate debits name the biller after "ACH D-" or "ACH/".
+    // An auto-debit names who it went to after "towards", then its mandate number: "deducted from HDFC Bank A/C No 5997
+    // towards HDFC LTD UMRN: HDFC7000…".
+    private val TOWARDS_PAYEE = Regex("""\btowards\s+([A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s*(?:umrn|mandate|ref|on\s+\d|for\s+(?:umrn|mandate|loan))\b|\s*[.,;:]|$)""", RegexOption.IGNORE_CASE)
     private val ACH_PAYEE = Regex("""ACH[ /]?D?[-/ ]+([A-Za-z][A-Za-z .&]{2,40}?)[-/]""", RegexOption.IGNORE_CASE)
     // NEFT/IMPS/RTGS strings name the sender after the bank code: "NEFT Cr-BOFA0CN6215-ACME TECHNOLOGIES PVT LTD-…".
     private val NEFT_SENDER = Regex("""(?:NEFT|IMPS|RTGS)[^-]{0,12}[-:]\s*[A-Za-z0-9]{6,}\s*[-]\s*([A-Za-z][A-Za-z .&]{2,40}?)\s*[-]""", RegexOption.IGNORE_CASE)
@@ -652,6 +655,7 @@ object Parser {
         if (counterparty == null) {
             counterparty = FVG_PAYEE.find(text)?.groupValues?.get(1)?.let { titleCase(it.trim()) }
         }
+        if (counterparty == null && direction == Dir.DEBIT) counterparty = TOWARDS_PAYEE.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }?.let { titleCase(it) }
         if (counterparty == null && BILLDESK.containsMatchIn(text)) counterparty = "BillDesk"
         if (counterparty == null) {
             counterparty = SEMI_PAYEE.find(text)?.groupValues?.get(1)?.let { cleanCp(it) }
@@ -987,7 +991,7 @@ object Parser {
         "balance", "debited", "credited", "dispute", "not", "you", "your", "info", "ref", "refund", "dear", "customer", "card", "txn",
         "transaction", "payment", "paid", "sent", "received", "transfer", "thru", "through", "via", "vide", "the", "for", "from", "with",
         "and", "total", "limit", "lmt", "convert", "missed", "know", "more", "emi", "conversion", "mob", "bk", "dont", "share", "pin", "cvv",
-        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "xx", "to", "on", "at", "by")
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "xx", "to", "on", "at", "by", "umrn", "mandate", "alert")
     private val CAP_SEQ = Regex("""\b([A-Z][A-Za-z]{2,}(?: [A-Z][A-Za-z]{2,}){0,3})\b""")
     private val CAMEL = Regex("""\b([a-z]+[A-Z][A-Za-z]+)\b""")
     private val VPA = Regex("""\b([A-Za-z][\w.\-]{2,})@[A-Za-z][\w.\-]*\b""")
