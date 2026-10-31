@@ -5,7 +5,7 @@ object Classifier {
     // Category -> keywords, matched against counterparty + SMS text (lowercased).
     // Order matters: earlier entries win.
     // Old built-in names folded into the standard set (applied to stored rules/overrides too).
-    val ALIAS = mapOf("Milk & Dairy" to "Groceries", "FASTag" to "Transport", "Gym" to "Health", "Internet" to "Bills",
+    val ALIAS = mapOf("Milk & Dairy" to "Groceries", "FASTag" to "Transport", "Gym" to "Fitness", "Internet" to "Bills",
         "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
@@ -118,17 +118,13 @@ object Classifier {
             "aditya birla finance", "l&t finance", "piramal finance", "poonawalla", "kissht", "mpokket", "lendingkart",
             "shriram finance", "iifl finance", "cholamandalam", "mahindra finance", "sundaram finance", "hero fincorp",
             "tvs credit", "axis finance", "home finance", "housing finance", "lic housing", "avanse", "incred"),
+        "Fitness" to listOf("cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first", "healthifyme", "gym", "gyms", "fitso", "fitness", "crossfit", "cross fit", "talwalkar", "powerworld", "multifit", "fitpass", "f45", "playo", "hudle", "zumba", "pilates", "yoga studio", "yoga centre", "yoga center", "yoga classes", "martial arts", "karate", "taekwondo", "kickboxing", "badminton", "swimming", "sports academy", "sports club", "yoga"),
         "Health" to listOf("maternity","fertility","ivf","gynec","gynaec","gynae","obstetric","pediatric","paediatric","neonatal","diagnostics","diagnostic","lab","labs",
-            "laboratory", "laboratories", "labs", "lab", "nursing home", "xray", "x-ray", "scan centre", "scan center", "scan", "veterinary", "vet", "pet clinic", "pet care", "yoga", "optician", "polyclinic", "homeo", "homoeo", "doctor", "eye hospital", "eye clinic", "skin clinic", "hearing",
+            "laboratory", "laboratories", "labs", "lab", "nursing home", "xray", "x-ray", "scan centre", "scan center", "scan", "veterinary", "vet", "pet clinic", "pet care", "optician", "polyclinic", "homeo", "homoeo", "doctor", "eye hospital", "eye clinic", "skin clinic", "hearing",
             "medico", "drug", "drugs", "druggist", "druggists", "drugist", "drugists", "chemist", "chemists", "drug store", "drug house", "medicos", "dental", "dentist", "eye care", "optical", "ortho", "physio",
             "pathlab", "path lab", "thyrocare", "lal path", "metropolis", "redcliffe", "orange health", "tata1mg",
             "truemeds", "pharmacies", "ayush", "ayurved", "pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "clinic",
-            "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana",
-            "cult.fit", "cultfit", "cure.fit", "curefit", "gold's gym", "golds gym", "anytime fitness", "fitness first",
-            "healthifyme", "gym", "gyms", "fitso", "fitness", "crossfit", "cross fit", "talwalkar", "powerworld",
-            "multifit", "fitpass", "f45", "playo", "hudle", "zumba", "pilates", "yoga studio", "yoga centre",
-            "yoga center", "yoga classes", "martial arts", "karate", "taekwondo", "kickboxing", "badminton",
-            "swimming", "sports academy", "sports club"),
+            "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana"),
         "Education" to listOf("nptel", "hostel fee", "school fees", "tuition fee", "exam fees", "college fees", "khan academy", "skillshare", "linkedin learning", "coaching centre", "coaching center", "kindergarten", "playschool", "play school", "preschool", "creche", "montessori", "tutorial", "tutorials",
             "uforward", "takeuforward", "scaler", "physics wallah", "physicswallah", "simplilearn",
             "great learning", "greatlearning", "leetcode", "masai", "coding ninjas", "codingninjas", "interviewbit",
@@ -202,7 +198,8 @@ object Classifier {
     // a generic word in the name. Checked after the exact dictionary, before giving up.
     private val NAME_HINTS: List<Pair<Regex, String>> = listOf(
         Regex("""\b(hostels?|homestays?|visa|forex|travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
-        Regex("""\b(maternity|fertility|ivf|gyn(?:ae?|e)colog\w*|obstetric\w*|pa?ediatric\w*|neonatal|doctors?|laborator(?:y|ies)|labs?|scans?|x-?ray|mri|vet|veterinary|nursing\s+home|optician|polyclinic|physiotherapy|homeo(?:pathy)?|yoga|medical|medicals|pharmacy|pharma|chemists?|drugs?|druggists?|drugists?|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
+        Regex("""\b(gyms?|fitness|yoga|crossfit|zumba|pilates|karate|taekwondo|badminton|swimming|sports\s+(?:academy|club))\b""", RegexOption.IGNORE_CASE) to "Fitness",
+        Regex("""\b(maternity|fertility|ivf|gyn(?:ae?|e)colog\w*|obstetric\w*|pa?ediatric\w*|neonatal|doctors?|laborator(?:y|ies)|labs?|scans?|x-?ray|mri|vet|veterinary|nursing\s+home|optician|polyclinic|physiotherapy|homeo(?:pathy)?|medical|medicals|pharmacy|pharma|chemists?|drugs?|druggists?|drugists?|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(meat|chicken|mutton|fish|eggs|poultry|fruits?|flowers?|mart|bazaar|bazar|wholesale|ration|milk|supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
         Regex("""\b(mess|canteen|bhojanalay|thali|lassi|bhel|fast\s?food|food\s+court|pub|brewery|bar\s+(?:&|and)\s+restaurant|tea\s+(?:stall|house|shop|centre|center)|chai\s?wal(?:a|e)|restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bekery|bekeries|bakeries|bakers?|bakes|bake ?house|catering|confectionery|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
         Regex("""\b(petrol|petroleum|jio ?oil|nayara|hpcl|bpcl|iocl|indian ?oil|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",

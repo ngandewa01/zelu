@@ -68,6 +68,8 @@ class BrandsTest {
             "SIP Mutual Fund" to "Investment",
             "NPS Trust Tier I" to "Investment",
             "Hair Studio" to "Personal care",
+            "Iron Gym" to "Fitness",
+            "Yoga Centre" to "Fitness",
             "Tattoo Studio" to "Personal care",
             "Glow Makeup" to "Personal care",
             "Nails Bar" to "Personal care",
@@ -142,14 +144,14 @@ class BrandsTest {
     }
 
     @Test fun gymsAndFitness() {
-        assertEquals("Health", cat("HIGHLIFE CROSSFIT", "Sent Rs.16000.00 From HDFC Bank A/C *5997 To HIGHLIFE CROSSFIT On 01/10/26 Ref 1"))
-        assertEquals("Health", cat("Cult.fit"))
-        assertEquals("Health", cat("POWER HOUSE GYM"))
-        assertEquals("Health", cat("Snap Fitness"))
-        assertEquals("Health", cat("Talwalkars"))
-        assertEquals("Health", cat("F45 Training"))
-        assertEquals("Health", cat("Playo"))
-        assertEquals("Health", cat("Ace Badminton Academy"))
+        assertEquals("Fitness", cat("HIGHLIFE CROSSFIT", "Sent Rs.16000.00 From HDFC Bank A/C *5997 To HIGHLIFE CROSSFIT On 01/10/26 Ref 1"))
+        assertEquals("Fitness", cat("Cult.fit"))
+        assertEquals("Fitness", cat("POWER HOUSE GYM"))
+        assertEquals("Fitness", cat("Snap Fitness"))
+        assertEquals("Fitness", cat("Talwalkars"))
+        assertEquals("Fitness", cat("F45 Training"))
+        assertEquals("Fitness", cat("Playo"))
+        assertEquals("Fitness", cat("Ace Badminton Academy"))
         // Not gyms: EatFit is food, a gymkhana club isn't caught by "gym".
         assertEquals("Food", cat("EatFit"))
         assertEquals("Unknown", cat("Deccan Gymkhana"))

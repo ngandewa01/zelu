@@ -170,6 +170,7 @@ private fun buildCatColors(): Map<String, Color> {
         "EMI" to c(0xFF64748B, 0xFF94A3B8),
         "Subscriptions" to c(0xFFC026D3, 0xFFE879F9),
         "Gym" to c(0xFF65A30D, 0xFFA3E635),
+        "Fitness" to c(0xFF65A30D, 0xFFA3E635),
         "Milk & Dairy" to c(0xFF0EA5E9, 0xFF7DD3FC),
         "Internet" to c(0xFF2563EB, 0xFF93C5FD),
         "Mobile" to c(0xFF7C3AED, 0xFFC4B5FD),
@@ -212,7 +213,8 @@ val CAT_ICON: Map<String, String> = mapOf(
     "FASTag" to "🛣️",    // motorway
     "Education" to "🎓",       // graduation cap
     "Subscriptions" to "🔁",   // repeat
-    "Gym" to "🏋️",       // weightlifter
+    "Gym" to "🏋️",
+    "Fitness" to "🏋️",       // weightlifter
     "Personal care" to "💇",   // haircut
     "ATM / Cash" to "🏧",      // ATM
     "Bank charges" to "💸",    // money flying away
