@@ -423,4 +423,5 @@
     <string name="category_budget_title">%1$s budget</string>
     <string name="per_month">Per month</string>
     <string name="remove_budget">Remove</string>
+    <string name="restore_from_backup">Restore from a backup</string>
 </resources>

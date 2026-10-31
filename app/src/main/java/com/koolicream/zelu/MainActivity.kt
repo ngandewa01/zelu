@@ -338,6 +338,7 @@ fun ZeluApp() {
                 OnboardFlow(stage, permDenied, scanDone, scanTotal,
                     smsGiven = onbSms, notifGiven = onbNotif,
                     onBack = { stage = when (stage) { Stage.NOTIF -> Stage.PERM; else -> Stage.PRIVACY } },
+                    onRestore = { restoreLauncher?.launch(arrayOf("*/*")) },
                     onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.NOTIF; Stage.NOTIF -> Stage.SCAN; else -> stage } },
                     onAllow = { sms, notif ->
                         val perms = mutableListOf<String>()
@@ -346,6 +347,8 @@ fun ZeluApp() {
                         // Before Android 13 notifications are on already, so there is nothing to ask.
                         if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray()) else stage = Stage.SCAN
                     })
+                // The restore dialog also opens here, for a new install that has a backup.
+                RestoreDialog(s)
             }
             else -> AppScreen(s, v, accountBook)
         }

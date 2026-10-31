@@ -6,7 +6,8 @@ import org.json.JSONObject
 // One-file backup of everything you have taught or saved in Zelu (transactions, categories, payee rules,
 // budgets, plan, refund answers, settings, theme), so a new phone or a reinstall doesn't lose it.
 object Backup {
-    private val PREF_FILES = listOf("zelu_theme", "zelu_prefs")
+    // Settings kept as preferences. The app lock is left out on purpose: it belongs to the phone it was set on.
+    private val PREF_FILES = listOf("zelu_theme", "zelu_prefs", "zelu_ui", "zelu_notify", "zelu_menu", "zelu_hints")
 
     fun export(context: Context): String {
         val files = JSONObject()

@@ -83,7 +83,7 @@ import kotlinx.coroutines.launch
 
 @Composable internal fun OnboardFlow(
     stage: Stage, denied: Boolean, scanDone: Int, scanTotal: Int,
-    onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit,
+    onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit, onRestore: () -> Unit = {},
     smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
     val step = when (stage) { Stage.PRIVACY -> 0; Stage.PERM -> 1; Stage.NOTIF -> 2; else -> -1 }
@@ -135,6 +135,9 @@ import kotlinx.coroutines.launch
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(10.dp))
                     Cta(stringResource(R.string.continue_label), onNext)
+                    // A new install of Zelu: bring back what was set up before (categories, accounts, budgets...).
+                    Text(stringResource(R.string.restore_from_backup), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onRestore() }.padding(horizontal = 18.dp, vertical = 8.dp))
                 }
                 Stage.PERM -> {
                     // The ask shows the thing it is asking to do: messages fall into the icon and come out as payments.
