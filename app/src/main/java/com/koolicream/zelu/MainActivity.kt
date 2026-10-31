@@ -605,54 +605,37 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 .let { m -> if (excludeEmi && cat != "EMI") m - "EMI" else m }
                         } else emptyMap()
                         val isMonth = f.period == "month"
-                        // The weekday pattern is about everyday spending: EMI and rent land on one fixed day and would
-                        // make that weekday look the heaviest, so they are always left out (unless that is the filter).
+                        // Patterns are about everyday spending: EMI and rent land on one fixed day and would make that
+                        // weekday look the heaviest, so they are left out (unless that is the filter).
                         val fixedCats = setOf("EMI", "Rent")
                         val flexShown = if (cat in fixedCats) shown else shown.filter { it.category !in fixedCats }
-                        val fixedSpent = shown.filter { it.kind == Kind.EXPENSE && it.category in fixedCats }.rupees()
-                        val fixedNote = if (fixedSpent <= 0 || cat in fixedCats) null else "Leaves out EMI and rent"
-                        val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
-                        val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
-                        BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { open(Page.Trends) },
+                        // Every month's spending under the same filters, for the twelve-month strip.
+                        val spendRows = remember(rows, account, excludeEmi, cat) {
+                            rows.filter { it.kind == Kind.EXPENSE && (account == "All" || it.account == account) &&
+                                !(excludeEmi && it.category == "EMI") && (cat == "All" || it.category == cat) }
+                        }
+                        val total = shown.filter { it.kind == Kind.EXPENSE }.rupees()
+                        // One page: the month and its strip, the categories, three patterns, and the days.
+                        BucketsView(shown, prevByCat, budgets, { budgetsOpen = true },
                             monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it }, onOpenCategory = { open(Page.Category(it)) },
-                            onCalendar = if (isMonth) ({ calOpen = !calOpen }) else null,
-                            calActive = calOpen || daySel > 0,
-                            dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
-                            onClearDay = { daySel = 0 },
-                            tabs = {
-                                Spacer(Modifier.height(12.dp))
-                                TabRowWrap {
-                                    IconTab(Icons.Rounded.DonutLarge, stringResource(R.string.overview), 0xFFFF6B1A, 0xFFFF8A3D, spendTab == 0, modifier = Modifier.weight(1f)) { spendTab = 0 }
-                                    IconTab(Icons.Rounded.Category, stringResource(R.string.categories), 0xFF8B5CF6, 0xFFA78BFA, spendTab == 1, modifier = Modifier.weight(1f)) { spendTab = 1 }
-                                    IconTab(Icons.Rounded.Insights, stringResource(R.string.patterns), 0xFF06B6D4, 0xFF22D3EE, spendTab == 2, modifier = Modifier.weight(1f)) { spendTab = 2 }
-                                }
-                            },
-                            showSummary = spendTab == 0,
-                            showCategories = spendTab == 1,
+                            showSummary = false, showCategories = true,
                             slot = {
-                                if (spendTab == 2) AnalyticsEntries({ open(Page.Trends) }, if (isMonth) ({ calOpen = !calOpen }) else null, calOpen)
-                                if (isMonth && calOpen && spendTab == 2) DailyCalendarBlock(rows, shown, f, month, account, daySel,
-                                    { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
+                                if (isMonth) MonthCard(spendRows, month, total, if (cat == "All") monthlyBudget else budgets[cat] ?: 0.0) { month = it; daySel = 0 }
                             },
                             prevLabel = Dates.monthLong(Dates.shiftMonth(month, -1)).let { prev ->
                                 if (month == Dates.todayMonth()) "the same days of $prev" else prev },
-                        ) { title, rows -> drill = title to rows }
-                        if (spendTab == 2 && dayStr == null) {
-                            val wFrom: String; val wTo: String
-                            if (isMonth) {
-                                wFrom = "$month-01"
-                                wTo = if (month == Dates.todayMonth()) Dates.today() else "$month-%02d".format(Dates.daysInMonth(month))
-                            } else {
-                                val ds = shown.filter { it.kind == Kind.EXPENSE }.map { it.date }
-                                wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
-                            }
-                            WeekdayPanel(flexShown, wFrom, wTo, fixedNote) { title, rs -> drill = title to rs }
-                            TimeOfDayPanel(flexShown) { title, rs -> drill = title to rs }
-                            MonthThirdsPanel(flexShown) { title, rs -> drill = title to rs }
-                            SmallSpendsPanel(flexShown)
+                        ) { title, rs -> drill = title to rs }
+                        val wFrom: String; val wTo: String
+                        if (isMonth) {
+                            wFrom = "$month-01"
+                            wTo = if (month == Dates.todayMonth()) Dates.today() else "$month-%02d".format(Dates.daysInMonth(month))
+                        } else {
+                            val ds = shown.filter { it.kind == Kind.EXPENSE }.map { it.date }
+                            wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                         }
-                        if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
-                            { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
+                        PatternsBlock(spendPatterns(flexShown, wFrom, wTo)) { detailRow = it }
+                        if (isMonth) DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                            { daySel = if (daySel == it) 0 else it }, { detailRow = it })
                     }
                     Tab.BUCKETS -> {
                         val prevByCat = if (period == "month")
