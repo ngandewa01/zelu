@@ -61,6 +61,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
  */
 @Composable internal fun MonthChart(
     months: List<String>, values: List<Double>, color: Color, selected: Int, onSelect: (Int) -> Unit, budget: Double = 0.0,
+    fit: Boolean = false,
 ) {
     val max = (values.maxOrNull() ?: 0.0).coerceAtLeast(budget).coerceAtLeast(1.0)
     val scroll = rememberScrollState()
@@ -72,12 +73,13 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     // A usual month: the average of the months that have payments, drawn as a thin line through every bar.
     val paid = values.filter { it > 0 }
     val avg = if (paid.size > 1) paid.average() else 0.0
-    Row(Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    // fit: every month shares the width (Spend's twelve months), so nothing scrolls sideways.
+    Row(if (fit) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(if (fit) 4.dp else 6.dp)) {
         months.forEachIndexed { i, m ->
             val v = values.getOrElse(i) { 0.0 }
             val on = i == selected
             Column(
-                Modifier.width(38.dp).height(tagH + plot + 4.dp + labelH)
+                (if (fit) Modifier.weight(1f) else Modifier.width(38.dp)).height(tagH + plot + 4.dp + labelH)
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onSelect(i) }
                     .drawBehind {
                         if (avg > 0) {
@@ -95,17 +97,17 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
             ) {
                 Box(Modifier.height(tagH), contentAlignment = Alignment.BottomCenter) {
                     if (on && v > 0) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ZColor.Ink).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text(shortAmt(v), color = ZColor.Paper, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                        Text(shortAmt(v), color = ZColor.Paper, fontSize = if (fit) 9.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
                     }
                 }
                 val target: Dp = if (v > 0) (plot * (v / max).toFloat()).coerceAtLeast(6.dp) else 5.dp
                 val h by animateDpAsState(target, tween(520, easing = FastOutSlowInEasing), label = "bar")
-                Box(Modifier.width(30.dp).height(h)
+                Box((if (fit) Modifier.fillMaxWidth(0.8f) else Modifier.width(30.dp)).height(h)
                     .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
                     .background(if (v > 0) color.copy(alpha = if (on) 1f else 0.38f) else ZColor.Line))
                 Spacer(Modifier.height(4.dp))
                 Box(Modifier.height(labelH), contentAlignment = Alignment.Center) {
-                    Text(MONTH_ABBR[m.substring(5, 7).toInt() - 1], color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 11.sp,
+                    Text(MONTH_ABBR[m.substring(5, 7).toInt() - 1].let { if (fit && !on) it.take(1) else it }, color = if (on) ZColor.Ink else ZColor.Muted, fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
             }

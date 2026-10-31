@@ -52,12 +52,12 @@ import androidx.compose.ui.unit.sp
         Text(money(total), color = ZColor.Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
         if (usual > 0) MutedText(stringResource(R.string.usual_month_is, money(usual)), 13)
         Spacer(Modifier.height(10.dp))
-        MonthChart(months, values, ZColor.Accent, sel, { onPickMonth(months[it]) }, budget)
+        MonthChart(months, values, ZColor.Accent, sel, { onPickMonth(months[it]) }, budget, fit = true)
     }
 }
 
 // One pattern: a short headline for its small card, and bars that each list their own payments.
-internal class Pattern(val title: String, val head: String, val sub: String, val labels: List<String>, val values: List<Double>,
+internal class Pattern(val title: String, val short: String, val head: String, val sub: String, val labels: List<String>, val values: List<Double>,
                        val top: Int, val rowsFor: (Int) -> List<Row>)
 
 // Three small cards in a row; tapping one opens its chart below, and tapping a bar there lists just those payments.
@@ -74,7 +74,7 @@ internal class Pattern(val title: String, val head: String, val sub: String, val
             Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
                 .border(if (on) 1.5.dp else 1.dp, if (on) ZColor.Accent else ZColor.Line, RoundedCornerShape(18.dp))
                 .clickable { if (on) open = null else { open = i; pick = null } }.padding(10.dp)) {
-                Text(p.title.uppercase(), color = ZColor.Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
+                Text(p.short.uppercase(), color = ZColor.Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, maxLines = 1,
                     overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
                 Text(p.head, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -134,19 +134,19 @@ internal class Pattern(val title: String, val head: String, val sub: String, val
     val avg = Analytics.weekdayAverages(spend, from, to).toList()
     if (avg.any { it > 0 }) {
         val t = avg.indices.maxByOrNull { avg[it] } ?: 0
-        out.add(Pattern(stringResource(R.string.weekday_pattern), dayLong[t], stringResource(R.string.heaviest_day_sub, money(avg[t])), dayShort, avg, t) { i -> PatternMath.forWeekday(spend, i) })
+        out.add(Pattern(stringResource(R.string.weekday_pattern), stringResource(R.string.weekday_short), dayLong[t], stringResource(R.string.heaviest_day_sub, money(avg[t])), dayShort, avg, t) { i -> PatternMath.forWeekday(spend, i) })
     }
     val tod = PatternMath.timeOfDay(spend).toList()
     if (tod.any { it > 0 }) {
         val t = tod.indices.maxByOrNull { tod[it] } ?: 0
         val names = listOf(R.string.tod_morning, R.string.tod_afternoon, R.string.tod_evening, R.string.tod_night).map { stringResource(it) }
-        out.add(Pattern(stringResource(R.string.time_of_day), names[t], stringResource(R.string.busiest_time_sub, money(tod[t])), names, tod, t) { i -> PatternMath.forPartOfDay(spend, i) })
+        out.add(Pattern(stringResource(R.string.time_of_day), stringResource(R.string.time_of_day), names[t], stringResource(R.string.busiest_time_sub, money(tod[t])), names, tod, t) { i -> PatternMath.forPartOfDay(spend, i) })
     }
     val small = spend.filter { it.paise < PatternMath.SMALL_LIMIT * 100 }
     if (small.isNotEmpty()) {
         val byDay = (0..6).map { i -> PatternMath.forWeekday(small, i).rupees() }
         val t = byDay.indices.maxByOrNull { byDay[it] } ?: 0
-        out.add(Pattern(stringResource(R.string.small_spends), stringResource(R.string.small_card_head, small.size),
+        out.add(Pattern(stringResource(R.string.small_spends), stringResource(R.string.small_spends), stringResource(R.string.small_card_head, small.size),
             stringResource(R.string.small_card_sub, money(PatternMath.SMALL_LIMIT), money(small.rupees())), dayShort, byDay, t) { i -> PatternMath.forWeekday(small, i) })
     }
     return out
