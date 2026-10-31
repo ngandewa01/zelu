@@ -508,4 +508,36 @@
     <string name="weekday_short">Weekday</string>
     <string name="pick_not_income">Not income</string>
     <string name="other_income">Other income</string>
+    <string name="split_this_payment">Split this payment</string>
+    <string name="split_with_people">With people</string>
+    <string name="split_with_people_sub">Share it with friends or family. Your part counts as spending, theirs is owed to you.</string>
+    <string name="split_into_categories">Into categories</string>
+    <string name="split_into_categories_sub">One payment, several categories.</string>
+    <string name="you_label">You</string>
+    <string name="split_amount_title">Split %1$s</string>
+    <string name="split_with_label">With</string>
+    <string name="from_contacts">＋ From contacts</string>
+    <string name="save_as_group">Save these people as a group</string>
+    <string name="group_name">Group name</string>
+    <string name="split_how">How</string>
+    <string name="split_equally">Equally</string>
+    <string name="split_by_amount">By amount</string>
+    <string name="split_by_share" formatted="false">By share %</string>
+    <string name="split_add_someone">Pick at least one person</string>
+    <string name="left_to_assign">%1$s left to assign</string>
+    <string name="too_much">%1$s too much</string>
+    <string name="you_pay_amount">You pay %1$s</string>
+    <string name="others_owe_amount">Others owe you %1$s</string>
+    <string name="split_saved_people">Split saved. Their shares are in Dues › People.</string>
+    <string name="people_tab">People</string>
+    <string name="you_get">You get</string>
+    <string name="you_pay">You pay</string>
+    <string name="people_empty">No one yet. Open a payment and tap Split, or mark a payment as Lent or Borrowed.</string>
+    <string name="owes_you">owes you</string>
+    <string name="you_owe">you owe</string>
+    <string name="settled_tick">Settled ✓</string>
+    <string name="group_splits">%1$d splits</string>
+    <string name="people_hint">Open a payment and tap Split to share it. When someone pays you back, tap them to record it.</string>
+    <string name="people_card">People</string>
+    <string name="people_card_sub">%1$s to get · %2$s to pay</string>
 </resources>

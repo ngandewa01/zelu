@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.foundation.background
@@ -52,6 +53,7 @@ import java.util.Calendar
     reminders: List<Reminder>, rows: List<Row>, state: Map<String, Boolean>, onMark: (String, Boolean) -> Unit,
     onAdd: (String, Double, String, Boolean) -> Unit = { _, _, _, _ -> }, onRemove: (String) -> Unit = {},
     adding: Boolean = false, setAdding: (Boolean) -> Unit = {},
+    tab: Int = 0, onTab: (Int) -> Unit = {}, people: @Composable () -> Unit = {},
 ) {
     var detail by remember { mutableStateOf<Reminder?>(null) }
     val ctxAdd = LocalContext.current
@@ -69,8 +71,8 @@ import java.util.Calendar
 
     val pending = reminders.filter { !settled(it) }.sortedBy { it.dueDate }
     val paid = reminders.filter { settled(it) }.sortedByDescending { it.dueDate }
-    // Dues page tabs: what is coming, what is paid, and the autopay set-ups. Older months stay out of the way.
-    var duesTab by remember { mutableStateOf(0) }
+    // Dues page tabs: what is coming (with the autopay set-ups under it), what is paid, and people you share money with.
+    val duesTab = tab.coerceIn(0, 2)
     var showOlderPaid by remember { mutableStateOf(false) }
     val paidNow = paid.filter { it.dueDate.take(7) >= curMonth }
     val paidOlder = paid.filter { it.dueDate.take(7) < curMonth }
@@ -81,9 +83,9 @@ import java.util.Calendar
 
     Spacer(Modifier.height(12.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Schedule, stringResource(R.string.upcoming_tab), 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(1f)) { duesTab = 0 }
-        IconTab(Icons.Rounded.TaskAlt, stringResource(R.string.paid_2), 0xFF22B455, 0xFF3DD171, duesTab == 1, modifier = Modifier.weight(1f)) { duesTab = 1 }
-        if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, stringResource(R.string.autopay), 0xFFC026D3, 0xFFE879F9, duesTab == 2, modifier = Modifier.weight(1f)) { duesTab = 2 }
+        IconTab(Icons.Rounded.Schedule, stringResource(R.string.upcoming_tab), 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(1f)) { onTab(0) }
+        IconTab(Icons.Rounded.TaskAlt, stringResource(R.string.paid_2), 0xFF22B455, 0xFF3DD171, duesTab == 1, modifier = Modifier.weight(1f)) { onTab(1) }
+        IconTab(Icons.Rounded.Group, stringResource(R.string.people_tab), 0xFF3B82F6, 0xFF60A5FA, duesTab == 2, modifier = Modifier.weight(1f)) { onTab(2) }
     }
 
     // Summary: what is overdue, what lands this week, and where the month is heading.
@@ -167,7 +169,9 @@ import java.util.Calendar
             if (showOlderPaid) paidOlder.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
         }
     }
-    if (duesTab == 2 && mandates.isNotEmpty()) {
+    if (duesTab == 2) people()
+    // Autopay set-ups sit under the bills to pay, since each is a bill that pays itself.
+    if (duesTab == 0 && mandates.isNotEmpty()) {
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {

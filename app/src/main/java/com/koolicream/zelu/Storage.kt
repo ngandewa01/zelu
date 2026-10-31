@@ -139,7 +139,11 @@ object Storage {
             if (parts == null || r.kind != Kind.EXPENSE || Math.abs(parts.sumOf { it.first } - r.amount) > 0.5) listOf(r)
             else parts.mapIndexed { i, pc ->
                 val pid = r.id + "#" + (i + 1)
-                var part = r.copy(id = pid, paise = paiseOf(pc.first), category = pc.second)
+                // A part marked "@Name" is someone's share of a split with people: money you lent them, so it counts in
+                // what they owe you and not in your spending.
+                var part = if (pc.second.startsWith(PERSON_PART)) r.copy(id = pid, paise = paiseOf(pc.first), kind = Kind.LENT, category = "Lent",
+                    counterparty = pc.second.removePrefix(PERSON_PART))
+                else r.copy(id = pid, paise = paiseOf(pc.first), category = pc.second)
                 overrides[pid]?.let { (k, c) -> part = part.copy(kind = Kind.of(k), category = c) }
                 part
             }
@@ -314,7 +318,8 @@ object Storage {
         writeKv(context, CATOFF_FILE, kv)
     }
 
-    // ---- one payment split across categories ----  id -> [(amount, category)]
+    // ---- one payment split across categories ----  id -> [(amount, category)]; a category "@Name" is that person's share
+    const val PERSON_PART = "@"
     private const val SPLIT_FILE = "splits.json"
     fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
         val f = doc(context, SPLIT_FILE)
@@ -337,6 +342,24 @@ object Storage {
         val obj = JSONObject()
         for ((k, v) in splits) obj.put(k, org.json.JSONArray().also { arr -> v.forEach { arr.put(JSONObject().put("a", it.first).put("c", it.second)) } })
         doc(context, SPLIT_FILE).writeKeepingBackup(obj.toString())
+    }
+
+    // ---- groups of people to split with, and which split was with which group ----
+    private const val GROUP_FILE = "split_groups.json"
+    private const val GROUP_OF_FILE = "split_group_of.json"
+    fun loadGroups(context: Context): Map<String, List<String>> = synchronized(lock) {
+        readKv(context, GROUP_FILE).mapValues { it.value.first.split('\n').filter { n -> n.isNotBlank() } }
+    }
+    fun saveGroup(context: Context, name: String, members: List<String>?): Unit = synchronized(lock) {
+        val kv = readKv(context, GROUP_FILE).toMutableMap()
+        if (members == null) kv.remove(name) else kv[name] = members.joinToString("\n") to ""
+        writeKv(context, GROUP_FILE, kv)
+    }
+    fun groupOfSplits(context: Context): Map<String, String> = synchronized(lock) { readKv(context, GROUP_OF_FILE).mapValues { it.value.first } }
+    fun setGroupOfSplit(context: Context, id: String, group: String?): Unit = synchronized(lock) {
+        val kv = readKv(context, GROUP_OF_FILE).toMutableMap()
+        if (group == null) kv.remove(id) else kv[id] = group to ""
+        writeKv(context, GROUP_OF_FILE, kv)
     }
 
     // Pairs of payments you said are really two payments ("Keep both"), so they are not flagged again.
@@ -1057,7 +1080,7 @@ object Storage {
     // ---- your decisions, in the database (kv and doc tables, see Db.kt) ----
     // Files whose every entry is "key -> a|b": one row per key in the kv table.
     private val KV_FILES = setOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, ACCOUNTS_FILE, APART_FILE, TITLE_FILE, "card_networks.json",
-        "dup_ok.json", SENDER_FILE, SENDER_BANK_FILE, CLOSEDLOAN_FILE, CATOFF_FILE, HANDLED_FILE)
+        "dup_ok.json", SENDER_FILE, SENDER_BANK_FILE, CLOSEDLOAN_FILE, CATOFF_FILE, HANDLED_FILE, GROUP_FILE, GROUP_OF_FILE)
     // Every other file Zelu keeps, as its whole text in the doc table.
     private val DOC_FILES = setOf(SPLIT_FILE, MANDATE_FILE, MANUAL_TXN_FILE, MANUAL_FILE, REPAID_FILE, BUDGET_FILE, REM_DONE_FILE,
         REMINDER_FILE, "balances.json", "limits.json", "refund_links.json", "plan.json", "card_prefs.json", "monthly_budget.txt",

@@ -280,7 +280,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                             refreshRows()
                             Toast.makeText(context, context.getString(R.string.split_removed), Toast.LENGTH_SHORT).show()
                         }
-                    } else splitFor = r
+                    } else splitChoice = r
                 }) else null,
                 onDismiss = { detailRow = null },
             )
