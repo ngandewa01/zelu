@@ -519,6 +519,7 @@ import androidx.compose.ui.window.Dialog
     refundOf: Row? = null, onRefundAnswer: (Boolean) -> Unit = {},
     copyOf: Row? = null, onSameCopy: () -> Unit = {}, onTwoPayments: () -> Unit = {},
     visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
     onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
@@ -530,9 +531,20 @@ import androidx.compose.ui.window.Dialog
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TopIcon(stringResource(R.string.back), onClick = onDismiss) { Text("‹", color = ZColor.Ink, fontSize = 22.sp, modifier = Unspoken) }
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.payment), color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         if (t.account.isNotBlank()) MutedText(t.account, 12)
+                    }
+                    // More: take a split apart, or delete the payment (undo is offered after either).
+                    if (onDelete != null || onRemoveSplit != null) Box {
+                        var more by remember { mutableStateOf(false) }
+                        TopIcon(stringResource(R.string.more_options), onClick = { more = true }) { Text("⋮", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Unspoken) }
+                        androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                            if (onRemoveSplit != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.remove_split)) },
+                                onClick = { more = false; onRemoveSplit() })
+                            if (onDelete != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.delete_payment), color = ZColor.Warn) },
+                                onClick = { more = false; onDelete() })
+                        }
                     }
                 }
                 Spacer(Modifier.height(14.dp))

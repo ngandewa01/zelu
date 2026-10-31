@@ -132,7 +132,7 @@ object Storage {
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = Kind.IGNORE)
             row
-        }.newestFirst()
+        }.filter { it.category != DELETED }.newestFirst()   // a payment you deleted is gone everywhere (undo brings it back)
         // A payment you split becomes several rows that add up to it, one per category.
         val expanded = if (splits.isEmpty()) rows else rows.flatMap { r ->
             val parts = splits[r.id]
@@ -320,6 +320,8 @@ object Storage {
 
     // ---- one payment split across categories ----  id -> [(amount, category)]; a category "@Name" is that person's share
     const val PERSON_PART = "@"
+    // The category a payment you deleted is kept under, so the message is not read in again and undo can bring it back.
+    const val DELETED = "Deleted"
     private const val SPLIT_FILE = "splits.json"
     fun loadSplits(context: Context): Map<String, List<Pair<Double, String>>> = synchronized(lock) {
         val f = doc(context, SPLIT_FILE)
@@ -1006,7 +1008,7 @@ object Storage {
     }
 
     // Undo support: a copy of everything a category / refund / rename decision can change.
-    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE)
+    private val UNDO_FILES = listOf(OVERRIDE_FILE, RULE_FILE, ALIAS_FILE, TITLE_FILE, "refund_links.json", ACCOUNTS_FILE, APART_FILE, SPLIT_FILE, GROUP_OF_FILE)
 
     fun snapshot(context: Context): Map<String, String?> = synchronized(lock) {
         UNDO_FILES.associateWith { n -> exportText(context, n) }

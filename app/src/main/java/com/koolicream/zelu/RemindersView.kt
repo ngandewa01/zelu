@@ -182,7 +182,11 @@ import java.util.Calendar
         }
 
         Spacer(Modifier.height(6.dp))
-        mandates.forEach { md ->
+        // Ended or paused set-ups are history: folded away under one line unless you open them.
+        var showEnded by remember { mutableStateOf(false) }
+        val liveMandates = mandates.filter { it.status == "active" || it.status == "scheduled" }
+        val endedMandates = mandates.filter { it !in liveMandates }
+        (liveMandates + if (showEnded) endedMandates else emptyList()).forEach { md ->
             val live = md.status == "active" || md.status == "scheduled"
             val tone = when (md.status) { "paused" -> ZColor.Warn; "ended" -> ZColor.Muted; else -> ZColor.Income }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
@@ -213,6 +217,9 @@ import java.util.Calendar
                 }
             }
         }
+        if (endedMandates.isNotEmpty()) Text(if (showEnded) stringResource(R.string.hide_ended) else stringResource(R.string.show_ended, endedMandates.size),
+            color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showEnded = !showEnded }.padding(vertical = 8.dp, horizontal = 4.dp))
     }
 
     mandateOpen?.let { md ->

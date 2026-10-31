@@ -319,6 +319,33 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         }
     }
 
+    /** Deletes a payment: it leaves every list and total. Undo brings it back. */
+    fun deletePayment(r: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) {
+                Storage.setSplit(context, base, null)
+                Storage.setGroupOfSplit(context, base, null)
+                Storage.setOverride(context, base, Kind.IGNORE, Storage.DELETED)
+            }
+            refreshRows()
+            undo = context.getString(R.string.payment_deleted) to snap
+        }
+    }
+
+    /** Takes a split apart again: the payment is one row, whole, with its category. */
+    fun removeSplit(r: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val base = r.id.substringBefore('#')
+            withContext(Dispatchers.IO) { Storage.setSplit(context, base, null); Storage.setGroupOfSplit(context, base, null) }
+            refreshRows()
+            groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
+            undo = context.getString(R.string.split_removed) to snap
+        }
+    }
+
     fun saveGroup(name: String, members: List<String>) {
         scope.launch {
             withContext(Dispatchers.IO) { Storage.saveGroup(context, name, members) }

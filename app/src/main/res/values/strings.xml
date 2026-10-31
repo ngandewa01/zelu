@@ -540,4 +540,9 @@
     <string name="people_hint">Open a payment and tap Split to share it. When someone pays you back, tap them to record it.</string>
     <string name="people_card">People</string>
     <string name="people_card_sub">%1$s to get · %2$s to pay</string>
+    <string name="more_options">More</string>
+    <string name="delete_payment">Delete payment</string>
+    <string name="payment_deleted">Payment deleted</string>
+    <string name="show_ended">Show ended (%1$d)</string>
+    <string name="hide_ended">Hide ended</string>
 </resources>

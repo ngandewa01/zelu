@@ -282,6 +282,8 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                         }
                     } else splitChoice = r
                 }) else null,
+                onDelete = { detailRow = null; deletePayment(r) },
+                onRemoveSplit = if (r.id.contains('#')) ({ detailRow = null; removeSplit(r) }) else null,
                 onDismiss = { detailRow = null },
             )
         }
