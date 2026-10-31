@@ -498,6 +498,25 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         }
     }
 
+    /** Several payments moved to one category at once; with remember, their payees (or message shapes) learn it too. */
+    fun moveMany(list: List<Row>, kind: Kind, category: String, remember: Boolean) {
+        if (list.isEmpty()) return
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) {
+                list.forEach { r ->
+                    Storage.setOverride(context, r.id, kind, category)
+                    if (remember && kind != Kind.INCOME && kind != Kind.IGNORE) {
+                        if (!r.counterparty.isNullOrBlank()) Storage.setPayeeRule(context, r.counterparty, kind, category)
+                        else MessageShape.key(r.raw, r.source)?.let { Storage.setShapeRule(context, it, kind, category) }
+                    }
+                }
+            }
+            refreshRows()
+            undo = context.getString(R.string.moved_n_payments, list.size, if (category in CustomCats.names) customLabel(category) else category) to snap
+        }
+    }
+
     /** The message shape of a payment that has no payee name of its own, or null. */
     private fun shapeOf(id: String): String? = rows.firstOrNull { it.id == id }
         ?.takeIf { it.counterparty.isNullOrBlank() }?.let { MessageShape.key(it.raw, it.source) }

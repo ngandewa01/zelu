@@ -15,6 +15,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,10 +91,16 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
     else -> t.category
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable internal fun TxnRow(t: Row, highlight: Boolean, onClick: (Row) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onClick(t) }.padding(vertical = 7.dp),
+    // Hold a payment to start picking several (see Picking); while picking, a tap ticks or unticks it.
+    val picking = Picking.active
+    val on = picking && Picking.has(t)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) ZColor.Card else androidx.compose.ui.graphics.Color.Transparent)
+        .combinedClickable(onClick = { if (picking) Picking.toggle(t) else onClick(t) }, onLongClick = { Picking.toggle(t) })
+        .padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
+        if (picking) PickBox(on) else MerchantTile(t.counterparty ?: t.category, t.category, kind = t.kind)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(rowTitle(t), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium,

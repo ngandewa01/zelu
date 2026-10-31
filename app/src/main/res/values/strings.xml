@@ -574,4 +574,9 @@
     <string name="report_message_subject">Zelu read a message wrong</string>
     <string name="report_message_intro">What should it have been?</string>
     <string name="no_email_app">No email app found</string>
+    <string name="n_selected">%1$d selected</string>
+    <string name="move_n_payments_to">Move %1$d payments to</string>
+    <string name="pick_other">Not spending or income</string>
+    <string name="also_remember_payees">Also remember for these payees and similar messages</string>
+    <string name="moved_n_payments">Moved %1$d payments to %2$s</string>
 </resources>

@@ -682,6 +682,9 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
             }
             // A page opened over Home; Back closes it.
             androidx.activity.compose.BackHandler(page != null) { back() }
+            // Picking several payments: Back ends picking first; the bar moves them all to one category.
+            androidx.activity.compose.BackHandler(Picking.active) { Picking.clear() }
+            PickBar(onMove = { list, k, c, rem -> moveMany(list, k, c, rem) }, onNewCat = { cb -> newCatCallback = cb })
             when (val p = page) {
                 is Page.Card -> {
                     val a = p.account
