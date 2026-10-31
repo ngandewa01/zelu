@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -142,5 +144,20 @@ import androidx.compose.ui.unit.sp
         MutedText(stringResource(R.string.small_total, money(s.total), share), 12)
         Spacer(Modifier.height(8.dp))
         MutedText(stringResource(R.string.small_average, money(s.average)), 12)
+    }
+}
+
+// Each category as a small chip: its colour, its name and its share. Tapping one opens its payments.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun CategoryChips(items: List<Triple<String, Color, Int>>, onClick: (String) -> Unit) {
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEach { (name, color, pct) ->
+            Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Tile).clickable { onClick(name) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+                Spacer(Modifier.width(6.dp))
+                Text("$name $pct%", color = ZColor.Ink, fontSize = 13.sp, maxLines = 1)
+            }
+        }
     }
 }

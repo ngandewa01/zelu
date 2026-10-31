@@ -651,8 +651,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             BiggestPanel(flexShown) { detailRow = it }
                             MonthThirdsPanel(flexShown)
                             SmallSpendsPanel(flexShown)
-                            val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
-                            RecurringPanel(recurring)
                         }
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                             { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
@@ -667,7 +665,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows,
                         onOpenPayee = { open(Page.Payee(it)) })
                     Tab.INVEST -> InvestView(rows) { title, r -> drill = title to r }
-                    Tab.PACE -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                     Tab.DUES -> RemindersView(reminders, rows, reminderState, s::markReminder,
                         onAdd = { n, a, d, r -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.addManualReminder(context, n, a, d, r) }

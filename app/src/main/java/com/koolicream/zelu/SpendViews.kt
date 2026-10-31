@@ -109,42 +109,17 @@ import androidx.compose.ui.unit.sp
             }
         }
 
-        // Each category once: amount, and how it moved against the month before.
+        // One line on how the month compares, then each category as a chip. The full list, with budgets, is in Categories.
         val prevTotal = prevByCat.values.sum()
         val compare = prevTotal > 0 && dayLabel == null
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow(if (compare) "Vs $prevLabel" else "By category")
-            if (compare) InfoDot(stringResource(R.string.how_each_category_moved_against, prevLabel))
-            Spacer(Modifier.weight(1f))
-            val ch = if (compare) ((total - prevTotal) / prevTotal * 100).toInt() else 0
-            if (ch != 0) Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "%", color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
-        groups.forEach { (name, v, color) ->
-            val before = if (name == "Other") rest.sumOf { prevByCat[it.first] ?: 0.0 } else prevByCat[name] ?: 0.0
-            val d = v - before
+        val ch = if (compare) ((total - prevTotal) / prevTotal * 100).toInt() else 0
+        if (ch != 0) {
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onDrill(name, rowsForGroup(name)) },
-                verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).clip(RoundedCornerShape(5.dp)).background(color))
-                Spacer(Modifier.width(8.dp))
-                Text(name, color = ZColor.Ink, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(money(v), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text(" · ${(v / total * 100).toInt()}%", color = ZColor.Muted, fontSize = 12.sp)
-                if (compare) Text(
-                    when {
-                        kotlin.math.abs(d) < 1 -> "same"
-                        before <= 0 -> "new"
-                        d > 0 -> "▲ " + money(d)
-                        else -> "▼ " + money(-d)
-                    },
-                    // More spending is shown plainly, less in green: a change, not an alarm.
-                    color = if (d < -0.5) ZColor.Income else ZColor.Muted, fontSize = 12.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.width(92.dp),
-                )
-            }
+            Text((if (ch > 0) "▲ " else "▼ ") + kotlin.math.abs(ch) + "% vs " + prevLabel, color = if (ch > 0) ZColor.InkSoft else ZColor.Income,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
+        Spacer(Modifier.height(12.dp))
+        CategoryChips(groups.map { Triple(it.first, it.third, (it.second / total * 100).toInt()) }) { name -> onDrill(name, rowsForGroup(name)) }
     }
 
     if (showSummary) afterSummary()
@@ -249,33 +224,3 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun RecurringPanel(list: List<Analytics.Recurring>) {
-    if (list.isEmpty()) return
-    val total = list.sumOf { it.amount }
-    Panel {
-        Eyebrow(stringResource(R.string.recurring))
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(money(total), color = ZColor.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(" a month · ${list.size} payment${if (list.size == 1) "" else "s"}", color = ZColor.Muted, fontSize = 12.sp,
-                modifier = Modifier.padding(bottom = 3.dp))
-        }
-        list.take(6).forEach { r ->
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(r.name, r.category, 34.dp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(r.name, color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText(stringResource(R.string.last_on) + r.last.takeLast(5).split("-").let { (mo, dd) -> "$dd/$mo" }, 11)
-                }
-                if (r.prev != null && r.amount > r.prev * 1.05) {
-                    TonePill("▲ " + money(r.amount - r.prev), ZColor.Warn, ZColor.WarnSoft)
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(money(r.amount), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        if (list.size > 6) { Spacer(Modifier.height(10.dp)); MutedText(stringResource(R.string.more, list.size - 6), 12) }
-    }
-}
