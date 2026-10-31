@@ -605,29 +605,22 @@ import androidx.compose.ui.window.Dialog
                             Spacer(Modifier.height(12.dp))
                             MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                             Spacer(Modifier.height(6.dp))
-                            ChipScroll {
-                                Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
-                                CustomCats.names.forEach { c ->
-                                    CatTab(c, t.category == c) { pick(Kind.EXPENSE, c) }
-                                }
-                                KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
-                            }
-                            if (t.direction == Dir.CREDIT) {
-                                Spacer(Modifier.height(6.dp))
-                                MutedText(stringResource(R.string.money_in_category), 12)
-                                Spacer(Modifier.height(6.dp))
-                                ChipScroll { IncomeCats.all.forEach { c -> CatTab(c, t.category == c) { pick(Kind.INCOME, c) } } }
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            ChipScroll {
-                                KindTab("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }
-                                // Money back for something you bought: it nets against that spend once matched.
-                                if (t.direction == Dir.CREDIT) KindTab("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") }
-                                KindTab("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") }
-                                KindTab("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") }
-                                KindTab("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") }
-                                KindTab("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") }
-                            }
+                            PickList(buildList {
+                                add(stringResource(R.string.pick_spending) to (
+                                    Classifier.CATEGORIES.keys.map { c -> catPick(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } } +
+                                        CustomCats.names.map { c -> catPick(c, t.category == c) { pick(Kind.EXPENSE, c) } } +
+                                        kindPick("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }))
+                                if (t.direction == Dir.CREDIT) add(stringResource(R.string.pick_money_in) to IncomeCats.all.map { c -> catPick(c, t.category == c) { pick(Kind.INCOME, c) } })
+                                add(stringResource(R.string.pick_not_spending) to buildList {
+                                    add(kindPick("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") })
+                                    // Money back for something you bought: it nets against that spend once matched.
+                                    if (t.direction == Dir.CREDIT) add(kindPick("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") })
+                                    add(kindPick("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") })
+                                    add(kindPick("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") })
+                                    add(kindPick("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") })
+                                    add(kindPick("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") })
+                                })
+                            })
                         }
                     }
                 }
@@ -643,12 +636,27 @@ import androidx.compose.ui.window.Dialog
                         Kind.TRANSFER -> R.string.transfer; Kind.LENT -> R.string.lent; Kind.BORROWED -> R.string.borrowed
                         Kind.IGNORE -> R.string.ignore; Kind.INVEST -> R.string.investment_label
                     }
-                    Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Tile).clickable { editing = !editing }
-                        .padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(kindWord), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(5.dp))
-                        Text(if (editing) "▴" else "▾", color = ZColor.Muted, fontSize = 10.sp, modifier = Unspoken)
-                    }
+                    // One switch for what matters here: money out is Spending or not, money in is Income or not. Off shows what it counts
+                    // as instead (Transfer, Lent...) and the category button changes that. Turning it on sorts it again.
+                    val isOut = t.direction == Dir.DEBIT
+                    val on = if (isOut) (t.kind == Kind.EXPENSE || t.kind == Kind.INVEST) else t.kind == Kind.INCOME
+                    val onWord = stringResource(if (isOut) R.string.spending else R.string.money_in)
+                    val transferWord = stringResource(R.string.transfer)
+                    Text(if (on) onWord else stringResource(kindWord),
+                        color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.material3.Switch(
+                        checked = on,
+                        onCheckedChange = { next ->
+                            val kind = if (next) (if (isOut) Kind.EXPENSE else Kind.INCOME) else Kind.TRANSFER
+                            val cat = if (next) (if (isOut) "Unknown" else "Income") else "Transfer"
+                            onReclassify(kind, cat)
+                            saved = if (next) "Counted as $onWord" else "Moved to $transferWord"
+                        },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                            checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,
+                            uncheckedTrackColor = ZColor.Tile, uncheckedThumbColor = ZColor.Muted, uncheckedBorderColor = ZColor.Line),
+                    )
                 }
                 // A refund that may belong to a purchase: the purchase, and a yes or a no.
                 if (refundOf != null) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(12.dp)) {

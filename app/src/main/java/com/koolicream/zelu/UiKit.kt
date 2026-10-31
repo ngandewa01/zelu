@@ -53,6 +53,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -652,8 +653,7 @@ internal fun treemap(values: List<Double>): List<TmCell> {
 }
 
 // What a payment is, other than a spending category: the same icons and colours as the Needs-you answers.
-@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
-    val (icon, light, dark) = when (kind) {
+internal fun kindStyle(kind: String): Triple<androidx.compose.ui.graphics.vector.ImageVector, Long, Long> = when (kind) {
         "spending" -> Triple(Icons.Rounded.NorthEast, 0xFFFF6B1A, 0xFFFF8A3D)
         "income" -> Triple(Icons.Rounded.SouthWest, 0xFF22B455, 0xFF3DD171)
         "transfer" -> Triple(Icons.Rounded.SwapHoriz, 0xFF0D9488, 0xFF2DD4BF)
@@ -663,8 +663,71 @@ internal fun treemap(values: List<Double>): List<TmCell> {
         "refund" -> Triple(Icons.AutoMirrored.Rounded.Undo, 0xFF16A34A, 0xFF4ADE80)
         "new" -> Triple(Icons.Rounded.Add, 0xFFA8845A, 0xFFC9B59C)
         else -> Triple(Icons.Rounded.Block, 0xFF64748B, 0xFF94A3B8)
-    }
+}
+
+@Composable internal fun KindTab(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val (icon, light, dark) = kindStyle(kind)
     IconTab(icon, label, light, dark, selected, onClick = onClick)
+}
+
+// A choice in a grid: round icon over a short name, three to a row, all the same size.
+internal class Pick(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val tint: Color, val selected: Boolean, val onClick: () -> Unit)
+
+@Composable internal fun kindPick(kind: String, label: String, selected: Boolean, onClick: () -> Unit): Pick {
+    val (icon, light, dark) = kindStyle(kind)
+    return Pick(icon, label, Color(if (ZTheme.dark) dark else light), selected, onClick)
+}
+
+@Composable internal fun catPick(cat: String, selected: Boolean, onClick: () -> Unit): Pick {
+    val icon = CatIcons.forCategory(cat)
+    return Pick(icon ?: Icons.AutoMirrored.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick)
+}
+
+// One short list instead of many tabs: a search box, then rows of icon and name under small headings. It shows about five
+// rows and scrolls; the chosen one carries a tick.
+@Composable internal fun PickList(sections: List<Pair<String, List<Pick>>>) {
+    var q by remember { mutableStateOf("") }
+    val f = q.trim().lowercase()
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Tile).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))) {
+        androidx.compose.foundation.text.BasicTextField(
+            value = q, onValueChange = { q = it }, singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = ZColor.Ink, fontSize = 15.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(ZColor.Accent),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            decorationBox = { inner ->
+                if (q.isEmpty()) Text(stringResource(R.string.pick_search), color = ZColor.Muted, fontSize = 15.sp)
+                inner()
+            },
+        )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
+        Column(Modifier.fillMaxWidth().heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+            var any = false
+            sections.forEach { (title, items) ->
+                val shown = items.filter { f.isEmpty() || it.label.lowercase().contains(f) }
+                if (shown.isNotEmpty()) {
+                    any = true
+                    Text(title.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 4.dp))
+                    shown.forEach { p ->
+                        Row(
+                            Modifier.fillMaxWidth().background(if (p.selected) p.tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.13f) else Color.Transparent)
+                                .clickable { p.onClick() }.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(30.dp).clip(CircleShape).background(ZColor.Card), contentAlignment = Alignment.Center) {
+                                androidx.compose.material3.Icon(p.icon, null, tint = p.tint, modifier = Modifier.size(17.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(p.label, color = ZColor.Ink, fontSize = 15.sp, fontWeight = if (p.selected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (p.selected) Text("✓", color = p.tint, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+            }
+            if (!any) Text(stringResource(R.string.pick_nothing), color = ZColor.Muted, fontSize = 14.sp, modifier = Modifier.padding(14.dp))
+        }
+    }
 }
 
 // A row of tabs that always stays one line: the tabs share the width equally (each passes Modifier.weight(1f)).
