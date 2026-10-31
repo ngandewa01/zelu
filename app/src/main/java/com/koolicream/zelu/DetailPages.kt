@@ -67,7 +67,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     val scroll = rememberScrollState()
     LaunchedEffect(months.size) { scroll.scrollTo(scroll.maxValue) }
     val plot = 112.dp
-    val labelH = 16.dp
+    val labelH = 24.dp
     // In the strip that fits the width there is no room for the amount over a bar; the card shows it big above.
     val tagH = if (fit) 6.dp else 24.dp
     val lineColor = ZColor.Muted
@@ -157,6 +157,7 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     onBack: () -> Unit, onRowClick: (Row) -> Unit,
     onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     onRename: (String) -> Unit,
+    income: Boolean = false,
 ) {
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
     // The chart counts what counts: a payment switched off is in the list below but not in the bars.
@@ -175,18 +176,19 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 40.dp)) {
             item {
-                PageBar(niceName(name), primary + " · " + history.size + " " + stringResource(if (history.size == 1) R.string.visit else R.string.visits), onBack) {
+                PageBar(niceName(name), primary + " · " + (if (income) stringResource(R.string.usually_on_day) + " " + usualDays(history) else history.size.toString() + " " + stringResource(if (history.size == 1) R.string.visit else R.string.visits)), onBack) {
                     Box {
                         TopIcon(stringResource(R.string.more), onClick = { menu = true }) { Text("⋯", color = ZColor.Ink, fontSize = 20.sp, modifier = Unspoken) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            if (withPayee != null) DropdownMenuItem(text = { Text(stringResource(R.string.change_category)) },
+                            if (withPayee != null && !income) DropdownMenuItem(text = { Text(stringResource(R.string.change_category)) },
                                 onClick = { menu = false; editing = true; renaming = false })
                             DropdownMenuItem(text = { Text(stringResource(R.string.rename_or_merge)) }, onClick = { menu = false; renaming = true; editing = false })
                         }
                     }
                 }
-                Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Money in keeps to the chart and its list; the usual day is in the line under the name.
+                if (!income) Spacer(Modifier.height(14.dp))
+                if (!income) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FactCard(stringResource(R.string.visits_label), history.size.toString(), Modifier.weight(1f))
                     FactCard(stringResource(R.string.average), money(total / history.size.coerceAtLeast(1)), Modifier.weight(1f))
                     FactCard(stringResource(R.string.last_paid), prettyDate(history.maxOf { it.date }), Modifier.weight(1f))
@@ -255,6 +257,14 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
             }
         }
     }
+}
+
+/** The days of the month money usually arrives on: the middle half of them, "1–3", or one day. */
+internal fun usualDays(rows: List<Row>): String {
+    val d = rows.mapNotNull { it.date.substring(8, 10).toIntOrNull() }.sorted()
+    if (d.isEmpty()) return "–"
+    val lo = d[d.size / 4]; val hi = d[minOf((d.size * 3) / 4, d.size - 1)]
+    return if (lo == hi) "$lo" else "$lo–$hi"
 }
 
 /** One spending category: the chart of every month with its budget, and the chosen month's payments below. */

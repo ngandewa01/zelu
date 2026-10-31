@@ -483,6 +483,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 
     // decisions
     fun decide(id: String, kind: Kind, category: String, payee: String?, remember: Boolean) {
+        val shape = shapeOf(id)
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
             withContext(Dispatchers.IO) {
@@ -492,8 +493,75 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             refreshRows()
             askOpen = false
             undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category" else "Moved to $category") to snap
+            // No payee name: offer the messages of the same shape, ticked, so you choose which of them follow.
+            if (remember && payee.isNullOrBlank()) askSimilar(id, shape, kind, category, null)
         }
     }
+
+    /** Messages like this one (same bank, words and place) that could take the same choice. */
+    class SimilarAsk(val shape: String, val kind: Kind?, val category: String?, val title: String?, val others: List<Row>)
+    var similarAsk by mutableStateOf<SimilarAsk?>(null)
+
+    private fun askSimilar(id: String, shape: String?, kind: Kind?, category: String?, title: String?) {
+        if (shape == null) return
+        val others = rows.filter { it.id != id && !it.id.contains('#') && MessageShape.key(it.raw, it.source) == shape }
+        if (others.isEmpty()) {
+            // Nothing else yet: remember it quietly for new messages like this one.
+            scope.launch(Dispatchers.IO) {
+                if (title != null) Storage.setTitle(context, shape, title) else if (kind != null && category != null) Storage.setShapeRule(context, shape, kind, category)
+            }
+            return
+        }
+        similarAsk = SimilarAsk(shape, kind, category, title, others)
+    }
+
+    /** Your answer to "Apply to similar messages?": the ticked ones follow; with future on, new ones will too. */
+    fun applySimilar(ask: SimilarAsk, picked: Set<String>, future: Boolean) {
+        similarAsk = null
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) {
+                ask.others.forEach { r ->
+                    val on = r.id in picked
+                    if (ask.title != null) {
+                        if (on) Storage.setTitle(context, r.id, ask.title) else if (future) Storage.keepNoTitle(context, r.id)
+                    } else if (ask.kind != null && ask.category != null) {
+                        // An unticked one keeps what it has, even once new messages like it follow your choice.
+                        if (on) Storage.setOverride(context, r.id, ask.kind, ask.category) else if (future) Storage.setOverride(context, r.id, r.kind, r.category)
+                    }
+                }
+                if (future) {
+                    if (ask.title != null) Storage.setTitle(context, ask.shape, ask.title)
+                    else if (ask.kind != null && ask.category != null) Storage.setShapeRule(context, ask.shape, ask.kind, ask.category)
+                }
+            }
+            refreshRows()
+            undo = context.getString(R.string.applied_to_n_similar, picked.size) to snap
+        }
+    }
+
+    /** Several payments moved to one category at once; with remember, their payees (or message shapes) learn it too. */
+    fun moveMany(list: List<Row>, kind: Kind, category: String, remember: Boolean) {
+        if (list.isEmpty()) return
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) {
+                list.forEach { r ->
+                    Storage.setOverride(context, r.id, kind, category)
+                    if (remember && kind != Kind.INCOME && kind != Kind.IGNORE) {
+                        if (!r.counterparty.isNullOrBlank()) Storage.setPayeeRule(context, r.counterparty, kind, category)
+                        else MessageShape.key(r.raw, r.source)?.let { Storage.setShapeRule(context, it, kind, category) }
+                    }
+                }
+            }
+            refreshRows()
+            undo = context.getString(R.string.moved_n_payments, list.size, if (category in CustomCats.names) customLabel(category) else category) to snap
+        }
+    }
+
+    /** The message shape of a payment that has no payee name of its own, or null. */
+    private fun shapeOf(id: String): String? = rows.firstOrNull { it.id == id }
+        ?.takeIf { it.counterparty.isNullOrBlank() }?.let { MessageShape.key(it.raw, it.source) }
 
     fun renamePayee(from: String, to: String) {
         scope.launch {
@@ -507,9 +575,12 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     fun retitle(id: String, title: String) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            val shape = shapeOf(id)
             withContext(Dispatchers.IO) { Storage.setTitle(context, id, title) }
             refreshRows()
             undo = "Title changed" to snap
+            // A payment with no payee name: offer the same title to messages like it.
+            if (title.isNotBlank()) askSimilar(id, shape, null, null, title.trim())
         }
     }
 
@@ -547,12 +618,15 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 sealed class Page(val route: String) {
     data class Card(val account: String) : Page("card:$account")
     data class Payee(val name: String) : Page("payee:$name")
+    /** Money that keeps coming from one place (salary, rent, interest): its months, usual amount and usual day. */
+    data class Income(val name: String) : Page("income:$name")
     data class Category(val name: String) : Page("category:$name")
 
     companion object {
         fun of(route: String): Page? = when {
             route.startsWith("card:") -> Card(route.removePrefix("card:"))
             route.startsWith("payee:") -> Payee(route.removePrefix("payee:"))
+            route.startsWith("income:") -> Income(route.removePrefix("income:"))
             route.startsWith("category:") -> Category(route.removePrefix("category:"))
             else -> null
         }

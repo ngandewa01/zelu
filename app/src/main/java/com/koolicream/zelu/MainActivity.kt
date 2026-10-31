@@ -682,6 +682,10 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
             }
             // A page opened over Home; Back closes it.
             androidx.activity.compose.BackHandler(page != null) { back() }
+            // Picking several payments: Back ends picking first; the bar moves them all to one category.
+            androidx.activity.compose.BackHandler(Picking.active) { Picking.clear() }
+            PickBar(onMove = { list, k, c, rem -> moveMany(list, k, c, rem) }, onNewCat = { cb -> newCatCallback = cb })
+            similarAsk?.let { a -> SimilarDialog(a, onApply = { picked, future -> applySimilar(a, picked, future) }, onDismiss = { similarAsk = null }) }
             when (val p = page) {
                 is Page.Card -> {
                     val a = p.account
@@ -691,6 +695,19 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         onSavePref = { d, b -> setCardPref(a, d, b) },
                         onMarkPaid = { id -> markReminder(id, true) },
                         onRowClick = { detailRow = it }, onBack = { back() },
+                    )
+                }
+                is Page.Income -> {
+                    val name = p.name
+                    val history = remember(rows, name) { rows.filter { (it.kind == Kind.INCOME || it.id in Analytics.notCounted) && it.direction == Dir.CREDIT && it.counterparty == name } }
+                    if (history.isEmpty()) LaunchedEffect(name) { back() }
+                    else PayeePage(
+                        name = name, history = history, others = emptyList(),
+                        onBack = { back() }, onRowClick = { detailRow = it },
+                        onRecategorize = { payee, id, kind, cat -> decide(id, kind, cat, payee, true) },
+                        onNewCat = { cb -> newCatCallback = cb },
+                        onRename = { to -> back(); renamePayee(name, to) },
+                        income = true,
                     )
                 }
                 is Page.Payee -> {

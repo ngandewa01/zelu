@@ -119,16 +119,20 @@ object Storage {
         val rows = base.values.map { r ->
             var row = auto[r.account]?.let { r.copy(account = it) } ?: r
             // A title you typed replaces the one read from the SMS, and the transaction is classified again under it.
-            titles[r.id]?.first?.takeIf { it.isNotBlank() }?.let { t ->
+            // A payment with no payee name is matched to others of the same message shape (see MessageShape): a title or
+            // category you gave one of them is used for all of them, unless that payment has its own.
+            val shape = if (r.counterparty.isNullOrBlank()) MessageShape.key(r.raw, r.source) else null
+            (titles[r.id] ?: shape?.let { titles[it] })?.first?.takeIf { it.isNotBlank() }?.let { t ->
                 val c = Classifier.classify(Txn(r.id, r.date, r.paise, r.direction, t, r.ref, r.raw, r.source, r.account), own)
                 row = row.copy(counterparty = t, kind = c.kind, category = c.category)
             }
-            if (titles[r.id] == null && aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
+            if (titles[r.id] == null && shape?.let { titles[it] } == null && aliases.isNotEmpty()) { val n = resolve(r.counterparty); if (n != r.counterparty) row = row.copy(counterparty = n) }
             val payeeKey = (row.counterparty ?: "").lowercase().trim()
             if (payeeKey.isNotEmpty() && rules.containsKey(payeeKey)) {
                 val (k, c) = rules.getValue(payeeKey)
                 row = row.copy(kind = Kind.of(k), category = c)
             }
+            if (payeeKey.isEmpty() || !rules.containsKey(payeeKey)) shape?.let { rules[it] }?.let { (k, c) -> row = row.copy(kind = Kind.of(k), category = c) }
             overrides[r.id]?.let { (k, c) -> row = row.copy(kind = Kind.of(k), category = c) }
             Classifier.ALIAS[row.category]?.let { row = row.copy(category = it) }
             if (row.kind == Kind.EXPENSE && row.category in catOff) row = row.copy(kind = Kind.IGNORE)
@@ -1035,6 +1039,15 @@ object Storage {
 
     fun setTitle(context: Context, id: String, title: String): Unit = synchronized(lock) {
         putKv(context, TITLE_FILE, id, if (title.isBlank()) null else title.trim() to "")
+    }
+
+    /** Keeps a payment's own name from the message even when others of its shape are given a title. */
+    fun keepNoTitle(context: Context, id: String): Unit = synchronized(lock) {
+        putKv(context, TITLE_FILE, id, "" to "keep")
+    }
+
+    fun setShapeRule(context: Context, shape: String, kind: Kind, category: String) = synchronized(lock) {
+        putKv(context, RULE_FILE, shape, kind.key to category)
     }
 
     fun setPayeeRule(context: Context, payee: String, kind: Kind, category: String) = synchronized(lock) {
