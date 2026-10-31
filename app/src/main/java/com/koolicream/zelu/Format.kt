@@ -29,7 +29,7 @@ internal val TYPE_OPTS = listOf(
 internal val CAT_OPTS: List<Pair<String, String>> =
     listOf("All" to "All categories") +
         Classifier.CATEGORIES.keys.map { it to it } +
-        listOf("Domestic help" to "Domestic help", "Unknown" to "Unknown")
+        listOf("Unknown" to "Unknown")
 
 internal fun acctTypeLabel(t: String) = when (t) { "card" -> "Credit card"; "loan" -> "Loan"; "debit" -> "Debit card"; "fd" -> "Fixed deposit"; "rd" -> "Recurring deposit"; "other" -> "Wallet"; else -> "Savings account" }
 

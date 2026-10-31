@@ -133,6 +133,4 @@ internal fun personBalances(allRows: List<Row>, repaid: Map<String, Double>): Li
         FoldHeading(stringResource(R.string.settled_label), settled.size, showSettled) { showSettled = !showSettled }
         if (showSettled) settled.forEach { personCard(it) }
     }
-    Spacer(Modifier.height(12.dp))
-    MutedText(stringResource(R.string.people_hint), 12)
 }

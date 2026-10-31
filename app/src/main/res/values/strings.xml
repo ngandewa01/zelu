@@ -537,7 +537,6 @@
     <string name="you_owe">you owe</string>
     <string name="settled_tick">Settled ✓</string>
     <string name="group_splits">%1$d splits</string>
-    <string name="people_hint">Open a payment and tap Split to share it. When someone pays you back, tap them to record it.</string>
     <string name="people_card">People</string>
     <string name="people_card_sub">%1$s to get · %2$s to pay</string>
     <string name="more_options">More</string>
@@ -566,6 +565,7 @@
     <string name="legend_usual">Usual ₹%1$s</string>
     <string name="legend_budget">Budget ₹%1$s</string>
     <string name="earlier_months">Earlier months</string>
+    <string name="other_months">Other months</string>
     <string name="ended_label">Ended</string>
     <string name="settled_label">Settled</string>
 </resources>

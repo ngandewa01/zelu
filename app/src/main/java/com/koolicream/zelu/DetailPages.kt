@@ -164,6 +164,8 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     var sel by remember(name) { mutableStateOf(openMonth(values)) }
     val primary = remember(history) { history.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown" }
     val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
+    val rest = remember(history, sel) { SplitMarks.forDisplay(history.filter { !it.date.startsWith(months[sel]) }).newestFirst() }
+    var showRest by remember(name) { mutableStateOf(false) }
     val withPayee = history.firstOrNull { !it.counterparty.isNullOrBlank() }
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -243,6 +245,14 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
                 if (inMonth.isEmpty()) MutedText(stringResource(R.string.nothing_in_month, monthName(months[sel])))
             }
             items(inMonth, key = { it.id }) { r -> TxnRow(r, false, onRowClick) }
+            // Every visit stays reachable, even ones older than the chart: the rest fold under one heading.
+            if (rest.isNotEmpty()) {
+                item {
+                    Spacer(Modifier.height(10.dp))
+                    FoldHeading(stringResource(R.string.other_months), rest.size, showRest) { showRest = !showRest }
+                }
+                if (showRest) items(rest, key = { "o" + it.id }) { r -> TxnRow(r, false, onRowClick) }
+            }
         }
     }
 }
