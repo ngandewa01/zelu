@@ -14,8 +14,13 @@ class BrandsTest {
     }
 
     @Test fun bakeriesAndCaterersAreFood() {
-        for (n in listOf("Catering Service", "SRI SAI CATERING SERVICES", "Lakshmi Bakers", "Hot Bake House", "New Star Bakeries", "Royal Confectionery", "Iyengar Bakery"))
+        for (n in listOf("Catering Service", "SRI SAI CATERING SERVICES", "Lakshmi Bakers", "Hot Bake House", "New Star Bakeries", "Royal Confectionery", "Iyengar Bakery", "Sri Bekery", "New Bekeries"))
             assertEquals(n, "Food", cat(n))
+    }
+
+    @Test fun fuelStationsAreFuel() {
+        for (n in listOf("HPCL", "IOCL", "BPCL", "Jio Oil", "Jio BP", "Nayara Petrol", "Nayara Energy", "HP Petrol Pump", "Indian Oil", "Sri Ganesh Petrol Bunk", "BPCL Retail Outlet", "HPCL Fuel Station"))
+            assertEquals(n, "Fuel", cat(n))
     }
 
     @Test fun appsAndOwners() {

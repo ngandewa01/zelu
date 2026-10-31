@@ -9,7 +9,7 @@ object Classifier {
         "Mobile" to "Bills", "Laundry" to "Home services", "Maid" to "Home services", "Domestic help" to "Home services")
 
     val CATEGORIES: LinkedHashMap<String, List<String>> = linkedMapOf(
-        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "bakeries", "catering", "caterer", "confectionery", "dominos",
+        "Food" to listOf("momentale", "swiggy", "bundl", "zomato", "restaurant", "cafe", "bakery", "bakeries", "bekery", "bekeries", "bakry", "catering", "caterer", "confectionery", "dominos",
             "mcdonald", "kfc", "pizza", "eatfit", "brewpub", "dineout", "barbeque", "biryani", "subway", "starbucks",
             "dunkin", "burger king", "wendys", "haldiram", "wow momo", "faasos", "behrouz", "box8", "theobroma",
             "keventers", "baskin", "chaayos", "third wave", "blue tokai", "eatsure", "jubilant food", "pizza hut",
@@ -25,7 +25,7 @@ object Classifier {
             "supermarket", "kirana", "reliance fresh", "reliance smart", "avm", "more retail", "jiomart",
             "innovative retail", "country delight", "countrydelight", "milkbasket", "milk basket", "suprdaily",
             "supr daily", "bbdaily", "bb daily", "mother dairy", "amul", "heritage milk", "milk", "dairy"),
-        "Fuel" to listOf("bharat petroleum", "hindustan petroleum", "nayara", "reliance bp", "jio-bp", "jio bp",
+        "Fuel" to listOf("bharat petroleum", "bharatpetroleum", "hindustan pet", "indianoil", "indian oil corp", "ioc", "hp pay", "hp petrol", "jio oil", "jiooil", "nayara energy", "reliance petro", "petrol pump", "petrol bunk", "filling station", "bpcl", "hpcl", "iocl", "hindustan petroleum", "nayara", "reliance bp", "jio-bp", "jio bp",
             "petrol", "fuel", "hpcl", "iocl", "bpcl", "indian oil", "shell", "fuel station"),
         "Transport" to listOf("ola cabs", "olacabs", "blu smart", "bluesmart", "yulu", "delhi metro", "dmrc", "hmrl",
             "tsrtc", "ksrtc", "msrtc", "apsrtc", "abhibus", "parking", "cab", "uber", "ola", "rapido", "metro", "bmtc",
@@ -186,8 +186,8 @@ object Classifier {
         Regex("""\b(travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(medical|medicals|pharmacy|pharma|chemist|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
-        Regex("""\b(restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bakeries|bakers?|bakes|bake ?house|catering|confectionery|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
-        Regex("""\b(petrol|petroleum|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
+        Regex("""\b(restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bekery|bekeries|bakeries|bakers?|bakes|bake ?house|catering|confectionery|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
+        Regex("""\b(petrol|petroleum|jio ?oil|nayara|hpcl|bpcl|iocl|indian ?oil|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
         Regex("""\b(salon|spa|beauty|parlour|parlor|barber|unisex|grooming)\b""", RegexOption.IGNORE_CASE) to "Personal care",
         Regex("""\b(school|college|university|academy|institute|tuition|coaching|vidyalaya|education|classes)\b""", RegexOption.IGNORE_CASE) to "Education",
         Regex("""\b(electronics|electricals?|hardware|mobiles|shopping mall|mall|departmental store|garments|footwear|apparel|fashion|boutique|retail|retailer|readymade|collections?|wardrobe|shoes?|sarees?|silks?|kanchi|kanjeevaram|jewell?ers?|jewell?ery)\b""", RegexOption.IGNORE_CASE) to "Shopping",
