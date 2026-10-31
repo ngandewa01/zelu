@@ -509,7 +509,9 @@ object Parser {
     // Cash taken out at an ATM, micro ATM or AEPS point.
     private val CASH_OUT = Regex(
         """\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|""" +
-            """\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction))""",
+            """\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction)|""" +
+            // "Withdrawn Rs.10000 From HDFC Bank Card x1208 At +HAFEEZPET": money withdrawn on a card is cash, even with no "ATM".
+            """\bwithdrawn\s+(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d+)?\s+from\b[^.]{0,60}\bcard\b)""",
         RegexOption.IGNORE_CASE,
     )
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)

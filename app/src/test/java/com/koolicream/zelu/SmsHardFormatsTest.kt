@@ -77,6 +77,8 @@ class SmsHardFormatsTest {
             Exp("debit", 1250.0, "JKB 5520", "jkpdd", "2026-10-18", "629512345678", "expense", "Bills")),
         c("dcb-atm", "VM-DCBBNK-S", "INR 3,000.00 debited from DCB Bank A/c XX8899 on 18-10-26 for ATM withdrawal at MUMBAI",
             Exp("debit", 3000.0, "DCB 8899", date = "2026-10-18", kind = "expense", cat = "ATM / Cash")),
+        c("hdfc-card-withdrawn", "AX-HDFCBK-S", "Withdrawn Rs.10000 From HDFC Bank Card x1208 At +HAFEEZPET On 2026-04-03:08:40:38 Bal Rs.747635 Not You? Call 18002586161/SMS BLOCK DC 1208 to 7308080808",
+            Exp("debit", 10000.0, null, date = "2026-04-03", kind = "expense", cat = "ATM / Cash")),
         c("bom-msedcl", "VM-MAHABK-S", "Your A/c No XX4567 is debited with Rs.1,800.00 on 18-10-2026 by UPI-629523456789-MSEDCL. Avl Bal Rs 6,700.00 -Bank of Maharashtra",
             Exp("debit", 1800.0, "BOM 4567", "msedcl", "2026-10-18", kind = "expense", cat = "Bills")),
         c("indian-bank-p2p", "VM-INDBNK-S", "Your a/c no. XXXXXXXX7765 is debited for Rs.250.00 on 18-10-2026 and credited to a/c no. XXXXXXXX1122 (UPI Ref no 629534567890)",
