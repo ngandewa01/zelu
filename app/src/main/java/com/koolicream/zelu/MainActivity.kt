@@ -630,7 +630,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             showSummary = spendTab == 0,
                             showCategories = spendTab == 1,
                             slot = {
-                                if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                                if (spendTab == 2) AnalyticsEntries({ open(Page.Trends) }, if (isMonth) ({ calOpen = !calOpen }) else null, calOpen)
+                                if (isMonth && calOpen && spendTab == 2) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                                     { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
                             },
                             prevLabel = Dates.monthLong(Dates.shiftMonth(month, -1)).let { prev ->
@@ -646,10 +647,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                             }
                             WeekdayPanel(flexShown, wFrom, wTo, fixedNote)
-                            val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
-                            RecurringPanel(recurring)
+                            TimeOfDayPanel(flexShown)
+                            BiggestPanel(flexShown) { detailRow = it }
+                            MonthThirdsPanel(flexShown)
+                            SmallSpendsPanel(flexShown)
                         }
-                        if (spendTab == 2) PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                             { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showCal = false)
                     }
@@ -663,7 +665,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows,
                         onOpenPayee = { open(Page.Payee(it)) })
                     Tab.INVEST -> InvestView(rows) { title, r -> drill = title to r }
-                    Tab.PACE -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                     Tab.DUES -> RemindersView(reminders, rows, reminderState, s::markReminder,
                         onAdd = { n, a, d, r -> scope.launch {
                             withContext(Dispatchers.IO) { Storage.addManualReminder(context, n, a, d, r) }

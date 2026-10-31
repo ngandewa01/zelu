@@ -143,7 +143,7 @@ enum class Stage { SPLASH, WELCOME, PRIVACY, PERM, NOTIF, BACKUP, SCAN, DONE, AC
 
 // The Home screen's page. [key] is how the "Open Zelu on" choice is saved.
 enum class Tab(val key: String) {
-    LEDGER("ledger"), SPEND("spend"), BUCKETS("buckets"), PAYEES("payees"), INVEST("invest"), PACE("pace"), DUES("dues");
+    LEDGER("ledger"), SPEND("spend"), BUCKETS("buckets"), PAYEES("payees"), INVEST("invest"), DUES("dues");
 
     companion object {
         fun of(key: String?): Tab = entries.firstOrNull { it.key == key } ?: LEDGER
