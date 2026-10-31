@@ -53,7 +53,9 @@ import androidx.compose.ui.unit.sp
         if (usual > 0) MutedText(stringResource(R.string.usual_month_is, money(usual)), 13)
         Spacer(Modifier.height(10.dp))
         MonthChart(months, values, ZColor.Accent, sel, { onPickMonth(months[it]) }, budget, fit = true)
+        // What each line on the strip is: the usual month (dotted) and your budget (dashed).
         if (usual > 0) MutedText(stringResource(R.string.usual_line_legend), 11)
+        if (budget > 0) MutedText(stringResource(R.string.budget_line_legend, money(budget)), 11)
     }
 }
 

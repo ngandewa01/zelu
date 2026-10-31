@@ -552,5 +552,6 @@
     <string name="refund_linked">Refund linked: it comes off %1$s</string>
     <string name="duplicate_hidden">Duplicate hidden</string>
     <string name="yours_amount">yours %1$s</string>
-    <string name="usual_line_legend">Dotted line: a usual month (the middle one of the year)</string>
+    <string name="usual_line_legend">Fine dots: a usual month (the middle one of the year)</string>
+    <string name="budget_line_legend">Dashes: your monthly budget, %1$s</string>
 </resources>

@@ -730,13 +730,13 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             week.forEach { d ->
                 if (d == 0) {
-                    Box(Modifier.weight(1f).aspectRatio(1f))
+                    Box(Modifier.weight(1f).aspectRatio(0.8f))
                 } else {
                     val v = daily[d]
                     val alpha = if (v <= 0) 0f else (0.18f + (v / max).toFloat() * 0.72f)
                     val bg = if (alpha == 0f) Color.Transparent else ZColor.Accent.copy(alpha = alpha)
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(9.dp))
+                        Modifier.weight(1f).aspectRatio(0.8f).clip(RoundedCornerShape(9.dp))
                             .background(bg)
                             .border(if (daySel == d) 2.dp else 0.dp, if (daySel == d) ZColor.Ink else Color.Transparent, RoundedCornerShape(9.dp))
                             .clickable { onDay(d) },
@@ -745,8 +745,8 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         // The day and what it cost; on a dark (heavy) day the text turns light so it stays readable.
                         val ink = if (alpha > 0.55f) ZColor.Paper else ZColor.InkSoft
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("$d", color = ink, fontSize = 11.sp, fontWeight = if (daySel == d) FontWeight.Bold else FontWeight.Normal)
-                            if (v > 0) Text("₹" + shortAmt(v), color = ink, fontSize = 8.sp, maxLines = 1, softWrap = false)
+                            Text("$d", color = ink, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = if (daySel == d) FontWeight.Bold else FontWeight.Normal)
+                            if (v > 0) Text("₹" + shortAmt(v), color = ink, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, softWrap = false)
                         }
                     }
                 }
