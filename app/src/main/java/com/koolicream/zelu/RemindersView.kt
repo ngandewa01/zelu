@@ -172,13 +172,18 @@ import java.util.Calendar
     if (duesTab == 2) people()
     // Autopay set-ups sit under the bills to pay, since each is a bill that pays itself.
     if (duesTab == 0 && mandates.isNotEmpty()) {
+        var autopayOpen by remember { mutableStateOf(true) }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Eyebrow(stringResource(R.string.autopay_mandates))
                 InfoDot(stringResource(R.string.upi_autopay_set_up_from))
             }
-            MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
+                Text(if (autopayOpen) " ▴" else " ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { autopayOpen = !autopayOpen }.padding(horizontal = 6.dp, vertical = 2.dp))
+            }
         }
 
         Spacer(Modifier.height(6.dp))
@@ -186,7 +191,8 @@ import java.util.Calendar
         var showEnded by remember { mutableStateOf(false) }
         val liveMandates = mandates.filter { it.status == "active" || it.status == "scheduled" }
         val endedMandates = mandates.filter { it !in liveMandates }
-        (liveMandates + if (showEnded) endedMandates else emptyList()).forEach { md ->
+        // The arrow by the heading folds the whole section away; ended ones also stay folded until opened.
+        (if (!autopayOpen) emptyList() else liveMandates + if (showEnded) endedMandates else emptyList()).forEach { md ->
             val live = md.status == "active" || md.status == "scheduled"
             val tone = when (md.status) { "paused" -> ZColor.Warn; "ended" -> ZColor.Muted; else -> ZColor.Income }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(ZColor.Card)
@@ -217,7 +223,7 @@ import java.util.Calendar
                 }
             }
         }
-        if (endedMandates.isNotEmpty()) Text(if (showEnded) stringResource(R.string.hide_ended) else stringResource(R.string.show_ended, endedMandates.size),
+        if (autopayOpen && endedMandates.isNotEmpty()) Text(if (showEnded) stringResource(R.string.hide_ended) else stringResource(R.string.show_ended, endedMandates.size),
             color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showEnded = !showEnded }.padding(vertical = 8.dp, horizontal = 4.dp))
     }

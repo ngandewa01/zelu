@@ -125,11 +125,11 @@ import androidx.compose.ui.unit.sp
     if (showSummary) afterSummary()
     if (!showCategories) return
     val top = cats.first().second
-    var catsAll by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var catsAll by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
     Panel {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.by_category))
-            if (cats.size > CATS_FOLDED) Text(if (catsAll) " ▴" else " ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            Text(if (catsAll) " ▴" else " ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { catsAll = !catsAll }.padding(horizontal = 6.dp, vertical = 2.dp))
             Spacer(Modifier.weight(1f))
             // The month's budget lives here, next to what was spent, and is set from here.
@@ -138,7 +138,8 @@ import androidx.compose.ui.unit.sp
                 color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditMonthly() }.padding(horizontal = 6.dp, vertical = 4.dp))
         }
-        val shownCats = if (catsAll || cats.size <= CATS_FOLDED) cats else cats.take(CATS_FOLDED)
+        // The arrow folds the whole list away (just this heading stays) or opens all of it.
+        val shownCats = if (catsAll) cats else emptyList()
         shownCats.forEachIndexed { i, (c, v) ->
             Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
             // A day picked on the calendar keeps the short list of that day's payments; otherwise a category is a page of its own.
@@ -189,14 +190,5 @@ import androidx.compose.ui.unit.sp
                 else Meter((v / top).toFloat(), catColor(c))
             }
         }
-        // Long lists fold to the top four; the arrow (or this line) opens and closes the rest.
-        if (cats.size > CATS_FOLDED) {
-            Spacer(Modifier.height(12.dp))
-            Text(if (catsAll) stringResource(R.string.show_less_arrow) else stringResource(R.string.show_all_cats, cats.size), color = ZColor.Accent,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { catsAll = !catsAll }.padding(vertical = 6.dp, horizontal = 4.dp))
-        }
     }
 }
-
-private const val CATS_FOLDED = 4
