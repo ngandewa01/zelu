@@ -188,8 +188,12 @@ private fun buildCatColors(): Map<String, Color> {
         "Refund" to ZColor.Income,
         "Transfer" to ZColor.Muted,
         "Card bill" to ZColor.Muted,
-    )
+    ).mapValues { (_, col) -> calm(col) }
 }
+
+// Every category colour is pulled a third of the way toward a warm grey: still easy to tell apart, but no longer loud next
+// to the app's own soft tones. (Unknown is already a soft tone and Muted is grey, so they barely move.)
+private fun calm(col: Color): Color = mix(col, Color(if (ZTheme.dark) 0xFF9A8F85 else 0xFF7A6F66), 0.32f)
 
 // Built once per palette+mode, because a few entries follow the theme (Accent, Ink, Income, Muted).
 private var catKey = -1
