@@ -48,6 +48,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
+/** Which payments are split with people (the rest of the split ones are split into categories), for the mark on each row. */
+object SplitMarks {
+    var people by mutableStateOf<Set<String>>(emptySet())
+    fun update(rows: List<Row>) { people = rows.filter { it.kind == Kind.LENT && it.id.contains('#') }.map { it.id.substringBefore('#') }.toSet() }
+}
+
 // Split asks first: share it with people, or divide it into categories (the older split).
 @Composable internal fun SplitChoiceDialog(s: AppState) {
     val t = s.splitChoice ?: return

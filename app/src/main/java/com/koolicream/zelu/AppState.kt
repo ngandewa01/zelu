@@ -194,6 +194,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
         val (r, refunds) = withContext(Dispatchers.IO) { Storage.loadRowsAndRefunds(context) }
         refundSuggestions = refunds
         rows = r
+        SplitMarks.update(r)
     }
 
     fun reload() {
@@ -234,6 +235,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             balances = l.balances; limits = l.limits
             refundSuggestions = l.rows.second
             rows = l.rows.first
+            SplitMarks.update(rows)
         }
     }
 

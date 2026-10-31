@@ -36,6 +36,8 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -99,8 +101,18 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
             val at = TxnTime.label(t)
             // A foreign-currency card spend shows what was actually charged ("USD 25.00").
             val fx = remember(t.raw) { Parser.foreign(t.raw) }
-            MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
-                (if (fx != null) " · " + Fx.label(fx) else ""), 12)
+            // A part of a split shows a small mark: people for a split with people, a fork for one split into categories.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (t.id.contains('#')) {
+                    val withPeople = t.id.substringBefore('#') in SplitMarks.people
+                    androidx.compose.material3.Icon(if (withPeople) Icons.Rounded.Group else Icons.AutoMirrored.Rounded.CallSplit,
+                        stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories),
+                        tint = ZColor.Muted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
+                    (if (fx != null) " · " + Fx.label(fx) else ""), 12)
+            }
         }
         Spacer(Modifier.width(10.dp))
         AmountText(t, highlight)
