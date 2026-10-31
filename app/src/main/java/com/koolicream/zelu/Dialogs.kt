@@ -606,19 +606,22 @@ import androidx.compose.ui.window.Dialog
                             MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                             Spacer(Modifier.height(6.dp))
                             PickList(buildList {
-                                add(stringResource(R.string.pick_spending) to (
+                                // Money out picks a spending category; money in picks what kind of income it was.
+                                if (t.direction == Dir.DEBIT) add(stringResource(R.string.pick_spending) to (
                                     Classifier.CATEGORIES.keys.map { c -> catPick(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } } +
                                         CustomCats.names.map { c -> catPick(c, t.category == c) { pick(Kind.EXPENSE, c) } } +
                                         kindPick("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }))
-                                if (t.direction == Dir.CREDIT) add(stringResource(R.string.pick_money_in) to IncomeCats.all.map { c -> catPick(c, t.category == c) { pick(Kind.INCOME, c) } })
-                                add(stringResource(R.string.pick_not_spending) to buildList {
-                                    add(kindPick("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") })
+                                if (t.direction == Dir.CREDIT) add(stringResource(R.string.pick_money_in) to (IncomeCats.all.map { c -> catPick(c, t.category == c) { pick(Kind.INCOME, c) } } +
+                                    kindPick("income", stringResource(R.string.other_income), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") }))
+                                // Only what fits the direction: money out can be a transfer or a loan you gave; money in can be
+                                // a refund, a transfer or a loan you took. Leaving it out of every total is the switch below.
+                                val out = t.direction == Dir.DEBIT
+                                add(stringResource(if (out) R.string.pick_not_spending else R.string.pick_not_income) to buildList {
                                     // Money back for something you bought: it nets against that spend once matched.
-                                    if (t.direction == Dir.CREDIT) add(kindPick("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") })
+                                    if (!out) add(kindPick("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") })
                                     add(kindPick("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") })
-                                    add(kindPick("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") })
-                                    add(kindPick("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") })
-                                    add(kindPick("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") })
+                                    if (out) add(kindPick("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") })
+                                    if (!out) add(kindPick("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") })
                                 })
                             })
                         }
