@@ -52,8 +52,11 @@ import androidx.compose.ui.window.Dialog
     allRows: List<Row> = emptyList(),
     onOpenPayee: (String) -> Unit = {},
 ) {
-    val spend = list.filter { it.kind == Kind.EXPENSE }
-    val payees = Analytics.byPayee(list)
+    // Only payments with a name are payees: ones Zelu could not name would otherwise pile up under their category
+    // ("Unknown · 136 visits") as if they were one shop.
+    val named = list.filter { !it.counterparty.isNullOrBlank() }
+    val spend = named.filter { it.kind == Kind.EXPENSE }
+    val payees = Analytics.byPayee(named)
     // Loan EMIs are large and fixed, so they would top every ranking: Top this month leaves them out and shows them as one line.
     val loanPayees = payees.filter { p -> p.cats.isNotEmpty() && p.cats.all { it == "EMI" } }
     val ranked = payees.filter { it !in loanPayees }
@@ -123,7 +126,7 @@ import androidx.compose.ui.window.Dialog
     }
 
     // Regulars: who you pay month after month (milk, the maid, rent, the phone), and what they usually cost.
-    val regulars = remember(allRows, viewMonth) { PatternMath.regulars(allRows, viewMonth).take(8) }
+    val regulars = remember(allRows, viewMonth) { PatternMath.regulars(allRows.filter { !it.counterparty.isNullOrBlank() }, viewMonth).take(8) }
     // A regular may not be paid in the month shown, so its icon comes from its latest payment, not this month's.
     val lastCat = remember(allRows) { allRows.filter { it.kind == Kind.EXPENSE }.groupBy { nameOf(it) }.mapValues { (_, rs) -> rs.maxByOrNull { it.date }?.category ?: "Unknown" } }
     if (regulars.isNotEmpty()) {

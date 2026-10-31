@@ -67,7 +67,7 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     val scroll = rememberScrollState()
     LaunchedEffect(months.size) { scroll.scrollTo(scroll.maxValue) }
     val plot = 112.dp
-    val labelH = 16.dp
+    val labelH = 24.dp
     // In the strip that fits the width there is no room for the amount over a bar; the card shows it big above.
     val tagH = if (fit) 6.dp else 24.dp
     val lineColor = ZColor.Muted
