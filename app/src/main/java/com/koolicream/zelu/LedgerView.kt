@@ -214,10 +214,10 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         // EMI often dwarfs everyday spending; one small pill leaves it out of every number on this card.
         @Composable fun emiPill() {
             if (emiAmt <= 0 && !excludeEmi) return
-            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (excludeEmi) ZColor.OrangeSoft else ZColor.Paper)
-                .clickable { onToggleEmi() }.padding(horizontal = 9.dp, vertical = 4.dp)) {
+            Box(Modifier.clip(RoundedCornerShape(20.dp)).background(if (excludeEmi) ZColor.OrangeSoft else ZColor.Paper)
+                .clickable { onToggleEmi() }.padding(horizontal = 16.dp, vertical = 9.dp)) {
                 Text(if (excludeEmi) "EMI off ✓" else "Exclude EMI", color = if (excludeEmi) ZColor.Accent else ZColor.Muted,
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
         // One shape with or without a budget: what you spent, a thin bar and one pill under it. Setting a budget fills the
@@ -261,13 +261,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 if (onHero && hasBudget) Box(Modifier.padding(end = 8.dp, bottom = 14.dp).size(10.dp).clip(CircleShape).background(heat))
                 Text(money(s.spent), color = if (onHero) heroInk else if (hasBudget) heat else ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(12.dp))
             // One row for the controls, aligned: what is left a day (or how the month ended) once there is a budget, and the
             // EMI switch at the other end. With no budget there is no pill; a budget is set from Spend, never suggested here.
             val showEmi = emiAmt > 0 || excludeEmi
             if (hasBudget || showEmi) {
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
                         liveMonth && hasBudget -> slotPill(
                             if (free > 0) money(free / daysLeft) + stringResource(R.string.a_day) else money(-free) + stringResource(R.string.over),
@@ -276,64 +275,12 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                             if (s.spent <= budget) stringResource(R.string.under_budget) else money(s.spent - budget) + stringResource(R.string.over),
                             if (s.spent <= budget) ZColor.Income else ZColor.Warn, onEditBudget)
                     }
-                    Spacer(Modifier.weight(1f))
+                    if (hasBudget) Spacer(Modifier.weight(1f))
                     emiPill()
                 }
             }
         }
 
-        // A budget far below what you really spend keeps this card red every month. Once, Zelu suggests one that fits
-        // your last 3 months, leaving EMI out when EMI is a big part of it. "Keep" hides it for good.
-        if (liveMonth && budget > 0) {
-            val hintCtx = LocalContext.current
-            val hints = remember { hintCtx.getSharedPreferences("zelu_hints", android.content.Context.MODE_PRIVATE) }
-            var fitSeen by remember { mutableStateOf(hints.getBoolean("budget_fit", false)) }
-            val fit = remember(allRows, budget, excludeEmi) {
-                val months = (1..3).map { Dates.shiftMonth(Dates.todayMonth(), -it) }
-                val spends = months.map { m -> allRows.filter { it.kind == Kind.EXPENSE && it.date.startsWith(m) } }.filter { it.isNotEmpty() }
-                if (spends.isEmpty()) null else {
-                    val all = spends.map { rs -> rs.rupees() }.average()
-                    val emi = spends.map { rs -> rs.filter { it.category == "EMI" }.rupees() }.average()
-                    val everyday = all - emi
-                    // EMI is a big part of it: the budget should cover everyday spending with EMI left out.
-                    val leaveEmi = emi > all * 0.2
-                    val base = if (leaveEmi || excludeEmi) everyday else all
-                    val pick = Math.ceil(base * 1.05 / 5000.0) * 5000.0
-                    // Too low: well under what a usual month costs, or EMI dwarfs the budget and isn't left out yet.
-                    val tooLow = budget < base * 0.75 || (leaveEmi && !excludeEmi && budget < all * 0.75)
-                    if (tooLow && pick > 0) Triple(pick, leaveEmi, everyday to emi) else null
-                }
-            }
-            if (!fitSeen && fit != null) {
-                val (pick, leaveEmi, parts) = fit
-                Spacer(Modifier.height(12.dp))
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Tile).border(1.dp, ZColor.Line, RoundedCornerShape(14.dp))
-                    .padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(Icons.Rounded.Lightbulb, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.your_budget_looks_too_low), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    MutedText(if (leaveEmi) "You usually spend " + money(parts.first) + " a month on everyday things. EMIs (" +
-                        money(parts.second) + ") are fixed, so leave them out." else "You usually spend " + money(parts.first + parts.second) + " a month.", 13)
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                            .clickable { onSetBudget(pick, leaveEmi); hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
-                            .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.budget) + money(pick) + if (leaveEmi) ", no EMI" else "", color = ZColor.Paper, fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
-                        Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                            .clickable { hints.edit().putBoolean("budget_fit", true).apply(); fitSeen = true }
-                            .padding(horizontal = 20.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.keep), color = ZColor.InkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-        }
         // A bill that is overdue or due in the next 3 days shows here as one line; the full list lives on Dues.
         run {
             val soonEnd = Dates.shiftDays(today, 3)
@@ -379,17 +326,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
         }
         val overPace = liveMonth && budget > 0 && forecast > budget
         val alreadyOver = liveMonth && budget > 0 && free <= 0
-        // Once the budget is gone the forecast says nothing new, so it shows only while there is still room.
-        if (forecast > 0 && !alreadyOver) {
-            val end = Dates.daysInMonth(f.month).toString() + " " + Dates.monthLabel(f.month).take(3)
-            val verdict = when {
-                budget <= 0 -> ""
-                forecast > budget -> " · " + money(forecast - budget) + " over"
-                else -> " · on track"
-            }
-            noteRow(Icons.AutoMirrored.Rounded.TrendingUp, if (overPace) ZColor.AmberInk else ZColor.Income,
-                "≈ " + money(forecast) + " by $end" + verdict, null, onOpenDues)
-        }
         // Running hot: name the category that grew most against the same days last month; the why is on Spend.
         if (overPace || alreadyOver) {
             val cut = Dates.dayOfMonth()
