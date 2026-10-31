@@ -19,11 +19,6 @@ class PatternMathTest {
         assertEquals(125.0, s.average, 0.001)
     }
 
-    @Test fun biggestComesFirst() {
-        val b = PatternMath.biggest(listOf(row("2026-10-03", 100), row("2026-10-04", 900), row("2026-10-05", 500)), 2)
-        assertEquals(listOf(900L, 500L), b.map { it.paise / 100 })
-    }
-
     @Test fun timeOfDayUsesTheTimeInTheMessage() {
         val v = PatternMath.timeOfDay(listOf(
             row("2026-10-03", 100, "paid at 08:15 AM"), row("2026-10-03", 200, "paid at 7:41 PM"), row("2026-10-03", 300, "paid at 11:30 PM")))

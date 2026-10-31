@@ -648,7 +648,6 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             }
                             WeekdayPanel(flexShown, wFrom, wTo, fixedNote) { title, rs -> drill = title to rs }
                             TimeOfDayPanel(flexShown) { title, rs -> drill = title to rs }
-                            BiggestPanel(flexShown) { detailRow = it }
                             MonthThirdsPanel(flexShown) { title, rs -> drill = title to rs }
                             SmallSpendsPanel(flexShown)
                         }

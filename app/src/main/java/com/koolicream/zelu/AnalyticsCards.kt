@@ -85,26 +85,6 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun BiggestPanel(rows: List<Row>, onRowClick: (Row) -> Unit) {
-    val top = PatternMath.biggest(rows)
-    if (top.isEmpty()) return
-    Panel {
-        Eyebrow(stringResource(R.string.biggest_payments))
-        top.forEach { r ->
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onRowClick(r) }, verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(r.counterparty ?: r.category, r.category, 34.dp, kind = r.kind)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(rowTitle(r), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText(prettyDate(r.date) + " · " + r.category, 12)
-                }
-                Text(money(r.paise / 100.0), color = ZColor.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 @Composable internal fun MonthThirdsPanel(rows: List<Row>, onOpen: (String, List<Row>) -> Unit) {
     val v = PatternMath.thirds(rows)
     val total = v.sum()

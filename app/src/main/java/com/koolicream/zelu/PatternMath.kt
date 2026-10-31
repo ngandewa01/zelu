@@ -36,9 +36,6 @@ object PatternMath {
         return out
     }
 
-    fun biggest(rows: List<Row>, n: Int = 5): List<Row> =
-        rows.filter { it.kind == Kind.EXPENSE }.sortedByDescending { it.paise }.take(n)
-
     /** Spend in days 1-10, 11-20 and 21-end. */
     fun thirds(rows: List<Row>): DoubleArray {
         val out = DoubleArray(3)
