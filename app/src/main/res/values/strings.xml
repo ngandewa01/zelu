@@ -570,4 +570,8 @@
     <string name="settled_label">Settled</string>
     <string name="monthly_total">Monthly total</string>
     <string name="not_set">Not set</string>
+    <string name="report_this_message">Report this message</string>
+    <string name="report_message_subject">Zelu read a message wrong</string>
+    <string name="report_message_intro">What should it have been?</string>
+    <string name="no_email_app">No email app found</string>
 </resources>

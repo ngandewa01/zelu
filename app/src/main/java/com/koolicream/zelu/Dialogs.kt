@@ -550,8 +550,9 @@ import androidx.compose.ui.window.Dialog
                         if (t.account.isNotBlank()) MutedText(t.account, 12)
                     }
                     // More: take a split apart, or delete the payment (undo is offered after either).
-                    if (onDelete != null || onRemoveSplit != null || onLink != null) Box {
+                    if (onDelete != null || onRemoveSplit != null || onLink != null || t.raw.isNotBlank()) Box {
                         var more by remember { mutableStateOf(false) }
+                        val ctx = LocalContext.current
                         TopIcon(stringResource(R.string.more_options), onClick = { more = true }) { Text("⋮", color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Unspoken) }
                         androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                             if (onRemoveSplit != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.remove_split)) },
@@ -563,6 +564,25 @@ import androidx.compose.ui.window.Dialog
                                 androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.link_duplicate)) },
                                     onClick = { more = false; onLink("dup") })
                             }
+                            // Send us this one message when Zelu read it wrong: what Zelu made of it, and the text with
+                            // long numbers and UPI names hidden. It opens the email; you press Send.
+                            if (t.raw.isNotBlank()) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.report_this_message)) },
+                                onClick = {
+                                    more = false
+                                    val body = buildString {
+                                        append(ctx.getString(R.string.report_message_intro)).append("\n\n")
+                                        append("Zelu read: ").append(t.kind.key).append(" / ").append(t.category)
+                                        append(" · payee=").append(t.counterparty ?: "-").append(" · account=").append(t.account.ifBlank { "-" }).append("\n\n")
+                                        append("[").append(t.source).append("] ").append(Redact.message(t.raw)).append("\n")
+                                    }
+                                    val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+                                        .putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(Storage.reportEmail(ctx)))
+                                        .putExtra(android.content.Intent.EXTRA_SUBJECT, ctx.getString(R.string.report_message_subject))
+                                        .putExtra(android.content.Intent.EXTRA_TEXT, body)
+                                    runCatching { ctx.startActivity(mail) }.onFailure {
+                                        android.widget.Toast.makeText(ctx, ctx.getString(R.string.no_email_app), android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                })
                             if (onDelete != null) androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.delete_payment), color = ZColor.Warn) },
                                 onClick = { more = false; onDelete() })
                         }
