@@ -589,9 +589,9 @@ import androidx.compose.ui.window.Dialog
                             Spacer(Modifier.width(6.dp))
                             Text(if (editing) "▴" else "▾", color = ZColor.Muted, fontSize = 11.sp, modifier = Unspoken)
                         }
-                        if (onOpenPayee != null && visits >= 2) Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile)
+                        if (onOpenPayee != null && visits >= 1) Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile)
                             .clickable { onOpenPayee() }.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.n_visits, visits) + " ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text((if (visits == 1) stringResource(R.string.one_visit) else stringResource(R.string.n_visits, visits)) + " ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                     if (editing) {

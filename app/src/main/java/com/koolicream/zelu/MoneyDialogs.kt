@@ -261,12 +261,12 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
             val refundOf = refundSuggestions.firstOrNull { it.first.id == r.id }?.second
             val copyOf = Analytics.possibleDuplicates(rows, dupOk).firstOrNull { it.first.id == r.id || it.second.id == r.id }
                 ?.let { (a, b) -> if (a.id == r.id) b else a }
-            // How often this payee was paid: more than once, and its page is one tap away.
+            // How often this payee was paid, and its history is one tap away, even for a first payment.
             val payee = r.counterparty?.takeIf { it.isNotBlank() }
             val visits = if (payee == null) 0 else rows.count { it.kind == Kind.EXPENSE && it.counterparty == payee }
             TxnDetailDialog(
                 r,
-                visits = visits, onOpenPayee = if (payee != null && visits >= 2) ({ detailRow = null; open(Page.Payee(payee)) }) else null,
+                visits = visits, onOpenPayee = if (payee != null && visits >= 1) ({ detailRow = null; open(Page.Payee(payee)) }) else null,
                 refundOf = refundOf, onRefundAnswer = { yes -> answerRefund(r.id, yes) },
                 copyOf = copyOf, onSameCopy = { hideDuplicate(r, copyOf!!) }, onTwoPayments = { keepBothDuplicates(r, copyOf!!) },
                 onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != Kind.INCOME && kind != Kind.IGNORE) },
