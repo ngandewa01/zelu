@@ -119,7 +119,7 @@
     <string name="zelu_will_ask_about_them">Zelu will ask about them again</string>
     <string name="set_a_screen_lock_pin">Set a screen lock (PIN, pattern or fingerprint) in your phone settings first</string>
     <string name="showing_sample_data_menu_help">Showing sample data. Menu, Help to go back</string>
-    <string name="search_or_ask_remind_me">Search or ask: \"remind me\", \"pin\"…</string>
+    <string name="search_or_ask_remind_me">Search</string>
     <string name="nothing_found_try_another_word">Nothing found. Try another word.</string>
     <string name="fix_in_one_tap">FIX IN ONE TAP · %1$s</string>
     <string name="all_good">All good</string>

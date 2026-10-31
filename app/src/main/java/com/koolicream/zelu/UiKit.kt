@@ -380,10 +380,13 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     }
 }
 
+// Chips wrap onto as many lines as they need; a sideways scroll hides most of a long list (categories).
+@OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun ChipScroll(content: @Composable () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    FlowRow(
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) { content() }
 }
 

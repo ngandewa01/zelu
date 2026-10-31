@@ -77,7 +77,6 @@ import androidx.compose.ui.unit.sp
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (onTrends != null) ToolButton(Icons.Rounded.BarChart, "Trends", 0xFF06B6D4, 0xFF22D3EE, false) { onTrends() }
-        ToolButton(Icons.Rounded.AccountBalanceWallet, "Budgets", 0xFF8B5CF6, 0xFFA78BFA, false) { onEditBudgets() }
         if (onCalendar != null) ToolButton(Icons.Rounded.CalendarMonth, "Calendar", 0xFFFF6B1A, 0xFFFF8A3D, calActive) { onCalendar() }
     }
     if (dayLabel != null) {
