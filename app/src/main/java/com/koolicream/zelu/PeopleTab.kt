@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -108,7 +112,11 @@ internal fun personBalances(allRows: List<Row>, repaid: Map<String, Double>): Li
             onDrill(g, allRows.filter { it.id.substringBefore('#') in ids })
         }
     }
-    people.forEach { p ->
+    // People who are settled are history: folded under one line, like ended autopays.
+    var showSettled by rememberSaveable { mutableStateOf(false) }
+    val open = people.filter { kotlin.math.abs(it.net) > 0.5 }
+    val settled = people.filter { kotlin.math.abs(it.net) <= 0.5 }
+    (open + if (showSettled) settled else emptyList()).forEach { p ->
         val parts = buildList {
             if (p.splits > 0) add(plural(p.splits, "split", "splits"))
             val plainLent = p.lent - allRows.filter { it.kind == Kind.LENT && it.counterparty == p.name && it.id.contains('#') }.rupees()
@@ -119,6 +127,9 @@ internal fun personBalances(allRows: List<Row>, repaid: Map<String, Double>): Li
             if (p.net < -0.5 || (p.lent <= 0.0 && p.borrowed > 0)) onOpenBorrow(p.name) else onOpenLend(p.name)
         }
     }
+    if (settled.isNotEmpty()) Text(if (showSettled) stringResource(R.string.hide_settled) else stringResource(R.string.show_settled, settled.size),
+        color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable { showSettled = !showSettled }.padding(vertical = 6.dp, horizontal = 4.dp))
     Spacer(Modifier.height(12.dp))
     MutedText(stringResource(R.string.people_hint), 12)
 }

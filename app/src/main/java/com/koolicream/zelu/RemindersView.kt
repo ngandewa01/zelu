@@ -164,7 +164,7 @@ import java.util.Calendar
         }
         if (paidOlder.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text(if (showOlderPaid) "Hide earlier months" else "Show earlier months (" + paidOlder.size + ")", color = ZColor.Accent,
+            Text(if (showOlderPaid) stringResource(R.string.hide_earlier_months) else stringResource(R.string.show_earlier_months, paidOlder.size), color = ZColor.Accent,
                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { showOlderPaid = !showOlderPaid }.padding(vertical = 6.dp))
             if (showOlderPaid) paidOlder.take(25).forEach { r -> ReminderCard(r, overdue = false, paid = true, onOpen = { detail = r }) { onMark(r.id, false) } }
         }

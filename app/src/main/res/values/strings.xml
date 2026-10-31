@@ -543,8 +543,8 @@
     <string name="more_options">More</string>
     <string name="delete_payment">Delete payment</string>
     <string name="payment_deleted">Payment deleted</string>
-    <string name="show_ended">Show ended (%1$d)</string>
-    <string name="hide_ended">Hide ended</string>
+    <string name="show_ended">Show ended (%1$d) ▾</string>
+    <string name="hide_ended">Hide ended ▴</string>
     <string name="link_refund">Link a refund</string>
     <string name="link_purchase">Link to a purchase</string>
     <string name="link_duplicate">Mark another as its duplicate</string>
@@ -554,4 +554,10 @@
     <string name="yours_amount">yours %1$s</string>
     <string name="usual_line_legend">Fine dots: a usual month (the middle one of the year)</string>
     <string name="budget_line_legend">Dashes: your monthly budget, %1$s</string>
+    <string name="show_less_arrow">Show less ▴</string>
+    <string name="show_all_cats">Show all %1$d ▾</string>
+    <string name="hide_earlier_months">Hide earlier months ▴</string>
+    <string name="show_earlier_months">Show earlier months (%1$d) ▾</string>
+    <string name="show_settled">Show settled (%1$d) ▾</string>
+    <string name="hide_settled">Hide settled ▴</string>
 </resources>

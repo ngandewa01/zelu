@@ -638,7 +638,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         }
                         PatternsBlock(spendPatterns(flexShown, wFrom, wTo)) { detailRow = it }
                         if (isMonth) DailyCalendarBlock(rows, shown, f, month, account, daySel,
-                            { daySel = if (daySel == it) 0 else it }, { detailRow = it })
+                            { daySel = if (daySel == it) 0 else it }, { detailRow = it }, excludeEmi = excludeEmi && cat != "EMI")
                     }
                     Tab.BUCKETS -> {
                         val prevByCat = if (period == "month")

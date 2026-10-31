@@ -686,10 +686,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 @Composable internal fun DailyCalendarBlock(
     allRows: List<Row>, list: List<Row>, f: Analytics.Filter, month: String, account: String,
     daySel: Int, onDay: (Int) -> Unit, onRowClick: (Row) -> Unit,
-    showCal: Boolean = true, showList: Boolean = true,
+    showCal: Boolean = true, showList: Boolean = true, excludeEmi: Boolean = false,
 ) {
     val bigIds = Analytics.bigSpendIds(list)
-    val daily = Analytics.dailyTotals(allRows, month, account)
+    // The days follow "Exclude EMI" like the rest of the page.
+    val daily = Analytics.dailyTotals(if (excludeEmi) allRows.filter { it.category != "EMI" } else allRows, month, account)
     if (showCal) Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.daily_spend))
