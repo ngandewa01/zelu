@@ -234,7 +234,7 @@ fun ZeluApp() {
             // Messages granted moves on to the nudges; answering the nudges (either way) starts the reading.
             if (askedSms && smsOk) scope.launch { delay(700); stage = Stage.NOTIF }
             else if (askedSms) permDenied = true
-            else scope.launch { delay(500); stage = Stage.SCAN }
+            else scope.launch { delay(500); stage = Stage.BACKUP }
         }
 
         storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -337,15 +337,16 @@ fun ZeluApp() {
             stage != Stage.APP -> {
                 OnboardFlow(stage, permDenied, scanDone, scanTotal,
                     smsGiven = onbSms, notifGiven = onbNotif,
-                    onBack = { stage = when (stage) { Stage.NOTIF -> Stage.PERM; else -> Stage.PRIVACY } },
+                    onBack = { stage = when (stage) { Stage.BACKUP -> Stage.NOTIF; Stage.NOTIF -> Stage.PERM; else -> Stage.PRIVACY } },
                     onRestore = { restoreLauncher?.launch(arrayOf("*/*")) },
-                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.NOTIF; Stage.NOTIF -> Stage.SCAN; else -> stage } },
+                    onNext = { stage = when (stage) { Stage.WELCOME -> Stage.PRIVACY; Stage.PRIVACY -> Stage.PERM; Stage.PERM -> Stage.NOTIF; Stage.NOTIF -> Stage.BACKUP; Stage.BACKUP -> Stage.SCAN; else -> stage } },
+                    onSavePassword = { pw -> Backup.setPassword(context, pw); stage = Stage.SCAN },
                     onAllow = { sms, notif ->
                         val perms = mutableListOf<String>()
                         if (sms) { perms.add(Manifest.permission.READ_SMS); perms.add(Manifest.permission.RECEIVE_SMS) }
                         if (notif && Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS")
                         // Before Android 13 notifications are on already, so there is nothing to ask.
-                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray()) else stage = Stage.SCAN
+                        if (perms.isNotEmpty()) permLauncher.launch(perms.toTypedArray()) else stage = Stage.BACKUP
                     })
                 // The restore dialog also opens here, for a new install that has a backup.
                 RestoreDialog(s)
@@ -613,7 +614,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
                         BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { open(Page.Trends) },
-                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it },
+                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it }, onOpenCategory = { open(Page.Category(it)) },
                             onCalendar = if (isMonth) ({ calOpen = !calOpen }) else null,
                             calActive = calOpen || daySel > 0,
                             dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
@@ -656,12 +657,11 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         val prevByCat = if (period == "month")
                             Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
                         BucketsView(shown, prevByCat, budgets, { budgetsOpen = true },
-                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it }) { title, rows -> drill = title to rows }
+                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it }, onOpenCategory = { open(Page.Category(it)) }) { title, rows -> drill = title to rows }
                     }
                     Tab.PAYEES -> PayeesView(shown, { title, rows -> drill = title to rows },
-                        { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
-                        s::renamePayee,
-                        remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows)
+                        remember(rows, fixed) { Analytics.fixedSet(rows, Dates.todayMonth(), fixed) }, rows,
+                        onOpenPayee = { open(Page.Payee(it)) })
                     Tab.INVEST -> InvestView(rows) { title, r -> drill = title to r }
                     Tab.PACE -> PaceView(rows, shown, f, month, account, excludeEmi, budget = monthlyBudget)
                     Tab.DUES -> RemindersView(reminders, rows, reminderState, s::markReminder,
@@ -704,6 +704,30 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         onSavePref = { d, b -> setCardPref(a, d, b) },
                         onMarkPaid = { id -> markReminder(id, true) },
                         onRowClick = { detailRow = it }, onBack = { back() },
+                    )
+                }
+                is Page.Payee -> {
+                    val name = p.name
+                    fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
+                    val history = remember(rows, name) { rows.filter { it.kind == Kind.EXPENSE && nameOf(it) == name } }
+                    // A payee renamed or merged away, or all of whose payments moved elsewhere, has nothing left to show here.
+                    if (history.isEmpty()) LaunchedEffect(name) { back() }
+                    else PayeePage(
+                        name = name, history = history,
+                        others = remember(rows, name) { Analytics.byPayee(rows.filter { it.kind == Kind.EXPENSE }).map { it.name }
+                            .filter { !it.equals(name, ignoreCase = true) }.take(12) },
+                        onBack = { back() }, onRowClick = { detailRow = it },
+                        onRecategorize = { payee, id, kind, cat -> decide(id, kind, cat, payee, true) },
+                        onNewCat = { cb -> newCatCallback = cb },
+                        onRename = { to -> back(); renamePayee(name, to) },
+                    )
+                }
+                is Page.Category -> {
+                    val c = p.name
+                    CategoryPage(
+                        category = c, history = remember(rows, c) { rows.filter { it.kind == Kind.EXPENSE && it.category == c } },
+                        budget = budgets[c] ?: 0.0, onSetBudget = { budgetFor = c },
+                        onBack = { back() }, onRowClick = { detailRow = it },
                     )
                 }
                 null -> {}

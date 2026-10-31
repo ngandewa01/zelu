@@ -446,11 +446,15 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 sealed class Page(val route: String) {
     object Trends : Page("trends")
     data class Card(val account: String) : Page("card:$account")
+    data class Payee(val name: String) : Page("payee:$name")
+    data class Category(val name: String) : Page("category:$name")
 
     companion object {
         fun of(route: String): Page? = when {
             route == Trends.route -> Trends
             route.startsWith("card:") -> Card(route.removePrefix("card:"))
+            route.startsWith("payee:") -> Payee(route.removePrefix("payee:"))
+            route.startsWith("category:") -> Category(route.removePrefix("category:"))
             else -> null
         }
     }

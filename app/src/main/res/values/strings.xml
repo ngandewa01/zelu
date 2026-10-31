@@ -110,7 +110,6 @@
     <string name="save">Save</string>
     <string name="account_2">Account: %1$s</string>
     <string name="from_this_message">From this message</string>
-    <string name="why_this_label">Why this label</string>
     <string name="who_was_this">Who was this?</string>
     <string name="names_in_the_message">Names in the message:</string>
     <string name="save_title">Save title</string>
@@ -424,4 +423,21 @@
     <string name="per_month">Per month</string>
     <string name="remove_budget">Remove</string>
     <string name="restore_from_backup">Restore from a backup</string>
+    <string name="vs_usual">vs usual</string>
+    <string name="visit">visit</string>
+    <string name="visits">visits</string>
+    <string name="change_category">Change category</string>
+    <string name="rename_or_merge">Rename or merge</string>
+    <string name="visits_label">Visits</string>
+    <string name="nothing_in_month">Nothing in %1$s</string>
+    <string name="n_payments">%1$d payments</string>
+    <string name="payment">Payment</string>
+    <string name="n_visits">%1$d visits</string>
+    <string name="edit_title">Edit title</string>
+    <string name="split">Split</string>
+    <string name="remove_split">Remove split</string>
+    <string name="investment_label">Investment</string>
+    <string name="backup_ask_title">Keep your data safe</string>
+    <string name="backup_ask_sub">A password for your weekly backup. It brings everything back on a new phone. Zelu can\'t recover it, so keep it somewhere safe.</string>
+    <string name="save_password">Save password</string>
 </resources>

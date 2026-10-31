@@ -83,10 +83,10 @@ import kotlinx.coroutines.launch
 
 @Composable internal fun OnboardFlow(
     stage: Stage, denied: Boolean, scanDone: Int, scanTotal: Int,
-    onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit, onRestore: () -> Unit = {},
+    onBack: () -> Unit, onNext: () -> Unit, onAllow: (sms: Boolean, notif: Boolean) -> Unit, onRestore: () -> Unit = {}, onSavePassword: (String) -> Unit = {},
     smsGiven: Boolean = false, notifGiven: Boolean = false,
 ) {
-    val step = when (stage) { Stage.PRIVACY -> 0; Stage.PERM -> 1; Stage.NOTIF -> 2; else -> -1 }
+    val step = when (stage) { Stage.PRIVACY -> 0; Stage.PERM -> 1; Stage.NOTIF -> 2; Stage.BACKUP -> 3; else -> -1 }
     Box(Modifier.fillMaxSize().background(ZColor.Paper).padding(28.dp)) {
         if (step >= 0) Row(Modifier.align(Alignment.TopCenter).padding(top = 20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).clickable(enabled = step > 0) { onBack() }
@@ -94,7 +94,7 @@ import kotlinx.coroutines.launch
                 if (step > 0) Text("‹", color = ZColor.Ink, fontSize = 24.sp, modifier = Unspoken)
             }
             Spacer(Modifier.width(10.dp))
-            (0..2).forEach { i ->
+            (0..3).forEach { i ->
                 Box(Modifier.weight(1f).padding(horizontal = 3.dp).height(4.dp).clip(RoundedCornerShape(2.dp))
                     .background(if (i <= step) ZColor.Ink else ZColor.Line))
             }
@@ -151,6 +151,7 @@ import kotlinx.coroutines.launch
                     if (denied) Text(stringResource(R.string.sms_is_needed_to_read),
                         color = ZColor.Warn, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
+                Stage.BACKUP -> BackupAsk(onSavePassword, onNext)
                 Stage.NOTIF -> {
                     // The same again: the nudges drop in the way they really will, then you say yes or not now.
                     NudgeScene()
@@ -497,4 +498,40 @@ private val NUDGES = listOf(
             Text(stringResource(R.string.nudge_now), color = Color(0xFF77716A), fontSize = 11.sp)
         }
     }
+}
+
+// The last question: a password for the weekly backup. A backup is what lets a new phone, or a new install, get everything
+// back, and it is locked with this password, which Zelu cannot recover. Nothing here can be skipped by accident: it is one
+// field pair and two buttons.
+@Composable private fun BackupAsk(onSave: (String) -> Unit, onSkip: () -> Unit) {
+    var pw by remember { mutableStateOf("") }
+    var again by remember { mutableStateOf("") }
+    var problem by remember { mutableStateOf<Int?>(null) }
+    val field = Modifier.fillMaxWidth()
+    Box(Modifier.size(84.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.Lock, null, tint = ZColor.Accent, modifier = Modifier.size(40.dp))
+    }
+    Text(stringResource(R.string.backup_ask_title), color = ZColor.Ink, fontSize = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+    Text(stringResource(R.string.backup_ask_sub), color = ZColor.Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
+    androidx.compose.material3.OutlinedTextField(value = pw, onValueChange = { pw = it; problem = null }, singleLine = true,
+        label = { Text(stringResource(R.string.password)) },
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+        modifier = field)
+    androidx.compose.material3.OutlinedTextField(value = again, onValueChange = { again = it; problem = null }, singleLine = true,
+        label = { Text(stringResource(R.string.type_it_again)) },
+        isError = problem != null,
+        supportingText = { problem?.let { Text(stringResource(it, BackupCrypto.MIN_PASSWORD)) } },
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+        modifier = field)
+    Cta(stringResource(R.string.save_password)) {
+        when {
+            pw.length < BackupCrypto.MIN_PASSWORD -> problem = R.string.use_at_least_characters
+            pw != again -> problem = R.string.the_two_passwords_don_t
+            else -> onSave(pw)
+        }
+    }
+    Text(stringResource(R.string.not_now), color = ZColor.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onSkip() }.padding(horizontal = 18.dp, vertical = 8.dp))
 }

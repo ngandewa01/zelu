@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
     showCategories: Boolean = true,
     prevLabel: String = "last month",
     monthlyBudget: Double = 0.0, onEditMonthly: () -> Unit = {}, onSetBudget: (String) -> Unit = {},
+    onOpenCategory: (String) -> Unit = {},
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -166,7 +167,8 @@ import androidx.compose.ui.unit.sp
         }
         cats.forEachIndexed { i, (c, v) ->
             Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill(c, rowsFor(c)) }) {
+            // A day picked on the calendar keeps the short list of that day's payments; otherwise a category is a page of its own.
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { if (dayLabel == null) onOpenCategory(c) else onDrill(c, rowsFor(c)) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile("", c, 34.dp)
                     Spacer(Modifier.width(10.dp))
