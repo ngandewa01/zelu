@@ -452,11 +452,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         MerchantTile(t.counterparty ?: "", if (mark == Attention.UNKNOWN) "" else t.category, 36.dp, t.kind)
                         Spacer(Modifier.weight(1f))
                         if (mark != null) {
-                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) Color(0xFFEF4444) else Color(0xFFD97706))
+                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) ZColor.WarnSoft else ZColor.AmberSoft)
                                 .spoken(stringResource(when (mark) { Attention.UNKNOWN -> R.string.mark_unsorted; Attention.REFUND -> R.string.mark_refund; Attention.DUPLICATE -> R.string.mark_duplicate })),
                                 contentAlignment = Alignment.Center) {
                                 Text(when (mark) { Attention.UNKNOWN -> "!"; Attention.REFUND -> "?"; Attention.DUPLICATE -> "=" },
-                                    color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
+                                    color = if (mark == Attention.UNKNOWN) ZColor.Warn else ZColor.AmberInk, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
                             }
                         } else androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
                             if (moneyIn) "Money in" else "Spent", tint = if (moneyIn) ZColor.Income else ZColor.Muted,

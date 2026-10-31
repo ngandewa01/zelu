@@ -579,8 +579,8 @@ import androidx.compose.ui.window.Dialog
                         Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile).clickable { editing = !editing }
                             .padding(start = if (unsorted) 6.dp else 16.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (unsorted) {
-                                Box(Modifier.size(30.dp).clip(CircleShape).background(Color(0xFFEF4444)), contentAlignment = Alignment.Center) {
-                                    Text("!", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
+                                Box(Modifier.size(30.dp).clip(CircleShape).background(ZColor.WarnSoft), contentAlignment = Alignment.Center) {
+                                    Text("!", color = ZColor.Warn, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
                                 }
                                 Spacer(Modifier.width(8.dp))
                             }
