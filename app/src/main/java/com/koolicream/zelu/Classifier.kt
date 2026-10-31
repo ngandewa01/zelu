@@ -226,7 +226,7 @@ object Classifier {
         Regex("""\b(airports?)\b""", RegexOption.IGNORE_CASE) to "Travel",
         Regex("""\b(educational\s+society|education\s+society)\b""", RegexOption.IGNORE_CASE) to "Education",
         Regex("""\b(motors?|automobiles?|automotive|showrooms?|taxi|cabs?|rickshaw|autorickshaw|parking|toll)\b""", RegexOption.IGNORE_CASE) to "Transport",
-        Regex("""\b(cinemas?|theatres?|theaters?|multiplex|amusement|water\s?park|gaming|game\s?zone|bowling|stadium|night\s?club)\b""", RegexOption.IGNORE_CASE) to "Entertainment",
+        Regex("""\b(cinemas?|theatres?|theaters?|multiplex|amusement|water\s?park|gaming|game\s?zone|bowling|stadium|night\s?club|entertainment)\b""", RegexOption.IGNORE_CASE) to "Entertainment",
         Regex("""\b(maid|house\s?maid|cook|nanny|babysitter|ayah|kaamwali|kamwali)\b""", RegexOption.IGNORE_CASE) to "Domestic help",
         Regex("""\b(plumber|electrician|carpenter|painter|pest\s+control|laundry|dry\s?clean|car\s?wash|housekeeping|cleaning)\b""", RegexOption.IGNORE_CASE) to "Home services",
         Regex("""\b(securities|broking|stock\s?broker|mutual\s+funds?|asset\s+management)\b""", RegexOption.IGNORE_CASE) to "Investment",
@@ -399,14 +399,14 @@ object Classifier {
             if (words.any { has(hay, it) }) return Result(Kind.EXPENSE, category)
         }
         // Shops and apps listed by the group that owns them.
-        for ((category, words) in Brands.EXTRA) {
+        for ((category, words) in Brands.EXTRA.entries + Brands.LEGAL.entries) {
             if (words.any { has(hay, it) }) return Result(Kind.EXPENSE, category)
         }
         if (Brands.isBareMaxShop(t.counterparty ?: "", t.raw)) return Result(Kind.EXPENSE, "Shopping")
         // A payee written with a space or dash ("MC DONALDS", "Red Bus") still finds the word list's "mcdonald", "redbus".
         val payeeRun = cp.filter { it.isLetterOrDigit() }
         if (payeeRun.length >= 6) {
-            val all = CATEGORIES.entries.asSequence() + Brands.EXTRA.entries.asSequence()
+            val all = CATEGORIES.entries.asSequence() + Brands.EXTRA.entries.asSequence() + Brands.LEGAL.entries.asSequence()
             for (e in all) for (w in e.value) {
                 val run = w.filter { it.isLetterOrDigit() }
                 if (run.length >= 6 && payeeRun.contains(run)) return Result(Kind.EXPENSE, e.key)
