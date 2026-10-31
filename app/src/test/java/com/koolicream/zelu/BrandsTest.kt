@@ -23,6 +23,11 @@ class BrandsTest {
             assertEquals(n, "Fuel", cat(n))
     }
 
+    @Test fun chemistsAreHealth() {
+        for (n in listOf("Sri Sai Drugist", "Krishna Chemist", "Shree Chemist and Druggist", "City Drug House", "Raj Drugs", "Lakshmi Druggists", "New Drug Store"))
+            assertEquals(n, "Health", cat(n))
+    }
+
     @Test fun appsAndOwners() {
         assertEquals("Home services", cat("Snabbit"))
         assertEquals("Home services", cat("PRONTO"))

@@ -104,7 +104,7 @@ object Classifier {
             "aditya birla finance", "l&t finance", "piramal finance", "poonawalla", "kissht", "mpokket", "lendingkart",
             "shriram finance", "iifl finance", "cholamandalam", "mahindra finance", "sundaram finance", "hero fincorp",
             "tvs credit", "axis finance", "home finance", "housing finance", "lic housing", "avanse", "incred"),
-        "Health" to listOf("medico", "medicos", "dental", "dentist", "eye care", "optical", "ortho", "physio",
+        "Health" to listOf("medico", "drug", "drugs", "druggist", "druggists", "drugist", "drugists", "chemist", "chemists", "drug store", "drug house", "medicos", "dental", "dentist", "eye care", "optical", "ortho", "physio",
             "pathlab", "path lab", "thyrocare", "lal path", "metropolis", "redcliffe", "orange health", "tata1mg",
             "truemeds", "pharmacies", "ayush", "ayurved", "pharmeasy", "1mg", "apollo", "netmeds", "pharmacy", "clinic",
             "diagnostic", "medplus", "practo", "tata 1mg", "wellness forever", "wellness", "medical store", "dawakhana",
@@ -184,7 +184,7 @@ object Classifier {
     // a generic word in the name. Checked after the exact dictionary, before giving up.
     private val NAME_HINTS: List<Pair<Regex, String>> = listOf(
         Regex("""\b(travels?|tours|holidays|airlines|airways|aviation|railways?|irctc|bus\s*stand|roadways|rtc|resorts?|retreats?|suites?|rest\s*house|circuit\s*house|dharamshala|sarai|sarovar|getaways?|hideaways?|tourism|innkeeping|guest\s*services|travel\s*&\s*stay|stays?|escapes?)\b""", RegexOption.IGNORE_CASE) to "Travel",
-        Regex("""\b(medical|medicals|pharmacy|pharma|chemist|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
+        Regex("""\b(medical|medicals|pharmacy|pharma|chemists?|drugs?|druggists?|drugists?|hospital|hospitals|clinic|clinics|diagnostic|diagnostics|pathology|healthcare|dental|dentist)\b""", RegexOption.IGNORE_CASE) to "Health",
         Regex("""\b(supermarket|super\s+market|kirana|groceries|grocery|provision|provisions|general\s+store|vegetable|vegetables|dairy\s+farm)\b""", RegexOption.IGNORE_CASE) to "Groceries",
         Regex("""\b(restaurants?|restuarants?|cafe|hotel|foods?|kitchen|dhaba|sweets?|bakery|bekery|bekeries|bakeries|bakers?|bakes|bake ?house|catering|confectionery|tiffin|biryani|darshini|caterers?|juice|snacks|burgers?|pizza|momos?|coffee|chai|ice ?cream|donuts?|doughnuts?|grill|brasserie|bistro|eatery|diner|dosa|chaat|patisserie|confection|sweet shop|mithai|restro|family restaurant)\b""", RegexOption.IGNORE_CASE) to "Food",
         Regex("""\b(petrol|petroleum|jio ?oil|nayara|hpcl|bpcl|iocl|indian ?oil|fuels?|filling\s+station|petro|gas\s+station)\b""", RegexOption.IGNORE_CASE) to "Fuel",
