@@ -697,6 +697,19 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         onRowClick = { detailRow = it }, onBack = { back() },
                     )
                 }
+                is Page.Income -> {
+                    val name = p.name
+                    val history = remember(rows, name) { rows.filter { (it.kind == Kind.INCOME || it.id in Analytics.notCounted) && it.direction == Dir.CREDIT && it.counterparty == name } }
+                    if (history.isEmpty()) LaunchedEffect(name) { back() }
+                    else PayeePage(
+                        name = name, history = history, others = emptyList(),
+                        onBack = { back() }, onRowClick = { detailRow = it },
+                        onRecategorize = { payee, id, kind, cat -> decide(id, kind, cat, payee, true) },
+                        onNewCat = { cb -> newCatCallback = cb },
+                        onRename = { to -> back(); renamePayee(name, to) },
+                        income = true,
+                    )
+                }
                 is Page.Payee -> {
                     val name = p.name
                     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category

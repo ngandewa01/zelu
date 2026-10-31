@@ -585,4 +585,8 @@
     <string name="only_this_one">Only this one</string>
     <string name="apply_to_n">Apply to %1$d</string>
     <string name="applied_to_n_similar">Applied to %1$d similar messages</string>
+    <string name="n_times">%1$d times</string>
+    <string name="usual_label">Usual</string>
+    <string name="usually_on_day">Usually on</string>
+    <string name="last_received">Last received</string>
 </resources>

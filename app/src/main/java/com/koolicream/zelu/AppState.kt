@@ -618,12 +618,15 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
 sealed class Page(val route: String) {
     data class Card(val account: String) : Page("card:$account")
     data class Payee(val name: String) : Page("payee:$name")
+    /** Money that keeps coming from one place (salary, rent, interest): its months, usual amount and usual day. */
+    data class Income(val name: String) : Page("income:$name")
     data class Category(val name: String) : Page("category:$name")
 
     companion object {
         fun of(route: String): Page? = when {
             route.startsWith("card:") -> Card(route.removePrefix("card:"))
             route.startsWith("payee:") -> Payee(route.removePrefix("payee:"))
+            route.startsWith("income:") -> Income(route.removePrefix("income:"))
             route.startsWith("category:") -> Category(route.removePrefix("category:"))
             else -> null
         }

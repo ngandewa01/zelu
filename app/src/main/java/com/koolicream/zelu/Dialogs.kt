@@ -530,7 +530,7 @@ import androidx.compose.ui.window.Dialog
     onRetitle: (String) -> Unit = {}, onSplit: (() -> Unit)? = null,
     refundOf: Row? = null, onRefundAnswer: (Boolean) -> Unit = {},
     copyOf: Row? = null, onSameCopy: () -> Unit = {}, onTwoPayments: () -> Unit = {},
-    visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
+    visits: Int = 0, onOpenPayee: (() -> Unit)? = null, income: Boolean = false,
     onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
     onLink: ((String) -> Unit)? = null, splitParts: List<Row> = emptyList(),
     onCount: (Boolean) -> Unit = {},
@@ -648,7 +648,7 @@ import androidx.compose.ui.window.Dialog
                         }
                         if (onOpenPayee != null && visits >= 1) Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile)
                             .clickable { onOpenPayee() }.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text((if (visits == 1) stringResource(R.string.one_visit) else stringResource(R.string.n_visits, visits)) + " ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text((if (income) stringResource(R.string.n_times, visits) else if (visits == 1) stringResource(R.string.one_visit) else stringResource(R.string.n_visits, visits)) + " ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                     if (editing) {
