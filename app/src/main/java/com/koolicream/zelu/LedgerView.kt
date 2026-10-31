@@ -220,11 +220,6 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
-        @Composable fun emiSwitch() {
-            if (emiAmt <= 0 && !excludeEmi) return
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { emiPill() }
-        }
         // One shape with or without a budget: what you spent, a thin bar and one pill under it. Setting a budget fills the
         // pill and the bar; nothing else on the card moves. The bolder themes draw it on a two-colour gradient.
         val hero = ZColor.Hero
@@ -249,7 +244,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // The label gives way to the chip, which stays on one line.
                 Box(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Eyebrow(stringResource(R.string.spent_in) + Analytics.periodLabel(f) + if (excludeEmi) " · after EMI" else "", soft)
+                    Eyebrow(stringResource(R.string.spent_label), soft)
                 }
                 if (prevSpent > 0 && s.spent > 0) {
                     val diff = Math.round((s.spent - prevSpent) / prevSpent * 100).toInt()
@@ -267,34 +262,25 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                 Text(money(s.spent), color = if (onHero) heroInk else if (hasBudget) heat else ZColor.Ink, fontSize = 38.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(12.dp))
-            // The pill: what is left a day, how the month ended against the budget, or a way to set one.
-            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
-                when {
-                    liveMonth && hasBudget -> slotPill(
-                        if (free > 0) money(free / daysLeft) + stringResource(R.string.a_day) else money(-free) + stringResource(R.string.over),
-                        heat, onEditBudget)
-                    hasBudget -> slotPill(
-                        if (s.spent <= budget) stringResource(R.string.under_budget) else money(s.spent - budget) + stringResource(R.string.over),
-                        if (s.spent <= budget) ZColor.Income else ZColor.Warn, onEditBudget)
-                    liveMonth -> {
-                        // No budget yet: one tap sets one that fits what a month usually costs.
-                        val usual = (1..3).map { i ->
-                            Analytics.filter(allRows, f.copy(month = Dates.shiftMonth(f.month, -i)))
-                                .filter { it.kind == Kind.EXPENSE && !(excludeEmi && it.category == "EMI") }.rupees()
-                        }.filter { it > 0 }.let { if (it.isEmpty()) 0.0 else it.average() }
-                        val pick = if (usual > 0) Math.ceil(usual * 1.05 / 5000.0) * 5000.0 else 0.0
-                        val tone = if (onHero) heroInk else ZColor.Accent
-                        Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.5.dp, tone, RoundedCornerShape(20.dp))
-                            .clickable { if (pick > 0) onSetBudget(pick, false) else onEditBudget() }
-                            .padding(horizontal = 16.dp, vertical = 9.dp)) {
-                            Text(if (pick > 0) stringResource(R.string.set_budget_to, money(pick)) else stringResource(R.string.set_budget),
-                                color = tone, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+            // One row for the controls, aligned: what is left a day (or how the month ended) once there is a budget, and the
+            // EMI switch at the other end. With no budget there is no pill; a budget is set from Spend, never suggested here.
+            val showEmi = emiAmt > 0 || excludeEmi
+            if (hasBudget || showEmi) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                    when {
+                        liveMonth && hasBudget -> slotPill(
+                            if (free > 0) money(free / daysLeft) + stringResource(R.string.a_day) else money(-free) + stringResource(R.string.over),
+                            heat, onEditBudget)
+                        hasBudget -> slotPill(
+                            if (s.spent <= budget) stringResource(R.string.under_budget) else money(s.spent - budget) + stringResource(R.string.over),
+                            if (s.spent <= budget) ZColor.Income else ZColor.Warn, onEditBudget)
                     }
+                    Spacer(Modifier.weight(1f))
+                    emiPill()
                 }
             }
         }
-        emiSwitch()
 
         // A budget far below what you really spend keeps this card red every month. Once, Zelu suggests one that fits
         // your last 3 months, leaving EMI out when EMI is a big part of it. "Keep" hides it for good.
@@ -466,11 +452,11 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
                         MerchantTile(t.counterparty ?: "", if (mark == Attention.UNKNOWN) "" else t.category, 36.dp, t.kind)
                         Spacer(Modifier.weight(1f))
                         if (mark != null) {
-                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) Color(0xFFEF4444) else Color(0xFFD97706))
+                            Box(Modifier.size(22.dp).clip(CircleShape).background(if (mark == Attention.UNKNOWN) ZColor.WarnSoft else ZColor.AmberSoft)
                                 .spoken(stringResource(when (mark) { Attention.UNKNOWN -> R.string.mark_unsorted; Attention.REFUND -> R.string.mark_refund; Attention.DUPLICATE -> R.string.mark_duplicate })),
                                 contentAlignment = Alignment.Center) {
                                 Text(when (mark) { Attention.UNKNOWN -> "!"; Attention.REFUND -> "?"; Attention.DUPLICATE -> "=" },
-                                    color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
+                                    color = if (mark == Attention.UNKNOWN) ZColor.Warn else ZColor.AmberInk, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Unspoken)
                             }
                         } else androidx.compose.material3.Icon(if (moneyIn) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
                             if (moneyIn) "Money in" else "Spent", tint = if (moneyIn) ZColor.Income else ZColor.Muted,

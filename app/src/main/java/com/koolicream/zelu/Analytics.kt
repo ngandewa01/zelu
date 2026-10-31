@@ -221,6 +221,15 @@ object Analytics {
     // the same reference number says it is one payment, different reference numbers say two real payments, and with no
     // reference at all they must come from the same sender to be worth asking about. A different balance, time, payee
     // or way of paying (UPI, NEFT, IMPS...) says they are two.
+    /** The [count] months up to and including [last] ("2026-10"), oldest first. */
+    fun monthsUpTo(last: String, count: Int): List<String> = (count - 1 downTo 0).map { Dates.shiftMonth(last, -it) }
+
+    /** What was spent in each of [months] ("2026-10"): a month with no payments is 0.0, so quiet months still show. */
+    fun monthlyTotals(rows: List<Row>, months: List<String>): List<Double> {
+        val byMonth = rows.groupBy { it.date.take(7) }
+        return months.map { m -> byMonth[m]?.sumOf { it.amount } ?: 0.0 }
+    }
+
     /** The payments that want a look, and why. Both payments of a possible duplicate are marked; a duplicate outranks a refund, a refund an unsorted one. */
     fun attention(rows: List<Row>, refunds: List<Pair<Row, Row>>, duplicates: List<Pair<Row, Row>>): Map<String, Attention> {
         val out = LinkedHashMap<String, Attention>()

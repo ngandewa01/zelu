@@ -28,7 +28,6 @@
     <string name="budget">"Budget "</string>
     <string name="a_day">" a day"</string>
     <string name="over">" over"</string>
-    <string name="spent_in">"Spent in "</string>
     <string name="your_budget_looks_too_low">Your budget looks too low</string>
     <string name="keep">Keep</string>
     <string name="same_payment">Same payment</string>
@@ -111,7 +110,6 @@
     <string name="save">Save</string>
     <string name="account_2">Account: %1$s</string>
     <string name="from_this_message">From this message</string>
-    <string name="why_this_label">Why this label</string>
     <string name="who_was_this">Who was this?</string>
     <string name="names_in_the_message">Names in the message:</string>
     <string name="save_title">Save title</string>
@@ -376,8 +374,6 @@
         <item quantity="other">%1$d payments found. Tap to open</item>
     </plurals>
     <string name="under_budget">✓ Under budget</string>
-    <string name="set_budget">Set budget</string>
-    <string name="set_budget_to">Set budget %1$s</string>
     <string name="mark_unsorted">Not sorted</string>
     <string name="mark_refund">Refund to check</string>
     <string name="mark_duplicate">Possible duplicate</string>
@@ -417,4 +413,32 @@
     <string name="nudge_card_sub">HDFC Credit · ₹14,200</string>
     <string name="nudge_safe">₹1,240 safe to spend today</string>
     <string name="nudge_safe_sub">4 days left this month</string>
+    <string name="spent_label">Spent</string>
+    <string name="budget_amount">Budget %1$s ›</string>
+    <string name="set_monthly_budget">Set monthly budget ›</string>
+    <string name="categorise_action">Categorise ›</string>
+    <string name="budget_action">Budget ›</string>
+    <string name="set_budget_action">Set budget ›</string>
+    <string name="category_budget_title">%1$s budget</string>
+    <string name="per_month">Per month</string>
+    <string name="remove_budget">Remove</string>
+    <string name="restore_from_backup">Restore from a backup</string>
+    <string name="vs_usual">vs usual</string>
+    <string name="visit">visit</string>
+    <string name="visits">visits</string>
+    <string name="change_category">Change category</string>
+    <string name="rename_or_merge">Rename or merge</string>
+    <string name="visits_label">Visits</string>
+    <string name="nothing_in_month">Nothing in %1$s</string>
+    <string name="n_payments">%1$d payments</string>
+    <string name="payment">Payment</string>
+    <string name="n_visits">%1$d visits</string>
+    <string name="edit_title">Edit title</string>
+    <string name="split">Split</string>
+    <string name="remove_split">Remove split</string>
+    <string name="investment_label">Investment</string>
+    <string name="backup_ask_title">Keep your data safe</string>
+    <string name="backup_ask_sub">A password for your weekly backup. It brings everything back on a new phone. Zelu can\'t recover it, so keep it somewhere safe.</string>
+    <string name="save_password">Save password</string>
+    <string name="one_visit">1 visit</string>
 </resources>

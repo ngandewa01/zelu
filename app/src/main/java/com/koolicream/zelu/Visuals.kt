@@ -153,7 +153,9 @@ private fun buildCatColors(): Map<String, Color> {
     val d = ZTheme.dark
     fun c(light: Long, dark: Long) = Color(if (d) dark else light)
     return mapOf(
-        "Unknown" to c(0xFFE5484D, 0xFFFF6369),
+        // Nothing sorted it yet: a soft, dusty red (the app's warning tone), not an alarm. It shows on the unsorted payee,
+        // its bar on Payees and Spend, and its tile.
+        "Unknown" to c(0xFFB5645E, 0xFFD2807A),
         "Food" to c(0xFFFF6B1A, 0xFFFF8A3D),
         "Groceries" to c(0xFF22B455, 0xFF3DD171),
         "Shopping" to c(0xFF06B6D4, 0xFF22D3EE),
@@ -186,8 +188,12 @@ private fun buildCatColors(): Map<String, Color> {
         "Refund" to ZColor.Income,
         "Transfer" to ZColor.Muted,
         "Card bill" to ZColor.Muted,
-    )
+    ).mapValues { (_, col) -> calm(col) }
 }
+
+// Every category colour is pulled a third of the way toward a warm grey: still easy to tell apart, but no longer loud next
+// to the app's own soft tones. (Unknown is already a soft tone and Muted is grey, so they barely move.)
+private fun calm(col: Color): Color = mix(col, Color(if (ZTheme.dark) 0xFF9A8F85 else 0xFF7A6F66), 0.32f)
 
 // Built once per palette+mode, because a few entries follow the theme (Accent, Ink, Income, Muted).
 private var catKey = -1

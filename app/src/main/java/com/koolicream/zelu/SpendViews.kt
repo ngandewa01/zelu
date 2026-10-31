@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.sp
     showSummary: Boolean = true,
     showCategories: Boolean = true,
     prevLabel: String = "last month",
+    monthlyBudget: Double = 0.0, onEditMonthly: () -> Unit = {}, onSetBudget: (String) -> Unit = {},
+    onOpenCategory: (String) -> Unit = {},
     onDrill: (String, List<Row>) -> Unit,
 ) {
     val cats = Analytics.byCategory(list)
@@ -154,10 +156,19 @@ import androidx.compose.ui.unit.sp
     if (!showCategories) return
     val top = cats.first().second
     Panel {
-        Eyebrow(stringResource(R.string.by_category))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow(stringResource(R.string.by_category))
+            Spacer(Modifier.weight(1f))
+            // The month's budget lives here, next to what was spent, and is set from here.
+            if (dayLabel == null) Text(
+                if (monthlyBudget > 0) stringResource(R.string.budget_amount, money(monthlyBudget)) else stringResource(R.string.set_monthly_budget),
+                color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onEditMonthly() }.padding(horizontal = 6.dp, vertical = 4.dp))
+        }
         cats.forEachIndexed { i, (c, v) ->
             Spacer(Modifier.height(if (i == 0) 10.dp else 16.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDrill(c, rowsFor(c)) }) {
+            // A day picked on the calendar keeps the short list of that day's payments; otherwise a category is a page of its own.
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { if (dayLabel == null) onOpenCategory(c) else onDrill(c, rowsFor(c)) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile("", c, 34.dp)
                     Spacer(Modifier.width(10.dp))
@@ -183,6 +194,19 @@ import androidx.compose.ui.unit.sp
                     if (budget != null && budget > 0) {
                         if (v > budget) TonePill("Over by " + money(v - budget), ZColor.Warn, ZColor.WarnSoft)
                         else TonePill(money(v) + " of " + money(budget), ZColor.InkSoft, ZColor.Paper)
+                    }
+                    // One button at the end of the row: sort what nothing could, or set (and change) this category's budget.
+                    if (dayLabel == null) {
+                        Spacer(Modifier.weight(1f))
+                        val label = when {
+                            c == "Unknown" -> stringResource(R.string.categorise_action)
+                            budget != null && budget > 0 -> stringResource(R.string.budget_action)
+                            else -> stringResource(R.string.set_budget_action)
+                        }
+                        Text(label, color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                                .clickable { if (c == "Unknown") onDrill(c, rowsFor(c)) else onSetBudget(c) }
+                                .padding(horizontal = 6.dp, vertical = 3.dp))
                     }
                 }
                 val budget = if (dayLabel == null) budgets[c] else null

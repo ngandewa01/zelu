@@ -437,6 +437,9 @@ internal fun RestoreDialog(s: AppState) {
                                             ZTheme.palette = paletteIndex(sp)
                                             if (sp.contains("dark")) ZTheme.dark = sp.getBoolean("dark", false)
                                             reload()
+                                            // On a new install the permissions are still to be asked; the first read then adds the
+                                            // messages that came since the backup.
+                                            if (stage == Stage.PRIVACY || stage == Stage.WELCOME) stage = Stage.PERM
                                         }
                                         Toast.makeText(context, if (ok) "Backup restored" else "That isn't a Zelu backup file", Toast.LENGTH_LONG).show()
                                     }

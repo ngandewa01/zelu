@@ -48,10 +48,9 @@ import androidx.compose.ui.window.Dialog
 
 @Composable internal fun PayeesView(
     list: List<Row>, onDrill: (String, List<Row>) -> Unit,
-    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
-    onRename: (String, String) -> Unit,
     fixedSet: Analytics.FixedSet,
     allRows: List<Row> = emptyList(),
+    onOpenPayee: (String) -> Unit = {},
 ) {
     val spend = list.filter { it.kind == Kind.EXPENSE }
     val payees = Analytics.byPayee(list)
@@ -62,7 +61,6 @@ import androidx.compose.ui.window.Dialog
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("amount") }
     var catSel by remember { mutableStateOf("All") }
-    var open by remember { mutableStateOf<String?>(null) }
     var ptab by remember { mutableStateOf("overview") }
     var limit by remember { mutableStateOf(10) }
     fun nameOf(r: Row) = r.counterparty?.takeIf { it.isNotBlank() } ?: r.category
@@ -117,7 +115,7 @@ import androidx.compose.ui.window.Dialog
             Eyebrow(stringResource(R.string.top_payees))
             top.forEachIndexed { i, p ->
                 val cat = p.cats.firstOrNull() ?: "Unknown"
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name }.padding(vertical = 9.dp),
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) }.padding(vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile(p.name, cat, 34.dp)
                     Spacer(Modifier.width(10.dp))
@@ -171,7 +169,7 @@ import androidx.compose.ui.window.Dialog
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 freq.forEach { p ->
                     Column(Modifier.width(124.dp).clip(RoundedCornerShape(12.dp)).background(ZColor.Card).border(1.dp, ZColor.Line, RoundedCornerShape(12.dp))
-                        .clickable { open = p.name }.padding(12.dp)) {
+                        .clickable { onOpenPayee(p.name) }.padding(12.dp)) {
                         Text(p.count.toString() + "×", color = ZColor.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(niceName(p.name), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         MutedText(money(p.amount), 12)
@@ -228,7 +226,7 @@ import androidx.compose.ui.window.Dialog
                 Spacer(Modifier.height(if (i == 0) 10.dp else 14.dp))
                 val c0 = p.cats.firstOrNull() ?: "Unknown"
                 val pct = if (total > 0) Math.round(p.amount / total * 100).toInt() else 0
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name }) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         MerchantTile(p.name, c0, 36.dp)
                         Spacer(Modifier.width(12.dp))
@@ -266,7 +264,7 @@ import androidx.compose.ui.window.Dialog
             MutedText(stringResource(R.string.first_time_you_ve_paid), 11)
             fresh.forEach { p ->
                 Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = p.name },
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpenPayee(p.name) },
                     verticalAlignment = Alignment.CenterVertically) {
                     MerchantTile(p.name, p.cats.firstOrNull() ?: "Unknown", 30.dp)
                     Spacer(Modifier.width(10.dp))
@@ -297,132 +295,6 @@ import androidx.compose.ui.window.Dialog
         }
     }
 
-    // 7. Payee detail.
-    open?.let { name ->
-        val rows = spend.filter { nameOf(it) == name }
-        if (rows.isEmpty()) androidx.compose.runtime.LaunchedEffect(name) { open = null }
-        else PayeeDetailDialog(name, rows, total, onSee = { open = null; onDrill(name, rows) },
-            onRecategorize = onRecategorize, onNewCat = onNewCat,
-            others = payees.map { it.name }.filter { !it.equals(name, ignoreCase = true) }.take(12),
-            onRename = { to -> open = null; onRename(name, to) }, onDismiss = { open = null })
-    }
-}
-
-@Composable internal fun PayeeDetailDialog(
-    name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
-    onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
-    others: List<String>, onRename: (String) -> Unit, onDismiss: () -> Unit,
-) {
-    var renaming by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf(name) }
-    val total = rows.sumOf { it.amount }
-    val n = rows.size
-    val primary = rows.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown"
-    val first = rows.minOf { it.date }; val last = rows.maxOf { it.date }
-    val endM = last.take(7)
-    val months = (5 downTo 0).map { Dates.shiftMonth(endM, -it) }
-    val sums = months.map { m -> rows.filter { it.date.startsWith(m) }.sumOf { it.amount } }
-    val mx = (sums.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
-    val withPayee = rows.firstOrNull { !it.counterparty.isNullOrBlank() }
-    var editing by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)
-            .heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                MerchantTile(name, primary)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(niceName(name), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
-                    MutedText(primary + (if (viewTotal > 0) " · " + Math.round(total / viewTotal * 100) + "% of this view" else ""), 12)
-                }
-                Spacer(Modifier.width(10.dp))
-                Text(money(total), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Fact(stringResource(R.string.payments), n.toString())
-                Fact(stringResource(R.string.average), money(total / n))
-                Fact(stringResource(R.string.last_paid), prettyDate(last))
-            }
-            Spacer(Modifier.height(4.dp))
-            MutedText(stringResource(R.string.first_paid) + prettyDate(first), 12)
-            Spacer(Modifier.height(14.dp))
-            Eyebrow(stringResource(R.string.month_by_month))
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                months.forEachIndexed { i, m ->
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (sums[i] > 0) shortAmt(sums[i]) else "", color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
-                        Spacer(Modifier.height(4.dp))
-                        Box(Modifier.height(52.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                            Box(Modifier.fillMaxWidth().height((52 * (sums[i] / mx)).coerceAtLeast(3.0).dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (sums[i] > 0) catColor(primary) else ZColor.Line))
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(MONTH_ABBR[m.substring(5, 7).toInt() - 1], color = ZColor.Muted, fontSize = 10.sp)
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                    .clickable { onSee() }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                    Text(stringResource(R.string.see_payments), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (withPayee != null) Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                    .clickable { editing = !editing }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                    Text(if (editing) "Cancel" else "Change category", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, ZColor.Line, RoundedCornerShape(20.dp))
-                .clickable { renaming = !renaming }.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                Text(if (renaming) "Cancel" else "Rename or merge", color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
-            if (renaming) {
-                Spacer(Modifier.height(10.dp))
-                MutedText(stringResource(R.string.rename_it_or_type_another), 12)
-                Spacer(Modifier.height(6.dp))
-                OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                if (others.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    MutedText(stringResource(R.string.merge_into), 11)
-                    Spacer(Modifier.height(4.dp))
-                    ChipScroll { others.forEach { o -> Chip(o, false) { newName = o } } }
-                }
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                    .clickable { if (newName.isNotBlank()) onRename(newName) }.padding(horizontal = 20.dp, vertical = 9.dp)) {
-                    Text(stringResource(R.string.save_name), color = ZColor.Paper, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            if (editing && withPayee != null) {
-                fun pick(kind: Kind, cat: String) { onRecategorize(withPayee.counterparty, withPayee.id, kind, cat); onDismiss() }
-                Spacer(Modifier.height(10.dp))
-                MutedText(stringResource(R.string.applies_to_every_payment_to, name), 12)
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    Classifier.CATEGORIES.keys.forEach { c -> CatTab(c, false) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } }
-                    CustomCats.names.forEach { c -> CatTab(c, false) { pick(Kind.EXPENSE, c) } }
-                    KindTab("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }
-                }
-                Spacer(Modifier.height(6.dp))
-                ChipScroll {
-                    KindTab("income", stringResource(R.string.money_in), false) { pick(Kind.INCOME, "Income") }
-                    KindTab("lent", stringResource(R.string.lent), false) { pick(Kind.LENT, "Lent") }
-                    KindTab("borrowed", stringResource(R.string.borrowed), false) { pick(Kind.BORROWED, "Borrowed") }
-                    KindTab("ignore", stringResource(R.string.ignore), false) { pick(Kind.IGNORE, "Ignore") }
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Box(Modifier.align(Alignment.End).clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
-                .clickable { onDismiss() }.padding(horizontal = 22.dp, vertical = 10.dp)) {
-                Text(stringResource(R.string.close), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
 }
 
 // ---------- Investments ----------

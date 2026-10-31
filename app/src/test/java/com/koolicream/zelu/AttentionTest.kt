@@ -28,4 +28,15 @@ class AttentionTest {
         assertEquals(Attention.REFUND, marks["r"])
         assertEquals(null, marks["p"])
     }
+
+    @Test
+    fun theMonthlyChartCoversEveryMonthIncludingQuietOnes() {
+        fun row(id: String, date: String, amount: Double) =
+            Row(id, date, Math.round(amount * 100), Dir.DEBIT, "DMart", null, "", "HDFCBK", "HDFC 9065", Kind.EXPENSE, "Groceries", 0L)
+        val rows = listOf(row("a", "2026-04-13", 5600.0), row("b", "2026-06-12", 4300.0), row("c", "2026-10-04", 7908.0), row("d", "2026-10-20", 92.0))
+        val months = Analytics.monthsUpTo("2026-10", 7)
+        assertEquals(listOf("2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"), months)
+        // June is there, May and July to September are zero, October adds its two payments.
+        assertEquals(listOf(5600.0, 0.0, 4300.0, 0.0, 0.0, 0.0, 8000.0), Analytics.monthlyTotals(rows, months))
+    }
 }
