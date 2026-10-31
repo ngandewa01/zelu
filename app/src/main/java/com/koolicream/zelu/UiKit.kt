@@ -280,8 +280,8 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 }
 
 @Composable internal fun BottomNav(view: Tab, modifier: Modifier, onPick: (Tab) -> Unit) {
-    // Each tab has its own colour on a round tile, like every other icon in the app; the chosen one gets a wash
-    // of its colour and a bold name.
+    // The tabs follow the theme: the chosen one takes the theme colour (wash, ring and icon) and a bold name;
+    // the others stay quiet in the muted ink, so switching theme recolours the whole bar.
     data class NavItem(val key: Tab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val light: Long, val dark: Long)
     val items = listOf(
         NavItem(Tab.LEDGER, "Home", Icons.Rounded.Home, 0xFFFF6B1A, 0xFFFF8A3D), NavItem(Tab.SPEND, "Spend", Icons.Rounded.PieChart, 0xFF8B5CF6, 0xFFA78BFA),
@@ -295,7 +295,7 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
     ) {
         items.forEach { t ->
             val on = view == t.key
-            val tint = Color(if (ZTheme.dark) t.dark else t.light)
+            val tint = if (on) ZColor.Accent else ZColor.Muted
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onPick(t.key) }.testTag("nav-" + t.key.key).padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
