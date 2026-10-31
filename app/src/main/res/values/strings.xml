@@ -563,4 +563,6 @@
     <string name="income_label">Income</string>
     <string name="counted_again">Counted again</string>
     <string name="not_counted_now">Not counted · its type stays as it was</string>
+    <string name="legend_usual">Usual ₹%1$s</string>
+    <string name="legend_budget">Budget ₹%1$s</string>
 </resources>

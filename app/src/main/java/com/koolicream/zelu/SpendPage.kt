@@ -53,9 +53,12 @@ import androidx.compose.ui.unit.sp
         if (usual > 0) MutedText(stringResource(R.string.usual_month_is, money(usual)), 13)
         Spacer(Modifier.height(10.dp))
         MonthChart(months, values, ZColor.Accent, sel, { onPickMonth(months[it]) }, budget, fit = true)
-        // What each line on the strip is: the usual month (dotted) and your budget (dashed).
-        if (usual > 0) MutedText(stringResource(R.string.usual_line_legend), 11)
-        if (budget > 0) MutedText(stringResource(R.string.budget_line_legend, money(budget)), 11)
+        // A small legend in one line: each line's look, its name and its amount.
+        if (usual > 0 || budget > 0) Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (usual > 0) LegendLine(floatArrayOf(3f, 5f), ZColor.Accent, stringResource(R.string.legend_usual, shortAmt(usual)))
+            if (budget > 0) LegendLine(floatArrayOf(10f, 6f), ZColor.Muted, stringResource(R.string.legend_budget, shortAmt(budget)))
+        }
     }
 }
 
@@ -153,4 +156,15 @@ internal class Pattern(val title: String, val short: String, val head: String, v
             stringResource(R.string.small_card_sub, money(PatternMath.SMALL_LIMIT), money(small.rupees())), dayShort, byDay, t) { i -> PatternMath.forWeekday(small, i) })
     }
     return out
+}
+
+@Composable private fun LegendLine(dash: FloatArray, color: androidx.compose.ui.graphics.Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.Canvas(Modifier.width(22.dp).height(8.dp)) {
+            drawLine(color, androidx.compose.ui.geometry.Offset(0f, size.height / 2), androidx.compose.ui.geometry.Offset(size.width, size.height / 2),
+                strokeWidth = 1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(dash))
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = ZColor.Muted, fontSize = 11.sp, maxLines = 1)
+    }
 }
