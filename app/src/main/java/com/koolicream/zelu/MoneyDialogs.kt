@@ -283,9 +283,43 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                     } else splitChoice = r
                 }) else null,
                 onDelete = { detailRow = null; deletePayment(r) },
+                onLink = { what -> detailRow = null; linkFor = r to what },
                 onRemoveSplit = if (r.id.contains('#')) ({ detailRow = null; removeSplit(r) }) else null,
                 onDismiss = { detailRow = null },
             )
+        }
+        linkFor?.let { (t, what) ->
+            // Candidates nearest first: a refund comes after its purchase (within two months), a purchase before its
+            // refund; a duplicate is the same amount the same way within three days.
+            val cands = remember(rows, t.id, what) {
+                fun days(a: String, b: String) = kotlin.math.abs(Dates.daysBetween(a, b))
+                when (what) {
+                    "refund" -> rows.filter { it.direction == Dir.CREDIT && it.date >= t.date && Dates.daysBetween(t.date, it.date) <= 60 && it.kind != Kind.IGNORE }
+                    "purchase" -> rows.filter { it.direction == Dir.DEBIT && it.kind == Kind.EXPENSE && it.date <= t.date && Dates.daysBetween(it.date, t.date) <= 60 }
+                    else -> rows.filter { it.id != t.id && it.direction == t.direction && it.paise == t.paise && days(it.date, t.date) <= 3 && it.kind != Kind.IGNORE }
+                }.sortedWith(compareBy<Row> { if (it.counterparty != null && it.counterparty == t.counterparty) 0 else 1 }
+                    .thenBy { kotlin.math.abs(it.paise - t.paise) }.thenBy { days(it.date, t.date) }).take(25)
+            }
+            Dialog(onDismissRequest = { linkFor = null }) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(18.dp).heightIn(max = 620.dp)
+                    .verticalScroll(rememberScrollState())) {
+                    Text(stringResource(when (what) { "refund" -> R.string.link_refund; "purchase" -> R.string.link_purchase; else -> R.string.link_duplicate }),
+                        color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    MutedText(niceName(t.counterparty ?: t.category) + " · " + money(t.amount) + " · " + prettyDate(t.date), 12)
+                    Spacer(Modifier.height(8.dp))
+                    if (cands.isEmpty()) MutedText(stringResource(R.string.link_none), 13)
+                    cands.forEach { c ->
+                        TxnRow(c, false) { picked ->
+                            when (what) {
+                                "refund" -> linkRefund(picked, t)
+                                "purchase" -> linkRefund(t, picked)
+                                else -> linkDuplicate(t, picked)
+                            }
+                            linkFor = null
+                        }
+                    }
+                }
+            }
         }
         newCatCallback?.let { cb ->
             NewCategoryDialog(

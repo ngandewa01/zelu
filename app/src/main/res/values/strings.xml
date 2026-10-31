@@ -545,4 +545,10 @@
     <string name="payment_deleted">Payment deleted</string>
     <string name="show_ended">Show ended (%1$d)</string>
     <string name="hide_ended">Hide ended</string>
+    <string name="link_refund">Link a refund</string>
+    <string name="link_purchase">Link to a purchase</string>
+    <string name="link_duplicate">Mark another as its duplicate</string>
+    <string name="link_none">Nothing close enough to link.</string>
+    <string name="refund_linked">Refund linked: it comes off %1$s</string>
+    <string name="duplicate_hidden">Duplicate hidden</string>
 </resources>

@@ -153,6 +153,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var onbSms by mutableStateOf(false)
     var onbNotif by mutableStateOf(false)
     var detailRow by mutableStateOf<Row?>(null)
+    // Linking by hand from a payment's ⋮ menu: the payment, and what to link ("refund", "purchase" or "dup").
+    var linkFor by mutableStateOf<Pair<Row, String>?>(null)
     var drill by mutableStateOf<Pair<String, List<Row>>?>(null)
     var notifBlocked by mutableStateOf(false)
 
@@ -343,6 +345,26 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             refreshRows()
             groupOf = withContext(Dispatchers.IO) { Storage.groupOfSplits(context) }
             undo = context.getString(R.string.split_removed) to snap
+        }
+    }
+
+    /** A refund you matched by hand: it nets against the purchase's category, the way an automatic match does. */
+    fun linkRefund(refund: Row, purchase: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setOverride(context, refund.id, Kind.REFUND, purchase.category) }
+            refreshRows()
+            undo = context.getString(R.string.refund_linked, purchase.category) to snap
+        }
+    }
+
+    /** Two messages for one payment, matched by hand: the other one is hidden as a duplicate. */
+    fun linkDuplicate(keep: Row, drop: Row) {
+        scope.launch {
+            val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
+            withContext(Dispatchers.IO) { Storage.setOverride(context, drop.id, Kind.IGNORE, "Duplicate") }
+            refreshRows()
+            undo = context.getString(R.string.duplicate_hidden) to snap
         }
     }
 
