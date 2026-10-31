@@ -87,7 +87,7 @@ object CatIcons {
         "Shopping" to Icons.Rounded.ShoppingCart, "Fuel" to Icons.Rounded.LocalGasStation,
         "Transport" to Icons.Rounded.DirectionsCar, "Travel" to Icons.Rounded.Flight,
         "Bills" to Icons.Rounded.Receipt, "Entertainment" to Icons.Rounded.Movie,
-        "Health" to Icons.Rounded.Favorite, "Education" to Icons.Rounded.School,
+        "Health" to Icons.Rounded.Favorite, "Fitness" to Icons.Rounded.FitnessCenter, "Education" to Icons.Rounded.School,
         "Rent" to Icons.Rounded.Home, "EMI" to Icons.Rounded.RealEstateAgent,
         "Investment" to Icons.AutoMirrored.Rounded.ShowChart, "Subscriptions" to Icons.Rounded.Autorenew,
         "Personal care" to Icons.Rounded.ContentCut, "ATM / Cash" to Icons.Rounded.LocalAtm,

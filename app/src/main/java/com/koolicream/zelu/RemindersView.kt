@@ -81,7 +81,7 @@ import java.util.Calendar
 
     Spacer(Modifier.height(12.dp))
     TabRowWrap {
-        IconTab(Icons.Rounded.Schedule, stringResource(R.string.upcoming), 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(1f)) { duesTab = 0 }
+        IconTab(Icons.Rounded.Schedule, stringResource(R.string.upcoming_tab), 0xFFEAB308, 0xFFFACC15, duesTab == 0, pending.size, modifier = Modifier.weight(1f)) { duesTab = 0 }
         IconTab(Icons.Rounded.TaskAlt, stringResource(R.string.paid_2), 0xFF22B455, 0xFF3DD171, duesTab == 1, modifier = Modifier.weight(1f)) { duesTab = 1 }
         if (mandates.isNotEmpty()) IconTab(Icons.Rounded.Autorenew, stringResource(R.string.autopay), 0xFFC026D3, 0xFFE879F9, duesTab == 2, modifier = Modifier.weight(1f)) { duesTab = 2 }
     }

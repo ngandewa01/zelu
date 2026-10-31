@@ -643,8 +643,11 @@ import androidx.compose.ui.window.Dialog
                         Kind.TRANSFER -> R.string.transfer; Kind.LENT -> R.string.lent; Kind.BORROWED -> R.string.borrowed
                         Kind.IGNORE -> R.string.ignore; Kind.INVEST -> R.string.investment_label
                     }
-                    Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Tile).padding(horizontal = 10.dp, vertical = 4.dp)) {
-                        Text(stringResource(kindWord), color = ZColor.Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Tile).clickable { editing = !editing }
+                        .padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(kindWord), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(5.dp))
+                        Text(if (editing) "▴" else "▾", color = ZColor.Muted, fontSize = 10.sp, modifier = Unspoken)
                     }
                 }
                 // A refund that may belong to a purchase: the purchase, and a yes or a no.
