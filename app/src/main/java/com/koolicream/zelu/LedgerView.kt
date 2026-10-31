@@ -126,7 +126,9 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
     when (t.kind) {
         Kind.TRANSFER -> Text(stringResource(R.string.transfer), color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Kind.INVEST -> Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        Kind.IGNORE -> Text("—", color = ZColor.Muted, fontSize = 14.sp)
+        // Switched off on its page: the amount, struck through. Other ignored rows (duplicates and such) show a dash.
+        Kind.IGNORE -> if (t.id in Analytics.notCounted) Text(money(t.amount), color = ZColor.Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else Text("—", color = ZColor.Muted, fontSize = 14.sp)
         Kind.INCOME, Kind.REFUND, Kind.BORROWED ->
             Text("+" + money(t.amount), color = ZColor.Income, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         else -> Text("−" + money(t.amount),

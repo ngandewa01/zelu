@@ -159,7 +159,8 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     onRename: (String) -> Unit,
 ) {
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
-    val values = remember(history) { Analytics.monthlyTotals(history, months) }
+    // The chart counts what counts: a payment switched off is in the list below but not in the bars.
+    val values = remember(history) { Analytics.monthlyTotals(history.filter { it.kind != Kind.IGNORE }, months) }
     var sel by remember(name) { mutableStateOf(openMonth(values)) }
     val primary = remember(history) { history.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown" }
     val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
@@ -252,7 +253,8 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     onBack: () -> Unit, onRowClick: (Row) -> Unit,
 ) {
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
-    val values = remember(history) { Analytics.monthlyTotals(history, months) }
+    // The chart counts what counts: a payment switched off is in the list below but not in the bars.
+    val values = remember(history) { Analytics.monthlyTotals(history.filter { it.kind != Kind.IGNORE }, months) }
     var sel by remember(category) { mutableStateOf(openMonth(values)) }
     val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {

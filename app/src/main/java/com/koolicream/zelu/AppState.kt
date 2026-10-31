@@ -193,6 +193,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     suspend fun refreshRows() {
         val (r, refunds) = withContext(Dispatchers.IO) { Storage.loadRowsAndRefunds(context) }
         refundSuggestions = refunds
+        Analytics.notCounted = withContext(Dispatchers.IO) { Storage.notCounted(context) }
         rows = r
         SplitMarks.update(r)
     }
@@ -236,6 +237,7 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             refundSuggestions = l.rows.second
             rows = l.rows.first
             SplitMarks.update(rows)
+            scope.launch { Analytics.notCounted = withContext(Dispatchers.IO) { Storage.notCounted(context) }; rows = rows.toList() }
         }
     }
 
