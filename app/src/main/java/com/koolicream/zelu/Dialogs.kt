@@ -636,12 +636,27 @@ import androidx.compose.ui.window.Dialog
                         Kind.TRANSFER -> R.string.transfer; Kind.LENT -> R.string.lent; Kind.BORROWED -> R.string.borrowed
                         Kind.IGNORE -> R.string.ignore; Kind.INVEST -> R.string.investment_label
                     }
-                    Row(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Tile).clickable { editing = !editing }
-                        .padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(kindWord), color = ZColor.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(5.dp))
-                        Text(if (editing) "▴" else "▾", color = ZColor.Muted, fontSize = 10.sp, modifier = Unspoken)
-                    }
+                    // One switch for what matters here: money out is Spending or not, money in is Income or not. Off shows what it counts
+                    // as instead (Transfer, Lent...) and the category button changes that. Turning it on sorts it again.
+                    val isOut = t.direction == Dir.DEBIT
+                    val on = if (isOut) (t.kind == Kind.EXPENSE || t.kind == Kind.INVEST) else t.kind == Kind.INCOME
+                    val onWord = stringResource(if (isOut) R.string.spending else R.string.money_in)
+                    val transferWord = stringResource(R.string.transfer)
+                    Text(if (on) onWord else stringResource(kindWord),
+                        color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Spacer(Modifier.width(10.dp))
+                    androidx.compose.material3.Switch(
+                        checked = on,
+                        onCheckedChange = { next ->
+                            val kind = if (next) (if (isOut) Kind.EXPENSE else Kind.INCOME) else Kind.TRANSFER
+                            val cat = if (next) (if (isOut) "Unknown" else "Income") else "Transfer"
+                            onReclassify(kind, cat)
+                            saved = if (next) "Counted as $onWord" else "Moved to $transferWord"
+                        },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                            checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,
+                            uncheckedTrackColor = ZColor.Tile, uncheckedThumbColor = ZColor.Muted, uncheckedBorderColor = ZColor.Line),
+                    )
                 }
                 // A refund that may belong to a purchase: the purchase, and a yes or a no.
                 if (refundOf != null) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(12.dp)) {
