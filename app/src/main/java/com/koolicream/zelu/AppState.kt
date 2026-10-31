@@ -488,12 +488,19 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
             withContext(Dispatchers.IO) {
                 Storage.setOverride(context, id, kind, category)
                 if (remember && !payee.isNullOrBlank()) Storage.setPayeeRule(context, payee, kind, category)
+                // No payee name: remember it for messages of the same shape (same bank, same words, same place).
+                if (remember && payee.isNullOrBlank()) shapeOf(id)?.let { Storage.setShapeRule(context, it, kind, category) }
             }
             refreshRows()
             askOpen = false
-            undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category" else "Moved to $category") to snap
+            undo = (if (remember && !payee.isNullOrBlank()) "Moved $payee to $category"
+                else if (remember && shapeOf(id) != null) "Moved to $category, and similar messages too" else "Moved to $category") to snap
         }
     }
+
+    /** The message shape of a payment that has no payee name of its own, or null. */
+    private fun shapeOf(id: String): String? = rows.firstOrNull { it.id == id }
+        ?.takeIf { it.counterparty.isNullOrBlank() }?.let { MessageShape.key(it.raw, it.source) }
 
     fun renamePayee(from: String, to: String) {
         scope.launch {
@@ -507,7 +514,11 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     fun retitle(id: String, title: String) {
         scope.launch {
             val snap = withContext(Dispatchers.IO) { Storage.snapshot(context) }
-            withContext(Dispatchers.IO) { Storage.setTitle(context, id, title) }
+            withContext(Dispatchers.IO) {
+                Storage.setTitle(context, id, title)
+                // A title for a payment with no payee name also names the others of the same message shape.
+                shapeOf(id)?.let { Storage.setTitle(context, it, title) }
+            }
             refreshRows()
             undo = "Title changed" to snap
         }
