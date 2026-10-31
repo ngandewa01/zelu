@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 
 // Two doors at the top of Analytics: month by month, and day by day.
 @Composable internal fun AnalyticsEntries(onTrends: () -> Unit, onCalendar: (() -> Unit)?, calOpen: Boolean) {
+    Spacer(Modifier.height(12.dp))
     @Composable fun androidx.compose.foundation.layout.RowScope.Entry(icon: ImageVector, tint: Color, title: String, sub: String, on: Boolean, go: () -> Unit) {
         Row(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(if (on) tint.copy(alpha = 0.16f) else ZColor.Card)
             .clickable { go() }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -53,7 +54,7 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun TimeOfDayPanel(rows: List<Row>) {
+@Composable internal fun TimeOfDayPanel(rows: List<Row>, onOpen: (String, List<Row>) -> Unit) {
     val v = PatternMath.timeOfDay(rows)
     val mx = v.maxOrNull() ?: 0.0
     if (mx <= 0.0) return
@@ -63,12 +64,12 @@ import androidx.compose.ui.unit.sp
     Panel {
         Eyebrow(stringResource(R.string.time_of_day))
         Spacer(Modifier.height(4.dp))
-        Text(stringResource(R.string.busiest_time, names[top].lowercase()), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.busiest_time, names[top]), color = ZColor.Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         MutedText(money(v[top]) + " " + spans[top], 12)
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
             v.forEachIndexed { i, x ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { onOpen(names[i], PatternMath.forPartOfDay(rows, i)) }, horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(shortAmt(x), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
                     Spacer(Modifier.height(4.dp))
                     Box(Modifier.height(64.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
@@ -104,7 +105,7 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun MonthThirdsPanel(rows: List<Row>) {
+@Composable internal fun MonthThirdsPanel(rows: List<Row>, onOpen: (String, List<Row>) -> Unit) {
     val v = PatternMath.thirds(rows)
     val total = v.sum()
     if (total <= 0.0) return
@@ -118,12 +119,12 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth().height(16.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             v.forEachIndexed { i, x -> if (x > 0) Box(Modifier.weight((x / total).toFloat().coerceAtLeast(0.02f)).height(16.dp).clip(RoundedCornerShape(8.dp))
-                .background(if (i == top) ZColor.Accent else ZColor.Line)) }
+                .background(if (i == top) ZColor.Accent else ZColor.Line).clickable { onOpen(spans[i], PatternMath.forThird(rows, i)) }) }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             v.forEachIndexed { i, x ->
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { onOpen(spans[i], PatternMath.forThird(rows, i)) }.padding(vertical = 2.dp)) {
                     MutedText(spans[i], 11)
                     Text(money(x), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }

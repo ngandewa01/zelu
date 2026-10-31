@@ -188,7 +188,7 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable internal fun WeekdayPanel(list: List<Row>, from: String, to: String, note: String? = null) {
+@Composable internal fun WeekdayPanel(list: List<Row>, from: String, to: String, note: String? = null, onOpen: (String, List<Row>) -> Unit = { _, _ -> }) {
     if (to < from) return
     var days = 0; var d = from
     while (d <= to && days < 400) { days++; d = Dates.shiftDays(d, 1) }
@@ -208,7 +208,8 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
             avg.forEachIndexed { i, v ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { onOpen(names[i], PatternMath.forWeekday(list.filter { it.date >= from && it.date <= to }, i)) },
+                    horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(shortAmt(v), color = ZColor.Muted, fontSize = 10.sp, maxLines = 1)
                     Spacer(Modifier.height(4.dp))
                     Box(Modifier.height(64.dp).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {

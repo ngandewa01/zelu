@@ -646,10 +646,10 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 val ds = shown.filter { it.kind == Kind.EXPENSE }.map { it.date }
                                 wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                             }
-                            WeekdayPanel(flexShown, wFrom, wTo, fixedNote)
-                            TimeOfDayPanel(flexShown)
+                            WeekdayPanel(flexShown, wFrom, wTo, fixedNote) { title, rs -> drill = title to rs }
+                            TimeOfDayPanel(flexShown) { title, rs -> drill = title to rs }
                             BiggestPanel(flexShown) { detailRow = it }
-                            MonthThirdsPanel(flexShown)
+                            MonthThirdsPanel(flexShown) { title, rs -> drill = title to rs }
                             SmallSpendsPanel(flexShown)
                         }
                         if (isMonth && daySel > 0) DailyCalendarBlock(rows, shown, f, month, account, daySel,

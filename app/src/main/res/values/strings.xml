@@ -450,9 +450,9 @@
     <string name="pick_money_in">Money in</string>
     <string name="pick_not_spending">Not spending</string>
     <string name="trends_title">Trends</string>
-    <string name="trends_sub">Month by month</string>
+    <string name="trends_sub">By month</string>
     <string name="calendar_title">Calendar</string>
-    <string name="calendar_sub">Day by day</string>
+    <string name="calendar_sub">By day</string>
     <string name="time_of_day">Time of day</string>
     <string name="busiest_time">%1$s are your busiest time</string>
     <string name="tod_morning">Mornings</string>
