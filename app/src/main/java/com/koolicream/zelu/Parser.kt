@@ -383,7 +383,7 @@ object Parser {
     private val DATE = Regex("""\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})\b""")
     private val DATE_ISO = Regex("""\b(20\d{2})-(\d{1,2})-(\d{1,2})\b""")
     private val CP = Regex(
-        """\b(?:to|from|by|at)\s+(?:VPA\s+)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s*\(|\s+(?:on|upi|ref|refno|via|of|rs|inr)\b|[.,;]|$)""",
+        """\b(?:to|from|by|at)\s+(?:VPA\s+)?(?:M/S\.?\s*)?([\w.\-]+@[\w.\-]+|[A-Za-z][A-Za-z0-9 .&'\-]{1,40}?)(?=\s*\(|\s+(?:on|upi|ref|refno|via|of|rs|inr)\b|[.,;]|$)""",
         RegexOption.IGNORE_CASE,
     )
     // Fallback merchant: NAME right after the amount, e.g. "INR2100.76 TOIT BREWPUB."
@@ -511,7 +511,9 @@ object Parser {
         """\b(?:atm\s*wdl|cash\s*(?:wdl|withdrawal|withdrawn)|aeps\b[^.]{0,30}withdraw|(?:withdrawn|withdrawal)\b[^.]{0,90}\b(?:atm|micro\s*atm)\b|""" +
             """\b(?:atm|micro\s*atm)\b[^.]{0,90}\b(?:withdrawn|withdrawal|debit transaction)|""" +
             // "Withdrawn Rs.10000 From HDFC Bank Card x1208 At +HAFEEZPET": money withdrawn on a card is cash, even with no "ATM".
-            """\bwithdrawn\s+(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d+)?\s+from\b[^.]{0,60}\bcard\b)""",
+            """\bwithdrawn\s+(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d+)?\s+from\b[^.]{0,60}\bcard\b|""" +
+            // "Rs.20000 withdrawn from HDFC Bank Card x1208 at +KPHB-6": the same with the amount first.
+            """(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d+)?\s+withdrawn\s+from\b[^.]{0,60}\bcard\b)""",
         RegexOption.IGNORE_CASE,
     )
     private val STRONG_DONE = Regex("""\b(spent|debited|withdrawn|paid|sent|transferred|deducted)\b|\b(?:dr|cr)\.?\s*(?:with|by)?\s*(?:rs|inr|₹)""", RegexOption.IGNORE_CASE)
@@ -969,6 +971,8 @@ object Parser {
 
     private fun cleanCp(raw: String?): String? {
         val s = (raw?.trim()?.trim('.', ',', ';', ':')?.trim() ?: return null).replace(SALUTATION, "").replace(CP_LEAD, "").trim()
+            // "To The Belgian Waffle Co": a capitalised "The" starts a shop's name; keep the name, drop the article.
+            .replace(Regex("""^The\s+(?=[A-Z])"""), "").trim()
         if (s.length < 2) return null
         if (s.startsWith("through ", ignoreCase = true)) return null     // "through By Transfer", "through BULK POSTING": how, not who
         if (s.lowercase() in NOT_A_PAYEE || UPI_REF_ONLY.matches(s)) return null
