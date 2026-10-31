@@ -523,6 +523,7 @@ import androidx.compose.ui.window.Dialog
     visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
     onLink: ((String) -> Unit)? = null, splitParts: List<Row> = emptyList(),
+    onCount: (Kind, String) -> Unit = { _, _ -> },
     onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
@@ -575,7 +576,10 @@ import androidx.compose.ui.window.Dialog
                     MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) " · $it" else "" }), 13)
                     Spacer(Modifier.height(8.dp))
                     // A split with people shows the whole payment; your share is in the split card below.
-                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount),
+                        color = if (t.kind == Kind.IGNORE) ZColor.Muted else if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold,
+                        // Not counted: the amount is struck through.
+                        textDecoration = if (t.kind == Kind.IGNORE) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
                     saved?.let { Spacer(Modifier.height(4.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
                     if (retitling) {
                         Spacer(Modifier.height(8.dp))
@@ -597,7 +601,7 @@ import androidx.compose.ui.window.Dialog
                     }
                     Spacer(Modifier.height(14.dp))
                     // The category is one button (red when nothing sorted it), and how often this payee was paid is another.
-                    val catLabel = if (t.kind == Kind.EXPENSE && t.category in CustomCats.names) customLabel(t.category) else subtitleFor(t)
+                    val catLabel = if ((t.kind == Kind.EXPENSE || t.kind == Kind.IGNORE) && t.category in CustomCats.names) customLabel(t.category) else if (t.kind == Kind.IGNORE) t.category else subtitleFor(t)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.clip(RoundedCornerShape(26.dp)).background(ZColor.Tile).clickable { editing = !editing }
                             .padding(start = if (unsorted) 6.dp else 16.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -664,20 +668,22 @@ import androidx.compose.ui.window.Dialog
                     }
                     // One switch for what matters here: money out is Spending or not, money in is Income or not. Off leaves the payment out of
                     // every total (Ignore); the category button picks Transfer, Lent and the rest. Turning it on sorts it again.
+                    // One switch, one fixed label: Spending (money out) or Income (money in). Off leaves the payment out of every
+                    // total and keeps its category; on puts it back as what its category says it is.
                     val isOut = t.direction == Dir.DEBIT
-                    val on = if (isOut) (t.kind == Kind.EXPENSE || t.kind == Kind.INVEST) else t.kind == Kind.INCOME
-                    val onWord = stringResource(if (isOut) R.string.spending else R.string.money_in)
-                    val offWord = stringResource(R.string.ignore)
-                    Text(if (on) onWord else stringResource(kindWord),
-                        color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    val on = t.kind != Kind.IGNORE
+                    Text(stringResource(if (isOut) R.string.spending else R.string.income_label), color = ZColor.Ink, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Spacer(Modifier.width(10.dp))
                     androidx.compose.material3.Switch(
                         checked = on,
                         onCheckedChange = { next ->
-                            val kind = if (next) (if (isOut) Kind.EXPENSE else Kind.INCOME) else Kind.IGNORE
-                            val cat = if (next) (if (isOut) "Unknown" else "Income") else "Ignore"
-                            onReclassify(kind, cat)
-                            saved = if (next) "Counted as $onWord" else "Left out: not counted anywhere ($offWord)"
+                            val kind = if (!next) Kind.IGNORE else when (t.category) {
+                                "Transfer" -> Kind.TRANSFER; "Lent" -> Kind.LENT; "Borrowed" -> Kind.BORROWED
+                                "Refund" -> Kind.REFUND; "Investment" -> Kind.INVEST
+                                else -> if (isOut) Kind.EXPENSE else Kind.INCOME
+                            }
+                            onCount(kind, t.category)
                         },
                         colors = androidx.compose.material3.SwitchDefaults.colors(
                             checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,

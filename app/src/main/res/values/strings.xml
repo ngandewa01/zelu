@@ -560,4 +560,5 @@
     <string name="show_earlier_months">Show earlier months (%1$d) ▾</string>
     <string name="show_settled">Show settled (%1$d) ▾</string>
     <string name="hide_settled">Hide settled ▴</string>
+    <string name="income_label">Income</string>
 </resources>
