@@ -75,10 +75,6 @@ import androidx.compose.ui.unit.sp
             FitText(label, ZColor.Ink, 13f, FontWeight.SemiBold, Modifier.weight(1f, fill = false))
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (onTrends != null) ToolButton(Icons.Rounded.BarChart, "Trends", 0xFF06B6D4, 0xFF22D3EE, false) { onTrends() }
-        if (onCalendar != null) ToolButton(Icons.Rounded.CalendarMonth, "Calendar", 0xFFFF6B1A, 0xFFFF8A3D, calActive) { onCalendar() }
-    }
     if (dayLabel != null) {
         Spacer(Modifier.height(10.dp))
         Row(

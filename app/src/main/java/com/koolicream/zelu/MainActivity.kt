@@ -630,7 +630,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                             showSummary = spendTab == 0,
                             showCategories = spendTab == 1,
                             slot = {
-                                if (isMonth && calOpen) DailyCalendarBlock(rows, shown, f, month, account, daySel,
+                                if (spendTab == 2) AnalyticsEntries({ open(Page.Trends) }, if (isMonth) ({ calOpen = !calOpen }) else null, calOpen)
+                                if (isMonth && calOpen && spendTab == 2) DailyCalendarBlock(rows, shown, f, month, account, daySel,
                                     { daySel = if (daySel == it) 0 else it }, { detailRow = it }, showList = false)
                             },
                             prevLabel = Dates.monthLong(Dates.shiftMonth(month, -1)).let { prev ->
@@ -646,6 +647,10 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                                 wFrom = ds.minOrNull() ?: Dates.today(); wTo = (ds.maxOrNull() ?: Dates.today()).coerceAtMost(Dates.today())
                             }
                             WeekdayPanel(flexShown, wFrom, wTo, fixedNote)
+                            TimeOfDayPanel(flexShown)
+                            BiggestPanel(flexShown) { detailRow = it }
+                            MonthThirdsPanel(flexShown)
+                            SmallSpendsPanel(flexShown)
                             val recurring = remember(rows) { Analytics.recurring(rows, Dates.todayMonth()) }
                             RecurringPanel(recurring)
                         }
