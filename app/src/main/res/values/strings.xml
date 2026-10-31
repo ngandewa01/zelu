@@ -444,4 +444,9 @@
     <string name="one_visit">1 visit</string>
     <string name="average_a_month">Average %1$s a month</string>
     <string name="chart_budget">Budget</string>
+    <string name="pick_search">Search</string>
+    <string name="pick_nothing">Nothing found</string>
+    <string name="pick_spending">Spending</string>
+    <string name="pick_money_in">Money in</string>
+    <string name="pick_not_spending">Not spending</string>
 </resources>

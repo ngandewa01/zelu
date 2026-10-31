@@ -53,6 +53,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -682,29 +683,49 @@ internal class Pick(val icon: androidx.compose.ui.graphics.vector.ImageVector, v
     return Pick(icon ?: Icons.AutoMirrored.Rounded.Label, if (icon == null) customLabel(cat) else cat, catColor(cat), selected, onClick)
 }
 
-@Composable internal fun PickGrid(items: List<Pick>) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(3).forEach { rowItems ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowItems.forEach { p ->
-                    Column(
-                        Modifier.weight(1f).heightIn(min = 76.dp).clip(RoundedCornerShape(16.dp))
-                            .background(if (p.selected) p.tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.14f) else ZColor.Card)
-                            .border(if (p.selected) 1.5.dp else 1.dp, if (p.selected) p.tint else ZColor.Line, RoundedCornerShape(16.dp))
-                            .clickable { p.onClick() }.padding(horizontal = 4.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                    ) {
-                        Box(Modifier.size(34.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
-                            androidx.compose.material3.Icon(p.icon, null, tint = p.tint, modifier = Modifier.size(19.dp))
+// One short list instead of many tabs: a search box, then rows of icon and name under small headings. It shows about five
+// rows and scrolls; the chosen one carries a tick.
+@Composable internal fun PickList(sections: List<Pair<String, List<Pick>>>) {
+    var q by remember { mutableStateOf("") }
+    val f = q.trim().lowercase()
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(ZColor.Tile).border(1.dp, ZColor.Line, RoundedCornerShape(18.dp))) {
+        androidx.compose.foundation.text.BasicTextField(
+            value = q, onValueChange = { q = it }, singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = ZColor.Ink, fontSize = 15.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(ZColor.Accent),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            decorationBox = { inner ->
+                if (q.isEmpty()) Text(stringResource(R.string.pick_search), color = ZColor.Muted, fontSize = 15.sp)
+                inner()
+            },
+        )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(ZColor.Line))
+        Column(Modifier.fillMaxWidth().heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+            var any = false
+            sections.forEach { (title, items) ->
+                val shown = items.filter { f.isEmpty() || it.label.lowercase().contains(f) }
+                if (shown.isNotEmpty()) {
+                    any = true
+                    Text(title.uppercase(), color = ZColor.Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 4.dp))
+                    shown.forEach { p ->
+                        Row(
+                            Modifier.fillMaxWidth().background(if (p.selected) p.tint.copy(alpha = if (ZTheme.dark) 0.22f else 0.13f) else Color.Transparent)
+                                .clickable { p.onClick() }.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(30.dp).clip(CircleShape).background(ZColor.Card), contentAlignment = Alignment.Center) {
+                                androidx.compose.material3.Icon(p.icon, null, tint = p.tint, modifier = Modifier.size(17.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(p.label, color = ZColor.Ink, fontSize = 15.sp, fontWeight = if (p.selected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (p.selected) Text("✓", color = p.tint, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                         }
-                        Spacer(Modifier.height(5.dp))
-                        Text(p.label, color = if (p.selected) ZColor.Ink else ZColor.Muted, fontSize = 12.sp,
-                            fontWeight = if (p.selected) FontWeight.Bold else FontWeight.Medium, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            lineHeight = 14.sp)
                     }
                 }
-                repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
             }
+            if (!any) Text(stringResource(R.string.pick_nothing), color = ZColor.Muted, fontSize = 14.sp, modifier = Modifier.padding(14.dp))
         }
     }
 }

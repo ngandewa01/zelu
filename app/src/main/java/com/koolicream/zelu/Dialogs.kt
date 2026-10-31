@@ -605,26 +605,21 @@ import androidx.compose.ui.window.Dialog
                             Spacer(Modifier.height(12.dp))
                             MutedText("Remembered for ${t.counterparty?.let { niceName(it) } ?: "this payee"}:", 12)
                             Spacer(Modifier.height(6.dp))
-                            PickGrid(
-                                Classifier.CATEGORIES.keys.map { c -> catPick(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } } +
-                                    CustomCats.names.map { c -> catPick(c, t.category == c) { pick(Kind.EXPENSE, c) } } +
-                                    kindPick("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } },
-                            )
-                            if (t.direction == Dir.CREDIT) {
-                                Spacer(Modifier.height(10.dp))
-                                MutedText(stringResource(R.string.money_in_category), 12)
-                                Spacer(Modifier.height(6.dp))
-                                PickGrid(IncomeCats.all.map { c -> catPick(c, t.category == c) { pick(Kind.INCOME, c) } })
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            PickGrid(buildList {
-                                add(kindPick("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") })
-                                // Money back for something you bought: it nets against that spend once matched.
-                                if (t.direction == Dir.CREDIT) add(kindPick("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") })
-                                add(kindPick("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") })
-                                add(kindPick("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") })
-                                add(kindPick("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") })
-                                add(kindPick("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") })
+                            PickList(buildList {
+                                add(stringResource(R.string.pick_spending) to (
+                                    Classifier.CATEGORIES.keys.map { c -> catPick(c, t.category == c) { pick(if (c == "Investment") Kind.INVEST else Kind.EXPENSE, c) } } +
+                                        CustomCats.names.map { c -> catPick(c, t.category == c) { pick(Kind.EXPENSE, c) } } +
+                                        kindPick("new", stringResource(R.string.new_label), false) { onNewCat { c -> pick(Kind.EXPENSE, c) } }))
+                                if (t.direction == Dir.CREDIT) add(stringResource(R.string.pick_money_in) to IncomeCats.all.map { c -> catPick(c, t.category == c) { pick(Kind.INCOME, c) } })
+                                add(stringResource(R.string.pick_not_spending) to buildList {
+                                    add(kindPick("income", stringResource(R.string.money_in), t.kind == Kind.INCOME && t.category == "Income") { pick(Kind.INCOME, "Income") })
+                                    // Money back for something you bought: it nets against that spend once matched.
+                                    if (t.direction == Dir.CREDIT) add(kindPick("refund", stringResource(R.string.refund), t.kind == Kind.REFUND) { pick(Kind.REFUND, "Refund") })
+                                    add(kindPick("transfer", stringResource(R.string.transfer), t.kind == Kind.TRANSFER) { pick(Kind.TRANSFER, "Transfer") })
+                                    add(kindPick("lent", stringResource(R.string.lent), t.kind == Kind.LENT) { pick(Kind.LENT, "Lent") })
+                                    add(kindPick("borrowed", stringResource(R.string.borrowed), t.kind == Kind.BORROWED) { pick(Kind.BORROWED, "Borrowed") })
+                                    add(kindPick("ignore", stringResource(R.string.ignore), t.kind == Kind.IGNORE) { pick(Kind.IGNORE, "Ignore") })
+                                })
                             })
                         }
                     }
