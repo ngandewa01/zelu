@@ -69,6 +69,9 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     val labelH = 16.dp
     val tagH = 24.dp
     val lineColor = ZColor.Muted
+    // A usual month: the average of the months that have payments, drawn as a thin line through every bar.
+    val paid = values.filter { it > 0 }
+    val avg = if (paid.size > 1) paid.average() else 0.0
     Row(Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         months.forEachIndexed { i, m ->
             val v = values.getOrElse(i) { 0.0 }
@@ -77,6 +80,11 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
                 Modifier.width(38.dp).height(tagH + plot + 4.dp + labelH)
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onSelect(i) }
                     .drawBehind {
+                        if (avg > 0) {
+                            val y = size.height - labelH.toPx() - 4.dp.toPx() - (avg / max).toFloat() * plot.toPx()
+                            drawLine(color.copy(alpha = 0.9f), Offset(-3.dp.toPx(), y), Offset(size.width + 3.dp.toPx(), y), strokeWidth = 1.5.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 5f)))
+                        }
                         if (budget > 0) {
                             val y = size.height - labelH.toPx() - 4.dp.toPx() - (budget / max).toFloat() * plot.toPx()
                             drawLine(lineColor, Offset(-3.dp.toPx(), y), Offset(size.width + 3.dp.toPx(), y), strokeWidth = 1.5.dp.toPx(),
@@ -110,13 +118,16 @@ internal fun monthName(m: String): String = MONTH_ABBR[m.substring(5, 7).toInt()
     val v = values.getOrElse(selected) { 0.0 }
     val paid = values.filter { it > 0 }
     val usual = if (paid.isEmpty()) 0.0 else paid.average()
-    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Text(money(v), color = ZColor.Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         if (usual > 0 && v > 0 && paid.size > 1) {
             val d = Math.round((v - usual) / usual * 100).toInt()
             if (d != 0) Text("  " + (if (d > 0) "▲ " else "▼ ") + kotlin.math.abs(d) + "% " + stringResource(R.string.vs_usual),
                 color = if (d > 0) ZColor.Warn else ZColor.Income, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
         }
+    }
+    if (paid.size > 1) MutedText(stringResource(R.string.average_a_month, money(usual)), 12)
     }
 }
 

@@ -441,4 +441,5 @@
     <string name="backup_ask_sub">A password for your weekly backup. It brings everything back on a new phone. Zelu can\'t recover it, so keep it somewhere safe.</string>
     <string name="save_password">Save password</string>
     <string name="one_visit">1 visit</string>
+    <string name="average_a_month">Average %1$s a month</string>
 </resources>
