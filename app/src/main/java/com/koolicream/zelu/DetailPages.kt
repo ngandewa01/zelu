@@ -161,7 +161,7 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     val values = remember(history) { Analytics.monthlyTotals(history, months) }
     var sel by remember(name) { mutableStateOf(openMonth(values)) }
     val primary = remember(history) { history.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown" }
-    val inMonth = remember(history, sel) { history.filter { it.date.startsWith(months[sel]) }.newestFirst() }
+    val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
     val withPayee = history.firstOrNull { !it.counterparty.isNullOrBlank() }
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -253,7 +253,7 @@ private fun lastMonthOf(rows: List<Row>): String = maxOf(rows.maxOfOrNull { it.d
     val months = remember(history) { Analytics.monthsUpTo(lastMonthOf(history), CHART_MONTHS) }
     val values = remember(history) { Analytics.monthlyTotals(history, months) }
     var sel by remember(category) { mutableStateOf(openMonth(values)) }
-    val inMonth = remember(history, sel) { history.filter { it.date.startsWith(months[sel]) }.newestFirst() }
+    val inMonth = remember(history, sel) { SplitMarks.forDisplay(history.filter { it.date.startsWith(months[sel]) }).newestFirst() }
     Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 46.dp, bottom = 40.dp)) {
             item {

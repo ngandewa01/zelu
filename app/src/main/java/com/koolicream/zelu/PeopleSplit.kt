@@ -51,7 +51,19 @@ import androidx.compose.ui.window.DialogProperties
 /** Which payments are split with people (the rest of the split ones are split into categories), for the mark on each row. */
 object SplitMarks {
     var people by mutableStateOf<Set<String>>(emptySet())
-    fun update(rows: List<Row>) { people = rows.filter { it.kind == Kind.LENT && it.id.contains('#') }.map { it.id.substringBefore('#') }.toSet() }
+    // The whole payment behind each split, so a split with people still shows as one payment of its full amount.
+    var totals by mutableStateOf<Map<String, Long>>(emptyMap())
+    fun update(rows: List<Row>) {
+        people = rows.filter { it.kind == Kind.LENT && it.id.contains('#') }.map { it.id.substringBefore('#') }.toSet()
+        totals = rows.filter { it.id.contains('#') }.groupBy { it.id.substringBefore('#') }.mapValues { (_, rs) -> rs.sumOf { it.paise } }
+    }
+    /** For lists: a split with people is one row (your share's row, shown with the whole amount); the others' shares stay in People. */
+    fun forDisplay(list: List<Row>): List<Row> {
+        val shown = list.filter { it.kind == Kind.EXPENSE && it.id.contains('#') && it.id.substringBefore('#') in people }.map { it.id.substringBefore('#') }.toSet()
+        return if (shown.isEmpty()) list else list.filterNot { it.kind == Kind.LENT && it.id.contains('#') && it.id.substringBefore('#') in shown }
+    }
+    /** The whole amount when [r] is your share of a split with people, else null. */
+    fun wholeOf(r: Row): Long? = if (r.kind == Kind.EXPENSE && r.id.contains('#') && r.id.substringBefore('#') in people) totals[r.id.substringBefore('#')] else null
 }
 
 // Split asks first: share it with people, or divide it into categories (the older split).

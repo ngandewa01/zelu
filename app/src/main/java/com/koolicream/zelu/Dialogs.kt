@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -61,7 +63,7 @@ import androidx.compose.ui.window.Dialog
 @Composable internal fun DrillDialog(title: String, rows: List<Row>, onRowClick: (Row) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(ZColor.Paper)) {
-            val sorted = remember(rows) { rows.newestFirst() }
+            val sorted = remember(rows) { SplitMarks.forDisplay(rows).newestFirst() }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = 18.dp, end = 18.dp, top = 28.dp, bottom = 32.dp)) {
                 item {
@@ -70,7 +72,7 @@ import androidx.compose.ui.window.Dialog
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(title, color = ZColor.Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            MutedText("${rows.size} ${if (rows.size == 1) "entry" else "entries"} · ${money(rows.rupees())}", 12)
+                            MutedText("${sorted.size} ${if (sorted.size == 1) "entry" else "entries"} · ${money(rows.rupees())}", 12)
                         }
                     }
                     Spacer(Modifier.height(10.dp))
@@ -520,7 +522,7 @@ import androidx.compose.ui.window.Dialog
     copyOf: Row? = null, onSameCopy: () -> Unit = {}, onTwoPayments: () -> Unit = {},
     visits: Int = 0, onOpenPayee: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null, onRemoveSplit: (() -> Unit)? = null,
-    onLink: ((String) -> Unit)? = null,
+    onLink: ((String) -> Unit)? = null, splitParts: List<Row> = emptyList(),
     onDismiss: () -> Unit) {
     val titleIdeas = remember(t.id) { Parser.suggestTitles(t.raw, t.counterparty) }
     val moneyIn = t.kind == Kind.INCOME || t.kind == Kind.REFUND || t.kind == Kind.BORROWED
@@ -572,7 +574,8 @@ import androidx.compose.ui.window.Dialog
                     Spacer(Modifier.height(4.dp))
                     MutedText(prettyDate(t.date) + (TxnTime.label(t).let { if (it.isNotEmpty()) " · $it" else "" }), 13)
                     Spacer(Modifier.height(8.dp))
-                    Text((if (moneyIn) "+" else "") + money(t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                    // A split with people shows the whole payment; your share is in the split card below.
+                    Text((if (moneyIn) "+" else "") + money(SplitMarks.wholeOf(t)?.let { it / 100.0 } ?: t.amount), color = if (moneyIn) ZColor.Income else ZColor.Ink, fontSize = 40.sp, fontWeight = FontWeight.Bold)
                     saved?.let { Spacer(Modifier.height(4.dp)); Text("✓ $it", color = ZColor.Income, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
                     if (retitling) {
                         Spacer(Modifier.height(8.dp))
@@ -680,6 +683,30 @@ import androidx.compose.ui.window.Dialog
                             checkedTrackColor = ZColor.Accent, checkedThumbColor = ZColor.Paper,
                             uncheckedTrackColor = ZColor.Tile, uncheckedThumbColor = ZColor.Muted, uncheckedBorderColor = ZColor.Line),
                     )
+                }
+                // The split, on the payment itself: who owes what (or which categories), and a way to take it apart.
+                if (splitParts.size > 1) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    val withPeople = splitParts.any { it.kind == Kind.LENT }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(if (withPeople) androidx.compose.material.icons.Icons.Rounded.Group else androidx.compose.material.icons.Icons.AutoMirrored.Rounded.CallSplit,
+                            null, tint = ZColor.Accent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(if (withPeople) R.string.split_with_people else R.string.split_into_categories), color = ZColor.Ink, fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        if (onRemoveSplit != null) Text(stringResource(R.string.remove_split), color = ZColor.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onRemoveSplit() }.padding(6.dp))
+                    }
+                    splitParts.forEach { p ->
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val who = if (p.kind == Kind.LENT) niceName(p.counterparty ?: "") else if (withPeople) stringResource(R.string.you_label) else p.category
+                            Text(who, color = ZColor.Ink, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (p.kind == Kind.LENT) stringResource(R.string.owes_you) + " " else if (withPeople) p.category + " · " else "",
+                                color = ZColor.Muted, fontSize = 12.sp, maxLines = 1)
+                            Text(money(p.amount), color = if (p.kind == Kind.LENT) ZColor.Income else ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
                 // A refund that may belong to a purchase: the purchase, and a yes or a no.
                 if (refundOf != null) Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(ZColor.Card).padding(12.dp)) {

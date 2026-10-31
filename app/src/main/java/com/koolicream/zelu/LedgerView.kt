@@ -110,12 +110,15 @@ internal fun rowTitle(t: Row): String = t.counterparty?.takeIf { it.isNotBlank()
                         tint = ZColor.Muted, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
                 }
+                val whole = SplitMarks.wholeOf(t)
                 MutedText(prettyDate(t.date) + (if (at.isNotEmpty()) ", $at" else "") + " · " + subtitleFor(t) +
+                    (if (whole != null) " · " + stringResource(R.string.yours_amount, money(t.amount)) else "") +
                     (if (fx != null) " · " + Fx.label(fx) else ""), 12)
             }
         }
         Spacer(Modifier.width(10.dp))
-        AmountText(t, highlight)
+        // Your share of a split with people: the row shows the whole payment, your part is in the line under the name.
+        AmountText(SplitMarks.wholeOf(t)?.let { t.copy(paise = it) } ?: t, highlight)
     }
 }
 
@@ -342,7 +345,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
 
     // Recent — horizontal strip
     Panel {
-        val recent = list.filter { it.kind != Kind.INVEST }.newestFirst()
+        val recent = SplitMarks.forDisplay(list.filter { it.kind != Kind.INVEST }).newestFirst()
         // A payment that wants a look wears a small mark on its card (red: nothing sorted it; amber: a refund or a message
         // twice to check). Tapping the card opens the payment, where it is settled. The cards stay in date and time order.
         val strip = recent.take(10)
@@ -687,7 +690,7 @@ private fun isCardBill(r: Reminder) = r.minAmount != null || r.account.contains(
     }
     if (showList && daySel > 0) {
         val dayStr = "%s-%02d".format(month, daySel)
-        val dayRows = list.filter { it.date == dayStr }.sortedByDescending { it.amount }
+        val dayRows = SplitMarks.forDisplay(list.filter { it.date == dayStr }).sortedByDescending { it.amount }
         val dtot = dayRows.filter { it.kind == Kind.EXPENSE }.rupees()
         Panel {
             Eyebrow(stringResource(R.string.spent, daySel, Dates.monthLong(month), money(dtot)))

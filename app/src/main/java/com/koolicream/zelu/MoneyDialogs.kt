@@ -256,7 +256,10 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
 
         detailRow?.let { opened ->
             // Stays open after a change and shows the payment as saved.
-            val r = rows.firstOrNull { it.id == opened.id } ?: opened
+            // After a split or its removal the payment's id changes (x becomes x#1, or back): find it again so the page stays open.
+            val r = rows.firstOrNull { it.id == opened.id }
+                ?: rows.firstOrNull { it.id.substringBefore('#') == opened.id.substringBefore('#') && it.kind != Kind.LENT } ?: opened
+            val splitParts = if (r.id.contains('#')) rows.filter { it.id.contains('#') && it.id.substringBefore('#') == r.id.substringBefore('#') }.sortedBy { it.id } else emptyList()
             // What this payment may need settled: a purchase its refund may belong to, or the payment it may be a copy of.
             val refundOf = refundSuggestions.firstOrNull { it.first.id == r.id }?.second
             val copyOf = Analytics.possibleDuplicates(rows, dupOk).firstOrNull { it.first.id == r.id || it.second.id == r.id }
@@ -273,18 +276,13 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
                 onNewCat = { cb -> newCatCallback = cb },
                 onRetitle = { title -> retitle(r.id, title) },
                 onSplit = if (r.kind == Kind.EXPENSE || r.id.contains('#')) ({
-                    detailRow = null
-                    if (r.id.contains('#')) {
-                        scope.launch {
-                            withContext(Dispatchers.IO) { Storage.setSplit(context, r.id.substringBefore('#'), null) }
-                            refreshRows()
-                            Toast.makeText(context, context.getString(R.string.split_removed), Toast.LENGTH_SHORT).show()
-                        }
-                    } else splitChoice = r
+                    // The payment page stays open: it shows the split (or the whole payment again) once saved.
+                    if (r.id.contains('#')) removeSplit(r) else splitChoice = r
                 }) else null,
                 onDelete = { detailRow = null; deletePayment(r) },
                 onLink = { what -> detailRow = null; linkFor = r to what },
-                onRemoveSplit = if (r.id.contains('#')) ({ detailRow = null; removeSplit(r) }) else null,
+                onRemoveSplit = if (r.id.contains('#')) ({ removeSplit(r) }) else null,
+                splitParts = splitParts,
                 onDismiss = { detailRow = null },
             )
         }
