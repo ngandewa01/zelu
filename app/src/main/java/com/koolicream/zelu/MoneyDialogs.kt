@@ -266,7 +266,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
             val visits = if (payee == null) 0 else rows.count { it.kind == Kind.EXPENSE && it.counterparty == payee }
             TxnDetailDialog(
                 r,
-                visits = visits, onOpenPayee = if (payee != null && visits >= 1) ({ detailRow = null; open(Page.Payee(payee)) }) else null,
+                visits = visits, onOpenPayee = if (payee != null && visits >= 1) ({ detailRow = null; drill = null; open(Page.Payee(payee)) }) else null,
                 refundOf = refundOf, onRefundAnswer = { yes -> answerRefund(r.id, yes) },
                 copyOf = copyOf, onSameCopy = { hideDuplicate(r, copyOf!!) }, onTwoPayments = { keepBothDuplicates(r, copyOf!!) },
                 onReclassify = { kind, cat -> decide(r.id, kind, cat, r.counterparty, kind != Kind.INCOME && kind != Kind.IGNORE) },
