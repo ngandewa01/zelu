@@ -28,7 +28,6 @@
     <string name="budget">"Budget "</string>
     <string name="a_day">" a day"</string>
     <string name="over">" over"</string>
-    <string name="spent_in">"Spent in "</string>
     <string name="your_budget_looks_too_low">Your budget looks too low</string>
     <string name="keep">Keep</string>
     <string name="same_payment">Same payment</string>
@@ -376,8 +375,6 @@
         <item quantity="other">%1$d payments found. Tap to open</item>
     </plurals>
     <string name="under_budget">✓ Under budget</string>
-    <string name="set_budget">Set budget</string>
-    <string name="set_budget_to">Set budget %1$s</string>
     <string name="mark_unsorted">Not sorted</string>
     <string name="mark_refund">Refund to check</string>
     <string name="mark_duplicate">Possible duplicate</string>
@@ -417,4 +414,13 @@
     <string name="nudge_card_sub">HDFC Credit · ₹14,200</string>
     <string name="nudge_safe">₹1,240 safe to spend today</string>
     <string name="nudge_safe_sub">4 days left this month</string>
+    <string name="spent_label">Spent</string>
+    <string name="budget_amount">Budget %1$s ›</string>
+    <string name="set_monthly_budget">Set monthly budget ›</string>
+    <string name="categorise_action">Categorise ›</string>
+    <string name="budget_action">Budget ›</string>
+    <string name="set_budget_action">Set budget ›</string>
+    <string name="category_budget_title">%1$s budget</string>
+    <string name="per_month">Per month</string>
+    <string name="remove_budget">Remove</string>
 </resources>

@@ -97,6 +97,8 @@ class AppState(app: Application, private val handle: SavedStateHandle) : Android
     var cardPrefs by mutableStateOf<Map<String, Pair<Int, Double>>>(emptyMap())
     var monthlyBudget by mutableStateOf(0.0)
     var budgetDlg by mutableStateOf(false)
+    // The category whose own budget is being set, from its row on the Spend page.
+    var budgetFor by mutableStateOf<String?>(null)
     var lendPerson by saved<String?>("lendPerson", null)
     var borrowPerson by saved<String?>("borrowPerson", null)
     var view by saved("view", Tab.of(context.getSharedPreferences("zelu_ui", android.content.Context.MODE_PRIVATE).getString("start", Tab.LEDGER.key)))

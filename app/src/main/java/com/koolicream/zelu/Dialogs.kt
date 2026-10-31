@@ -78,6 +78,36 @@ import androidx.compose.ui.window.Dialog
     }
 }
 
+// One category's monthly limit, opened from its row on Spend. Leave it empty or press Remove to have none.
+@Composable internal fun CategoryBudgetDialog(category: String, current: Double, onSave: (Double) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(if (current > 0) fmtPlain(current) else "") }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ZColor.Card).padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MerchantTile("", category, 36.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.category_budget_title, category), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(14.dp))
+            OutlinedTextField(
+                value = text, onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
+                singleLine = true, placeholder = { Text(stringResource(R.string.per_month)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (current > 0) Text(stringResource(R.string.remove_budget), color = ZColor.Warn, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onSave(0.0) }.padding(horizontal = 10.dp, vertical = 8.dp))
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.clip(RoundedCornerShape(20.dp)).background(ZColor.Ink)
+                    .clickable { onSave(text.toDoubleOrNull() ?: 0.0) }.padding(horizontal = 22.dp, vertical = 10.dp)) {
+                    Text(stringResource(R.string.save), color = ZColor.Paper, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
 @Composable internal fun BudgetsDialog(
     cats: List<String>, budgets: Map<String, Double>, fixed: Map<String, Double>,
     onSet: (String, Double) -> Unit, onFixed: (String, Double) -> Unit, onDismiss: () -> Unit,

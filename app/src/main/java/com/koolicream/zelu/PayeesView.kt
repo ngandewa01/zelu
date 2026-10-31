@@ -301,7 +301,10 @@ import androidx.compose.ui.window.Dialog
     open?.let { name ->
         val rows = spend.filter { nameOf(it) == name }
         if (rows.isEmpty()) androidx.compose.runtime.LaunchedEffect(name) { open = null }
-        else PayeeDetailDialog(name, rows, total, onSee = { open = null; onDrill(name, rows) },
+        else PayeeDetailDialog(name, rows, total,
+            // Every month this payee was paid, not only the one on screen, so the chart and the counts are the whole story.
+            history = allRows.filter { it.kind == Kind.EXPENSE && nameOf(it) == name }.ifEmpty { rows },
+            onSee = { open = null; onDrill(name, rows) },
             onRecategorize = onRecategorize, onNewCat = onNewCat,
             others = payees.map { it.name }.filter { !it.equals(name, ignoreCase = true) }.take(12),
             onRename = { to -> open = null; onRename(name, to) }, onDismiss = { open = null })
@@ -309,19 +312,22 @@ import androidx.compose.ui.window.Dialog
 }
 
 @Composable internal fun PayeeDetailDialog(
-    name: String, rows: List<Row>, viewTotal: Double, onSee: () -> Unit,
+    name: String, rows: List<Row>, viewTotal: Double, history: List<Row> = rows, onSee: () -> Unit,
     onRecategorize: (String?, String, Kind, String) -> Unit, onNewCat: (((String) -> Unit)) -> Unit,
     others: List<String>, onRename: (String) -> Unit, onDismiss: () -> Unit,
 ) {
     var renaming by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(name) }
-    val total = rows.sumOf { it.amount }
-    val n = rows.size
-    val primary = rows.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown"
-    val first = rows.minOf { it.date }; val last = rows.maxOf { it.date }
+    // The share of the view uses what is on screen; everything else (counts, average, first and last paid, the chart)
+    // uses every payment to this payee.
+    val viewSpent = rows.sumOf { it.amount }
+    val total = history.sumOf { it.amount }
+    val n = history.size
+    val primary = history.groupBy { it.category }.maxByOrNull { it.value.size }?.key ?: "Unknown"
+    val first = history.minOf { it.date }; val last = history.maxOf { it.date }
     val endM = last.take(7)
     val months = (5 downTo 0).map { Dates.shiftMonth(endM, -it) }
-    val sums = months.map { m -> rows.filter { it.date.startsWith(m) }.sumOf { it.amount } }
+    val sums = months.map { m -> history.filter { it.date.startsWith(m) }.sumOf { it.amount } }
     val mx = (sums.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     val withPayee = rows.firstOrNull { !it.counterparty.isNullOrBlank() }
     var editing by remember { mutableStateOf(false) }
@@ -334,10 +340,10 @@ import androidx.compose.ui.window.Dialog
                 Column(Modifier.weight(1f)) {
                     Text(niceName(name), color = ZColor.Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
-                    MutedText(primary + (if (viewTotal > 0) " · " + Math.round(total / viewTotal * 100) + "% of this view" else ""), 12)
+                    MutedText(primary + (if (viewTotal > 0) " · " + Math.round(viewSpent / viewTotal * 100) + "% of this view" else ""), 12)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(money(total), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(money(viewSpent), color = ZColor.Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

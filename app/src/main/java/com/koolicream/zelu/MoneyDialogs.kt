@@ -219,6 +219,9 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
         }
 
         if (savingsOpen) SavingsDialog(rows, onDismiss = { savingsOpen = false })
+        budgetFor?.let { c ->
+            CategoryBudgetDialog(c, budgets[c] ?: 0.0, onSave = { amt -> setBudget(c, amt); budgetFor = null }, onDismiss = { budgetFor = null })
+        }
         if (budgetsOpen) {
             val spendCats = Analytics.byCategory(list).map { it.first }
             val allCats = (fixed.keys + spendCats + budgets.keys + Classifier.CATEGORIES.keys + CustomCats.names).distinct()

@@ -610,6 +610,7 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                         val dayStr = if (isMonth && daySel > 0) "%s-%02d".format(month, daySel) else null
                         val dayShown = if (dayStr != null) shown.filter { it.date == dayStr } else shown
                         BucketsView(dayShown, prevByCat, budgets, { budgetsOpen = true }, { open(Page.Trends) },
+                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it },
                             onCalendar = if (isMonth) ({ calOpen = !calOpen }) else null,
                             calActive = calOpen || daySel > 0,
                             dayLabel = if (dayStr != null) "$daySel ${Dates.monthLong(month)}" else null,
@@ -651,7 +652,8 @@ internal fun HomeScreen(s: AppState, v: Filtered, accountBook: List<AccountBook.
                     Tab.BUCKETS -> {
                         val prevByCat = if (period == "month")
                             Analytics.categoryTotals(rows, Dates.shiftMonth(month, -1), account) else emptyMap()
-                        BucketsView(shown, prevByCat, budgets, { budgetsOpen = true }) { title, rows -> drill = title to rows }
+                        BucketsView(shown, prevByCat, budgets, { budgetsOpen = true },
+                            monthlyBudget = monthlyBudget, onEditMonthly = { budgetDlg = true }, onSetBudget = { budgetFor = it }) { title, rows -> drill = title to rows }
                     }
                     Tab.PAYEES -> PayeesView(shown, { title, rows -> drill = title to rows },
                         { payee, id, kind, cat -> decide(id, kind, cat, payee, true) }, { cb -> newCatCallback = cb },
