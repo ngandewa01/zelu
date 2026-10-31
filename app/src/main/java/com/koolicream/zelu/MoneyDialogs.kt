@@ -226,7 +226,7 @@ internal fun PaymentDialogs(s: AppState, v: Filtered) {
             val spendCats = Analytics.byCategory(list).map { it.first }
             val allCats = (fixed.keys + spendCats + budgets.keys + Classifier.CATEGORIES.keys + CustomCats.names).distinct()
             BudgetsDialog(allCats, budgets, fixed, onSet = { c, a -> setBudget(c, a) }, onFixed = { c, a -> setFixed(c, a) },
-                onDismiss = { budgetsOpen = false })
+                onDismiss = { budgetsOpen = false }, monthly = monthlyBudget, onMonthly = { budgetsOpen = false; budgetDlg = true })
         }
 
         lendPerson?.let { person ->

@@ -194,10 +194,9 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 Toast.makeText(context, context.getString(R.string.back_to_your_own_payments), Toast.LENGTH_SHORT).show()
             })
 
-            add(Entry(MONEY, "Monthly budget", "", Icons.Rounded.Speed, ZColor.Accent, "limit spending",
-                value = if (monthlyBudget > 0) money(monthlyBudget) else "Not set") { shut(); budgetDlg = true })
-            add(Entry(MONEY, "Budgets by category", "A limit for food, shopping and the rest", Icons.Rounded.PieChart, ZColor.Accent,
-                "category limit") { shut(); budgetsOpen = true })
+            // One place for budgets: the month's total and each category's limit are on the same page.
+            add(Entry(MONEY, "Budgets", "The month's total and a limit per category", Icons.Rounded.Speed, ZColor.Accent, "limit spending monthly category",
+                value = if (monthlyBudget > 0) money(monthlyBudget) else "Not set") { shut(); budgetsOpen = true })
             add(Entry(MONEY, "Categories", "What counts as spending, and income categories", Icons.Rounded.Category, ZColor.Accent,
                 "counted ignore income") { shut(); catsOpen = true })
             add(Entry(MONEY, "Savings plan", "What's left after SIPs, EMIs and goals", Icons.Rounded.Savings, ZColor.Income,
@@ -235,15 +234,8 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 shut(); sendersOpen = true; senderList = null
                 scope.launch { senderList = withContext(Dispatchers.IO) { Ingest.unrecognisedSenders(context) } }
             })
-            add(Entry(MESSAGES, "Check a date range", "Read only the messages of a period you pick", Icons.Rounded.DateRange, ZColor.Muted,
-                "rescan between dates period", more = true) { shut(); rescanRangeOpen = true })
             add(Entry(MESSAGES, "Read older messages", "Goes back through your whole inbox. Can take a minute.", Icons.Rounded.History,
                 ZColor.Muted, "history old", more = true) { shut(); rescan(notify = true, depth = 100_000) })
-            add(Entry(MESSAGES, "Data check", "What was read, and whether balances add up", Icons.AutoMirrored.Rounded.FactCheck, ZColor.Muted,
-                "diagnose balance gaps missing", more = true) {
-                shut(); checkOpen = true; check = null
-                scope.launch { check = withContext(Dispatchers.IO) { Ingest.diagnose(context) } }
-            })
             add(Entry(MESSAGES, "Read everything again", "Reads all messages afresh. Your edits stay.", Icons.Rounded.Replay, ZColor.Muted,
                 "reset rebuild start again", more = true) { shut(); fullConfirm = true })
 
@@ -269,11 +261,6 @@ private fun MenuPage(s: AppState, v: Filtered) {
                 value = listOf("3 days before", "2 days before", "On the day", "A week before").getOrElse(NotifyPrefs.leadIndex(context)) { "" }) { leadPick = true })
             add(Entry(ALERTS, "Monthly recap", "A note in the first days of a new month", Icons.Rounded.Assessment, ZColor.Accent,
                 "notification", on = recapOn) { NotifyPrefs.setRecapOn(context, !recapOn); tick++ })
-            add(Entry(ALERTS, "Test alert", if (notifBlocked) "Alerts are off · tap to turn on" else "Send a sample payment alert",
-                Icons.Rounded.AddAlert, if (notifBlocked) ZColor.Warn else ZColor.Muted, "notification try", more = true) {
-                shut()
-                if (notifBlocked) fixNotif() else Notifier.notifyTest(context)
-            })
 
             add(Entry(BACKUP, "Back up now", "Save everything to Downloads/Zelu, locked with a password",
                 Icons.Rounded.CloudUpload, ZColor.Income, "save copy",
@@ -661,7 +648,6 @@ private fun shortName(e: Entry): String = when (e.title) {
     "Back up now" -> "Back up"
     "Dark theme" -> if (e.on == true) "Dark on" else "Dark"
     "Theme colours" -> "Colours"
-    "Budgets by category" -> "Budgets"
     "Linked accounts" -> "Accounts"
     "Export spending (CSV)" -> "Export"
     "Missed messages" -> "Missed"

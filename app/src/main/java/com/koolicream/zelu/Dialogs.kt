@@ -116,6 +116,7 @@ import androidx.compose.ui.window.Dialog
 @Composable internal fun BudgetsDialog(
     cats: List<String>, budgets: Map<String, Double>, fixed: Map<String, Double>,
     onSet: (String, Double) -> Unit, onFixed: (String, Double) -> Unit, onDismiss: () -> Unit,
+    monthly: Double = 0.0, onMonthly: (() -> Unit)? = null,
 ) {
     val names = remember { mutableStateListOf<String>().apply { addAll(cats) } }
     val drafts = remember {
@@ -129,6 +130,15 @@ import androidx.compose.ui.window.Dialog
             Spacer(Modifier.height(6.dp))
             MutedText(stringResource(R.string.a_monthly_limit_per_category), 12)
             Spacer(Modifier.height(12.dp))
+            // The month's total limit sits on top, so every budget is in one place.
+            if (onMonthly != null) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ZColor.Tile).clickable { onMonthly() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.monthly_total), color = ZColor.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text((if (monthly > 0) money(monthly) else stringResource(R.string.not_set)) + "  ›", color = ZColor.Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
                 names.forEach { c ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {

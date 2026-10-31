@@ -568,4 +568,6 @@
     <string name="other_months">Other months</string>
     <string name="ended_label">Ended</string>
     <string name="settled_label">Settled</string>
+    <string name="monthly_total">Monthly total</string>
+    <string name="not_set">Not set</string>
 </resources>
