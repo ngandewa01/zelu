@@ -426,13 +426,13 @@ object Storage {
         bump(TXN_FILE)
     }
 
-    // Where "Report a problem" emails go; change it from Menu > Help.
+    // Where "Report a problem" emails go. Fixed: it is ours, not something a user sets.
     const val DEFAULT_REPORT_EMAIL = "koolicream@gmail.com"
     fun reportEmail(context: Context): String {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         // Earlier versions saved the report address on the phone; forget it once so everyone uses the current one.
         if (!p.getBoolean("report_email_reset_v2", false)) p.edit().remove("report_email").putBoolean("report_email_reset_v2", true).apply()
-        return p.getString("report_email", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_REPORT_EMAIL
+        return DEFAULT_REPORT_EMAIL
     }
     fun setReportEmail(context: Context, email: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("report_email", email.trim()).apply()

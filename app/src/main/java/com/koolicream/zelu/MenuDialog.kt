@@ -332,9 +332,6 @@ private fun MenuPage(s: AppState, v: Filtered) {
             add(Entry(HELP, "Privacy policy", "What Zelu reads and keeps", Icons.Rounded.PrivacyTip, ZColor.Income, "data") { shut(); privacyOpen = true })
             add(Entry(HELP, "Keep Zelu running", "Stop battery saver blocking new messages", Icons.Rounded.BatteryChargingFull, ZColor.Accent,
                 "battery background stopped not working") { shut(); Notifier.openBatterySettings(context) })
-            add(Entry(HELP, "Report address", "", Icons.Rounded.Email, ZColor.Muted, "email", more = true, value = Storage.reportEmail(context)) {
-                shut(); emailOpen = true
-            })
             if (!Demo.on) add(Entry(HELP, "Show sample data", "Made-up payments for screenshots and demos. Yours stay safe",
                 Icons.Rounded.Science, ZColor.Muted, "demo", more = true) {
                 shut(); Demo.set(context, true)
