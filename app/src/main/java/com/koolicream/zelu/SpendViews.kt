@@ -129,8 +129,7 @@ import androidx.compose.ui.unit.sp
     Panel {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.by_category))
-            Text(if (catsAll) " ▴" else " ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { catsAll = !catsAll }.padding(horizontal = 6.dp, vertical = 2.dp))
+            FoldArrow(catsAll, Modifier.clip(CircleShape).clickable { catsAll = !catsAll })
             Spacer(Modifier.weight(1f))
             // The month's budget lives here, next to what was spent, and is set from here.
             if (dayLabel == null) Text(

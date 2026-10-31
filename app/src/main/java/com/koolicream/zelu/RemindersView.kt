@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -180,8 +181,7 @@ import java.util.Calendar
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MutedText("${mandates.count { it.status == "active" || it.status == "scheduled" }} active", 12)
-                Text(if (autopayOpen) " ▴" else " ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { autopayOpen = !autopayOpen }.padding(horizontal = 6.dp, vertical = 2.dp))
+                FoldArrow(autopayOpen, Modifier.clip(CircleShape).clickable { autopayOpen = !autopayOpen })
             }
         }
 

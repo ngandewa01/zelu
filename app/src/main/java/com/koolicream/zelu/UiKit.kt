@@ -438,11 +438,20 @@ internal fun Modifier.choice(selected: Boolean, pick: () -> Unit): Modifier =
 }
 
 // A heading that folds what is under it: its name, how many, and an arrow; tap anywhere on it to open or close.
+/** The open/close arrow for a folding section: a clear chevron in a small round chip, big enough to see and tap. */
+@Composable internal fun FoldArrow(open: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier.padding(start = 6.dp).size(26.dp).clip(CircleShape).background(ZColor.Tile), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(
+            if (open) androidx.compose.material.icons.Icons.Rounded.KeyboardArrowUp else androidx.compose.material.icons.Icons.Rounded.KeyboardArrowDown,
+            contentDescription = null, tint = ZColor.Ink, modifier = Modifier.size(20.dp))
+    }
+}
+
 @Composable internal fun FoldHeading(title: String, count: Int, open: Boolean, onToggle: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onToggle() }.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Eyebrow("$title · $count")
-        Text(if (open) "  ▴" else "  ▾", color = ZColor.Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        FoldArrow(open)
     }
 }
 
